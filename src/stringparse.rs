@@ -113,7 +113,6 @@ pub unsafe fn parse_string(
             foundString(buf + offset,start_of_string,pj.current_string_buf_loc - 1);
             #endif // JSON_TEST_STRINGS
              */
-            dbg!(String::from_utf8_lossy(&dst_vec));
             pj.strings.push(dst_vec);
             return true;
         }

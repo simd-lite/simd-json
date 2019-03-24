@@ -341,7 +341,6 @@ pub unsafe fn parse_number(
     offset: u32,
     found_minus: bool,
 ) -> bool {
-    dbg!();
     let mut p: *const u8 = buf.add(offset as usize);
     let mut negative: bool = false;
     if found_minus {
@@ -359,14 +358,12 @@ pub unsafe fn parse_number(
         // 0 cannot be followed by an integer
         p = p.add(1);
         if is_not_structural_or_whitespace_or_exponent_or_decimal(*p) {
-            dbg!();
             return false;
         }
         i = 0;
     } else {
         if !is_integer(*p) {
             // must start with an integer
-            dbg!();
             return false;
         }
         let mut digit: u8 = *p - b'0';
@@ -390,7 +387,6 @@ pub unsafe fn parse_number(
             p = p.add(1);
             i = i * 10 + digit as i64;
         } else {
-            dbg!();
             return false;
         }
         // this helps if we have lots of decimals!
@@ -424,7 +420,6 @@ pub unsafe fn parse_number(
             p = p.add(1);
         }
         if !is_integer(*p) {
-            dbg!();
             return false;
         }
         let mut digit: u8 = *p - b'0';
@@ -442,7 +437,6 @@ pub unsafe fn parse_number(
         }
         if is_integer(*p) {
             // we refuse to parse this
-            dbg!();
             return false;
         }
         exponent += if negexp { -expnumber } else { expnumber };
@@ -453,7 +447,6 @@ pub unsafe fn parse_number(
             // this is uncommon!!!
             // this is almost never going to get called!!!
             // we start anew, going slowly!!!
-            dbg!();
             return parse_float(buf, pj, offset, found_minus);
         }
         ///////////
@@ -464,7 +457,6 @@ pub unsafe fn parse_number(
         } else {
             if (exponent > 308) || (exponent < -308) {
                 // we refuse to parse this
-                dbg!();
                 return false;
             }
             let mut d: f64 = i as f64;
@@ -473,7 +465,6 @@ pub unsafe fn parse_number(
             pj.write_tape_double(d);
         }
     } else {
-        dbg!();
         /* TODO: implement this
         if unlikely!(digitcount >= 18) {
             // this is uncommon!!!
@@ -482,6 +473,5 @@ pub unsafe fn parse_number(
          */
         pj.write_tape_s64(i);
     }
-    dbg!();
     return is_structural_or_whitespace(*p) != 0;
 }

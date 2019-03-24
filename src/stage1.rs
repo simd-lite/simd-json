@@ -2,8 +2,6 @@
 use crate::parsedjson::*;
 use crate::portability::*;
 use crate::*;
-#[cfg(target_arch = "x86")]
-use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
@@ -313,7 +311,7 @@ fn finalize_structurals(
 //WARN_UNUSED
 /*never_inline*/
 //#[inline(never)]
-unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> bool {
+pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> bool {
     if len > pj.bytecapacity as u32 {
         // TODO: Error
         // cerr << "Your ParsedJson object only supports documents up to "
@@ -407,7 +405,6 @@ unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> boo
     // but otherwise the string needs to be properly padded or else we
     // risk invalidating the UTF-8 checks.
     if idx < len as usize {
-        dbg!();
         let mut tmpbuf: [u8; 64] = [0x20; 64];
         tmpbuf
             .as_mut_ptr()
@@ -448,7 +445,6 @@ unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> boo
             quote_bits,
             &mut prev_iter_ends_pseudo_pred,
         );
-        println!("{:b} <- structurals", structurals.reverse_bits());
         idx += 64;
     }
     // finally, flatten out the remaining structurals from the last iteration

@@ -48,9 +48,7 @@ unsafe fn is_valid_false_atom(loc: *const u8) -> bool {
     // will mask the error on the y so we re-write it
     // it would be interesting what the consequecnes are
     error = ((locval ^ fv) & mask5) == 0;
-    println!("error: {}", error);
     error = error || is_not_structural_or_whitespace(*loc.offset(5)) == 1;
-    println!("error: {}", error);
     return error;
 }
 
@@ -74,7 +72,7 @@ unsafe fn is_valid_null_atom(loc: *const u8) -> bool {
 
 #[derive(PartialEq, Debug)]
 pub enum MachineError {
-    Capacity,
+    Capacity(usize, usize),
     Depth,
     TapeError,
     InternalError,
@@ -114,7 +112,7 @@ pub unsafe fn unified_machine(
     pj.init();
 
     if pj.bytecapacity < len {
-        return Err(MachineError::Capacity);
+        return Err(MachineError::Capacity(pj.bytecapacity, len));
     }
 
     // this macro reads the next structural character, updating idx, i and c.
@@ -144,7 +142,6 @@ pub unsafe fn unified_machine(
     macro_rules! goto {
         ($state:expr) => {
             state = $state;
-            dbg!(&state);
             continue;
         };
     }
@@ -264,19 +261,16 @@ pub unsafe fn unified_machine(
                         goto!(ScopeEnd);
                     }
                     c => {
-                        dbg!(c);
                         goto!(Fail);
                     }
                 }
             }
             ObjectKey => {
                 update_char!();
-                dbg!(c as char);
                 if c != b':' {
                     goto!(Fail);
                 }
                 update_char!();
-                dbg!(c as char);
                 match c {
                     b'"' => {
                         if !parse_string(buf, len, pj, depth, idx as u32) {
@@ -342,18 +336,15 @@ pub unsafe fn unified_machine(
                         goto!(ArrayBegin);
                     }
                     c => {
-                        dbg!(c as char);
                         goto!(Fail);
                     }
                 }
             }
             ObjectContinue => {
                 update_char!();
-                dbg!(c as char);
                 match c {
                     b',' => {
                         update_char!();
-                        dbg!(c as char);
                         if c != b'"' {
                             goto!(Fail);
                         } else {
@@ -465,7 +456,6 @@ pub unsafe fn unified_machine(
                         goto!(ArrayBegin);
                     }
                     c => {
-                        dbg!(c);
                         goto!(Fail);
                     }
                 }
@@ -481,7 +471,6 @@ pub unsafe fn unified_machine(
                         goto!(ScopeEnd);
                     }
                     c => {
-                        dbg!(c as char);
                         goto!(Fail);
                     }
                 }
@@ -504,9 +493,11 @@ pub unsafe fn unified_machine(
                 return Ok(());
             }
             Fail => {
+                /*
                 dbg!(i);
                 dbg!(idx);
                 dbg!(c as char);
+                */
                 return Err(MachineError::TapeError);
             }
         }

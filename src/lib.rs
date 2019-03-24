@@ -45,6 +45,19 @@ macro_rules! static_cast_u64 {
     };
 }
 
+pub use crate::parsedjson::ParsedJson;
+use crate::stage1::find_structural_bits;
+use crate::stage2::unified_machine;
+pub use crate::stage2::MachineError as Error;
+
+pub fn parse(data: &[u8]) -> Result<ParsedJson, Error> {
+    let mut pj = ParsedJson::default();
+    unsafe {
+        find_structural_bits(data, data.len() as u32, &mut pj);
+        unified_machine(data, data.len(), &mut pj)?;
+    };
+    Ok(pj)
+}
 #[cfg(test)]
 mod tests {
     #[test]

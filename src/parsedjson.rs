@@ -16,17 +16,17 @@ pub struct ParsedJson {
 impl Default for ParsedJson {
     fn default() -> Self {
         Self {
-            bytecapacity: 1024,
-            structural_indexes: vec![0; 100],
-            containing_scope_offset: vec![0; 100],
-            ret_address: vec![0; 100],
-            n_structural_indexes: 100,
-            depthcapacity: 100,
+            bytecapacity: 22510510,
+            structural_indexes: vec![0; 10000000],
+            containing_scope_offset: vec![0; 10000000],
+            ret_address: vec![0; 1000000],
+            n_structural_indexes: 1000000,
+            depthcapacity: 1000000,
             current_loc: 0,
-            doubles: Vec::with_capacity(100),
-            ints: Vec::with_capacity(100),
-            strings: Vec::with_capacity(100),
-            tape: Vec::with_capacity(100),
+            doubles: Vec::with_capacity(1000000),
+            ints: Vec::with_capacity(1000000),
+            strings: Vec::with_capacity(1000000),
+            tape: Vec::with_capacity(1000000),
         }
     }
 }
@@ -50,9 +50,11 @@ impl ParsedJson {
     }
 
     pub fn annotate_previousloc(&self, containing_scope_offset: usize, current_loc: usize) {
+        /*
         println!(
             "annotate_previousloc({}, {})",
             containing_scope_offset, current_loc
         );
+        */
     }
 }
