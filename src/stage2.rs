@@ -109,12 +109,6 @@ pub unsafe fn unified_machine(
     let mut depth: usize = 0; // could have an arbitrary starting depth
     pj.init();
 
-    pj.init();
-
-    if pj.bytecapacity < len {
-        return Err(MachineError::Capacity(pj.bytecapacity, len));
-    }
-
     // this macro reads the next structural character, updating idx, i and c.
     macro_rules! update_char {
         () => {
@@ -260,7 +254,7 @@ pub unsafe fn unified_machine(
                     b'}' => {
                         goto!(ScopeEnd);
                     }
-                    c => {
+                    _c => {
                         goto!(Fail);
                     }
                 }
@@ -335,7 +329,7 @@ pub unsafe fn unified_machine(
                         }
                         goto!(ArrayBegin);
                     }
-                    c => {
+                    _c => {
                         goto!(Fail);
                     }
                 }
@@ -455,7 +449,7 @@ pub unsafe fn unified_machine(
                         }
                         goto!(ArrayBegin);
                     }
-                    c => {
+                    _c => {
                         goto!(Fail);
                     }
                 }
@@ -470,7 +464,7 @@ pub unsafe fn unified_machine(
                     b']' => {
                         goto!(ScopeEnd);
                     }
-                    c => {
+                    _c => {
                         goto!(Fail);
                     }
                 }
