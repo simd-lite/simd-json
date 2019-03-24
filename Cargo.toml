@@ -1,0 +1,12 @@
+[package]
+name = "simdjson-rs"
+version = "0.1.0"
+authors = ["Heinz N. Gies <heinz@licenser.net>"]
+edition = "2018"
+
+[dependencies]
+
+
+[features]
+default = ["swar-number-parsing"]
+swar-number-parsing = []
