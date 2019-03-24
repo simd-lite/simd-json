@@ -71,6 +71,8 @@ pub unsafe fn parse_string(
     _depth: usize,
     offset: u32,
 ) -> bool {
+    use std::num::Wrapping;
+
     pj.write_tape(pj.strings.len(), b'"');
     let mut src = buf.add(offset as usize + 1);
     let mut dst_vec = vec![0u8; 1024];
@@ -87,7 +89,7 @@ pub unsafe fn parse_string(
             _mm256_movemask_epi8(_mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'\\' as i8))) as u32;
         let quote_mask = _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8));
         let quote_bits = _mm256_movemask_epi8(quote_mask) as u32;
-        if ((bs_bits - 1) & quote_bits) != 0 {
+        if ((Wrapping(bs_bits) - Wrapping(1)).0 & quote_bits) != 0 {
             // we encountered quotes first. Move dst to point to quotes and exit
             // find out where the quote is...
             let quote_dist: u32 = trailingzeroes(quote_bits as u64);
@@ -110,7 +112,8 @@ pub unsafe fn parse_string(
             #ifdef JSON_TEST_STRINGS // for unit testing
             foundString(buf + offset,start_of_string,pj.current_string_buf_loc - 1);
             #endif // JSON_TEST_STRINGS
-            */
+             */
+            dbg!(String::from_utf8_lossy(&dst_vec));
             pj.strings.push(dst_vec);
             return true;
         }

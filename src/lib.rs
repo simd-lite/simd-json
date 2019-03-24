@@ -24,6 +24,27 @@ macro_rules! unlikely {
     };
 }
 
+#[macro_export]
+macro_rules! static_cast_u32 {
+    ($v:expr) => {
+        mem::transmute::<_, u32>($v)
+    };
+}
+
+#[macro_export]
+macro_rules! static_cast_i64 {
+    ($v:expr) => {
+        mem::transmute::<_, i64>($v)
+    };
+}
+
+#[macro_export]
+macro_rules! static_cast_u64 {
+    ($v:expr) => {
+        mem::transmute::<_, u64>($v)
+    };
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

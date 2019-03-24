@@ -1,15 +1,18 @@
 #![allow(dead_code)]
 use crate::parsedjson::*;
 use crate::portability::*;
+use crate::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+use std::mem;
+
 #[derive(Debug)]
 struct SimdInput {
-    hi: __m256i,
     lo: __m256i,
+    hi: __m256i,
 }
 
 unsafe fn fill_input(ptr: &[u8]) -> SimdInput {
@@ -46,7 +49,8 @@ unsafe fn check_utf8(input: SimdInput, has_error: &mut __m256i,
 #[inline(always)]
 unsafe fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
     let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.lo, mask);
-    let res_0: u64 = _mm256_movemask_epi8(cmp_res_0) as u64;
+    // TODO: c++ uses static cast, here what are the implications?
+    let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
     let cmp_res_1: __m256i = _mm256_cmpeq_epi8(input.hi, mask);
     let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
     return res_0 | (res_1 << 32);
@@ -56,7 +60,8 @@ unsafe fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
 #[inline(always)]
 unsafe fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
     let cmp_res_0: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
-    let res_0: u64 = _mm256_movemask_epi8(cmp_res_0) as u64;
+    // TODO: c++ uses static cast, here what are the implications?
+    let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
     let cmp_res_1: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval);
     let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
     return res_0 | (res_1 << 32);
@@ -147,7 +152,7 @@ unsafe fn find_quote_mask_and_bits(
     // right shift of a signed value expected to be well-defined and standard
     // compliant as of C++20,
     // John Regher from Utah U. says this is fine code
-    *prev_iter_inside_quote = ((quote_mask) >> 63) as u64;
+    *prev_iter_inside_quote = static_cast_u64!(static_cast_i64!(quote_mask) >> 63);
     return quote_mask;
 }
 
@@ -158,12 +163,22 @@ unsafe fn find_whitespace_and_structurals(
     structurals: &mut u64,
 ) {
     // do a 'shufti' to detect structural JSON characters
-    // they are { 0x7b } 0x7d : 0x3a [ 0x5b ] 0x5d , 0x2c
+    // they are
+    // * `{` 0x7b
+    // * `}` 0x7d
+    // * `:` 0x3a
+    // * `[` 0x5b
+    // * `]` 0x5d
+    // * `,` 0x2c
     // these go into the first 3 buckets of the comparison (1/2/4)
 
-    // we are also interested in the four whitespace characters
-    // space 0x20, linefeed 0x0a, horizontal tab 0x09 and carriage return 0x0d
+    // we are also interested in the four whitespace characters:
+    // * space 0x20
+    // * linefeed 0x0a
+    // * horizontal tab 0x09
+    // * carriage return 0x0d
     // these go into the next 2 buckets of the comparison (8/16)
+
     // TODO: const?
     let low_nibble_mask: __m256i = _mm256_setr_epi8(
         16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2,
@@ -202,7 +217,7 @@ unsafe fn find_whitespace_and_structurals(
         _mm256_set1_epi8(0),
     );
 
-    let structural_res_0: u64 = _mm256_movemask_epi8(tmp_lo) as u64;
+    let structural_res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(tmp_lo)) as u64;
     let structural_res_1: u64 = _mm256_movemask_epi8(tmp_hi) as u64;
     *structurals = !(structural_res_0 | (structural_res_1 << 32));
 
@@ -215,7 +230,7 @@ unsafe fn find_whitespace_and_structurals(
         _mm256_set1_epi8(0),
     );
 
-    let ws_res_0: u64 = _mm256_movemask_epi8(tmp_ws_lo) as u64;
+    let ws_res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(tmp_ws_lo)) as u64;
     let ws_res_1: u64 = _mm256_movemask_epi8(tmp_ws_hi) as u64;
     *whitespace = !(ws_res_0 | (ws_res_1 << 32));
 }
@@ -232,21 +247,21 @@ unsafe fn flatten_bits(base_ptr: *mut u32, base: &mut usize, idx: u32, mut bits:
     let cnt: usize = hamming(bits) as usize;
     let next_base: usize = *base + cnt;
     while bits != 0 {
-        *base_ptr.offset(*base as isize + 0) = idx - 64 + trailingzeroes(bits);
+        *base_ptr.offset(*base as isize + 0) = static_cast_u32!(idx) - 64 + trailingzeroes(bits);
         bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        *base_ptr.offset(*base as isize + 1) = idx - 64 + trailingzeroes(bits);
+        *base_ptr.offset(*base as isize + 1) = static_cast_u32!(idx) - 64 + trailingzeroes(bits);
         bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        *base_ptr.offset(*base as isize + 2) = idx - 64 + trailingzeroes(bits);
+        *base_ptr.offset(*base as isize + 2) = static_cast_u32!(idx) - 64 + trailingzeroes(bits);
         bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        *base_ptr.offset(*base as isize + 3) = idx - 64 + trailingzeroes(bits);
+        *base_ptr.offset(*base as isize + 3) = static_cast_u32!(idx) - 64 + trailingzeroes(bits);
         bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        *base_ptr.offset(*base as isize + 4) = idx - 64 + trailingzeroes(bits);
+        *base_ptr.offset(*base as isize + 4) = static_cast_u32!(idx) - 64 + trailingzeroes(bits);
         bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        *base_ptr.offset(*base as isize + 5) = idx - 64 + trailingzeroes(bits);
+        *base_ptr.offset(*base as isize + 5) = static_cast_u32!(idx) - 64 + trailingzeroes(bits);
         bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        *base_ptr.offset(*base as isize + 6) = idx - 64 + trailingzeroes(bits);
+        *base_ptr.offset(*base as isize + 6) = static_cast_u32!(idx) - 64 + trailingzeroes(bits);
         bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        *base_ptr.offset(*base as isize + 7) = idx - 64 + trailingzeroes(bits);
+        *base_ptr.offset(*base as isize + 7) = static_cast_u32!(idx) - 64 + trailingzeroes(bits);
         bits = bits & (Wrapping(bits) - Wrapping(1)).0;
         *base += 8;
     }
@@ -297,6 +312,7 @@ fn finalize_structurals(
 
 //WARN_UNUSED
 /*never_inline*/
+//#[inline(never)]
 unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> bool {
     if len > pj.bytecapacity as u32 {
         // TODO: Error
@@ -339,8 +355,8 @@ unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> boo
     // expensive carryless multiply in the previous step with this work
     let mut structurals: u64 = 0;
 
-    let lenminus64: u32 = if len < 64 { 0 } else { len - 64 };
-    let mut idx: u32 = 0;
+    let lenminus64: usize = if len < 64 { 0 } else { len as usize - 64 };
+    let mut idx: usize = 0;
     let mut error_mask: u64 = 0; // for unescaped characters within strings (ASCII code points < 0x20)
 
     while idx < lenminus64 {
@@ -371,7 +387,7 @@ unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> boo
 
         // take the previous iterations structural bits, not our current iteration,
         // and flatten
-        flatten_bits(base_ptr, &mut base, idx, structurals);
+        flatten_bits(base_ptr, &mut base, idx as u32, structurals);
 
         let mut whitespace: u64 = 0;
         find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
@@ -390,12 +406,12 @@ unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> boo
     // we use a giant copy-paste which is ugly.
     // but otherwise the string needs to be properly padded or else we
     // risk invalidating the UTF-8 checks.
-    if idx < len {
+    if idx < len as usize {
         dbg!();
         let mut tmpbuf: [u8; 64] = [0x20; 64];
         tmpbuf
             .as_mut_ptr()
-            .copy_from(buf.as_ptr().offset(idx as isize), (len - idx) as usize);
+            .copy_from(buf.as_ptr().offset(idx as isize), len as usize - idx);
         let input: SimdInput = fill_input(&tmpbuf);
         /*
         #ifdef SIMDJSON_UTF8VALIDATE
@@ -419,7 +435,7 @@ unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> boo
 
         // take the previous iterations structural bits, not our current iteration,
         // and flatten
-        flatten_bits(base_ptr, &mut base, idx, structurals);
+        flatten_bits(base_ptr, &mut base, idx as u32, structurals);
 
         let mut whitespace: u64 = 0;
         find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
@@ -436,7 +452,7 @@ unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> boo
         idx += 64;
     }
     // finally, flatten out the remaining structurals from the last iteration
-    flatten_bits(base_ptr, &mut base, idx, structurals);
+    flatten_bits(base_ptr, &mut base, idx as u32, structurals);
 
     pj.n_structural_indexes = base;
     // a valid JSON file cannot have zero structural indexes - we should have
@@ -451,8 +467,8 @@ unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> boo
     if len != *base_ptr.offset(pj.n_structural_indexes as isize - 1) {
         // the string might not be NULL terminated, but we add a virtual NULL ending
         // character.
-        pj.n_structural_indexes += 1;
         *base_ptr.offset(pj.n_structural_indexes as isize) = len;
+        pj.n_structural_indexes += 1;
     }
     // make it safe to dereference one beyond this array
     *base_ptr.offset(pj.n_structural_indexes as isize) = 0;
@@ -465,9 +481,6 @@ unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> boo
     #else
         */
     return true;
-    /*
-    #endif
-        */
 }
 
 #[cfg(test)]
@@ -525,12 +538,10 @@ mod test {
         assert_eq!(pj.structural_indexes[16], 55);
         assert_eq!(pj.structural_indexes[17], 56);
         assert_eq!(pj.structural_indexes[18], 63);
-        assert_eq!(pj.structural_indexes[19], 0);
-        dbg!(&pj.structural_indexes);
+        //dbg!(&pj.structural_indexes);
 
-        unsafe {
-            unified_machine(d2, d2.len(), &mut pj);
-        }
+        let r = unsafe { unified_machine(d2, d2.len(), &mut pj) };
+
         let tape: Vec<(usize, char)> = pj
             .tape
             .iter()
@@ -545,6 +556,7 @@ mod test {
         dbg!(strings);
         dbg!(&pj.ints);
         dbg!(&pj.doubles);
+        assert_eq!(r, Ok(()));
         assert!(false)
     }
 

@@ -72,30 +72,37 @@ unsafe fn is_valid_null_atom(loc: *const u8) -> bool {
  * for documentation.
  ***********/
 
-pub enum MachineErrorc {
+#[derive(PartialEq, Debug)]
+pub enum MachineError {
     Capacity,
     Depth,
     TapeError,
+    InternalError,
 }
 
 #[derive(Debug)]
 enum State {
     Start,
     StartContinue,
-    Fail,
+
     ObjectBegin,
-    ArrayBegin,
     ObjectKey,
-    ScopeEnd,
     ObjectContinue,
+
+    ScopeEnd,
+
+    ArrayBegin,
     MainArraySwitch,
     ArrayContinue,
+
+    Succeed,
+    Fail,
 }
 pub unsafe fn unified_machine(
     buf: &[u8],
     len: usize,
     pj: &mut ParsedJson,
-) -> Result<(), MachineErrorc> {
+) -> Result<(), MachineError> {
     let buf = buf.as_ptr();
     let mut i: usize = 0; // index of the structural character (0,1,2,3...)
     let mut idx: usize; // location of the structural character in the input (buf)
@@ -107,7 +114,7 @@ pub unsafe fn unified_machine(
     pj.init();
 
     if pj.bytecapacity < len {
-        return Err(MachineErrorc::Capacity);
+        return Err(MachineError::Capacity);
     }
 
     // this macro reads the next structural character, updating idx, i and c.
@@ -128,7 +135,7 @@ pub unsafe fn unified_machine(
     depth += 1; // everything starts at depth = 1, depth = 0 is just for the root, the root may contain an object, an array or something else.
     if depth > pj.depthcapacity {
         //goto fail;
-        return Err(MachineErrorc::Depth);
+        return Err(MachineError::Depth);
     }
 
     update_char!();
@@ -234,6 +241,15 @@ pub unsafe fn unified_machine(
                     }
                 }
             }
+            StartContinue => {
+                // the string might not be NULL terminated.
+                if i + 1 == pj.n_structural_indexes {
+                    goto!(Succeed);
+                } else {
+                    goto!(Fail);
+                }
+            }
+
             ////////////////////////////// OBJECT STATES /////////////////////////////
             ObjectBegin => {
                 update_char!();
@@ -255,17 +271,18 @@ pub unsafe fn unified_machine(
             }
             ObjectKey => {
                 update_char!();
-
+                dbg!(c as char);
                 if c != b':' {
                     goto!(Fail);
                 }
                 update_char!();
-
+                dbg!(c as char);
                 match c {
                     b'"' => {
                         if !parse_string(buf, len, pj, depth, idx as u32) {
                             goto!(Fail);
                         }
+                        goto!(ObjectContinue);
                     }
                     b't' => {
                         if !is_valid_true_atom(buf.offset(idx as isize)) {
@@ -326,6 +343,30 @@ pub unsafe fn unified_machine(
                     }
                     c => {
                         dbg!(c as char);
+                        goto!(Fail);
+                    }
+                }
+            }
+            ObjectContinue => {
+                update_char!();
+                dbg!(c as char);
+                match c {
+                    b',' => {
+                        update_char!();
+                        dbg!(c as char);
+                        if c != b'"' {
+                            goto!(Fail);
+                        } else {
+                            if !parse_string(buf, len, pj, depth, idx as u32) {
+                                goto!(Fail);
+                            }
+                            goto!(ObjectKey);
+                        }
+                    }
+                    b'}' => {
+                        goto!(ScopeEnd);
+                    }
+                    _ => {
                         goto!(Fail);
                     }
                 }
@@ -445,19 +486,31 @@ pub unsafe fn unified_machine(
                     }
                 }
             }
+            ////////////////////////////// FINAL STATES /////////////////////////////
+            Succeed => {
+                depth -= 1;
+                if depth != 0 {
+                    eprintln!("internal bug\n");
+                    return Err(MachineError::InternalError);
+                }
+                if pj.containing_scope_offset[depth] != 0 {
+                    eprintln!("internal bug\n");
+                    return Err(MachineError::InternalError);
+                }
+                pj.annotate_previousloc(pj.containing_scope_offset[depth], pj.get_current_loc());
+                pj.write_tape(pj.containing_scope_offset[depth], b'r'); // r is root
+
+                //pj.isvalid = true;
+                return Ok(());
+            }
             Fail => {
+                dbg!(i);
                 dbg!(idx);
                 dbg!(c as char);
-                return Err(MachineErrorc::TapeError);
-            }
-            s => {
-                dbg!(s);
-                break;
+                return Err(MachineError::TapeError);
             }
         }
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
