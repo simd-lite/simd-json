@@ -1,5 +1,3 @@
-//#![feature(stdsimd)]
-#![feature(reverse_bits)]
 #![feature(ptr_offset_from)]
 
 mod charutils;
