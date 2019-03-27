@@ -117,7 +117,6 @@ pub unsafe fn unified_machine(
             idx = pj.structural_indexes[i] as usize;
             i += 1;
             c = *buf.offset(idx as isize);
-            dbg!(c as char);
         };
     }
 
@@ -138,7 +137,6 @@ pub unsafe fn unified_machine(
     let mut state = State::Start;
     macro_rules! goto {
         ($state:expr) => {
-            dbg!($state);
             state = $state;
             continue;
         };

@@ -89,7 +89,6 @@ const STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED: [bool; 256] = [
 #[inline(always)]
 
 fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
-    dbg!(c);
     STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED[c as usize]
 }
 
@@ -332,7 +331,6 @@ pub unsafe fn parse_number(
 ) -> bool {
     let mut p: *const u8 = buf.add(offset as usize);
     let mut negative: bool = false;
-    dbg!(found_minus);
     if found_minus {
         p = p.add(1);
         negative = true;
@@ -345,18 +343,14 @@ pub unsafe fn parse_number(
     let startdigits: *const u8 = p;
     let mut i: i64;
     if *p == b'0' {
-        dbg!();
-
         // 0 cannot be followed by an integer
         p = p.add(1);
         if is_not_structural_or_whitespace_or_exponent_or_decimal(*p) {
-            dbg!(*p as char);
            return false;
         }
         i = 0;
     } else {
         if !is_integer(*p) {
-            dbg!(*p as char);
             // must start with an integer
             return false;
         }
@@ -381,7 +375,6 @@ pub unsafe fn parse_number(
             p = p.add(1);
             i = i * 10 + digit as i64;
         } else {
-            dbg!();
             return false;
         }
         // this helps if we have lots of decimals!
@@ -415,7 +408,6 @@ pub unsafe fn parse_number(
             p = p.add(1);
         }
         if !is_integer(*p) {
-            dbg!();
             return false;
         }
         let mut digit: u8 = *p - b'0';
@@ -433,7 +425,6 @@ pub unsafe fn parse_number(
         }
         if is_integer(*p) {
             // we refuse to parse this
-            dbg!();
             return false;
         }
         exponent += if negexp { -expnumber } else { expnumber };
@@ -454,7 +445,6 @@ pub unsafe fn parse_number(
         } else {
             if (exponent > 308) || (exponent < -308) {
                 // we refuse to parse this
-                dbg!();
                 return false;
             }
             let mut d: f64 = i as f64;

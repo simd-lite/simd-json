@@ -137,12 +137,8 @@ impl<'de> Deserializer<'de> {
         let mut pj = ParsedJson::from_slice(input);
         unsafe {
             find_structural_bits(input, input.len() as u32, &mut pj);
-            dbg!(&pj.structural_indexes);
-            let r = unified_machine(input, input.len(), &mut pj);
-            dbg!(r);
-//            dbgy!(&pj.tape);
-
-        }
+            unified_machine(input, input.len(), &mut pj);
+        };
         Deserializer { input, pj, idx: 0, int_idx: 0, double_idx: 0, string_idx:0, depth: 0 }
     }
     fn cur(&self) -> Option<&(usize, ItemType)> {
