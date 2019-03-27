@@ -73,7 +73,7 @@ pub unsafe fn parse_string(
 ) -> bool {
     use std::num::Wrapping;
 
-    pj.write_tape(pj.strings.len(), b'"');
+    pj.write_tape(pj.strings.len(), ItemType::String);
     let mut src = buf.add(offset as usize + 1);
     let mut dst_vec = vec![0u8; 1024];
     let mut dst = dst_vec.as_mut_ptr();
@@ -113,10 +113,10 @@ pub unsafe fn parse_string(
             foundString(buf + offset,start_of_string,pj.current_string_buf_loc - 1);
             #endif // JSON_TEST_STRINGS
              */
-            pj.strings.push(dst_vec);
+            pj.strings.push(String::from_utf8_lossy(&dst_vec).into());
             return true;
         }
-        if ((quote_bits - 1) & bs_bits) != 0 {
+        if ((Wrapping(quote_bits) - Wrapping(1)).0 & bs_bits) != 0 {
             // find out where the backspace is
             let bs_dist: u32 = trailingzeroes(bs_bits as u64);
             let escape_char: u8 = *src.offset(bs_dist as isize + 1);
@@ -132,7 +132,7 @@ pub unsafe fn parse_string(
                     foundBadString(buf + offset);
                     #endif // JSON_TEST_STRINGS
                      */
-                    pj.strings.push(dst_vec);
+                    pj.strings.push(String::from_utf8_lossy(&dst_vec).into());
                     return false;
                 }
             } else {
@@ -147,7 +147,7 @@ pub unsafe fn parse_string(
                     foundBadString(buf + offset);
                     #endif // JSON_TEST_STRINGS
                     */
-                    pj.strings.push(dst_vec);
+                    pj.strings.push(String::from_utf8_lossy(&dst_vec).into());
                     return false; // bogus escape value is an error
                 }
                 *dst.offset(bs_dist as isize) = escape_result;

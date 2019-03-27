@@ -1,20 +1,22 @@
-//#[derive(Debug)]
-pub struct ParsedJson {
+#[derive(Debug)]
+pub struct ParsedJson<'r> {
+    pub raw: &'r [u8],
     pub structural_indexes: Vec<u32>,
     pub n_structural_indexes: usize,
     pub containing_scope_offset: Vec<usize>,
     pub ret_address: Vec<u8>,
     pub depthcapacity: usize,
     pub current_loc: usize,
-    pub tape: Vec<(usize, u8)>,
-    pub strings: Vec<Vec<u8>>,
+    pub tape: Vec<(usize, ItemType)>,
+    pub strings: Vec<String>,
     pub doubles: Vec<f64>,
     pub ints: Vec<i64>,
 }
 
-impl Default for ParsedJson {
-    fn default() -> Self {
+impl<'r> ParsedJson<'r> {
+    pub fn from_slice(raw: &'r[u8]) -> Self {
         Self {
+            raw,
             structural_indexes: Vec::with_capacity(512),
             containing_scope_offset: vec![0; 10000000],
             ret_address: vec![0; 1000000],
@@ -27,24 +29,21 @@ impl Default for ParsedJson {
             tape: Vec::with_capacity(512),
         }
     }
-}
-
-impl ParsedJson {
     pub fn init(&mut self) {}
     pub fn get_current_loc(&self) -> usize {
         self.current_loc
     }
-    pub fn write_tape(&mut self, offset: usize, t: u8) {
+    pub fn write_tape(&mut self, offset: usize, t: ItemType) {
         self.tape.push((offset, t));
     }
     pub fn write_tape_double(&mut self, d: f64) {
         self.doubles.push(d);
-        self.tape.push((self.doubles.len(), b'.'))
+        self.tape.push((self.doubles.len(), ItemType::Double))
     }
 
     pub fn write_tape_s64(&mut self, i: i64) {
         self.ints.push(i);
-        self.tape.push((self.doubles.len(), b'0'))
+        self.tape.push((self.doubles.len(), ItemType::I64))
     }
 
     pub fn annotate_previousloc(&self, _containing_scope_offset: usize, _current_loc: usize) {
@@ -55,4 +54,20 @@ impl ParsedJson {
         );
         */
     }
+}
+
+
+#[derive(Debug)]
+pub enum ItemType {
+    Root,
+    Object,
+    ObjectEnd,
+    Array,
+    ArrayEnd,
+    String,
+    True,
+    False,
+    Null,
+    Double,
+    I64
 }

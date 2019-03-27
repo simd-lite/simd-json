@@ -53,10 +53,10 @@ pub unsafe fn hex_to_u32_nocheck(src: *const u8) -> u32 {
     // all these will sign-extend the chars looked up, placing 1-bits into the high 28 bits of every
     // invalid value. After the shifts, this will *still* result in the outcome that the high 16 bits of any
     // value with any invalid char will be all 1's. We check for this in the caller.
-    let v1: i32 = DIGITTOVAL[src.offset(0) as usize] as i32;
-    let v2: i32 = DIGITTOVAL[src.offset(1) as usize] as i32;
-    let v3: i32 = DIGITTOVAL[src.offset(2) as usize] as i32;
-    let v4: i32 = DIGITTOVAL[src.offset(3) as usize] as i32;
+    let v1: i32 = DIGITTOVAL[*src.offset(0) as usize] as i32;
+    let v2: i32 = DIGITTOVAL[*src.offset(1) as usize] as i32;
+    let v3: i32 = DIGITTOVAL[*src.offset(2) as usize] as i32;
+    let v4: i32 = DIGITTOVAL[*src.offset(3) as usize] as i32;
     return (v1 << 12 | v2 << 8 | v3 << 4 | v4) as u32;
 }
 

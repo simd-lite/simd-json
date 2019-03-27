@@ -5,8 +5,11 @@ authors = ["Heinz N. Gies <heinz@licenser.net>"]
 edition = "2018"
 
 [dependencies]
-lazy_static = "1"
+serde = "*"
 
+[dev-dependencies]
+serde_json = "*"
+proptest = "0.9.2"
 
 [features]
 default = ["swar-number-parsing"]

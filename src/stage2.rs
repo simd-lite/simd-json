@@ -8,7 +8,7 @@ use crate::stringparse::*;
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-use std::{mem, ptr};
+use std::mem;
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 
@@ -76,6 +76,8 @@ pub enum MachineError {
     Depth,
     TapeError,
     InternalError,
+    Serde(String)
+
 }
 
 #[derive(Debug)]
@@ -87,7 +89,7 @@ enum State {
     ObjectKey,
     ObjectContinue,
 
-    ScopeEnd,
+    ScopeEnd(ItemType),
 
     ArrayBegin,
     MainArraySwitch,
@@ -115,6 +117,7 @@ pub unsafe fn unified_machine(
             idx = pj.structural_indexes[i] as usize;
             i += 1;
             c = *buf.offset(idx as isize);
+            dbg!(c as char);
         };
     }
 
@@ -122,7 +125,7 @@ pub unsafe fn unified_machine(
 
     pj.ret_address[depth] = b's';
     pj.containing_scope_offset[depth] = pj.get_current_loc();
-    pj.write_tape(0, b'r'); // r for root, 0 is going to get overwritten
+    pj.write_tape(0, ItemType::Root); // r for root, 0 is going to get overwritten
                             // the root is used, if nothing else, to capture the size of the tape
     depth += 1; // everything starts at depth = 1, depth = 0 is just for the root, the root may contain an object, an array or something else.
     if depth > pj.depthcapacity {
@@ -135,6 +138,7 @@ pub unsafe fn unified_machine(
     let mut state = State::Start;
     macro_rules! goto {
         ($state:expr) => {
+            dbg!($state);
             state = $state;
             continue;
         };
@@ -151,7 +155,7 @@ pub unsafe fn unified_machine(
                         if depth > pj.depthcapacity {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c); // strangely, moving this to object_begin slows things down
+                        pj.write_tape(0, ItemType::Object); // strangely, moving this to object_begin slows things down
                         goto!(ObjectBegin);
                     }
                     b'[' => {
@@ -161,71 +165,72 @@ pub unsafe fn unified_machine(
                         if depth > pj.depthcapacity {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c);
+                        pj.write_tape(0, ItemType::Array);
                         goto!(ArrayBegin);
                     }
                     b'"' => {
                         if !parse_string(buf, len, pj, depth, idx as u32) {
                             goto!(Fail);
                         }
+                        goto!(StartContinue);
                     }
                     b't' => {
                         // we need to make a copy to make sure that the string is NULL terminated.
                         // this only applies to the JSON document made solely of the true value.
                         // this will almost never be called in practice
                         let copy: *mut u8 = vec![0u8; len + SIMDJSON_PADDING].as_mut_ptr();
-                        ptr::copy_nonoverlapping(buf, copy, len);
-                        *copy.offset(len as isize) = b'\0';
+                        copy.copy_from(buf, len);
                         if !is_valid_true_atom(copy.offset(idx as isize)) {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c);
+                        pj.write_tape(0, ItemType::True);
+                        goto!(StartContinue);
                     }
                     b'f' => {
                         // we need to make a copy to make sure that the string is NULL terminated.
                         // this only applies to the JSON document made solely of the false value.
                         // this will almost never be called in practice
                         let copy = vec![0u8; len + SIMDJSON_PADDING].as_mut_ptr();
-                        ptr::copy_nonoverlapping(buf, copy, len);
-                        *copy.offset(len as isize) = b'\0';
+                        copy.copy_from(buf, len);
                         if !is_valid_false_atom(copy.offset(idx as isize)) {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c);
+                        pj.write_tape(0, ItemType::False);
+                        goto!(StartContinue);
                     }
                     b'n' => {
                         // we need to make a copy to make sure that the string is NULL terminated.
                         // this only applies to the JSON document made solely of the null value.
                         // this will almost never be called in practice
                         let copy = vec![0u8; len + SIMDJSON_PADDING].as_mut_ptr();
-                        ptr::copy_nonoverlapping(buf, copy, len);
-                        *copy.offset(len as isize) = b'\0';
+                        copy.copy_from(buf, len);
                         if !is_valid_null_atom(copy.offset(idx as isize)) {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c);
+                        pj.write_tape(0, ItemType::Null);
+                        goto!(StartContinue);
                     }
                     b'0'...b'9' => {
                         // we need to make a copy to make sure that the string is NULL terminated.
                         // this is done only for JSON documents made of a sole number
                         // this will almost never be called in practice
                         let copy = vec![0u8; len + SIMDJSON_PADDING].as_mut_ptr();
-                        ptr::copy_nonoverlapping(buf, copy, len);
-                        *copy.offset(len as isize) = b'\0';
+                        copy.copy_from(buf, len);
                         if !parse_number(copy.offset(idx as isize), pj, idx as u32, false) {
                             goto!(Fail);
                         }
+                        goto!(StartContinue);
                     }
                     b'-' => {
                         // we need to make a copy to make sure that the string is NULL terminated.
                         // this is done only for JSON documents made of a sole number
                         // this will almost never be called in practice
                         let copy = vec![0u8; len + SIMDJSON_PADDING].as_mut_ptr();
-                        ptr::copy_nonoverlapping(buf, copy, len);
-                        *copy.offset(len as isize) = b'\0';
-                        if !parse_number(copy.offset(idx as isize), pj, idx as u32, false) {
+                        copy.copy_from(buf, len);
+                        if !parse_number(copy.offset(idx as isize), pj, idx as u32, true) {
                             goto!(Fail);
                         }
+                        goto!(StartContinue);
                     }
                     _ => {
                         goto!(Fail);
@@ -252,7 +257,7 @@ pub unsafe fn unified_machine(
                         goto!(ObjectKey);
                     }
                     b'}' => {
-                        goto!(ScopeEnd);
+                        goto!(ScopeEnd(ItemType::ObjectEnd));
                     }
                     _c => {
                         goto!(Fail);
@@ -276,21 +281,21 @@ pub unsafe fn unified_machine(
                         if !is_valid_true_atom(buf.offset(idx as isize)) {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c);
+                        pj.write_tape(0, ItemType::True);
                         goto!(ObjectContinue);
                     }
                     b'f' => {
                         if !is_valid_false_atom(buf.offset(idx as isize)) {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c);
+                        pj.write_tape(0, ItemType::False);
                         goto!(ObjectContinue);
                     }
                     b'n' => {
                         if !is_valid_null_atom(buf.offset(idx as isize)) {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c);
+                        pj.write_tape(0, ItemType::Null);
                         goto!(ObjectContinue);
                     }
                     b'0'...b'9' => {
@@ -307,7 +312,7 @@ pub unsafe fn unified_machine(
                     }
                     b'{' => {
                         pj.containing_scope_offset[depth] = pj.get_current_loc();
-                        pj.write_tape(0, c); // here the compilers knows what c is so this gets optimized
+                        pj.write_tape(0, ItemType::Object); // here the compilers knows what c is so this gets optimized
                                              // we have not yet encountered } so we need to come back for it
                         pj.ret_address[depth] = b'o';
                         // we found an object inside an object, so we need to increment the depth
@@ -319,7 +324,7 @@ pub unsafe fn unified_machine(
                     }
                     b'[' => {
                         pj.containing_scope_offset[depth] = pj.get_current_loc();
-                        pj.write_tape(0, c); // here the compilers knows what c is so this gets optimized
+                        pj.write_tape(0, ItemType::Array); // here the compilers knows what c is so this gets optimized
                                              // we have not yet encountered } so we need to come back for it
                         pj.ret_address[depth] = b'o';
                         // we found an array inside an object, so we need to increment the depth
@@ -349,7 +354,7 @@ pub unsafe fn unified_machine(
                         }
                     }
                     b'}' => {
-                        goto!(ScopeEnd);
+                        goto!(ScopeEnd(ItemType::ObjectEnd));
                     }
                     _ => {
                         goto!(Fail);
@@ -358,10 +363,10 @@ pub unsafe fn unified_machine(
             }
 
             ////////////////////////////// COMMON STATE /////////////////////////////
-            ScopeEnd => {
+            ScopeEnd(item_type) => {
                 // write our tape location to the header scope
                 depth -= 1;
-                pj.write_tape(pj.containing_scope_offset[depth], c);
+                pj.write_tape(pj.containing_scope_offset[depth], item_type);
                 pj.annotate_previousloc(pj.containing_scope_offset[depth], pj.get_current_loc());
                 // goto saved_state
                 if pj.ret_address[depth] == b'a' {
@@ -377,7 +382,7 @@ pub unsafe fn unified_machine(
             ArrayBegin => {
                 update_char!();
                 if c == b']' {
-                    goto!(ScopeEnd);
+                    goto!(ScopeEnd(ItemType::ArrayEnd));
                 }
                 goto!(MainArraySwitch);
             }
@@ -395,21 +400,21 @@ pub unsafe fn unified_machine(
                         if !is_valid_true_atom(buf.add(idx)) {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c);
+                        pj.write_tape(0, ItemType::True);
                         goto!(ArrayContinue);
                     }
                     b'f' => {
                         if !is_valid_false_atom(buf.add(idx)) {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c);
+                        pj.write_tape(0, ItemType::False);
                         goto!(ArrayContinue);
                     }
                     b'n' => {
                         if !is_valid_null_atom(buf.add(idx)) {
                             goto!(Fail);
                         }
-                        pj.write_tape(0, c);
+                        pj.write_tape(0, ItemType::Null);
                         goto!(ArrayContinue);
                     }
                     b'0'...b'9' => {
@@ -427,10 +432,10 @@ pub unsafe fn unified_machine(
                     b'{' => {
                         // we have not yet encountered ] so we need to come back for it
                         pj.containing_scope_offset[depth] = pj.get_current_loc();
-                        pj.write_tape(0, c); //  here the compilers knows what c is so this gets optimized
+                        pj.write_tape(0, ItemType::Object); //  here the compilers knows what c is so this gets optimized
                         pj.ret_address[depth] = b'a';
                         // we found an object inside an array, so we need to increment the depth
-                        depth = 1;
+                        depth += 1;
                         if depth > pj.depthcapacity {
                             goto!(Fail);
                         }
@@ -440,7 +445,7 @@ pub unsafe fn unified_machine(
                     b'[' => {
                         // we have not yet encountered ] so we need to come back for it
                         pj.containing_scope_offset[depth] = pj.get_current_loc();
-                        pj.write_tape(0, c); // here the compilers knows what c is so this gets optimized
+                        pj.write_tape(0, ItemType::Array); // here the compilers knows what c is so this gets optimized
                         pj.ret_address[depth] = b'a';
                         // we found an array inside an array, so we need to increment the depth
                         depth += 1;
@@ -462,7 +467,7 @@ pub unsafe fn unified_machine(
                         goto!(MainArraySwitch);
                     }
                     b']' => {
-                        goto!(ScopeEnd);
+                        goto!(ScopeEnd(ItemType::ArrayEnd));
                     }
                     _c => {
                         goto!(Fail);
@@ -473,15 +478,13 @@ pub unsafe fn unified_machine(
             Succeed => {
                 depth -= 1;
                 if depth != 0 {
-                    eprintln!("internal bug\n");
                     return Err(MachineError::InternalError);
                 }
                 if pj.containing_scope_offset[depth] != 0 {
-                    eprintln!("internal bug\n");
                     return Err(MachineError::InternalError);
                 }
                 pj.annotate_previousloc(pj.containing_scope_offset[depth], pj.get_current_loc());
-                pj.write_tape(pj.containing_scope_offset[depth], b'r'); // r is root
+                pj.write_tape(pj.containing_scope_offset[depth], ItemType::Root); // r is root
 
                 //pj.isvalid = true;
                 return Ok(());

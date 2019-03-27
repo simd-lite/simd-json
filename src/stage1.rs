@@ -48,25 +48,29 @@ unsafe fn check_utf8(input: SimdInput, has_error: &mut __m256i,
 /// cheaper in AVX512.
 #[inline(always)]
 fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
-    let cmp_res_0: __m256i = unsafe { _mm256_cmpeq_epi8(input.lo, mask) };
-    // TODO: c++ uses static cast, here what are the implications?
-    let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
-    let cmp_res_1: __m256i = unsafe { _mm256_cmpeq_epi8(input.hi, mask) };
-    let res_1: u64 = unsafe { _mm256_movemask_epi8(cmp_res_1) } as u64;
-    return res_0 | (res_1 << 32);
+    unsafe {
+        let cmp_res_0: __m256i =  _mm256_cmpeq_epi8(input.lo, mask) ;
+        // TODO: c++ uses static cast, here what are the implications?
+        let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
+        let cmp_res_1: __m256i =  _mm256_cmpeq_epi8(input.hi, mask) ;
+        let res_1: u64 =  _mm256_movemask_epi8(cmp_res_1)  as u64;
+        res_0 | (res_1 << 32)
+    }
 }
 
 // find all values less than or equal than the content of maxval (using unsigned arithmetic)
 #[inline(always)]
 fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
-    let cmp_res_0: __m256i =
-        unsafe { _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval) };
+    unsafe {
+        let cmp_res_0: __m256i =
+            _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
     // TODO: c++ uses static cast, here what are the implications?
-    let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
-    let cmp_res_1: __m256i =
-        unsafe { _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval) };
-    let res_1: u64 = unsafe { _mm256_movemask_epi8(cmp_res_1) } as u64;
-    return res_0 | (res_1 << 32);
+        let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
+        let cmp_res_1: __m256i =
+            _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval) ;
+        let res_1: u64 =  _mm256_movemask_epi8(cmp_res_1)  as u64;
+        res_0 | (res_1 << 32)
+    }
 }
 
 // return a bitvector indicating where we have characters that end an odd-length
@@ -80,6 +84,7 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
 // sequences of backslashes in an obvious way.
 #[inline(always)]
 fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
+    use std::num::Wrapping;
     // TODO: const?
     let even_bits: u64 = 0x5555555555555555;
     // TODO: const?
@@ -91,7 +96,7 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
     let even_start_mask: u64 = even_bits ^ *prev_iter_ends_odd_backslash;
     let even_starts: u64 = start_edges & even_start_mask;
     let odd_starts: u64 = start_edges & !even_start_mask;
-    let even_carries: u64 = bs_bits + even_starts;
+    let even_carries: u64 = (Wrapping(bs_bits) + Wrapping(even_starts)).0;
 
     let mut odd_carries: u64 = 0;
     // must record the carry-out of our odd-carries out of bit 63; this
@@ -246,22 +251,24 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     let cnt: usize = hamming(bits) as usize;
     let next_base: usize = base.len() + cnt;
     while bits != 0 {
-        base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-        bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-        bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-        bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-        bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-        bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-        bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-        bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-        bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+        unsafe{
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+        }
     }
     base.truncate(next_base);
 }
@@ -499,7 +506,7 @@ mod test {
         //           0 2          1 1 1  22      2 3  3 3     4 4     45 5  55      6
         //                        3 5 7  01      8 0  3 5     1 3     90 2  56      3
         //                                          ^-half here
-        let mut pj = ParsedJson::default();
+        let mut pj = ParsedJson::from_slice(d2);
 
         println!("{}", String::from_utf8(d2.to_vec()).unwrap());
         unsafe {
@@ -534,18 +541,8 @@ mod test {
 
         let r = unsafe { unified_machine(d2, d2.len(), &mut pj) };
 
-        let tape: Vec<(usize, char)> = pj
-            .tape
-            .iter()
-            .map(|(p, c)| (p.clone(), *c as char))
-            .collect();
-        dbg!(&tape);
-        let strings: Vec<String> = pj
-            .strings
-            .iter()
-            .map(|s| String::from_utf8(s.clone()).unwrap())
-            .collect();
-        dbg!(strings);
+        dbg!(&pj.tape);
+        dbg!(&pj.strings);
         dbg!(&pj.ints);
         dbg!(&pj.doubles);
         assert_eq!(r, Ok(()));
