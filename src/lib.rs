@@ -11,13 +11,16 @@ mod stringparse;
 use crate::numberparse::Number;
 use crate::numberparse::*;
 use crate::parsedjson::*;
+use crate::portability::*;
 use crate::stage2::*;
+use crate::stringparse::*;
 use serde::forward_to_deserialize_any;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 use std::mem;
+use std::str;
 
 //TODO: Do compile hints like this exist in rust?
 /*
@@ -55,6 +58,8 @@ macro_rules! static_cast_u64 {
     };
 }
 
+pub type Result<T> = std::result::Result<T, Error>;
+
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 
 pub use crate::parsedjson::ParsedJson;
@@ -67,6 +72,8 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum Error {
+    InvlaidUnicodeCodepoint,
+    InvlaidUnicodeEscape,
     ExpectedBoolean,
     TrailingCharacters,
     ExpectedArrayComma,
@@ -103,8 +110,8 @@ impl serde::de::Error for Error {
 pub struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
     // the beginning as data is parsed.
-    input: &'de [u8],
-    pj: ParsedJson<'de>,
+    input: &'de mut [u8],
+    pj: ParsedJson,
     idx: usize,
 }
 
@@ -113,15 +120,15 @@ impl<'de> Deserializer<'de> {
     // That way basic use cases are satisfied by something like
     // `serde_json::from_str(...)` while advanced use cases that require a
     // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
-    pub fn from_slice(input: &'de [u8]) -> Self {
-        let mut pj = ParsedJson::from_slice(input);
+    pub fn from_slice(input: &'de mut [u8]) -> Self {
+        let mut pj = ParsedJson::from_slice();
         unsafe {
             find_structural_bits(input, input.len() as u32, &mut pj);
             //unified_machine(input, input.len(), &mut pj);
         };
         Deserializer { input, pj, idx: 0 }
     }
-    fn next_char(&mut self) -> Result<u8, Error> {
+    fn next_char(&mut self) -> Result<u8> {
         if let Some(idx) = self.pj.structural_indexes.get(self.idx) {
             let r = self.input[*idx as usize];
             self.idx += 1;
@@ -130,7 +137,7 @@ impl<'de> Deserializer<'de> {
             Err(Error::UnexpectedEnd)
         }
     }
-    fn next(&mut self) -> Result<(u8, usize), Error> {
+    fn next(&mut self) -> Result<(u8, usize)> {
         if let Some(idx) = self.pj.structural_indexes.get(self.idx) {
             let idx = *idx as usize;
             let r = self.input[idx];
@@ -141,7 +148,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    fn peek(&self) -> Result<u8, Error> {
+    fn peek(&self) -> Result<u8> {
         if let Some(idx) = self.pj.structural_indexes.get(self.idx) {
             let idx = *idx as usize;
             let r = self.input[idx];
@@ -154,9 +161,95 @@ impl<'de> Deserializer<'de> {
         let r = self.pj.tape.get(self.idx);
         r
     }
+
+    #[inline(always)]
+    pub  fn parse_string(&mut self, idx: usize) -> Result<String> {unsafe{
+
+        use std::num::Wrapping;
+        let mut len: usize = 0;
+        let mut src = self.input.as_ptr().add(idx);
+        let mut dst = self.input.as_mut_ptr().add(idx);
+        //uint8_t *dst = pj.current_string_buf_loc + sizeof(uint32_t);
+        //const uint8_t *const start_of_string = dst;
+        loop {
+            let v: __m256i = _mm256_loadu_si256(src as *const __m256i);
+            // store to dest unconditionally - we can overwrite the bits we don't like
+            // later
+            if src != dst {
+                _mm256_storeu_si256(dst as *mut __m256i, v);
+            }
+            let bs_bits: u32 =
+                _mm256_movemask_epi8(_mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'\\' as i8))) as u32;
+            let quote_mask = _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8));
+            let quote_bits = _mm256_movemask_epi8(quote_mask) as u32;
+            if ((Wrapping(bs_bits) - Wrapping(1)).0 & quote_bits) != 0 {
+                // we encountered quotes first. Move dst to point to quotes and exit
+                // find out where the quote is...
+                let quote_dist: u32 = trailingzeroes(quote_bits as u64);
+
+                ///////////////////////
+                // Above, check for overflow in case someone has a crazy string (>=4GB?)
+                // But only add the overflow check when the document itself exceeds 4GB
+                // Currently unneeded because we refuse to parse docs larger or equal to 4GB.
+                ////////////////////////
+
+                // we advance the point, accounting for the fact that we have a NULl termination
+                //pj.current_string_buf_loc = dst + quote_dist + 1;
+
+                let s = String::from_utf8_lossy(&self.input[idx..idx + len + quote_dist as usize]).to_string();
+                dbg!(&s);
+                return Ok(s)
+                /*
+                return Ok(str::from_utf8_unchecked(s));
+                */
+
+            }
+            if ((Wrapping(quote_bits) - Wrapping(1)).0 & bs_bits) != 0 {
+                // find out where the backspace is
+                let bs_dist: u32 = trailingzeroes(bs_bits as u64);
+                let escape_char: u8 = *src.offset(bs_dist as isize + 1);
+                // we encountered backslash first. Handle backslash
+                if escape_char == b'u' {
+                    // move src/dst up to the start; they will be further adjusted
+                    // within the unicode codepoint handling code.
+                    src = src.add(bs_dist as usize);
+                    dst = dst.add(bs_dist as usize);
+                    len += bs_dist as usize;
+                    let  o = handle_unicode_codepoint(&mut src, &mut dst);
+                    if o == 0 {
+                        return Err(Error::InvlaidUnicodeCodepoint);
+                    };
+                    len += o;
+                } else {
+                    // simple 1:1 conversion. Will eat bs_dist+2 characters in input and
+                    // write bs_dist+1 characters to output
+                    // note this may reach beyond the part of the buffer we've actually
+                    // seen. I think this is ok
+                    let escape_result: u8 = ESCAPE_MAP[escape_char as usize];
+                    if escape_result == 0 {
+                        /*
+                        #ifdef JSON_TEST_STRINGS // for unit testing
+                        foundBadString(buf + offset);
+                        #endif // JSON_TEST_STRINGS
+                        */
+                        return Err(Error::InvlaidUnicodeEscape);
+                    }
+                    *dst.offset(bs_dist as isize) = escape_result;
+                    src = src.add(bs_dist as usize + 2);
+                    dst = dst.add(bs_dist as usize + 1);
+                    len += 1;
+                }
+            } else {
+                // they are the same. Since they can't co-occur, it means we encountered
+                // neither.
+                src = src.add(32);
+                dst = dst.add(32);
+            }
+        }
+    }}
 }
 
-pub fn from_slice<'a, T>(s: &'a [u8]) -> Result<T, Error>
+pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
 where
     T: Deserialize<'a>,
 {
@@ -164,13 +257,13 @@ where
     T::deserialize(&mut deserializer)
 }
 
-impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
+impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
     // Look at the input data to decide what Serde data model type to
     // deserialize as. Not all data formats are able to support this operation.
     // Formats that support `deserialize_any` are known as self-describing.
-    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Error>
+    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -267,19 +360,19 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                     unsafe {
                         copy.as_mut_ptr().copy_from(input.as_ptr(), len);
                     };
-                    match parse_number(&copy, true) {
-                        Ok(Number::F64(n)) => visitor.visit_f64(n),
-                        Ok(Number::I64(n)) => visitor.visit_i64(n),
-                        _ => Err(Error::ExpectedInteger),
+                    match parse_number(&copy, true)? {
+                        Number::F64(n) => visitor.visit_f64(n),
+                        Number::I64(n) => visitor.visit_i64(n),
                     }
                 } else {
-                    match parse_number(input, true) {
-                        Ok(Number::F64(n)) => visitor.visit_f64(n),
-                        Ok(Number::I64(n)) => visitor.visit_i64(n),
-                        _ => Err(Error::ExpectedInteger),
+                    match parse_number(input, true)? {
+                        Number::F64(n) => visitor.visit_f64(n),
+                        Number::I64(n) => visitor.visit_i64(n),
                     }
                 }
             }
+            (b'"', idx) => visitor.visit_string(self.parse_string(idx + 1)?),
+
             (b'[', _idx) => visitor.visit_seq(CommaSeparated::new(&mut self)),
             (b'{', _idx) => visitor.visit_map(CommaSeparated::new(&mut self)),
             (c, idx) => Err(Error::UnexpectedCharacter(c as char, idx)),
@@ -311,7 +404,7 @@ impl<'a, 'de> CommaSeparated<'a, 'de> {
 impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     type Error = Error;
 
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Error>
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
         T: DeserializeSeed<'de>,
     {
@@ -335,10 +428,12 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
 impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     type Error = Error;
 
-    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Error>
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
     where
         K: DeserializeSeed<'de>,
     {
+        dbg!(self.de.peek()? as char);
+        dbg!(self.idx);
         // Check if there are no more entries.
         if self.de.peek()? == b'}' {
             self.de.next()?;
@@ -353,14 +448,16 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         seed.deserialize(&mut *self.de).map(Some)
     }
 
-    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Error>
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
     where
         V: DeserializeSeed<'de>,
     {
         // It doesn't make a difference whether the colon is parsed at the end
         // of `next_key_seed` or at the beginning of `next_value_seed`. In this
         // case the code is a bit simpler having it here.
-        if self.de.next_char()? != b':' {
+        let c = self.de.next_char()?;
+        if c != b':' {
+            dbg!(c as char);
             return Err(Error::ExpectedMapColon);
         }
         // Deserialize a map value.
@@ -376,111 +473,137 @@ mod tests {
 
     #[test]
     fn bool_true() {
-        let d = b"true";
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+//        let d = Vec::from_str("true").as_bytes();
+
+        let mut d = String::from("true");
+        let mut  d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn bool_false() {
-        let d = b"false";
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d = String::from("false"); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn union() {
-        let d = b"null";
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d = String::from("null"); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn int() {
-        let d = b"42";
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d = String::from("42"); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn zero() {
-        let d = b"0";
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d = String::from("0"); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn one() {
-        let d = b"1";
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d = String::from("1");
+        let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn minus_one() {
-        let d = b"-1";
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d = String::from("-1"); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn float() {
-        let d = b"23.0";
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d = String::from("23.0"); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde)
+    }
+
+
+    #[test]
+    fn string() {
+        let mut d = String::from(r#""snot""#); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn list() {
-        let d = br#"[42, 23.0, "snot badger"]"#;
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d = String::from(r#"[42, 23.0, "snot badger"]"#); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn nested_list() {
-        let d = br#"[42, [23.0, "snot"], {"bad": "ger"}]"#;
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d = String::from(r#"[42, [23.0, "snot"], {"bad": "ger"}]"#); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn utf8() {
-        let d = b"\"\\u000e\"";
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
-        assert_eq!(v_simd, v_serde)
+        let mut d = String::from(r#""\u000e"#); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, "\u{e}");
+        // NOTE: serde is broken for this
+        //assert_eq!(v_serde, "\u{e}");
+        //assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn odd_array() {
-        let d = b"[{},null]";
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d = String::from("[{},null]"); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn crazy() {
-        let d = &[
+        let mut d = vec![
             91, 102, 97, 108, 115, 101, 44, 123, 34, 92, 117, 48, 48, 48, 101, 92, 98, 48, 97, 92,
             117, 48, 48, 48, 101, 240, 144, 128, 128, 48, 65, 35, 32, 92, 117, 48, 48, 48, 48, 97,
             240, 144, 128, 128, 240, 144, 128, 128, 240, 144, 128, 128, 240, 144, 128, 128, 65, 32,
             240, 144, 128, 128, 92, 92, 34, 58, 110, 117, 108, 108, 125, 93,
         ];
-        let v_serde: serde_json::Value = serde_json::from_slice(d).unwrap();
-        let v_simd: serde_json::Value = from_slice(d).unwrap();
+        let mut d1 = d.clone();
+        let v_serde: serde_json::Value = serde_json::from_slice(&mut d1).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn map2() {
+        let mut d = String::from(r#"[{"\u0000":null}]"#); let mut d = unsafe{d.as_bytes_mut()};
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde)
+ 
     }
     fn arb_json() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
@@ -506,13 +629,13 @@ mod tests {
     }
 
     proptest! {
-    //        #[test]
+        #[test]
             fn json_test(j in arb_json()) {
-                let d = serde_json::to_vec(&j).unwrap();
+                let mut d = serde_json::to_vec(&j).expect("");
                 if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d) {
                     dbg!(&d);
-                    dbg!(&String::from_utf8(d.clone()).unwrap());
-                    let v_simd: serde_json::Value = from_slice(&d).unwrap();
+                    dbg!(&String::from_utf8(d.clone()).expect(""));
+                    let v_simd: serde_json::Value = from_slice(&mut d).expect("");
                     assert_eq!(v_simd, v_serde)
                 }
 

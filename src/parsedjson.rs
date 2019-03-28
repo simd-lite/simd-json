@@ -1,8 +1,7 @@
 use crate::numberparse::Number;
 
 #[derive(Debug)]
-pub struct ParsedJson<'r> {
-    pub raw: &'r [u8],
+pub struct ParsedJson {
     pub structural_indexes: Vec<u32>,
     pub n_structural_indexes: usize,
     pub containing_scope_offset: Vec<usize>,
@@ -14,10 +13,9 @@ pub struct ParsedJson<'r> {
     pub numbers: Vec<Number>,
 }
 
-impl<'r> ParsedJson<'r> {
-    pub fn from_slice(raw: &'r [u8]) -> Self {
+impl ParsedJson {
+    pub fn from_slice() -> Self {
         Self {
-            raw,
             structural_indexes: Vec::with_capacity(512),
             containing_scope_offset: vec![0; 10000000],
             ret_address: vec![0; 1000000],
