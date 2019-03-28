@@ -5,12 +5,26 @@ authors = ["Heinz N. Gies <heinz@licenser.net>"]
 edition = "2018"
 
 [dependencies]
-serde = "*"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1" }
+hashbrown = { version = "*", features = ["serde"] }
+lazy_static = "1"
 
 [dev-dependencies]
-serde_json = "*"
 proptest = "0.9.2"
+serde_derive = "*"
+serde_bytes = "*"
+criterion = "0.2"
+jemallocator = "*"
+core_affinity = "*"
+
+[[bench]]
+name = "parse"
+harness = false
+
 
 [features]
 default = ["swar-number-parsing"]
 swar-number-parsing = []
+no-inline = []
+no-borrow = []

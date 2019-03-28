@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use crate::parsedjson::*;
 use crate::portability::*;
+use crate::utf8check::*;
 use crate::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -15,60 +15,64 @@ struct SimdInput {
     hi: __m256i,
 }
 
-unsafe fn fill_input(ptr: &[u8]) -> SimdInput {
-    SimdInput {
-        lo: _mm256_loadu_si256(ptr[0..32].as_ptr() as *const __m256i),
-        hi: _mm256_loadu_si256(ptr[32..64].as_ptr() as *const __m256i),
+fn fill_input(ptr: &[u8]) -> SimdInput {
+    unsafe {
+        SimdInput {
+            lo: _mm256_loadu_si256(ptr[0..32].as_ptr() as *const __m256i),
+            hi: _mm256_loadu_si256(ptr[32..64].as_ptr() as *const __m256i),
+        }
     }
 }
 
-/*
-
-#[inline(always)]
-unsafe fn check_utf8(input: SimdInput, has_error: &mut __m256i,
-                              struct avx_processed_utf_bytes &previous) {
-    __m256i highbit = _mm256_set1_epi8(0x80);
-    if ((_mm256_testz_si256(_mm256_or_si256(in.lo, in.hi), highbit)) == 1) {
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
+unsafe fn check_utf8(
+    input: &SimdInput,
+    has_error: &mut __m256i,
+    previous: &mut AvxProcessedUtfBytes,
+) {
+    let highbit: __m256i = _mm256_set1_epi8(static_cast_i8!(0x80u8));
+    if (_mm256_testz_si256(_mm256_or_si256(input.lo, input.hi), highbit)) == 1 {
         // it is ascii, we just check continuation
-        has_error = _mm256_or_si256(
+        *has_error = _mm256_or_si256(
             _mm256_cmpgt_epi8(
                 previous.carried_continuations,
-                _mm256_setr_epi8(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-                                 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1)),
-            has_error);
+                _mm256_setr_epi8(
+                    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+                    9, 9, 9, 9, 9, 1,
+                ),
+            ),
+            *has_error,
+        );
     } else {
         // it is not ascii so we have to do heavy work
-        previous = avxcheckUTF8Bytes(in.lo, &previous, &has_error);
-        previous = avxcheckUTF8Bytes(in.hi, &previous, &has_error);
+        *previous = avxcheck_utf8_bytes(input.lo, &previous, has_error);
+        *previous = avxcheck_utf8_bytes(input.hi, &previous, has_error);
     }
 }
- */
 
 /// a straightforward comparison of a mask against input. 5 uops; would be
 /// cheaper in AVX512.
-#[inline(always)]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
     unsafe {
-        let cmp_res_0: __m256i =  _mm256_cmpeq_epi8(input.lo, mask) ;
+        let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.lo, mask);
         // TODO: c++ uses static cast, here what are the implications?
         let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
-        let cmp_res_1: __m256i =  _mm256_cmpeq_epi8(input.hi, mask) ;
-        let res_1: u64 =  _mm256_movemask_epi8(cmp_res_1)  as u64;
+        let cmp_res_1: __m256i = _mm256_cmpeq_epi8(input.hi, mask);
+        let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
         res_0 | (res_1 << 32)
     }
 }
 
 // find all values less than or equal than the content of maxval (using unsigned arithmetic)
-#[inline(always)]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
     unsafe {
-        let cmp_res_0: __m256i =
-            _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
-    // TODO: c++ uses static cast, here what are the implications?
+        let cmp_res_0: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
+        // TODO: c++ uses static cast, here what are the implications?
         let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
-        let cmp_res_1: __m256i =
-            _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval) ;
-        let res_1: u64 =  _mm256_movemask_epi8(cmp_res_1)  as u64;
+        let cmp_res_1: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval);
+        let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
         res_0 | (res_1 << 32)
     }
 }
@@ -82,9 +86,8 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
 // indicate whether we end an iteration on an odd-length sequence of
 // backslashes, which modifies our subsequent search for odd-length
 // sequences of backslashes in an obvious way.
-#[inline(always)]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
-    use std::num::Wrapping;
     // TODO: const?
     let even_bits: u64 = 0x5555555555555555;
     // TODO: const?
@@ -96,7 +99,7 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
     let even_start_mask: u64 = even_bits ^ *prev_iter_ends_odd_backslash;
     let even_starts: u64 = start_edges & even_start_mask;
     let odd_starts: u64 = start_edges & !even_start_mask;
-    let even_carries: u64 = (Wrapping(bs_bits) + Wrapping(even_starts)).0;
+    let even_carries: u64 = bs_bits.wrapping_add(even_starts);
 
     let mut odd_carries: u64 = 0;
     // must record the carry-out of our odd-carries out of bit 63; this
@@ -128,7 +131,7 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
 // Note that we don't do any error checking to see if we have backslash
 // sequences outside quotes; these
 // backslash sequences (of any length) will be detected elsewhere.
-#[inline(always)]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn find_quote_mask_and_bits(
     input: &SimdInput,
     odd_ends: u64,
@@ -160,7 +163,7 @@ unsafe fn find_quote_mask_and_bits(
     return quote_mask;
 }
 
-#[inline(always)]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn find_whitespace_and_structurals(
     input: &SimdInput,
     whitespace: &mut u64,
@@ -245,32 +248,45 @@ unsafe fn find_whitespace_and_structurals(
 // will potentially store extra values beyond end of valid bits, so base_ptr
 // needs to be large enough to handle this
 //TODO: usize was u32 here does this matter?
-#[inline(always)]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
-    use std::num::Wrapping;
     let cnt: usize = hamming(bits) as usize;
-    let next_base: usize = base.len() + cnt;
-    while bits != 0 {
-        unsafe{
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-        }
+    let mut l = base.len();
+    let idx_minus_64 = idx.wrapping_sub(64);
+
+    // We're doing some trickery here.
+    // We reserve 64 extra entries, because we've at most 64 bit to set
+    // then we trunctate the base to the next base (that we calcuate above)
+    // We later indiscriminatory writre over the len we set but that's OK
+    // since we ensure we reserve the needed space
+    base.reserve(64);
+    unsafe {
+        base.set_len(l + cnt);
     }
-    base.truncate(next_base);
+    while bits != 0 {
+        unsafe {
+            let v0 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v1 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v2 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v3 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v4 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v5 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v6 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v7 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+
+            let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
+            _mm256_storeu_si256(base[l..].as_mut_ptr() as *mut __m256i, v);
+        }
+        l += 8;
+    }
 }
 
 // return a updated structural bit vector with quoted contents cleared out and
@@ -279,7 +295,7 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
 // iteration ended on a whitespace or a structural character (which means that
 // the next iteration
 // will have a pseudo-structural character at its start)
-#[inline(always)]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn finalize_structurals(
     mut structurals: u64,
     whitespace: u64,
@@ -318,234 +334,147 @@ fn finalize_structurals(
 //WARN_UNUSED
 /*never_inline*/
 //#[inline(never)]
-pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> bool {
-    /*
-    #ifdef SIMDJSON_UTF8VALIDATE
-      __m256i has_error = _mm256_setzero_si256();
-      struct avx_processed_utf_bytes previous {};
-      previous.rawbytes = _mm256_setzero_si256();
-      previous.high_nibbles = _mm256_setzero_si256();
-      previous.carried_continuations = _mm256_setzero_si256();
-    #endif
-    */
-    // we have padded the input out to 64 byte multiple with the remainder being
-    // zeros
+impl<'de> Deserializer<'de> {
+    #[inline(never)]
+    pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
+        let len = input.len();
+        let mut structural_indexes = Vec::with_capacity(len / 6);
+        structural_indexes.push(0); // push extra root element
 
-    // persistent state across loop
-    // does the last iteration end with an odd-length sequence of backslashes?
-    // either 0 or 1, but a 64-bit value
-    let mut prev_iter_ends_odd_backslash: u64 = 0;
-    // does the previous iteration end inside a double-quote pair?
-    let mut prev_iter_inside_quote: u64 = 0; // either all zeros or all ones
-                                             // does the previous iteration end on something that is a predecessor of a
-                                             // pseudo-structural character - i.e. whitespace or a structural character
-                                             // effectively the very first char is considered to follow "whitespace" for
-                                             // the
-                                             // purposes of pseudo-structural character detection so we initialize to 1
-    let mut prev_iter_ends_pseudo_pred: u64 = 1;
+        let mut has_error: __m256i = _mm256_setzero_si256();
+        let mut previous = AvxProcessedUtfBytes::default();
+        // we have padded the input out to 64 byte multiple with the remainder being
+        // zeros
 
-    // structurals are persistent state across loop as we flatten them on the
-    // subsequent iteration into our array pointed to be base_ptr.
-    // This is harmless on the first iteration as structurals==0
-    // and is done for performance reasons; we can hide some of the latency of the
-    // expensive carryless multiply in the previous step with this work
-    let mut structurals: u64 = 0;
+        // persistent state across loop
+        // does the last iteration end with an odd-length sequence of backslashes?
+        // either 0 or 1, but a 64-bit value
+        let mut prev_iter_ends_odd_backslash: u64 = 0;
+        // does the previous iteration end inside a double-quote pair?
+        let mut prev_iter_inside_quote: u64 = 0; // either all zeros or all ones
+                                                 // does the previous iteration end on something that is a predecessor of a
+                                                 // pseudo-structural character - i.e. whitespace or a structural character
+                                                 // effectively the very first char is considered to follow "whitespace" for
+                                                 // the
+                                                 // purposes of pseudo-structural character detection so we initialize to 1
+        let mut prev_iter_ends_pseudo_pred: u64 = 1;
 
-    let lenminus64: usize = if len < 64 { 0 } else { len as usize - 64 };
-    let mut idx: usize = 0;
-    let mut error_mask: u64 = 0; // for unescaped characters within strings (ASCII code points < 0x20)
+        // structurals are persistent state across loop as we flatten them on the
+        // subsequent iteration into our array pointed to be base_ptr.
+        // This is harmless on the first iteration as structurals==0
+        // and is done for performance reasons; we can hide some of the latency of the
+        // expensive carryless multiply in the previous step with this work
+        let mut structurals: u64 = 0;
 
-    while idx < lenminus64 {
-        /*
-        #ifndef _MSC_VER
-          __builtin_prefetch(buf + idx + 128);
-        #endif
-         */
-        let input: SimdInput = fill_input(&buf[idx as usize..]);
-        /*
-        #ifdef SIMDJSON_UTF8VALIDATE
-          check_utf8(in, has_error, previous);
-        #endif
-         */
-        // detect odd sequences of backslashes
-        let odd_ends: u64 = find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
+        let lenminus64: usize = if len < 64 { 0 } else { len as usize - 64 };
+        let mut idx: usize = 0;
+        let mut error_mask: u64 = 0; // for unescaped characters within strings (ASCII code points < 0x20)
 
-        // detect insides of quote pairs ("quote_mask") and also our quote_bits
-        // themselves
-        let mut quote_bits: u64 = 0;
-        let quote_mask: u64 = find_quote_mask_and_bits(
-            &input,
-            odd_ends,
-            &mut prev_iter_inside_quote,
-            &mut quote_bits,
-            &mut error_mask,
-        );
+        while idx < lenminus64 {
+            /*
+            #ifndef _MSC_VER
+              __builtin_prefetch(buf + idx + 128);
+            #endif
+             */
+            let input: SimdInput = fill_input(&input[idx as usize..]);
+            check_utf8(&input, &mut has_error, &mut previous);
+            // detect odd sequences of backslashes
+            let odd_ends: u64 =
+                find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
 
-        // take the previous iterations structural bits, not our current iteration,
-        // and flatten
-        flatten_bits(&mut pj.structural_indexes, idx as u32, structurals);
+            // detect insides of quote pairs ("quote_mask") and also our quote_bits
+            // themselves
+            let mut quote_bits: u64 = 0;
+            let quote_mask: u64 = find_quote_mask_and_bits(
+                &input,
+                odd_ends,
+                &mut prev_iter_inside_quote,
+                &mut quote_bits,
+                &mut error_mask,
+            );
 
-        let mut whitespace: u64 = 0;
-        find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
+            // take the previous iterations structural bits, not our current iteration,
+            // and flatten
+            flatten_bits(&mut structural_indexes, idx as u32, structurals);
 
-        // fixup structurals to reflect quotes and add pseudo-structural characters
-        structurals = finalize_structurals(
-            structurals,
-            whitespace,
-            quote_mask,
-            quote_bits,
-            &mut prev_iter_ends_pseudo_pred,
-        );
-        idx += 64;
-    }
+            let mut whitespace: u64 = 0;
+            find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
 
-    // we use a giant copy-paste which is ugly.
-    // but otherwise the string needs to be properly padded or else we
-    // risk invalidating the UTF-8 checks.
-    if idx < len as usize {
-        let mut tmpbuf: [u8; 64] = [0x20; 64];
-        tmpbuf
-            .as_mut_ptr()
-            .copy_from(buf.as_ptr().offset(idx as isize), len as usize - idx);
-        let input: SimdInput = fill_input(&tmpbuf);
-        /*
-        #ifdef SIMDJSON_UTF8VALIDATE
-            check_utf8(in, has_error, previous);
-        #endif
-         */
-
-        // detect odd sequences of backslashes
-        let odd_ends: u64 = find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
-
-        // detect insides of quote pairs ("quote_mask") and also our quote_bits
-        // themselves
-        let mut quote_bits: u64 = 0;
-        let quote_mask: u64 = find_quote_mask_and_bits(
-            &input,
-            odd_ends,
-            &mut prev_iter_inside_quote,
-            &mut quote_bits,
-            &mut error_mask,
-        );
-
-        // take the previous iterations structural bits, not our current iteration,
-        // and flatten
-        flatten_bits(&mut pj.structural_indexes, idx as u32, structurals);
-
-        let mut whitespace: u64 = 0;
-        find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
-
-        // fixup structurals to reflect quotes and add pseudo-structural characters
-        structurals = finalize_structurals(
-            structurals,
-            whitespace,
-            quote_mask,
-            quote_bits,
-            &mut prev_iter_ends_pseudo_pred,
-        );
-        idx += 64;
-    }
-    // finally, flatten out the remaining structurals from the last iteration
-    flatten_bits(&mut pj.structural_indexes, idx as u32, structurals);
-
-    // a valid JSON file cannot have zero structural indexes - we should have
-    // found something
-    if pj.n_structural_indexes == 0 {
-        return false;
-    }
-    if pj.structural_indexes.last() > Some(&len) {
-        eprintln!("Internal bug");
-        return false;
-    }
-    /*
-    if Some(&len) != pj.structural_indexes.last() {
-        // the string might not be NULL terminated, but we add a virtual NULL ending
-        // character.
-        pj.structural_indexes.push(len);
-        pj.n_structural_indexes += 1;
-    }
-    */
-    // make it safe to dereference one beyond this array
-    pj.structural_indexes.push(0);
-    pj.n_structural_indexes = pj.structural_indexes.len();
-    if error_mask != 0 {
-        return false;
-    }
-    /*
-    #ifdef SIMDJSON_UTF8VALIDATE
-      return _mm256_testz_si256(has_error, has_error) != 0;
-    #else
-     */
-    return true;
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::stage2::*;
-    //use crate::parsedjson::*;
-
-    #[test]
-    fn test() {
-        let _d1 = br#"{
-        "Image": {
-            "Width":  800,
-            "Height": 600,
-            "Title":  "View from 15th Floor",
-            "Thumbnail": {
-                "Url":    "http://www.example.com/image/481989943",
-                "Height": 125,
-                "Width":  100
-            },
-            "Animated" : false,
-            "IDs": [116, 943, 234, 38793]
-          }
-      }
-"#;
-        let d2 = br#"{ "\\\"Nam[{": [ 116,"\\\\" , 234, "true", false ], "t":"\\\"" }"#;
-        //           0 2          1 1 1  22      2 3  3 3     4 4     45 5  55      6
-        //                        3 5 7  01      8 0  3 5     1 3     90 2  56      3
-        //                                          ^-half here
-        let mut pj = ParsedJson::from_slice(d2);
-
-        println!("{}", String::from_utf8(d2.to_vec()).unwrap());
-        unsafe {
-            find_structural_bits(d2, d2.len() as u32, &mut pj);
+            // fixup structurals to reflect quotes and add pseudo-structural characters
+            structurals = finalize_structurals(
+                structurals,
+                whitespace,
+                quote_mask,
+                quote_bits,
+                &mut prev_iter_ends_pseudo_pred,
+            );
+            idx += 64;
         }
 
-        // First half
-        assert_eq!(pj.structural_indexes[0], 0);
-        assert_eq!(pj.structural_indexes[1], 2);
-        assert_eq!(pj.structural_indexes[2], 13);
-        assert_eq!(pj.structural_indexes[3], 15);
-        assert_eq!(pj.structural_indexes[4], 17);
-        assert_eq!(pj.structural_indexes[5], 20);
-        assert_eq!(pj.structural_indexes[6], 21);
-        assert_eq!(pj.structural_indexes[7], 28);
-        assert_eq!(pj.structural_indexes[8], 30);
+        // we use a giant copy-paste which is ugly.
+        // but otherwise the string needs to be properly padded or else we
+        // risk invalidating the UTF-8 checks.
+        if idx < len {
+            let mut tmpbuf: [u8; 64] = [0x20; 64];
+            tmpbuf
+                .as_mut_ptr()
+                .copy_from(input.as_ptr().offset(idx as isize), len as usize - idx);
+            let input: SimdInput = fill_input(&tmpbuf);
 
-        // Second half
-        assert_eq!(pj.structural_indexes[9], 33);
-        assert_eq!(pj.structural_indexes[10], 35);
-        assert_eq!(pj.structural_indexes[11], 41);
-        assert_eq!(pj.structural_indexes[12], 43);
-        assert_eq!(pj.structural_indexes[13], 49);
-        assert_eq!(pj.structural_indexes[14], 50);
-        assert_eq!(pj.structural_indexes[15], 52);
-        assert_eq!(pj.structural_indexes[16], 55);
-        assert_eq!(pj.structural_indexes[17], 56);
-        assert_eq!(pj.structural_indexes[18], 63);
+            check_utf8(&input, &mut has_error, &mut previous);
 
-        dbg!(&pj.structural_indexes);
-        //dbg!(&pj.structural_indexes);
+            // detect odd sequences of backslashes
+            let odd_ends: u64 =
+                find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
 
-        let r = unsafe { unified_machine(d2, d2.len(), &mut pj) };
+            // detect insides of quote pairs ("quote_mask") and also our quote_bits
+            // themselves
+            let mut quote_bits: u64 = 0;
+            let quote_mask: u64 = find_quote_mask_and_bits(
+                &input,
+                odd_ends,
+                &mut prev_iter_inside_quote,
+                &mut quote_bits,
+                &mut error_mask,
+            );
 
-        dbg!(&pj.tape);
-        dbg!(&pj.strings);
-        dbg!(&pj.ints);
-        dbg!(&pj.doubles);
-        assert_eq!(r, Ok(()));
+            // take the previous iterations structural bits, not our current iteration,
+            // and flatten
+            flatten_bits(&mut structural_indexes, idx as u32, structurals);
+
+            let mut whitespace: u64 = 0;
+            find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
+
+            // fixup structurals to reflect quotes and add pseudo-structural characters
+            structurals = finalize_structurals(
+                structurals,
+                whitespace,
+                quote_mask,
+                quote_bits,
+                &mut prev_iter_ends_pseudo_pred,
+            );
+            idx += 64;
+        }
+        // finally, flatten out the remaining structurals from the last iteration
+        flatten_bits(&mut structural_indexes, idx as u32, structurals);
+
+        // a valid JSON file cannot have zero structural indexes - we should have
+        // found something
+        if structural_indexes.len() == 0 {
+            return Err(ErrorType::NoStructure);
+        }
+        if structural_indexes.last() > Some(&(len as u32)) {
+            return Err(ErrorType::InternalError);
+        }
+
+        // make it safe to dereference one beyond this array
+        if error_mask != 0 {
+            return Err(ErrorType::Syntax);
+        }
+        if _mm256_testz_si256(has_error, has_error) != 0 {
+            Ok(structural_indexes)
+        } else {
+            Err(ErrorType::InvalidUTF8)
+        }
     }
-
 }
