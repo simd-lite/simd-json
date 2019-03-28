@@ -176,8 +176,11 @@ impl<'de> Deserializer<'de> {
             let mut read: u32 = 0;
             let mut written: u32 = 0;
             let end = self.peek_idx()?;
-            dbg!(idx);
-            dbg!(end);
+            #[cfg(test)]
+            {
+                dbg!(idx);
+                dbg!(end);
+            }
             let sub = if end == 0 {
                 &mut self.input[idx..]
             } else {
@@ -187,12 +190,15 @@ impl<'de> Deserializer<'de> {
             let mut src: &[u8] = from_raw_parts(sub.as_mut_ptr(), sub.len());
             let res = from_raw_parts(sub.as_mut_ptr(), sub.len());
             loop {
-                dbg!(written);
-                dbg!(String::from_utf8_unchecked(self.input.to_vec()));
-                dbg!(String::from_utf8_unchecked(src.to_vec()));
-                dbg!(String::from_utf8_unchecked(
-                    res[..written as usize].to_vec()
-                ));
+                #[cfg(test)]
+                {
+                    dbg!(written);
+                    dbg!(String::from_utf8_unchecked(self.input.to_vec()));
+                    dbg!(String::from_utf8_unchecked(src.to_vec()));
+                    dbg!(String::from_utf8_unchecked(
+                        res[..written as usize].to_vec()
+                    ));
+                }
                 let v: __m256i = if src.len() >= 32 {
                     _mm256_loadu_si256(src[..32].as_ptr() as *const __m256i)
                 } else {
@@ -209,7 +215,6 @@ impl<'de> Deserializer<'de> {
                 let quote_mask = _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8));
                 let quote_bits = static_cast_u32!(_mm256_movemask_epi8(quote_mask));
                 if ((Wrapping(bs_bits) - Wrapping(1)).0 & quote_bits) != 0 {
-                    dbg!();
                     // we encountered quotes first. Move dst to point to quotes and exit
                     // find out where the quote is...
                     let quote_dist: u32 = trailingzeroes(quote_bits as u64) as u32;
@@ -224,6 +229,7 @@ impl<'de> Deserializer<'de> {
                     //pj.current_string_buf_loc = dst + quote_dist + 1;
 
                     if read != written {
+                        #[cfg(test)]
                         unsafe {
                             dbg!(String::from_utf8_unchecked(res.to_vec()));
                             dbg!(String::from_utf8_unchecked(dst.to_vec()));
@@ -232,6 +238,7 @@ impl<'de> Deserializer<'de> {
                             dbg!(quote_dist);
                         }
                         dst[..quote_dist as usize].clone_from_slice(&src[..quote_dist as usize]);
+                        #[cfg(test)]
                         unsafe {
                             dbg!(String::from_utf8_unchecked(dst.to_vec()));
                         }
@@ -246,19 +253,19 @@ impl<'de> Deserializer<'de> {
                 // not if they are the same value
                 } else if read != written {
                     if src.len() >= 32 {
-                        dbg!();
                         _mm256_storeu_si256(dst.as_mut_ptr() as *mut __m256i, v);
                     } else {
-                        dbg!();
                         dst[..src.len()].clone_from_slice(src);
                     }
                 }
                 if ((Wrapping(quote_bits) - Wrapping(1)).0 & bs_bits) != 0 {
-                    dbg!();
                     // find out where the backspace is
                     let bs_dist: u32 = trailingzeroes(bs_bits as u64);
-                    dbg!(String::from_utf8_unchecked(src.to_vec()));
-                    dbg!(bs_dist);
+                    #[cfg(test)]
+                    {
+                        dbg!(String::from_utf8_unchecked(src.to_vec()));
+                        dbg!(bs_dist);
+                    }
                     let escape_char: u8 = src[bs_dist as usize + 1];
                     // we encountered backslash first. Handle backslash
                     if escape_char == b'u' {
@@ -434,10 +441,12 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 }
             }
             (b'"', idx) => {
+                #[cfg(test)]
                 unsafe {
                     dbg!(String::from_utf8_unchecked(self.input.to_vec()));
                 }
                 let r = visitor.visit_string(self.parse_string(idx + 1)?);
+                #[cfg(test)]
                 unsafe {
                     dbg!(String::from_utf8_unchecked(self.input.to_vec()));
                 }
