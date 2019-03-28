@@ -1,3 +1,5 @@
+use crate::numberparse::Number;
+
 #[derive(Debug)]
 pub struct ParsedJson<'r> {
     pub raw: &'r [u8],
@@ -9,12 +11,11 @@ pub struct ParsedJson<'r> {
     pub current_loc: usize,
     pub tape: Vec<(usize, ItemType)>,
     pub strings: Vec<String>,
-    pub doubles: Vec<f64>,
-    pub ints: Vec<i64>,
+    pub numbers: Vec<Number>,
 }
 
 impl<'r> ParsedJson<'r> {
-    pub fn from_slice(raw: &'r[u8]) -> Self {
+    pub fn from_slice(raw: &'r [u8]) -> Self {
         Self {
             raw,
             structural_indexes: Vec::with_capacity(512),
@@ -23,8 +24,7 @@ impl<'r> ParsedJson<'r> {
             n_structural_indexes: 1000000,
             depthcapacity: 1000000,
             current_loc: 0,
-            doubles: Vec::with_capacity(512),
-            ints: Vec::with_capacity(512),
+            numbers: Vec::with_capacity(512),
             strings: Vec::with_capacity(512),
             tape: Vec::with_capacity(512),
         }
@@ -36,14 +36,10 @@ impl<'r> ParsedJson<'r> {
     pub fn write_tape(&mut self, offset: usize, t: ItemType) {
         self.tape.push((offset, t));
     }
-    pub fn write_tape_double(&mut self, d: f64) {
-        self.doubles.push(d);
-        self.tape.push((self.doubles.len(), ItemType::Double))
-    }
 
-    pub fn write_tape_s64(&mut self, i: i64) {
-        self.ints.push(i);
-        self.tape.push((self.doubles.len(), ItemType::I64))
+    pub fn write_number(&mut self, n: Number) {
+        self.numbers.push(n);
+        self.tape.push((self.numbers.len(), ItemType::Number))
     }
 
     pub fn annotate_previousloc(&self, _containing_scope_offset: usize, _current_loc: usize) {
@@ -56,10 +52,8 @@ impl<'r> ParsedJson<'r> {
     }
 }
 
-
 #[derive(Debug)]
 pub enum ItemType {
-    Root,
     Object,
     ObjectEnd,
     Array,
@@ -68,6 +62,5 @@ pub enum ItemType {
     True,
     False,
     Null,
-    Double,
-    I64
+    Number,
 }

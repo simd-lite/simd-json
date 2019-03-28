@@ -49,11 +49,11 @@ unsafe fn check_utf8(input: SimdInput, has_error: &mut __m256i,
 #[inline(always)]
 fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
     unsafe {
-        let cmp_res_0: __m256i =  _mm256_cmpeq_epi8(input.lo, mask) ;
+        let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.lo, mask);
         // TODO: c++ uses static cast, here what are the implications?
         let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
-        let cmp_res_1: __m256i =  _mm256_cmpeq_epi8(input.hi, mask) ;
-        let res_1: u64 =  _mm256_movemask_epi8(cmp_res_1)  as u64;
+        let cmp_res_1: __m256i = _mm256_cmpeq_epi8(input.hi, mask);
+        let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
         res_0 | (res_1 << 32)
     }
 }
@@ -62,13 +62,11 @@ fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
 #[inline(always)]
 fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
     unsafe {
-        let cmp_res_0: __m256i =
-            _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
-    // TODO: c++ uses static cast, here what are the implications?
+        let cmp_res_0: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
+        // TODO: c++ uses static cast, here what are the implications?
         let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
-        let cmp_res_1: __m256i =
-            _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval) ;
-        let res_1: u64 =  _mm256_movemask_epi8(cmp_res_1)  as u64;
+        let cmp_res_1: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval);
+        let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
         res_0 | (res_1 << 32)
     }
 }
@@ -251,7 +249,7 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     let cnt: usize = hamming(bits) as usize;
     let next_base: usize = base.len() + cnt;
     while bits != 0 {
-        unsafe{
+        unsafe {
             base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
             bits = bits & (Wrapping(bits) - Wrapping(1)).0;
             base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
@@ -477,75 +475,4 @@ pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) ->
     #else
      */
     return true;
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::stage2::*;
-    //use crate::parsedjson::*;
-
-    #[test]
-    fn test() {
-        let _d1 = br#"{
-        "Image": {
-            "Width":  800,
-            "Height": 600,
-            "Title":  "View from 15th Floor",
-            "Thumbnail": {
-                "Url":    "http://www.example.com/image/481989943",
-                "Height": 125,
-                "Width":  100
-            },
-            "Animated" : false,
-            "IDs": [116, 943, 234, 38793]
-          }
-      }
-"#;
-        let d2 = br#"{ "\\\"Nam[{": [ 116,"\\\\" , 234, "true", false ], "t":"\\\"" }"#;
-        //           0 2          1 1 1  22      2 3  3 3     4 4     45 5  55      6
-        //                        3 5 7  01      8 0  3 5     1 3     90 2  56      3
-        //                                          ^-half here
-        let mut pj = ParsedJson::from_slice(d2);
-
-        println!("{}", String::from_utf8(d2.to_vec()).unwrap());
-        unsafe {
-            find_structural_bits(d2, d2.len() as u32, &mut pj);
-        }
-
-        // First half
-        assert_eq!(pj.structural_indexes[0], 0);
-        assert_eq!(pj.structural_indexes[1], 2);
-        assert_eq!(pj.structural_indexes[2], 13);
-        assert_eq!(pj.structural_indexes[3], 15);
-        assert_eq!(pj.structural_indexes[4], 17);
-        assert_eq!(pj.structural_indexes[5], 20);
-        assert_eq!(pj.structural_indexes[6], 21);
-        assert_eq!(pj.structural_indexes[7], 28);
-        assert_eq!(pj.structural_indexes[8], 30);
-
-        // Second half
-        assert_eq!(pj.structural_indexes[9], 33);
-        assert_eq!(pj.structural_indexes[10], 35);
-        assert_eq!(pj.structural_indexes[11], 41);
-        assert_eq!(pj.structural_indexes[12], 43);
-        assert_eq!(pj.structural_indexes[13], 49);
-        assert_eq!(pj.structural_indexes[14], 50);
-        assert_eq!(pj.structural_indexes[15], 52);
-        assert_eq!(pj.structural_indexes[16], 55);
-        assert_eq!(pj.structural_indexes[17], 56);
-        assert_eq!(pj.structural_indexes[18], 63);
-
-        dbg!(&pj.structural_indexes);
-        //dbg!(&pj.structural_indexes);
-
-        let r = unsafe { unified_machine(d2, d2.len(), &mut pj) };
-
-        dbg!(&pj.tape);
-        dbg!(&pj.strings);
-        dbg!(&pj.ints);
-        dbg!(&pj.doubles);
-        assert_eq!(r, Ok(()));
-    }
-
 }
