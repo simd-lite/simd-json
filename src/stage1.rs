@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use crate::parsedjson::*;
 use crate::portability::*;
+use crate::utf8check::*;
 use crate::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -15,34 +16,33 @@ struct SimdInput {
     hi: __m256i,
 }
 
-unsafe fn fill_input(ptr: &[u8]) -> SimdInput {
-    SimdInput {
-        lo: _mm256_loadu_si256(ptr[0..32].as_ptr() as *const __m256i),
-        hi: _mm256_loadu_si256(ptr[32..64].as_ptr() as *const __m256i),
-    }
-}
-
-/*
+ fn fill_input(ptr: &[u8]) -> SimdInput {
+     unsafe{
+         SimdInput {
+             lo: _mm256_loadu_si256(ptr[0..32].as_ptr() as *const __m256i),
+             hi: _mm256_loadu_si256(ptr[32..64].as_ptr() as *const __m256i),
+         }
+     }
+ }
 
 #[inline(always)]
-unsafe fn check_utf8(input: SimdInput, has_error: &mut __m256i,
-                              struct avx_processed_utf_bytes &previous) {
-    __m256i highbit = _mm256_set1_epi8(0x80);
-    if ((_mm256_testz_si256(_mm256_or_si256(in.lo, in.hi), highbit)) == 1) {
+unsafe fn check_utf8(input: &SimdInput, has_error: &mut __m256i,
+                     previous: &mut AvxProcessedUtfBytes) {
+    let highbit: __m256i = _mm256_set1_epi8(static_cast_i8!(0x80u8));
+    if (_mm256_testz_si256(_mm256_or_si256(input.lo, input.hi), highbit)) == 1 {
         // it is ascii, we just check continuation
-        has_error = _mm256_or_si256(
+        *has_error = _mm256_or_si256(
             _mm256_cmpgt_epi8(
                 previous.carried_continuations,
                 _mm256_setr_epi8(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
                                  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1)),
-            has_error);
+            *has_error);
     } else {
         // it is not ascii so we have to do heavy work
-        previous = avxcheckUTF8Bytes(in.lo, &previous, &has_error);
-        previous = avxcheckUTF8Bytes(in.hi, &previous, &has_error);
+        *previous = avxcheck_utf8_bytes(input.lo, &previous, has_error);
+        *previous = avxcheck_utf8_bytes(input.hi, &previous, has_error);
     }
 }
- */
 
 /// a straightforward comparison of a mask against input. 5 uops; would be
 /// cheaper in AVX512.
@@ -316,16 +316,9 @@ fn finalize_structurals(
 //WARN_UNUSED
 /*never_inline*/
 //#[inline(never)]
-pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> bool {
-    /*
-    #ifdef SIMDJSON_UTF8VALIDATE
-      __m256i has_error = _mm256_setzero_si256();
-      struct avx_processed_utf_bytes previous {};
-      previous.rawbytes = _mm256_setzero_si256();
-      previous.high_nibbles = _mm256_setzero_si256();
-      previous.carried_continuations = _mm256_setzero_si256();
-    #endif
-    */
+pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> Result<()> {
+    let mut has_error: __m256i = _mm256_setzero_si256();
+    let mut previous = AvxProcessedUtfBytes::default();
     // we have padded the input out to 64 byte multiple with the remainder being
     // zeros
 
@@ -360,11 +353,7 @@ pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) ->
         #endif
          */
         let input: SimdInput = fill_input(&buf[idx as usize..]);
-        /*
-        #ifdef SIMDJSON_UTF8VALIDATE
-          check_utf8(in, has_error, previous);
-        #endif
-         */
+        check_utf8(&input, &mut has_error, &mut previous);
         // detect odd sequences of backslashes
         let odd_ends: u64 = find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
 
@@ -406,11 +395,8 @@ pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) ->
             .as_mut_ptr()
             .copy_from(buf.as_ptr().offset(idx as isize), len as usize - idx);
         let input: SimdInput = fill_input(&tmpbuf);
-        /*
-        #ifdef SIMDJSON_UTF8VALIDATE
-            check_utf8(in, has_error, previous);
-        #endif
-         */
+
+        check_utf8(&input, &mut has_error, &mut previous);
 
         // detect odd sequences of backslashes
         let odd_ends: u64 = find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
@@ -449,30 +435,22 @@ pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) ->
     // a valid JSON file cannot have zero structural indexes - we should have
     // found something
     if pj.n_structural_indexes == 0 {
-        return false;
+        return Err(Error::NoStructure);
     }
     if pj.structural_indexes.last() > Some(&len) {
-        eprintln!("Internal bug");
-        return false;
+        return Err(Error::InternalError);
     }
-    /*
-    if Some(&len) != pj.structural_indexes.last() {
-        // the string might not be NULL terminated, but we add a virtual NULL ending
-        // character.
-        pj.structural_indexes.push(len);
-        pj.n_structural_indexes += 1;
-    }
-    */
+
     // make it safe to dereference one beyond this array
     pj.structural_indexes.push(0);
     pj.n_structural_indexes = pj.structural_indexes.len();
     if error_mask != 0 {
-        return false;
+        return Err(Error::Syntax);
+
     }
-    /*
-    #ifdef SIMDJSON_UTF8VALIDATE
-      return _mm256_testz_si256(has_error, has_error) != 0;
-    #else
-     */
-    return true;
+    if _mm256_testz_si256(has_error, has_error) != 0 {
+        Ok(())
+    } else {
+        return Err(Error::InvalidUTF8);
+    }
 }

@@ -7,10 +7,10 @@ mod portability;
 mod stage1;
 mod stage2;
 mod stringparse;
+mod utf8check;
 
 use crate::numberparse::Number;
 use crate::numberparse::*;
-use crate::parsedjson::*;
 use crate::portability::*;
 use crate::stage2::*;
 use crate::stringparse::*;
@@ -34,6 +34,13 @@ macro_rules! likely {
 macro_rules! unlikely {
     ($e:expr) => {
         $e
+    };
+}
+
+#[macro_export]
+macro_rules! static_cast_i8 {
+    ($v:expr) => {
+        mem::transmute::<_, i8>($v)
     };
 }
 
@@ -72,28 +79,31 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum Error {
-    InvlaidUnicodeCodepoint,
-    InvalidUnicodeEscape,
-    InvalidEscape(char),
-    ExpectedBoolean,
-    TrailingCharacters,
+    BadKeyType,
+    EarlyEnd,
+    ExpectedArray,
     ExpectedArrayComma(char),
+    ExpectedBoolean,
+    ExpectedEnum,
     ExpectedInteger,
-    Syntax,
-    UnexpectedCharacter(char, usize),
+    ExpectedMap,
     ExpectedMapColon,
     ExpectedMapComma,
+    ExpectedMapEnd,
+    ExpectedNull,
+    InternalError,
+    InvalidEscape(char),
+    InvalidUTF8,
+    InvalidUnicodeEscape,
+    InvlaidUnicodeCodepoint,
+    NoStructure,
+    Parser,
+    Serde(String),
+    Syntax,
+    TrailingCharacters,
+    UnexpectedCharacter(char, usize),
     UnexpectedEnd,
     UnterminatedString,
-    Parser,
-    EarlyEnd,
-    ExpectedNull,
-    ExpectedMapEnd,
-    ExpectedArray,
-    ExpectedMap,
-    ExpectedEnum,
-    BadKeyType,
-    Serde(String),
 }
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -113,6 +123,8 @@ pub struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
     // the beginning as data is parsed.
     input: &'de mut [u8],
+    strings: Vec<u8>,
+    sidx: usize,
     pj: ParsedJson,
     idx: usize,
 }
@@ -122,13 +134,22 @@ impl<'de> Deserializer<'de> {
     // That way basic use cases are satisfied by something like
     // `serde_json::from_str(...)` while advanced use cases that require a
     // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
-    pub fn from_slice(input: &'de mut [u8]) -> Self {
+    pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
         let mut pj = ParsedJson::from_slice();
+        let len = input.len();
         unsafe {
-            find_structural_bits(input, input.len() as u32, &mut pj);
+            find_structural_bits(input, len as u32, &mut pj)?;
             //unified_machine(input, input.len(), &mut pj);
         };
-        Deserializer { input, pj, idx: 0 }
+        let mut v = Vec::with_capacity(len + SIMDJSON_PADDING);
+        unsafe {v.set_len(len + SIMDJSON_PADDING);}
+        Ok(Deserializer {
+            input,
+            pj,
+            idx: 0,
+            strings: v,
+            sidx: 0,
+        })
     }
     fn next_char(&mut self) -> Result<u8> {
         if let Some(idx) = self.pj.structural_indexes.get(self.idx) {
@@ -167,151 +188,162 @@ impl<'de> Deserializer<'de> {
         }
     }
 
+    
     #[inline(always)]
     pub fn parse_string(&mut self, idx: usize) -> Result<String> {
-        use std::slice::{from_raw_parts, from_raw_parts_mut};
-        unsafe {
-            use std::num::Wrapping;
-            let mut padding = [0u8; 32];
-            let mut read: u32 = 0;
-            let mut written: u32 = 0;
-            let end = self.peek_idx()?;
-            #[cfg(test)]
-            {
-                dbg!(idx);
-                dbg!(end);
-            }
-            let sub = if end == 0 {
-                &mut self.input[idx..]
-            } else {
-                &mut self.input[idx..end]
-            };
-            let mut dst: &mut [u8] = from_raw_parts_mut(sub.as_mut_ptr(), sub.len());
-            let mut src: &[u8] = from_raw_parts(sub.as_mut_ptr(), sub.len());
-            let res = from_raw_parts(sub.as_mut_ptr(), sub.len());
-            loop {
-                #[cfg(test)]
-                {
-                    dbg!(written);
-                    dbg!(String::from_utf8_unchecked(self.input.to_vec()));
-                    dbg!(String::from_utf8_unchecked(src.to_vec()));
-                    dbg!(String::from_utf8_unchecked(
-                        res[..written as usize].to_vec()
-                    ));
-                }
-                let v: __m256i = if src.len() >= 32 {
-                    _mm256_loadu_si256(src[..32].as_ptr() as *const __m256i)
-                } else {
-                    padding[..src.len()].clone_from_slice(&src);
-                    _mm256_loadu_si256(padding[..32].as_ptr() as *const __m256i)
-                };
+        use std::num::Wrapping;
+        let mut padding = [0u8; 32];
+        let mut read: u32 = 0;
+        let mut written: u32 = 0;
+        #[cfg(test1)]
+        {
+            dbg!(idx);
+            dbg!(end);
+        }
+        // we include the terminal '"' so we know where to end
 
-                // store to dest unconditionally - we can overwrite the bits we don't like
-                // later
-                let bs_bits: u32 = static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
+        // This is safe since we check sub's lenght in the range access above and only
+        // create sub sliced form sub to `sub.len()`.
+        let mut dst: &mut [u8] = &mut self.strings[self.sidx..];
+        let mut src: &[u8] = &self.input[idx..];
+        loop {
+            #[cfg(test)]
+            unsafe {
+                println!("=== begin loop ===");
+                dbg!(written);
+                dbg!(String::from_utf8_unchecked(self.input.to_vec()));
+                dbg!(String::from_utf8_unchecked(src.to_vec()));
+//                dbg!(String::from_utf8_unchecked(
+//                    &self.strings[self.sidx..written as usize].to_vec()
+//                ));
+            }
+            let v: __m256i = if src.len() >= 32 {
+                // This is safe since we ensure src is at least 32 wide
+                unsafe { _mm256_loadu_si256(src[..32].as_ptr() as *const __m256i) }
+            } else {
+                padding[..src.len()].clone_from_slice(&src);
+                // This is safe since we ensure src is at least 32 wide
+                unsafe { _mm256_loadu_si256(padding[..32].as_ptr() as *const __m256i) }
+            };
+
+            if src.len() >= 32 {
+                // This is safe since we ensure src is at least 32 wide
+                unsafe { _mm256_storeu_si256(dst[..32].as_mut_ptr() as *mut __m256i, v) };
+            } else {
+                dst[..src.len()].clone_from_slice(src);
+            }
+            #[cfg(test)]
+            unsafe {
+                dbg!(&src);
+                dbg!(&dst);
+            }
+
+
+            // store to dest unconditionally - we can overwrite the bits we don't like
+            // later
+            let bs_bits: u32 = unsafe {
+                static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                     v,
                     _mm256_set1_epi8(b'\\' as i8)
-                )));
-                let quote_mask = _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8));
-                let quote_bits = static_cast_u32!(_mm256_movemask_epi8(quote_mask));
-                if ((Wrapping(bs_bits) - Wrapping(1)).0 & quote_bits) != 0 {
-                    // we encountered quotes first. Move dst to point to quotes and exit
-                    // find out where the quote is...
-                    let quote_dist: u32 = trailingzeroes(quote_bits as u64) as u32;
+                )))
+            };
+            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
+            let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
+            if ((Wrapping(bs_bits) - Wrapping(1)).0 & quote_bits) != 0 {
+                // we encountered quotes first. Move dst to point to quotes and exit
+                // find out where the quote is...
+                let quote_dist: u32 = trailingzeroes(quote_bits as u64) as u32;
 
-                    ///////////////////////
-                    // Above, check for overflow in case someone has a crazy string (>=4GB?)
-                    // But only add the overflow check when the document itself exceeds 4GB
-                    // Currently unneeded because we refuse to parse docs larger or equal to 4GB.
-                    ////////////////////////
+                ///////////////////////
+                // Above, check for overflow in case someone has a crazy string (>=4GB?)
+                // But only add the overflow check when the document itself exceeds 4GB
+                // Currently unneeded because we refuse to parse docs larger or equal to 4GB.
+                ////////////////////////
 
-                    // we advance the point, accounting for the fact that we have a NULl termination
-                    //pj.current_string_buf_loc = dst + quote_dist + 1;
+                // we advance the point, accounting for the fact that we have a NULl termination
+                //pj.current_string_buf_loc = dst + quote_dist + 1;
 
-                    if read != written {
-                        #[cfg(test)]
-                        unsafe {
-                            dbg!(String::from_utf8_unchecked(res.to_vec()));
-                            dbg!(String::from_utf8_unchecked(dst.to_vec()));
-                            dbg!(read);
-                            dbg!(written);
-                            dbg!(quote_dist);
-                        }
-                        dst[..quote_dist as usize].clone_from_slice(&src[..quote_dist as usize]);
-                        #[cfg(test)]
-                        unsafe {
-                            dbg!(String::from_utf8_unchecked(dst.to_vec()));
-                        }
+                if read != written {
+                    #[cfg(test1)]
+                    unsafe {
+                        dbg!(String::from_utf8_unchecked(res.to_vec()));
+                        dbg!(String::from_utf8_unchecked(dst.to_vec()));
+                        dbg!(read);
+                        dbg!(written);
+                        dbg!(quote_dist);
                     }
-                    written += quote_dist;
-                    let s = String::from_utf8_lossy(&res[..written as usize]).to_string();
-                    return Ok(s);
+                    dst[..quote_dist as usize].clone_from_slice(&src[..quote_dist as usize]);
+                    #[cfg(test1)]
+                    unsafe {
+                        dbg!(String::from_utf8_unchecked(dst.to_vec()));
+                    }
+                }
+                written += quote_dist;
+                let s = String::from_utf8_lossy(&self.strings[self.sidx..self.sidx + written as usize]).to_string();
+                self.sidx += written as usize;
+                return Ok(s);
                 /*
                 return Ok(str::from_utf8_unchecked(s));
                      */
                 // we compare the pointers since we care if they are 'at the same spot'
                 // not if they are the same value
-                } else if read != written {
-                    if src.len() >= 32 {
-                        _mm256_storeu_si256(dst.as_mut_ptr() as *mut __m256i, v);
-                    } else {
-                        dst[..src.len()].clone_from_slice(src);
-                    }
+            }
+            if ((Wrapping(quote_bits) - Wrapping(1)).0 & bs_bits) != 0 {
+                // find out where the backspace is
+                let bs_dist: u32 = trailingzeroes(bs_bits as u64);
+                #[cfg(test1)]
+                unsafe {
+                    dbg!(String::from_utf8_unchecked(src.to_vec()));
+                    dbg!(bs_dist);
                 }
-                if ((Wrapping(quote_bits) - Wrapping(1)).0 & bs_bits) != 0 {
-                    // find out where the backspace is
-                    let bs_dist: u32 = trailingzeroes(bs_bits as u64);
-                    #[cfg(test)]
-                    {
-                        dbg!(String::from_utf8_unchecked(src.to_vec()));
-                        dbg!(bs_dist);
-                    }
-                    let escape_char: u8 = src[bs_dist as usize + 1];
-                    // we encountered backslash first. Handle backslash
-                    if escape_char == b'u' {
-                        // move src/dst up to the start; they will be further adjusted
-                        // within the unicode codepoint handling code.
-                        src = &src[bs_dist as usize..];
-                        read += bs_dist;
-                        dst = &mut dst[bs_dist as usize..];
-                        written += bs_dist;
-                        let o = handle_unicode_codepoint(&mut src, &mut dst);
-                        if o == 0 {
-                            return Err(Error::InvlaidUnicodeCodepoint);
-                        };
-                        // We moved o steps forword at the destiation and 6 on the source
-                        src = &src[6..];
-                        read += 6;
-                        dst = &mut dst[o..];
-                        written += o as u32;
-                    } else {
-                        // simple 1:1 conversion. Will eat bs_dist+2 characters in input and
-                        // write bs_dist+1 characters to output
-                        // note this may reach beyond the part of the buffer we've actually
-                        // seen. I think this is ok
-                        let escape_result: u8 = ESCAPE_MAP[escape_char as usize];
-                        if escape_result == 0 {
-                            /*
-                            #ifdef JSON_TEST_STRINGS // for unit testing
-                            foundBadString(buf + offset);
-                            #endif // JSON_TEST_STRINGS
-                            */
-                            return Err(Error::InvalidEscape(escape_char as char));
-                        }
-                        dst[bs_dist as usize] = escape_result;
-                        src = &src[bs_dist as usize + 2..];
-                        read += bs_dist + 2;
-                        dst = &mut dst[bs_dist as usize + 1..];
-                        written += bs_dist + 1;
-                    }
+                let escape_char: u8 = src[bs_dist as usize + 1];
+                // we encountered backslash first. Handle backslash
+                if escape_char == b'u' {
+                    // move src/dst up to the start; they will be further adjusted
+                    // within the unicode codepoint handling code.
+                    src = &src[bs_dist as usize..];
+                    read += bs_dist;
+                    dst = &mut dst[bs_dist as usize..];
+                    written += bs_dist;
+                    let (o, s) = 
+                        handle_unicode_codepoint(
+                            src, dst
+                            );
+                    if o == 0 {
+                        return Err(Error::InvlaidUnicodeCodepoint);
+                    };
+                    // We moved o steps forword at the destiation and 6 on the source
+                    src = &src[s..];
+                    read += s as u32 ;
+                    dst = &mut dst[o..];
+                    written += o as u32;
                 } else {
-                    // they are the same. Since they can't co-occur, it means we encountered
-                    // neither.
-                    src = &src[32..];
-                    read += 32;
-                    dst = &mut dst[32..];
-                    written += 32;
+                    // simple 1:1 conversion. Will eat bs_dist+2 characters in input and
+                    // write bs_dist+1 characters to output
+                    // note this may reach beyond the part of the buffer we've actually
+                    // seen. I think this is ok
+                    let escape_result: u8 = ESCAPE_MAP[escape_char as usize];
+                    if escape_result == 0 {
+                        /*
+                        #ifdef JSON_TEST_STRINGS // for unit testing
+                        foundBadString(buf + offset);
+                        #endif // JSON_TEST_STRINGS
+                        */
+                        return Err(Error::InvalidEscape(escape_char as char));
+                    }
+                    dst[bs_dist as usize] = escape_result;
+                    src = &src[bs_dist as usize + 2..];
+                    read += bs_dist + 2;
+                    dst = &mut dst[bs_dist as usize + 1..];
+                    written += bs_dist + 1;
                 }
+            } else {
+                // they are the same. Since they can't co-occur, it means we encountered
+                // neither.
+                src = &src[32..];
+                read += 32;
+                dst = &mut dst[32..];
+                written += 32;
             }
         }
     }
@@ -321,7 +353,7 @@ pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = Deserializer::from_slice(s);
+    let mut deserializer = Deserializer::from_slice(s)?;
 
     T::deserialize(&mut deserializer)
 }
@@ -441,12 +473,12 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 }
             }
             (b'"', idx) => {
-                #[cfg(test)]
+                #[cfg(test1)]
                 unsafe {
                     dbg!(String::from_utf8_unchecked(self.input.to_vec()));
                 }
                 let r = visitor.visit_string(self.parse_string(idx + 1)?);
-                #[cfg(test)]
+                #[cfg(test1)]
                 unsafe {
                     dbg!(String::from_utf8_unchecked(self.input.to_vec()));
                 }
@@ -686,6 +718,7 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
     }
+
     #[test]
     fn null_null() {
         let mut d = String::from(r#"[null, null]"#);
@@ -699,6 +732,30 @@ mod tests {
     fn odd_array2() {
         let mut d = String::from("[[\"\\u0000\\\"\"]]");
         let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn odd_array3() {
+        let mut d = String::from("[{\"\\u0000\\u0000\":null}]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn odd_array4() {
+        let mut d = String::from("[{\"\\u0000𐀀a\":null}]");
+        let mut d = unsafe { d.as_bytes_mut() };
+/*        unsafe {
+            use std::slice::{from_raw_parts, from_raw_parts_mut};
+
+            dbg!(from_raw_parts_mut(d.as_mut_ptr().add(1), d.len()));
+            };*/
+        //assert!(false);
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
@@ -739,7 +796,7 @@ mod tests {
         fn json_test(d in arb_json()) {
             if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
                 let mut d = d.clone();
-                let mut d = unsafe{ d.as_bytes_mut()};
+                let d = unsafe{ d.as_bytes_mut()};
                 let v_simd: serde_json::Value = from_slice(d).expect("");
                 assert_eq!(v_simd, v_serde)
             }

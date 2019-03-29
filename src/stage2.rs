@@ -65,24 +65,25 @@ mod test {
     use super::*;
     #[test]
     fn true_atom() {
-        unsafe { assert!(is_valid_true_atom(b"true    ")) }
-        unsafe { assert!(!is_valid_true_atom(b"tru     ")) }
-        unsafe { assert!(!is_valid_true_atom(b" rue    ")) }
+        assert!(is_valid_true_atom(b"true    "));
+        assert!(!is_valid_true_atom(b"tru     "));
+        assert!(!is_valid_true_atom(b" rue    "));
     }
     #[test]
     fn false_atom() {
-        unsafe { assert!(is_valid_false_atom(b"false   ")) }
-        unsafe { assert!(!is_valid_false_atom(b"falze   ")) }
-        unsafe { assert!(!is_valid_false_atom(b"falsy   ")) }
-        unsafe { assert!(!is_valid_false_atom(b"fals    ")) }
-        unsafe { assert!(!is_valid_false_atom(b" alse   ")) }
+        assert!(is_valid_false_atom(b"false   "));
+        assert!(!is_valid_false_atom(b"falze   "));
+        assert!(!is_valid_false_atom(b"falsy   "));
+        assert!(!is_valid_false_atom(b"fals    "));
+        assert!(!is_valid_false_atom(b" alse   "));
+
         //unsafe { assert!(!is_valid_false_atom(b"fals    " as *const u8)) }
         //        unsafe { assert!(!is_valid_false_atom(b"false   " as *const u8)) }
     }
     #[test]
     fn null_atom() {
-        unsafe { assert!(is_valid_null_atom(b"null    ")) }
-        unsafe { assert!(!is_valid_null_atom(b"nul     ")) }
-        unsafe { assert!(!is_valid_null_atom(b" ull    ")) }
+        assert!(is_valid_null_atom(b"null    "));
+        assert!(!is_valid_null_atom(b"nul     "));
+        assert!(!is_valid_null_atom(b" ull    "));
     }
 }

@@ -157,77 +157,76 @@ unsafe fn parse_eight_digits_unrolled(chars: *const u8) -> i32 {
 //
 
 #[inline(never)]
-pub unsafe fn parse_float(buf: &[u8], found_minus: bool) -> Result<Number, Error> {
-    let mut p: *const u8 = buf.as_ptr();
+pub fn parse_float(mut p: &[u8], found_minus: bool) -> Result<Number, Error> {
     let mut negative: bool = false;
     if found_minus {
-        p = p.add(1);
+        p = &p[1..];
         negative = true;
     }
     let mut i: f64;
-    if *p == b'0' {
+    if p[0] == b'0' {
         // 0 cannot be followed by an integer
-        p = p.add(1);
+        p = &p[1..];
         i = 0.0;
     } else {
-        let mut digit: u8 = *p - b'0';
+        let mut digit: u8 = p[0] - b'0';
         i = digit as f64;
-        p = p.add(1);
-        while is_integer(*p) {
-            digit = *p - b'0';
+        p = &p[1..];
+        while is_integer(p[0]) {
+            digit = p[0] - b'0';
             i = 10.0 * i + digit as f64;
-            p = p.add(1);
+            p = &p[1..];
         }
     }
-    if b'.' == *p {
-        p = p.add(1);
+    if p[0] == b'.' {
+        p = &p[1..];
         let mut fractionalweight: f64 = 1.0;
-        if is_integer(*p) {
-            let digit: u8 = *p - b'0';
-            p = p.add(1);
+        if is_integer(p[0]) {
+            let digit: u8 = p[0] - b'0';
+            p = &p[1..];
             fractionalweight *= 0.1;
             i = i + digit as f64 * fractionalweight;
         } else {
             return Err(Error::Parser);
         }
-        while is_integer(*p) {
-            let digit: u8 = *p - b'0';
-            p = p.add(1);
+        while is_integer(p[0]) {
+            let digit: u8 = p[0] - b'0';
+            p = &p[1..];
             fractionalweight *= 0.1;
             i = i + digit as f64 * fractionalweight;
         }
     }
-    if (b'e' == *p) || (b'E' == *p) {
-        p = p.add(1);
+    if (p[0] == b'e') || (p[0] == b'E') {
+        p = &p[1..];
         let mut negexp: bool = false;
-        if b'-' == *p {
+        if p[0] == b'-' {
             negexp = true;
-            p = p.add(1);
-        } else if b'+' == *p {
-            p = p.add(1);
+            p = &p[1..];
+        } else if p[0] == b'+' {
+            p = &p[1..];
         }
-        if !is_integer(*p) {
+        if !is_integer(p[0]) {
             return Err(Error::Parser);
         }
-        let mut digit: u8 = *p - b'0';
+        let mut digit: u8 = p[0] - b'0';
         let mut expnumber: i64 = digit as i64; // exponential part
-        p = p.add(1);
-        if is_integer(*p) {
-            digit = *p - b'0';
+        p = &p[1..];
+        if is_integer(p[0]) {
+            digit = p[0] - b'0';
             expnumber = 10 * expnumber + digit as i64;
-            p = p.add(1);
+            p = &p[1..];
         }
-        if is_integer(*p) {
-            digit = *p - b'0';
+        if is_integer(p[0]) {
+            digit = p[0] - b'0';
             expnumber = 10 * expnumber + digit as i64;
-            p = p.add(1);
+            p = &p[1..];
         }
-        if is_integer(*p) {
-            digit = *p - b'0';
+        if is_integer(p[0]) {
+            digit = p[0] - b'0';
             expnumber = 10 * expnumber + digit as i64;
-            p = p.add(1);
+            p = &p[1..];
         }
-        if is_integer(*p) {
+        if is_integer(p[0]) {
             // we refuse to parse this
             return Err(Error::Parser);
         }
@@ -242,11 +241,11 @@ pub unsafe fn parse_float(buf: &[u8], found_minus: bool) -> Result<Number, Error
         }
         i *= POWER_OF_TEN[(308 + exponent) as usize];
     }
-    if is_not_structural_or_whitespace(*p) != 0 {
+    if is_not_structural_or_whitespace(p[0]) != 0 {
         return Err(Error::Parser);
     }
 
-    if is_structural_or_whitespace(*p) != 0 {
+    if is_structural_or_whitespace(p[0]) != 0 {
         Ok(Number::F64(if negative { -i } else { i }))
     } else {
         Err(Error::Parser)

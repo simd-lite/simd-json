@@ -48,7 +48,7 @@ const DIGITTOVAL: [i8; 256] = [
 // otherwise returns the conversion of the 4 hex digits at src into the bottom 16 bits of the 32-bit
 // return register
 #[inline]
-pub unsafe fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
+pub fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
     // strictly speaking, static inline is a C-ism
     // all these will sign-extend the chars looked up, placing 1-bits into the high 28 bits of every
     // invalid value. After the shifts, this will *still* result in the outcome that the high 16 bits of any
@@ -73,7 +73,7 @@ pub unsafe fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
 // Note: we assume that surrogates are treated separately
 //
 #[inline]
-pub unsafe fn codepoint_to_utf8(cp: u32, c: &mut [u8]) -> usize {
+pub fn codepoint_to_utf8(cp: u32, c: &mut [u8]) -> usize {
     if cp <= 0x7F {
         c[0] = cp as u8;
         return 1; // ascii
