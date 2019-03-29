@@ -20,6 +20,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 use std::mem;
+use std::ops::{AddAssign, MulAssign, Neg};
 use std::str;
 
 //TODO: Do compile hints like this exist in rust?
@@ -65,6 +66,18 @@ macro_rules! static_cast_u64 {
     };
 }
 
+// FROM serde-json
+// We only use our own error type; no need for From conversions provided by the
+// standard library's try! macro. This reduces lines of LLVM IR by 4%.
+macro_rules! stry {
+    ($e:expr) => {
+        match $e {
+            ::std::result::Result::Ok(val) => val,
+            ::std::result::Result::Err(err) => return ::std::result::Result::Err(err),
+        }
+    };
+}
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
@@ -84,8 +97,11 @@ pub enum Error {
     ExpectedArray,
     ExpectedArrayComma(char),
     ExpectedBoolean,
+    ExpectedString,
+    ExpectedUnsigned,
     ExpectedEnum,
     ExpectedInteger,
+    ExpectedNumber,
     ExpectedMap,
     ExpectedMapColon,
     ExpectedMapComma,
@@ -101,7 +117,7 @@ pub enum Error {
     Serde(String),
     Syntax,
     TrailingCharacters,
-    UnexpectedCharacter(char, usize),
+    UnexpectedCharacter(char),
     UnexpectedEnd,
     UnterminatedString,
 }
@@ -138,11 +154,13 @@ impl<'de> Deserializer<'de> {
         let mut pj = ParsedJson::from_slice();
         let len = input.len();
         unsafe {
-            find_structural_bits(input, len as u32, &mut pj)?;
+            stry!(find_structural_bits(input, len as u32, &mut pj));
             //unified_machine(input, input.len(), &mut pj);
         };
         let mut v = Vec::with_capacity(len + SIMDJSON_PADDING);
-        unsafe {v.set_len(len + SIMDJSON_PADDING);}
+        unsafe {
+            v.set_len(len + SIMDJSON_PADDING);
+        }
         Ok(Deserializer {
             input,
             pj,
@@ -180,6 +198,9 @@ impl<'de> Deserializer<'de> {
             Err(Error::UnexpectedEnd)
         }
     }
+    fn at(&self, idx: usize) -> Option<&u8> {
+        self.input.get(idx)
+    }
     fn peek_idx(&self) -> Result<usize> {
         if let Some(idx) = self.pj.structural_indexes.get(self.idx) {
             Ok(*idx as usize)
@@ -188,10 +209,14 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    
-    #[inline(always)]
-    pub fn parse_string(&mut self, idx: usize) -> Result<String> {
+    //#[inline(always)]
+    pub fn parse_str(&mut self) -> Result<&'de str> {
         use std::num::Wrapping;
+        let (c, mut idx) = stry!(self.next());
+        if c != b'"' {
+            return Err(Error::ExpectedString);
+        }
+        idx += 1;
         let mut padding = [0u8; 32];
         let mut read: u32 = 0;
         let mut written: u32 = 0;
@@ -213,9 +238,9 @@ impl<'de> Deserializer<'de> {
                 dbg!(written);
                 dbg!(String::from_utf8_unchecked(self.input.to_vec()));
                 dbg!(String::from_utf8_unchecked(src.to_vec()));
-//                dbg!(String::from_utf8_unchecked(
-//                    &self.strings[self.sidx..written as usize].to_vec()
-//                ));
+                //                dbg!(String::from_utf8_unchecked(
+                //                    &self.strings[self.sidx..written as usize].to_vec()
+                //                ));
             }
             let v: __m256i = if src.len() >= 32 {
                 // This is safe since we ensure src is at least 32 wide
@@ -237,7 +262,6 @@ impl<'de> Deserializer<'de> {
                 dbg!(&src);
                 dbg!(&dst);
             }
-
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
@@ -279,9 +303,16 @@ impl<'de> Deserializer<'de> {
                     }
                 }
                 written += quote_dist;
-                let s = String::from_utf8_lossy(&self.strings[self.sidx..self.sidx + written as usize]).to_string();
+                //let s = String::from_utf8_lossy(&self.strings[self.sidx..self.sidx + written as usize]).to_string();
                 self.sidx += written as usize;
-                return Ok(s);
+                unsafe {
+                    let v = &self.strings[self.sidx - written as usize..self.sidx] as *const [u8]
+                        as *const str;
+                    return Ok(&*v);
+                    // return Ok(mem::transmute::<&[u8], &str>(
+                    //     &self.strings[self.sidx - written as usize..self.sidx],
+                    // ));
+                }
                 /*
                 return Ok(str::from_utf8_unchecked(s));
                      */
@@ -305,16 +336,13 @@ impl<'de> Deserializer<'de> {
                     read += bs_dist;
                     dst = &mut dst[bs_dist as usize..];
                     written += bs_dist;
-                    let (o, s) = 
-                        handle_unicode_codepoint(
-                            src, dst
-                            );
+                    let (o, s) = handle_unicode_codepoint(src, dst);
                     if o == 0 {
                         return Err(Error::InvlaidUnicodeCodepoint);
                     };
                     // We moved o steps forword at the destiation and 6 on the source
                     src = &src[s..];
-                    read += s as u32 ;
+                    read += s as u32;
                     dst = &mut dst[o..];
                     written += o as u32;
                 } else {
@@ -347,28 +375,9 @@ impl<'de> Deserializer<'de> {
             }
         }
     }
-}
 
-pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
-where
-    T: Deserialize<'a>,
-{
-    let mut deserializer = Deserializer::from_slice(s)?;
-
-    T::deserialize(&mut deserializer)
-}
-
-impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
-    type Error = Error;
-
-    // Look at the input data to decide what Serde data model type to
-    // deserialize as. Not all data formats are able to support this operation.
-    // Formats that support `deserialize_any` are known as self-describing.
-    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        match self.next()? {
+    fn parse_null(&mut self) -> Result<()> {
+        match stry!(self.next()) {
             (b'n', idx) => {
                 let input = &self.input[idx..];
                 let len = input.len();
@@ -378,18 +387,24 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                         copy.as_mut_ptr().copy_from(input.as_ptr(), len);
                     };
                     if is_valid_null_atom(&copy) {
-                        visitor.visit_unit()
+                        Ok(())
                     } else {
                         Err(Error::ExpectedNull)
                     }
                 } else {
                     if is_valid_null_atom(input) {
-                        visitor.visit_unit()
+                        Ok(())
                     } else {
                         Err(Error::ExpectedNull)
                     }
                 }
             }
+            _ => Err(Error::ExpectedNull),
+        }
+    }
+
+    fn parse_bool(&mut self) -> Result<bool> {
+        match stry!(self.next()) {
             (b't', idx) => {
                 let input = &self.input[idx..];
                 let len = input.len();
@@ -399,13 +414,13 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                         copy.as_mut_ptr().copy_from(input.as_ptr(), len);
                     };
                     if is_valid_true_atom(&copy) {
-                        visitor.visit_bool(true)
+                        Ok(true)
                     } else {
                         Err(Error::ExpectedBoolean)
                     }
                 } else {
                     if is_valid_true_atom(input) {
-                        visitor.visit_bool(true)
+                        Ok(true)
                     } else {
                         Err(Error::ExpectedBoolean)
                     }
@@ -420,18 +435,27 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                         copy.as_mut_ptr().copy_from(input.as_ptr(), len);
                     };
                     if is_valid_false_atom(&copy) {
-                        visitor.visit_bool(false)
+                        Ok(false)
                     } else {
                         Err(Error::ExpectedBoolean)
                     }
                 } else {
                     if is_valid_false_atom(input) {
-                        visitor.visit_bool(false)
+                        Ok(false)
                     } else {
                         Err(Error::ExpectedBoolean)
                     }
                 }
             }
+            _ => Err(Error::ExpectedBoolean),
+        }
+    }
+
+    fn parse_unsigned<T>(&mut self) -> Result<T>
+    where
+        T: AddAssign<T> + MulAssign<T> + From<u64>,
+    {
+        match stry!(self.next()) {
             (b'0'...b'9', idx) => {
                 let input = &self.input[idx..];
                 let len = input.len();
@@ -440,17 +464,46 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                     unsafe {
                         copy.as_mut_ptr().copy_from(input.as_ptr(), len);
                     };
-                    match parse_number(&copy, false) {
-                        Ok(Number::F64(n)) => visitor.visit_f64(n),
-                        Ok(Number::I64(n)) => visitor.visit_i64(n),
-                        _ => Err(Error::ExpectedInteger),
+                    if let Number::I64(n) = stry!(parse_number(&copy, false)) {
+                        Ok(T::from(n as u64))
+                    } else {
+                        Err(Error::ExpectedUnsigned)
                     }
                 } else {
-                    match parse_number(input, false) {
-                        Ok(Number::F64(n)) => visitor.visit_f64(n),
-                        Ok(Number::I64(n)) => visitor.visit_i64(n),
-                        _ => Err(Error::ExpectedInteger),
+                    if let Number::I64(n) = stry!(parse_number(input, false)) {
+                        Ok(T::from(n as u64))
+                    } else {
+                        Err(Error::ExpectedUnsigned)
                     }
+                }
+            }
+            _ => Err(Error::ExpectedUnsigned),
+        }
+    }
+
+    fn parse_signed<T>(&mut self) -> Result<T>
+    where
+        T: Neg<Output = T> + AddAssign<T> + MulAssign<T> + From<i64>,
+    {
+        match stry!(self.parse_number()) {
+            Number::I64(i) => Ok(T::from(i)),
+            _ => Err(Error::ExpectedUnsigned),
+        }
+    }
+
+    fn parse_number(&mut self) -> Result<Number> {
+        match stry!(self.next()) {
+            (b'0'...b'9', idx) => {
+                let input = &self.input[idx..];
+                let len = input.len();
+                if len < SIMDJSON_PADDING {
+                    let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+                    unsafe {
+                        copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+                    };
+                    parse_number(&copy, false)
+                } else {
+                    parse_number(input, false)
                 }
             }
             (b'-', idx) => {
@@ -461,37 +514,190 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                     unsafe {
                         copy.as_mut_ptr().copy_from(input.as_ptr(), len);
                     };
-                    match parse_number(&copy, true)? {
-                        Number::F64(n) => visitor.visit_f64(n),
-                        Number::I64(n) => visitor.visit_i64(n),
-                    }
+                    parse_number(&copy, true)
                 } else {
-                    match parse_number(input, true)? {
-                        Number::F64(n) => visitor.visit_f64(n),
-                        Number::I64(n) => visitor.visit_i64(n),
-                    }
+                    parse_number(input, true)
                 }
             }
-            (b'"', idx) => {
-                #[cfg(test1)]
-                unsafe {
-                    dbg!(String::from_utf8_unchecked(self.input.to_vec()));
-                }
-                let r = visitor.visit_string(self.parse_string(idx + 1)?);
-                #[cfg(test1)]
-                unsafe {
-                    dbg!(String::from_utf8_unchecked(self.input.to_vec()));
-                }
-                r
-            }
-            (b'[', _idx) => visitor.visit_seq(CommaSeparated::new(&mut self)),
-            (b'{', _idx) => visitor.visit_map(CommaSeparated::new(&mut self)),
-            (c, idx) => Err(Error::UnexpectedCharacter(c as char, idx)),
+            _ => Err(Error::ExpectedNumber),
         }
     }
+}
+
+pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
+where
+    T: Deserialize<'a>,
+{
+    let mut deserializer = stry!(Deserializer::from_slice(s));
+
+    T::deserialize(&mut deserializer)
+}
+
+impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
+    type Error = Error;
+
+    // Look at the input data to decide what Serde data model type to
+    // deserialize as. Not all data formats are able to support this operation.
+    // Formats that support `deserialize_any` are known as self-describing.
+    //#[inline]
+    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        match stry!(self.peek()) {
+            b'n' => self.deserialize_unit(visitor),
+            b't' | b'f' => self.deserialize_bool(visitor),
+            b'0'...b'9' | b'-' => match stry!(self.parse_number()) {
+                Number::F64(n) => visitor.visit_f64(n),
+                Number::I64(n) => visitor.visit_i64(n),
+            },
+            b'"' => self.deserialize_str(visitor),
+            b'[' => self.deserialize_seq(visitor),
+            b'{' => visitor.visit_map(CommaSeparated::new(&mut self)),
+            c => Err(Error::UnexpectedCharacter(c as char)),
+        }
+    }
+
+    // Refer to the "Understanding deserializer lifetimes" page for information
+    // about the three deserialization flavors of strings in Serde.
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_borrowed_str(stry!(self.parse_str()))
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_str(visitor)
+    }
+
+    // The `parse_signed` function is generic over the integer type `T` so here
+    // it is invoked with `T=i8`. The next 8 methods are similar.
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        let v: i64 = stry!(self.parse_signed());
+        visitor.visit_i8(v as i8)
+    }
+
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        let v: i64 = stry!(self.parse_signed());
+        visitor.visit_i16(v as i16)
+    }
+
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        let v: i64 = stry!(self.parse_signed());
+        visitor.visit_i32(v as i32)
+    }
+
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_i64(stry!(self.parse_signed()))
+    }
+
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        let v: u64 = stry!(self.parse_unsigned());
+        visitor.visit_u8(v as u8)
+    }
+
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        let v: u64 = stry!(self.parse_unsigned());
+        visitor.visit_u16(v as u16)
+    }
+
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        let v: u64 = stry!(self.parse_unsigned());
+        visitor.visit_u32(v as u32)
+    }
+
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u64(stry!(self.parse_unsigned()))
+    }
+
+    // An absent optional is represented as the JSON `null` and a present
+    // optional is represented as just the contained value.
+    //
+    // As commented in `Serializer` implementation, this is a lossy
+    // representation. For example the values `Some(())` and `None` both
+    // serialize as just `null`. Unfortunately this is typically what people
+    // expect when working with JSON. Other formats are encouraged to behave
+    // more intelligently if possible.
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        if stry!(self.peek()) == b'n' {
+            stry!(self.parse_null());
+            visitor.visit_unit()
+        } else {
+            visitor.visit_some(self)
+        }
+    }
+
+    // In Serde, unit means an anonymous value containing no data.
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        stry!(self.parse_null());
+        visitor.visit_unit()
+    }
+
+    // Deserialization of compound types like sequences and maps happens by
+    // passing the visitor an "Access" object that gives it the ability to
+    // iterate through the data contained in the sequence.
+    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        // Parse the opening bracket of the sequence.
+        if stry!(self.peek()) == b'[' {
+            // Give the visitor access to each element of the sequence.
+            visitor.visit_seq(CommaSeparated::new(&mut self))
+        } else {
+            Err(Error::ExpectedArray)
+        }
+    }
+    // Tuples look just like sequences in JSON. Some formats may be able to
+    // represent tuples more efficiently.
+    //
+    // As indicated by the length parameter, the `Deserialize` implementation
+    // for a tuple in the Serde data model is required to know the length of the
+    // tuple before even looking at the input data.
+    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_seq(visitor)
+    }
+
     forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-            bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        bool i128 u128 f32 f64 char
+            bytes byte_buf  unit_struct newtype_struct
             tuple_struct map struct enum identifier ignored_any
     }
 }
@@ -506,6 +712,7 @@ struct CommaSeparated<'a, 'de: 'a> {
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     fn new(de: &'a mut Deserializer<'de>) -> Self {
+        let _ = de.next();
         CommaSeparated { de, first: true }
     }
 }
@@ -520,20 +727,49 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
         T: DeserializeSeed<'de>,
     {
         // Check if there are no more elements.
-        if self.de.peek()? == b']' {
-            self.de.next()?;
-            return Ok(None);
-        }
-        // Comma is required before every element except the first.
-        if !self.first {
-            let c = self.de.next_char()?;
-            if c != b',' {
-                return Err(Error::ExpectedArrayComma(self.de.next_char()? as char));
+        if stry!(self.de.peek()) == b']' {
+            let _ = self.de.next();
+            Ok(None)
+        } else {
+            // Comma is required before every element except the first.
+            if !self.first {
+                let c = stry!(self.de.next_char());
+                if c != b',' {
+                    return Err(Error::ExpectedArrayComma(c as char));
+                }
             }
+            self.first = false;
+            // Deserialize an array element.
+            seed.deserialize(&mut *self.de).map(Some)
         }
-        self.first = false;
-        // Deserialize an array element.
-        seed.deserialize(&mut *self.de).map(Some)
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        let mut depth = 0;
+        let mut count = 0;
+        let mut i = self.de.idx;
+        loop {
+            match self.de.at(i) {
+                Some(b'[') if depth == 0 => {
+                    depth += 1;
+                    count += 1;
+                }
+                Some(b'[') => depth += 1,
+                Some(b']') if depth == 0 => break,
+                Some(b']') => depth -= 1,
+                Some(b'{') if depth == 0 => {
+                    depth += 1;
+                    count += 1;
+                }
+                Some(b'{') => depth += 1,
+                Some(b'}') => depth -= 1,
+                None => break,
+                _ if depth == 0 => count += 1,
+                _ => (),
+            }
+            i += 1
+        }
+        Some(count)
     }
 }
 
@@ -547,12 +783,12 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         K: DeserializeSeed<'de>,
     {
         // Check if there are no more entries.
-        if self.de.peek()? == b'}' {
-            self.de.next()?;
+        if stry!(self.de.peek()) == b'}' {
+            let _ = self.de.next();
             return Ok(None);
         }
         // Comma is required before every entry except the first.
-        if !self.first && self.de.next_char()? != b',' {
+        if !self.first && stry!(self.de.next_char()) != b',' {
             return Err(Error::ExpectedMapComma);
         }
         self.first = false;
@@ -567,12 +803,39 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         // It doesn't make a difference whether the colon is parsed at the end
         // of `next_key_seed` or at the beginning of `next_value_seed`. In this
         // case the code is a bit simpler having it here.
-        let c = self.de.next_char()?;
+        let c = stry!(self.de.next_char());
         if c != b':' {
             return Err(Error::ExpectedMapColon);
         }
         // Deserialize a map value.
         seed.deserialize(&mut *self.de)
+    }
+    fn size_hint(&self) -> Option<usize> {
+        let mut depth = 0;
+        let mut count = 0;
+        let mut i = self.de.idx;
+        loop {
+            match self.de.at(i) {
+                Some(b'[') if depth == 0 => {
+                    depth += 1;
+                    count += 1;
+                }
+                Some(b'[') => depth += 1,
+                Some(b']') => depth -= 1,
+                Some(b'{') if depth == 0 => {
+                    depth += 1;
+                    count += 1;
+                }
+                Some(b'{') => depth += 1,
+                Some(b'}') if depth == 0 => break,
+                Some(b'}') => depth -= 1,
+                None => break,
+                _ if depth == 0 => count += 1,
+                _ => (),
+            }
+            i += 1
+        }
+        Some(count)
     }
 }
 
@@ -581,6 +844,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
     use serde_json::{self, json, Value};
+    use serde::Deserialize;
 
     #[test]
     fn bool_true() {
@@ -750,15 +1014,40 @@ mod tests {
     fn odd_array4() {
         let mut d = String::from("[{\"\\u0000𐀀a\":null}]");
         let mut d = unsafe { d.as_bytes_mut() };
-/*        unsafe {
-            use std::slice::{from_raw_parts, from_raw_parts_mut};
+        /*        unsafe {
+        use std::slice::{from_raw_parts, from_raw_parts_mut};
 
-            dbg!(from_raw_parts_mut(d.as_mut_ptr().add(1), d.len()));
-            };*/
+        dbg!(from_raw_parts_mut(d.as_mut_ptr().add(1), d.len()));
+        };*/
         //assert!(false);
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde)
+    }
+
+    /*
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct Tpl {
+        k: (f64, f64),
+    }
+
+    #[test]
+    fn canada() {
+        let mut d = String::from("{\"k\":[-65.613616999999977,43.420273000000009]}");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Tpl = serde_json::from_slice(d).expect("");
+        let v_simd: Tpl = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde)
+    }
+     */
+    #[test]
+    fn vecvec() {
+        let mut d = String::from("[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]], [[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("");
+        let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("");
+//        assert_eq!(v_simd, v_serde)
     }
 
     fn arb_json() -> BoxedStrategy<String> {

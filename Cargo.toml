@@ -5,10 +5,10 @@ authors = ["Heinz N. Gies <heinz@licenser.net>"]
 edition = "2018"
 
 [dependencies]
-serde = "*"
+serde = "1"
 
 [dev-dependencies]
-serde_json = "*"
+serde_json = "1"
 proptest = "0.9.2"
 
 [features]

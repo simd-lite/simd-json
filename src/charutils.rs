@@ -20,12 +20,12 @@ const STRUCTURAL_OR_WHITESPACE: [u32; 256] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-#[inline(always)]
+//#[inline(always)]
 pub fn is_not_structural_or_whitespace(c: u8) -> u32 {
     return STRUCTURAL_OR_WHITESPACE_NEGATED[c as usize];
 }
 
-#[inline(always)]
+//#[inline(always)]
 pub fn is_structural_or_whitespace(c: u8) -> u32 {
     return STRUCTURAL_OR_WHITESPACE[c as usize];
 }
@@ -47,7 +47,7 @@ const DIGITTOVAL: [i8; 256] = [
 // returns a value with the high 16 bits set if not valid
 // otherwise returns the conversion of the 4 hex digits at src into the bottom 16 bits of the 32-bit
 // return register
-#[inline]
+//#[inline]
 pub fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
     // strictly speaking, static inline is a C-ism
     // all these will sign-extend the chars looked up, placing 1-bits into the high 28 bits of every
@@ -72,7 +72,7 @@ pub fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
 //
 // Note: we assume that surrogates are treated separately
 //
-#[inline]
+//#[inline]
 pub fn codepoint_to_utf8(cp: u32, c: &mut [u8]) -> usize {
     if cp <= 0x7F {
         c[0] = cp as u8;

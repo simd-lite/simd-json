@@ -25,7 +25,7 @@ struct SimdInput {
      }
  }
 
-#[inline(always)]
+//#[inline(always)]
 unsafe fn check_utf8(input: &SimdInput, has_error: &mut __m256i,
                      previous: &mut AvxProcessedUtfBytes) {
     let highbit: __m256i = _mm256_set1_epi8(static_cast_i8!(0x80u8));
@@ -46,7 +46,7 @@ unsafe fn check_utf8(input: &SimdInput, has_error: &mut __m256i,
 
 /// a straightforward comparison of a mask against input. 5 uops; would be
 /// cheaper in AVX512.
-#[inline(always)]
+//#[inline(always)]
 fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
     unsafe {
         let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.lo, mask);
@@ -59,7 +59,7 @@ fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
 }
 
 // find all values less than or equal than the content of maxval (using unsigned arithmetic)
-#[inline(always)]
+//#[inline(always)]
 fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
     unsafe {
         let cmp_res_0: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
@@ -80,7 +80,7 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
 // indicate whether we end an iteration on an odd-length sequence of
 // backslashes, which modifies our subsequent search for odd-length
 // sequences of backslashes in an obvious way.
-#[inline(always)]
+//#[inline(always)]
 fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
     use std::num::Wrapping;
     // TODO: const?
@@ -126,7 +126,7 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
 // Note that we don't do any error checking to see if we have backslash
 // sequences outside quotes; these
 // backslash sequences (of any length) will be detected elsewhere.
-#[inline(always)]
+//#[inline(always)]
 unsafe fn find_quote_mask_and_bits(
     input: &SimdInput,
     odd_ends: u64,
@@ -158,7 +158,7 @@ unsafe fn find_quote_mask_and_bits(
     return quote_mask;
 }
 
-#[inline(always)]
+//#[inline(always)]
 unsafe fn find_whitespace_and_structurals(
     input: &SimdInput,
     whitespace: &mut u64,
@@ -243,7 +243,7 @@ unsafe fn find_whitespace_and_structurals(
 // will potentially store extra values beyond end of valid bits, so base_ptr
 // needs to be large enough to handle this
 //TODO: usize was u32 here does this matter?
-#[inline(always)]
+//#[inline(always)]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     use std::num::Wrapping;
     let cnt: usize = hamming(bits) as usize;
@@ -277,7 +277,7 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
 // iteration ended on a whitespace or a structural character (which means that
 // the next iteration
 // will have a pseudo-structural character at its start)
-#[inline(always)]
+//#[inline(always)]
 fn finalize_structurals(
     mut structurals: u64,
     whitespace: u64,
@@ -434,7 +434,7 @@ pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) ->
 
     // a valid JSON file cannot have zero structural indexes - we should have
     // found something
-    if pj.n_structural_indexes == 0 {
+    if pj.structural_indexes.len() == 0 {
         return Err(Error::NoStructure);
     }
     if pj.structural_indexes.last() > Some(&len) {
@@ -443,7 +443,6 @@ pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) ->
 
     // make it safe to dereference one beyond this array
     pj.structural_indexes.push(0);
-    pj.n_structural_indexes = pj.structural_indexes.len();
     if error_mask != 0 {
         return Err(Error::Syntax);
 
