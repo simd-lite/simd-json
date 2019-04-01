@@ -118,7 +118,7 @@ pub enum Error {
     ExpectedNumber,
     ExpectedMap(usize, char),
     ExpectedMapColon(usize, char),
-    ExpectedMapComma,
+    ExpectedMapComma(usize, char),
     ExpectedMapEnd,
     ExpectedNull,
     InternalError,
@@ -175,7 +175,6 @@ impl<'de> Deserializer<'de> {
         unsafe {
             v.set_len(len + SIMDJSON_PADDING);
         }
-        dbg!(&pj);
         Ok(Deserializer {
             input,
             pj,
@@ -186,7 +185,6 @@ impl<'de> Deserializer<'de> {
     }
 
     fn skip(&mut self) {
-        dbg!(self.idx);
         self.idx += 1;
     }
 
@@ -240,7 +238,6 @@ impl<'de> Deserializer<'de> {
      */
 
     pub fn to_value(&mut self) -> Result<Value<'de>> {
-        dbg!(self.idx);
         match stry!(self.next()) {
             b'n' => {
                 stry!(self.parse_null_());
@@ -290,9 +287,6 @@ impl<'de> Deserializer<'de> {
 
     fn parse_array_(&mut self) -> Result<Vec<Value<'de>>> {
 
-        dbg!(self.idx);
-        dbg!(self.c() as char);
-
         // We short cut for empty arrays
         if stry!(self.peek()) == b']' {
             self.skip();
@@ -316,7 +310,6 @@ impl<'de> Deserializer<'de> {
                 b',' => self.skip(),
                 c => return Err(Error::ExpectedArrayComma(self.idx(), c as char)),
             }
-            dbg!();
             res.push(stry!(self.to_value()));
         }
         // We found a closing bracket and ended our loop, we skip it
@@ -671,7 +664,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        dbg!(stry!(self.peek()) as char);
         match stry!(self.next()) {
             b'n' => {
                 stry!(self.parse_null_());
@@ -853,7 +845,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        dbg!();
         let r = self.deserialize_seq(visitor);
         // tuples have a known length damn you serde ...
         self.skip();
@@ -879,7 +870,6 @@ struct CommaSeparated<'a, 'de: 'a> {
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     fn new(de: &'a mut Deserializer<'de>) -> Self {
-        println!("==[{}] Start array: {}", de.idx, de.input[de.pj.structural_indexes[de.idx] as usize] as char);
         CommaSeparated { first: true, idx: de.idx, de }
     }
 }
@@ -937,7 +927,6 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
 
         let peek = match stry!(self.de.peek()) {
             b']' => {
-                println!("===[{}] Ending array", self.idx);
                 self.de.skip();
                 return Ok(None);
             }
@@ -1000,19 +989,26 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     {
         // Check if there are no more entries.
         if stry!(self.de.peek()) == b'}' {
+            self.de.skip();
             return Ok(None)
         };
 
-        if self.first {
+        let r = if self.first {
             self.first = false;
             seed.deserialize(&mut *self.de).map(Some)
         } else {
-            match stry!(self.de.next()) {
-                b','  => (),
-                _c => return Err(Error::ExpectedMapComma),
+            let c = stry!(self.de.next());
+            if c != b',' {
+                return Err(Error::ExpectedMapComma(self.de.idx(), c as char));
             }
             seed.deserialize(&mut *self.de).map(Some)
+        };
+
+        let c = stry!(self.de.next());
+        if c != b':' {
+            return Err(Error::ExpectedMapColon(self.de.idx(), c as char));
         }
+        r
 
     }
 
@@ -1020,17 +1016,9 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        // It doesn't make a difference whether the colon is parsed at the end
-        // of `next_key_seed` or at the beginning of `next_value_seed`. In this
-        // case the code is a bit simpler having it here.
-        let c = self.de.c();
-        if c != b':' {
-            return Err(Error::ExpectedMapColon(self.de.idx(), c as char));
-        }
-        self.de.skip();
-        // Deserialize a map value.
         seed.deserialize(&mut *self.de)
     }
+
     fn size_hint(&self) -> Option<usize> {
         let mut depth = 0;
         let mut count = 0;
@@ -1418,6 +1406,21 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         let mut h = Map::new();
         h.insert("snot", Value::String("badger"));
+        assert_eq!(to_value(&mut d1), Ok(Value::Map(h)));
+    }
+
+    #[test]
+    fn map1() {
+        let mut d = String::from(r#"{"snot": "badger", "badger": "snot"}"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        let mut h = Map::new();
+        h.insert("snot", Value::String("badger"));
+        h.insert("badger", Value::String("snot"));
         assert_eq!(to_value(&mut d1), Ok(Value::Map(h)));
     }
 
