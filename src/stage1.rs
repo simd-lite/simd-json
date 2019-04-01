@@ -442,7 +442,6 @@ pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) ->
     }
 
     // make it safe to dereference one beyond this array
-    pj.structural_indexes.push(0);
     if error_mask != 0 {
         return Err(Error::Syntax);
 

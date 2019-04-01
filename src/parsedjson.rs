@@ -6,8 +6,10 @@ pub struct ParsedJson {
 
 impl ParsedJson {
     pub fn from_slice() -> Self {
+        let mut i = Vec::with_capacity(512);
+        i.push(0); // push extra root element
         Self {
-            structural_indexes: Vec::with_capacity(512),
+            structural_indexes: i,
         }
     }
 }
