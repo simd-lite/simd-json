@@ -21,7 +21,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 use std::mem;
-use std::ops::{AddAssign, MulAssign, Neg};
+//use std::ops::{AddAssign, MulAssign, Neg};
 use std::str;
 
 pub type Map<'a> = HashMap<&'a str, Value<'a>>;
@@ -172,6 +172,7 @@ pub struct Deserializer<'de> {
     sidx: usize,
     structural_indexes: Vec<u32>,
     idx: usize,
+    counts: Vec<usize>,
 }
 
 impl<'de> Deserializer<'de> {
@@ -201,12 +202,44 @@ impl<'de> Deserializer<'de> {
             idx: 0,
             strings: v,
             sidx: 0,
+            counts: Vec::new(), // this is a bit silly
         };
         unsafe {
             stry!(d.find_structural_bits());
             //unified_machine(input, input.len(), &mut pj);
         };
+        d.compute_size()?;
         Ok(d)
+    }
+
+    fn compute_size(&mut self) -> Result<()> {
+        self.counts = vec![0; self.structural_indexes.len()];
+        let mut depth = Vec::with_capacity(self.structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+        let mut last_start = 1;
+        let mut cnt = 0;
+        for i in 1..self.structural_indexes.len() {
+            match self.input[self.structural_indexes[i] as usize] {
+                b'[' | b'{' => {
+                    depth.push((last_start, cnt));
+                    last_start = i;
+                    cnt = 0;
+                }
+                b']' | b'}' => {
+                    // if we had any elements we have to add 1 for the last element
+                    if i != last_start + 1 {
+                        cnt += 1;
+                    }
+                    let (a_last_start, a_cnt) =
+                        depth.pop().ok_or_else(|| self.error(ErrorType::Syntax))?;
+                    self.counts[last_start] = cnt;
+                    last_start = a_last_start;
+                    cnt = a_cnt;
+                }
+                b',' => cnt += 1,
+                _ => (),
+            }
+        }
+        Ok(())
     }
 
     #[cfg_attr(feature = "inline", inline(always))]
@@ -267,7 +300,7 @@ impl<'de> Deserializer<'de> {
         }
     }
      */
-
+    
     #[cfg_attr(feature = "inline", inline(always))]
     pub fn to_value(&mut self) -> Result<Value<'de>> {
         match stry!(self.next()) {
@@ -292,6 +325,8 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(feature = "inline", inline(always))]
     fn count_elements(&self) -> Option<usize> {
+        Some(self.counts[self.idx])
+        /*
         let mut idx = self.idx + 1;
         let mut depth = 0;
         let mut count = 0;
@@ -308,6 +343,7 @@ impl<'de> Deserializer<'de> {
             }
             idx += 1
         }
+         */
     }
 
     #[cfg_attr(feature = "inline", inline(always))]
@@ -1074,6 +1110,49 @@ mod tests {
     use serde_json::{self, json};
 
     #[test]
+    fn count() {
+        let mut d = String::from("true");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        assert_eq!(simd.counts, vec![0, 0]);
+    }
+
+    #[test]
+    fn count1() {
+        let mut d = String::from("[]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        assert_eq!(simd.counts, vec![0, 0, 0]);
+    }
+
+    #[test]
+    fn count2() {
+        let mut d = String::from("[1]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        dbg!(&simd.counts);
+        assert_eq!(simd.counts, vec![0, 1, 0, 0]);
+    }
+
+    #[test]
+    fn count3() {
+        let mut d = String::from("[1,2]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        dbg!(&simd.counts);
+        assert_eq!(simd.counts, vec![0, 2, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn count4() {
+        let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
+        let res = vec![          0,3,0,0,1,0,0,0,0,0];
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        dbg!(&simd.counts);
+        assert_eq!(simd.counts, res);
+    }
+
     #[test]
     fn bool_true() {
         let mut d = String::from("true");
