@@ -386,7 +386,7 @@ impl<'de> Deserializer<'de> {
         }
         self.parse_str_()
     }
-    //#[inline(always)]
+    #[cfg_attr(feature = "inline", inline(always))]
     fn parse_str_(&mut self) -> Result<&'de str> {
         use std::num::Wrapping;
         // Add 1 to skip the initial "
@@ -674,7 +674,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     // Look at the input data to decide what Serde data model type to
     // deserialize as. Not all data formats are able to support this operation.
     // Formats that support `deserialize_any` are known as self-describing.
-    //#[inline]
+    #[cfg_attr(feature = "inline", inline(always))]
     fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -821,7 +821,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             stry!(self.parse_null_());
             visitor.visit_unit()
         } else {
-             visitor.visit_some(self)
+            visitor.visit_some(self)
         }
     }
 

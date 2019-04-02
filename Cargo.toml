@@ -18,3 +18,4 @@ assert_approx_eq = "1.1.0"
 [features]
 default = ["swar-number-parsing"]
 swar-number-parsing = []
+inline = []

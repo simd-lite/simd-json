@@ -24,7 +24,7 @@ pub const ESCAPE_MAP: [u8; 256] = [
 // return true if the unicode codepoint was valid
 // We work in little-endian then swap at write time
 
-//#[inline(always)]
+#[cfg_attr(feature = "inline", inline(always))]
 pub fn handle_unicode_codepoint(mut src_ptr: &[u8], dst_ptr: &mut [u8]) -> (usize, usize) {
     // hex_to_u32_nocheck fills high 16 bits of the return value with 1s if the
     // conversion isn't valid; we defer the check for this to inside the

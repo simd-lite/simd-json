@@ -99,7 +99,8 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // check quickly whether the next 8 chars are made of digits
 // at a glance, it looks better than Mula's
 // http://0x80.pl/articles/swar-digits-validate.html
-//#[inline]
+#[cfg_attr(feature = "inline", inline)]
+
 unsafe fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
     let val: u64 = *(chars as *const u64);
 
@@ -114,7 +115,8 @@ unsafe fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
 /*
 #else
 // this is more efficient apparently than the scalar code above (fewer instructions)
-//#[inline]
+    #[cfg_attr(feature = "inline", inline)]
+
 unsafe fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
     let val: __m64 = *(chars as *const __m64);
     let base: __m64 = _mm_sub_pi8(val,_mm_set1_pi8(b'0' as i8));
@@ -129,7 +131,7 @@ pub enum Number {
     I64(i64),
 }
 
-//#[inline]
+#[cfg_attr(feature = "inline", inline)]
 unsafe fn parse_eight_digits_unrolled(chars: *const u8) -> i32 {
     // this actually computes *16* values so we are being wasteful.
     let ascii0: __m128i = _mm_set1_epi8(b'0' as i8);
