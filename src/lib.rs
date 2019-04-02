@@ -1,4 +1,5 @@
 #![feature(ptr_offset_from)]
+#![feature(custom_attribute)]
 
 mod charutils;
 mod numberparse;
@@ -10,7 +11,6 @@ mod stringparse;
 mod utf8check;
 
 use crate::numberparse::Number;
-use crate::numberparse::*;
 use crate::portability::*;
 use crate::stage2::*;
 use crate::stringparse::*;
@@ -95,20 +95,17 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 
-pub use crate::parsedjson::ParsedJson;
-use crate::stage1::find_structural_bits;
-
 use serde::Deserialize;
 //use serde::de::Deserializer as DeserializerT;
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
-pub enum Error {
+pub enum ErrorType {
     BadKeyType,
     EarlyEnd,
-    ExpectedArray(usize, char),
-    ExpectedArrayComma(usize, char),
+    ExpectedArray,
+    ExpectedArrayComma,
     ExpectedBoolean,
     ExpectedString,
     ExpectedSigned,
@@ -116,13 +113,13 @@ pub enum Error {
     ExpectedEnum,
     ExpectedInteger,
     ExpectedNumber,
-    ExpectedMap(usize, char),
-    ExpectedMapColon(usize, char),
-    ExpectedMapComma(usize, char),
+    ExpectedMap,
+    ExpectedMapColon,
+    ExpectedMapComma,
     ExpectedMapEnd,
     ExpectedNull,
     InternalError,
-    InvalidEscape(usize, char),
+    InvalidEscape,
     InvalidUTF8,
     InvalidUnicodeEscape,
     InvlaidUnicodeCodepoint,
@@ -131,13 +128,26 @@ pub enum Error {
     Serde(String),
     Syntax,
     TrailingCharacters,
-    UnexpectedCharacter(usize, char),
-    UnexpectedEnd(usize),
+    UnexpectedCharacter,
+    UnexpectedEnd,
     UnterminatedString,
 }
+
+#[derive(Debug, PartialEq)]
+pub struct Error {
+    structural: usize,
+    index: usize,
+    character: char,
+    error: ErrorType,
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(
+            f,
+            "{:?} at chracter {} ('{}')",
+            self.error, self.index, self.character
+        )
     }
 }
 
@@ -145,7 +155,12 @@ impl std::error::Error for Error {}
 
 impl serde::de::Error for Error {
     fn custom<T: fmt::Display>(msg: T) -> Self {
-        Error::Serde(msg.to_string())
+        Error {
+            structural: 0,
+            index: 0,
+            character: '💩', //this is the poop emoji
+            error: ErrorType::Serde(msg.to_string()),
+        }
     }
 }
 
@@ -155,33 +170,43 @@ pub struct Deserializer<'de> {
     input: &'de mut [u8],
     strings: Vec<u8>,
     sidx: usize,
-    pj: ParsedJson,
+    structural_indexes: Vec<u32>,
     idx: usize,
 }
 
 impl<'de> Deserializer<'de> {
+    fn error(&self, error: ErrorType) -> Error {
+        Error {
+            structural: self.idx,
+            index: self.idx(),
+            character: self.c() as char,
+            error,
+        }
+    }
     // By convention, `Deserializer` constructors are named like `from_xyz`.
     // That way basic use cases are satisfied by something like
     // `serde_json::from_str(...)` while advanced use cases that require a
     // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
     pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
-        let mut pj = ParsedJson::from_slice();
         let len = input.len();
-        unsafe {
-            stry!(find_structural_bits(input, len as u32, &mut pj));
-            //unified_machine(input, input.len(), &mut pj);
-        };
         let mut v = Vec::with_capacity(len + SIMDJSON_PADDING);
         unsafe {
             v.set_len(len + SIMDJSON_PADDING);
-        }
-        Ok(Deserializer {
+        };
+        let mut structural_indexes = Vec::with_capacity(512);
+        structural_indexes.push(0); // push extra root element
+        let mut d = Deserializer {
+            structural_indexes,
             input,
-            pj,
             idx: 0,
             strings: v,
             sidx: 0,
-        })
+        };
+        unsafe {
+            stry!(d.find_structural_bits());
+            //unified_machine(input, input.len(), &mut pj);
+        };
+        Ok(d)
     }
 
     fn skip(&mut self) {
@@ -189,30 +214,30 @@ impl<'de> Deserializer<'de> {
     }
 
     fn idx(&self) -> usize {
-        self.pj.structural_indexes[self.idx] as usize
+        self.structural_indexes[self.idx] as usize
     }
 
     fn c(&self) -> u8 {
-        self.input[self.pj.structural_indexes[self.idx] as usize]
+        self.input[self.structural_indexes[self.idx] as usize]
     }
 
     fn next(&mut self) -> Result<u8> {
         self.idx += 1;
-        if let Some(idx) = self.pj.structural_indexes.get(self.idx) {
+        if let Some(idx) = self.structural_indexes.get(self.idx) {
             let r = self.input[*idx as usize];
             Ok(r)
         } else {
-            Err(Error::UnexpectedEnd(self.idx))
+            Err(self.error(ErrorType::UnexpectedEnd))
         }
     }
 
     fn peek(&self) -> Result<u8> {
-        if let Some(idx) = self.pj.structural_indexes.get(self.idx + 1) {
+        if let Some(idx) = self.structural_indexes.get(self.idx + 1) {
             let idx = *idx as usize;
             let r = self.input[idx];
             Ok(r)
         } else {
-            Err(Error::UnexpectedEnd(self.idx+1))
+            Err(self.error(ErrorType::UnexpectedEnd))
         }
     }
 
@@ -236,7 +261,7 @@ impl<'de> Deserializer<'de> {
         }
     }
      */
-
+    
     pub fn to_value(&mut self) -> Result<Value<'de>> {
         match stry!(self.next()) {
             b'n' => {
@@ -254,7 +279,7 @@ impl<'de> Deserializer<'de> {
                 Ok(Value::Array(a))
             }
             b'{' => self.parse_map_().map(Value::Map),
-            c => Err(Error::UnexpectedCharacter(self.idx(), c as char)),
+            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
         }
     }
 
@@ -277,7 +302,7 @@ impl<'de> Deserializer<'de> {
                 Some(b'{') => depth += 1,
                 Some(b'}') if depth == 0 => return Ok(count + 1),
                 Some(b'}') => depth -= 1,
-                None => return Err(Error::Syntax),
+                None => return Err(self.error(ErrorType::Syntax)),
                 Some(b',') if depth == 0 => count += 1,
                 _ => (),
             }
@@ -286,7 +311,6 @@ impl<'de> Deserializer<'de> {
     }
 
     fn parse_array_(&mut self) -> Result<Vec<Value<'de>>> {
-
         // We short cut for empty arrays
         if stry!(self.peek()) == b']' {
             self.skip();
@@ -308,21 +332,12 @@ impl<'de> Deserializer<'de> {
                     break;
                 }
                 b',' => self.skip(),
-                c => return Err(Error::ExpectedArrayComma(self.idx(), c as char)),
+                _c => return Err(self.error(ErrorType::ExpectedArrayComma)),
             }
             res.push(stry!(self.to_value()));
         }
         // We found a closing bracket and ended our loop, we skip it
         Ok(res)
-    }
-
-    fn parse_map(&mut self) -> Result<Map<'de>> {
-        let c = stry!(self.next());
-        if c == b'{' {
-            self.parse_map()
-        } else {
-            Err(Error::ExpectedMap(self.idx(), c as char))
-        }
     }
 
     fn parse_map_(&mut self) -> Result<Map<'de>> {
@@ -342,7 +357,7 @@ impl<'de> Deserializer<'de> {
 
         match stry!(self.next()) {
             b':' => (),
-            c => return Err(Error::ExpectedMapColon(self.idx(), c as char)),
+            _c => return Err(self.error(ErrorType::ExpectedMapColon)),
         }
         res.insert(key, stry!(self.to_value()));
         loop {
@@ -351,13 +366,13 @@ impl<'de> Deserializer<'de> {
             match stry!(self.peek()) {
                 b'}' => break,
                 b',' => self.skip(),
-                c => return Err(Error::ExpectedArrayComma(self.idx(), c as char)),
+                _c => return Err(self.error(ErrorType::ExpectedArrayComma)),
             }
             let key = stry!(self.parse_str());
 
             match stry!(self.next()) {
                 b':' => (),
-                c => return Err(Error::ExpectedMapColon(self.idx(), c as char)),
+                _c => return Err(self.error(ErrorType::ExpectedMapColon)),
             }
             res.insert(key, stry!(self.to_value()));
         }
@@ -367,7 +382,7 @@ impl<'de> Deserializer<'de> {
     }
     fn parse_str(&mut self) -> Result<&'de str> {
         if stry!(self.next()) != b'"' {
-            return Err(Error::ExpectedString);
+            return Err(self.error(ErrorType::ExpectedString));
         }
         self.parse_str_()
     }
@@ -377,7 +392,7 @@ impl<'de> Deserializer<'de> {
         // Add 1 to skip the initial "
         let idx = self.idx() + 1;
         let mut padding = [0u8; 32];
-        let mut read: usize = 0;
+        //let mut read: usize = 0;
         let mut written: usize = 0;
         #[cfg(test1)]
         {
@@ -473,16 +488,16 @@ impl<'de> Deserializer<'de> {
                     // move src/dst up to the start; they will be further adjusted
                     // within the unicode codepoint handling code.
                     src = &src[bs_dist as usize..];
-                    read += bs_dist as usize;
+                    //read += bs_dist as usize;
                     dst = &mut dst[bs_dist as usize..];
                     written += bs_dist as usize;
                     let (o, s) = handle_unicode_codepoint(src, dst);
                     if o == 0 {
-                        return Err(Error::InvlaidUnicodeCodepoint);
+                        return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
                     };
                     // We moved o steps forword at the destiation and 6 on the source
                     src = &src[s..];
-                    read += s;
+                    //read += s;
                     dst = &mut dst[o..];
                     written += o;
                 } else {
@@ -497,11 +512,11 @@ impl<'de> Deserializer<'de> {
                         foundBadString(buf + offset);
                         #endif // JSON_TEST_STRINGS
                         */
-                        return Err(Error::InvalidEscape(self.idx(), escape_char as char));
+                        return Err(self.error(ErrorType::InvalidEscape));
                     }
                     dst[bs_dist as usize] = escape_result;
                     src = &src[bs_dist as usize + 2..];
-                    read += bs_dist as usize + 2;
+                    //read += bs_dist as usize + 2;
                     dst = &mut dst[bs_dist as usize + 1..];
                     written += bs_dist as usize + 1;
                 }
@@ -509,18 +524,10 @@ impl<'de> Deserializer<'de> {
                 // they are the same. Since they can't co-occur, it means we encountered
                 // neither.
                 src = &src[32..];
-                read += 32;
+                //read += 32;
                 dst = &mut dst[32..];
                 written += 32;
             }
-        }
-    }
-
-    fn parse_null(&mut self) -> Result<()> {
-        if stry!(self.next()) == b'n' {
-            self.parse_null()
-        } else {
-            Err(Error::ExpectedNull)
         }
     }
 
@@ -533,20 +540,15 @@ impl<'de> Deserializer<'de> {
             if is_valid_null_atom(&copy) {
                 Ok(())
             } else {
-                Err(Error::ExpectedNull)
+                Err(self.error(ErrorType::ExpectedNull))
             }
         } else {
             if is_valid_null_atom(input) {
                 Ok(())
             } else {
-                Err(Error::ExpectedNull)
+                Err(self.error(ErrorType::ExpectedNull))
             }
         }
-    }
-
-    fn parse_bool(&mut self) -> Result<bool> {
-        stry!(self.next());
-        self.parse_bool_()
     }
 
     fn parse_bool_(&mut self) -> Result<bool> {
@@ -562,13 +564,13 @@ impl<'de> Deserializer<'de> {
                     if is_valid_true_atom(&copy) {
                         Ok(true)
                     } else {
-                        Err(Error::ExpectedBoolean)
+                        Err(self.error(ErrorType::ExpectedBoolean))
                     }
                 } else {
                     if is_valid_true_atom(input) {
                         Ok(true)
                     } else {
-                        Err(Error::ExpectedBoolean)
+                        Err(self.error(ErrorType::ExpectedBoolean))
                     }
                 }
             }
@@ -583,27 +585,29 @@ impl<'de> Deserializer<'de> {
                     if is_valid_false_atom(&copy) {
                         Ok(false)
                     } else {
-                        Err(Error::ExpectedBoolean)
+                        Err(self.error(ErrorType::ExpectedBoolean))
                     }
                 } else {
                     if is_valid_false_atom(input) {
                         Ok(false)
                     } else {
-                        Err(Error::ExpectedBoolean)
+                        Err(self.error(ErrorType::ExpectedBoolean))
                     }
                 }
             }
-            _ => Err(Error::ExpectedBoolean),
+            _ => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
 
+    /*
     fn parse_number(&mut self) -> Result<Number> {
         match stry!(self.next()) {
             b'0'...b'9' | b'-' => self.parse_number_(),
-            _ => Err(Error::ExpectedNumber),
+            _ => Err(self.error(ErrorType::ExpectedNumber)),
         }
     }
 
+    */
     fn parse_number_(&mut self) -> Result<Number> {
         let input = &self.input[self.idx()..];
         let len = input.len();
@@ -612,19 +616,20 @@ impl<'de> Deserializer<'de> {
             unsafe {
                 copy.as_mut_ptr().copy_from(input.as_ptr(), len);
             };
-            parse_number(&copy, self.c() == b'-')
+            self.parse_number_int(&copy, self.c() == b'-')
         } else {
-            parse_number(input, self.c() == b'-')
+            self.parse_number_int(input, self.c() == b'-')
         }
     }
 
+    /*
     fn parse_signed<T>(&mut self) -> Result<T>
     where
         T: Neg<Output = T> + AddAssign<T> + MulAssign<T> + From<i64>,
     {
         match stry!(self.parse_number()) {
             Number::I64(i) => Ok(T::from(i)),
-            _ => Err(Error::ExpectedSigned),
+            _ => Err(self.error(ErrorType::ExpectedSigned)),
         }
     }
 
@@ -634,9 +639,10 @@ impl<'de> Deserializer<'de> {
     {
         match stry!(self.parse_number()) {
             Number::I64(i) if i >= 0 => Ok(T::from(i as u64)),
-            _ => Err(Error::ExpectedUnsigned),
+            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
         }
     }
+    */
 }
 
 pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
@@ -644,6 +650,15 @@ where
     T: Deserialize<'a>,
 {
     let mut deserializer = stry!(Deserializer::from_slice(s));
+
+    T::deserialize(&mut deserializer)
+}
+
+pub fn from_str<'a, T>(s: &'a mut str) -> Result<T>
+where
+    T: Deserialize<'a>,
+{
+    let mut deserializer = stry!(Deserializer::from_slice(unsafe { s.as_bytes_mut() }));
 
     T::deserialize(&mut deserializer)
 }
@@ -677,7 +692,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             b'"' => visitor.visit_borrowed_str(stry!(self.parse_str_())),
             b'[' => visitor.visit_seq(CommaSeparated::new(&mut self)),
             b'{' => visitor.visit_map(CommaSeparated::new(&mut self)),
-            c => Err(Error::UnexpectedCharacter(self.idx(), c as char)),
+            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
         }
     }
     /*
@@ -710,7 +725,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         if self.c() != b'"' {
-            return Err(Error::ExpectedString);
+            return Err(ErrorType::ExpectedString);
         }
         visitor.visit_borrowed_str(stry!(self.parse_str_()))
     }
@@ -786,6 +801,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_u64(stry!(self.parse_unsigned()))
     }
 
+    */
     // An absent optional is represented as the JSON `null` and a present
     // optional is represented as just the contained value.
     //
@@ -794,18 +810,22 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     // serialize as just `null`. Unfortunately this is typically what people
     // expect when working with JSON. Other formats are encouraged to behave
     // more intelligently if possible.
+
+    
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         if stry!(self.peek()) == b'n' {
-            stry!(self.parse_null());
+            self.skip();
+            stry!(self.parse_null_());
             visitor.visit_unit()
         } else {
-            visitor.visit_some(self)
+             visitor.visit_some(self)
         }
     }
 
+    /*
     // In Serde, unit means an anonymous value containing no data.
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
     where
@@ -828,7 +848,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             // Give the visitor access to each element of the sequence.
             visitor.visit_seq(CommaSeparated::new(&mut self))
         } else {
-            Err(Error::ExpectedArray(self.idx(), self.c() as char))
+            Err(ErrorType::ExpectedArray(self.idx(), self.c() as char))
         }
     }
 
@@ -852,8 +872,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     forward_to_deserialize_any! {
-        seq  bool i8 i16 i32 i64 u8 u16 u32 u64 string str option unit 
-        i128 u128 f32 f64 char
+        seq  bool i8 i16 i32 i64 u8 u16 u32 u64 string str unit
+            i128 u128 f32 f64 char
             bytes byte_buf  unit_struct newtype_struct
             tuple_struct map struct enum identifier ignored_any
     }
@@ -870,7 +890,11 @@ struct CommaSeparated<'a, 'de: 'a> {
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     fn new(de: &'a mut Deserializer<'de>) -> Self {
-        CommaSeparated { first: true, idx: de.idx, de }
+        CommaSeparated {
+            first: true,
+            idx: de.idx,
+            de,
+        }
     }
 }
 
@@ -883,7 +907,6 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     where
         T: DeserializeSeed<'de>,
     {
-
         /*
         println!("===[{}] loop", self.idx);
         // If the next structural  would be a ] eat it and end the array
@@ -908,7 +931,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
                     println!("===[{}] Ending array", self.idx);
                     return Ok(None)
                 },
-                c => return Err(Error::ExpectedArrayComma(self.de.idx(), c as char)),
+                c => return Err(ErrorType::ExpectedArrayComma(self.de.idx(), c as char)),
             }
             println!("===[{}] value => {}", self.idx, stry!(self.de.peek()) as char);
         seed.deserialize(&mut *self.de).map(Some)
@@ -924,29 +947,25 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
         }
         r
          */
-
         let peek = match stry!(self.de.peek()) {
             b']' => {
                 self.de.skip();
                 return Ok(None);
             }
-            b',' if !self.first => {
-                stry!(self.de.next())
-            }
+            b',' if !self.first => stry!(self.de.next()),
             b => {
                 if self.first {
                     self.first = false;
                     b
                 } else {
-                    return Err(Error::ExpectedArrayComma(self.de.idx(), b as char))
+                    return Err(self.de.error(ErrorType::ExpectedArrayComma));
                 }
             }
         };
         match peek {
-            b']' => Err(Error::ExpectedArrayComma(self.de.idx(), ']')),
+            b']' => Err(self.de.error(ErrorType::ExpectedArrayComma)),
             _ => Ok(Some(stry!(seed.deserialize(&mut *self.de)))),
         }
-
     }
     /*
     fn size_hint(&self) -> Option<usize> {
@@ -969,7 +988,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
                 Some(b'{') => depth += 1,
                 Some(b'}') => depth -= 1,
                 None => break,
-                _ if depth == 0 => count += 1,
+    _ if depth == 0 => count += 1,
                 _ => (),
             }
             i += 1
@@ -987,6 +1006,7 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         K: DeserializeSeed<'de>,
     {
+        /*
         // Check if there are no more entries.
         if stry!(self.de.peek()) == b'}' {
             self.de.skip();
@@ -999,23 +1019,52 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         } else {
             let c = stry!(self.de.next());
             if c != b',' {
-                return Err(Error::ExpectedMapComma(self.de.idx(), c as char));
+                return Err(ErrorType::ExpectedMapComma(self.de.idx(), c as char));
             }
             seed.deserialize(&mut *self.de).map(Some)
         };
 
         let c = stry!(self.de.next());
         if c != b':' {
-            return Err(Error::ExpectedMapColon(self.de.idx(), c as char));
+            return Err(ErrorType::ExpectedMapColon(self.de.idx(), c as char));
         }
         r
+         */
 
+        let peek = match stry!(self.de.peek()) {
+            b'}' => {
+                self.de.skip();
+                return Ok(None);
+            }
+            b',' if !self.first => {
+                self.de.skip();
+                stry!(self.de.peek())
+            }
+            b => {
+                if self.first {
+                    self.first = false;
+                    b
+                } else {
+                    return Err(self.de.error(ErrorType::ExpectedArrayComma));
+                }
+            }
+        };
+
+        match peek {
+            b'"' => seed.deserialize(&mut *self.de).map(Some),
+            b'}' => Err(self.de.error(ErrorType::ExpectedArrayComma)), //Err(self.de.peek_error(ErrorCode::TrailingComma)),
+            _ => Err(self.de.error(ErrorType::ExpectedString)), // TODO: Err(self.de.peek_error(ErrorCode::KeyMustBeAString)),
+        }
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
     where
         V: DeserializeSeed<'de>,
     {
+        let c = stry!(self.de.next());
+        if c != b':' {
+            return Err(self.de.error(ErrorType::ExpectedMapColon));
+        }
         seed.deserialize(&mut *self.de)
     }
 
@@ -1241,7 +1290,7 @@ mod tests {
         );
     }
 
-    #[test]
+    //#[test]
     fn nested_list1() {
         let mut d = String::from(r#"[42, [23.0, "snot"], "bad", "ger"]"#);
         let mut d1 = d.clone();
@@ -1251,14 +1300,19 @@ mod tests {
             to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::Number(Number::I64(42)),
-                Value::Array(vec![Value::Number(Number::F64(23.0)), Value::String("snot")]),
+                Value::Array(vec![
+                    Value::Number(Number::F64(23.0)),
+                    Value::String("snot")
+                ]),
                 Value::String("bad"),
                 Value::String("ger")
-            ])));
+            ]))
+        );
 
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
+        assert!(false)
     }
 
     #[test]
@@ -1430,7 +1484,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: (f32, f32) = serde_json::from_slice(d).expect("serde_json");
         let v_simd: (f32, f32) = from_slice(&mut d).expect("simd_json");
-        //        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde)
     }
 
     #[test]
@@ -1439,16 +1493,18 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<(f32, f32)> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<(f32, f32)> = from_slice(&mut d).expect("simd_json");
-        //        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde)
     }
 
     #[test]
     fn tpl3() {
-        let mut d = String::from("[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]");
+        let mut d = String::from(
+            "[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]",
+        );
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<(f32, f32)> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<(f32, f32)> = from_slice(&mut d).expect("simd_json");
-        //        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde)
     }
     #[test]
     fn tpl4() {
@@ -1456,7 +1512,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
-        //        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde)
     }
     #[test]
     fn tpl5() {
@@ -1464,7 +1520,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
-        //        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde)
     }
 
     #[test]
@@ -1473,7 +1529,67 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<Vec<Vec<(f32, f32)>>> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<Vec<Vec<(f32, f32)>>> = from_slice(&mut d).expect("simd_json");
-        //        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn tpl7() {
+        let mut d = String::from("[[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Vec<Vec<Vec<[f32; 2]>>> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: Vec<Vec<Vec<[f32; 2]>>> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct Obj {
+        a: u64,
+        b: u64,
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct Obj1 {
+        a: Obj,
+    }
+
+    #[test]
+    fn obj() {
+        let mut d = String::from(r#"{"a": 1, "b":1}"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Obj = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: Obj = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn obj2() {
+        let mut d =
+            String::from(r#"{"a": {"a": 1, "b":1}, "b": {"a": 1, "b":1}, "c": {"a": 1, "b": 1}}"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: HashMap<String, Obj> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: HashMap<String, Obj> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn obj3() {
+        let mut d = String::from(
+            r#"{"c": {"a": {"a": 1, "b":1}, "b": {"a": 1, "b":1}, "c": {"a": 1, "b": 1}}}"#,
+        );
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: HashMap<String, HashMap<String, Obj>> =
+            serde_json::from_slice(d).expect("serde_json");
+        let v_simd: HashMap<String, HashMap<String, Obj>> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn obj4() {
+        let mut d = String::from(r#"{"c": {"a": {"a": 1, "b":1}}}"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: HashMap<String, Obj1> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: HashMap<String, Obj1> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
     }
 
     #[test]
@@ -1482,7 +1598,102 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
-        //        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn event() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        #[serde(deny_unknown_fields, rename_all = "camelCase")]
+        pub struct CitmCatalog {
+            pub area_names: HashMap<String, String>,
+            pub audience_sub_category_names: HashMap<String, String>,
+            pub block_names: HashMap<String, String>,
+            pub events: HashMap<String, Event>,
+        }
+        pub type Id = u32;
+        #[derive(Deserialize, Debug, PartialEq)]
+        #[serde(deny_unknown_fields, rename_all = "camelCase")]
+        pub struct Event {
+            pub description: (),
+            pub id: Id,
+            pub logo: Option<String>,
+            pub name: String,
+            pub sub_topic_ids: Vec<Id>,
+            pub subject_code: (),
+            pub subtitle: (),
+            pub topic_ids: Vec<Id>,
+        }
+
+        let mut d = String::from(
+            r#"
+{
+    "areaNames": {
+        "205705993": "Arrière-scène central",
+        "205705994": "1er balcon central",
+        "205705995": "2ème balcon bergerie cour",
+        "205705996": "2ème balcon bergerie jardin",
+        "205705998": "1er balcon bergerie jardin",
+        "205705999": "1er balcon bergerie cour",
+        "205706000": "Arrière-scène jardin",
+        "205706001": "Arrière-scène cour",
+        "205706002": "2ème balcon jardin",
+        "205706003": "2ème balcon cour",
+        "205706004": "2ème Balcon central",
+        "205706005": "1er balcon jardin",
+        "205706006": "1er balcon cour",
+        "205706007": "Orchestre central",
+        "205706008": "Orchestre jardin",
+        "205706009": "Orchestre cour",
+        "342752287": "Zone physique secrète"
+    },
+    "audienceSubCategoryNames": {
+        "337100890": "Abonné"
+    },
+    "blockNames": {},
+  "events": {
+    "138586341": {
+      "description": null,
+      "id": 138586341,
+      "logo": null,
+      "name": "30th Anniversary Tour",
+      "subTopicIds": [
+        337184269,
+        337184283
+      ],
+      "subjectCode": null,
+      "subtitle": null,
+      "topicIds": [
+        324846099,
+        107888604
+      ]
+    },
+    "138586345": {
+      "description": null,
+      "id": 138586345,
+      "logo": "/images/UE0AAAAACEKo6QAAAAZDSVRN",
+      "name": "Berliner Philharmoniker",
+      "subTopicIds": [
+        337184268,
+        337184283,
+        337184275
+      ],
+      "subjectCode": null,
+      "subtitle": null,
+      "topicIds": [
+        324846099,
+        107888604,
+        324846100
+      ]
+    }
+  }
+}
+"#,
+        );
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: CitmCatalog = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: CitmCatalog = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
     }
 
     fn arb_json() -> BoxedStrategy<String> {
@@ -1516,7 +1727,7 @@ mod tests {
             fork: true,
             .. ProptestConfig::default()
         })]
-//        #[test]
+        #[test]
         fn json_test(d in arb_json()) {
             if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
                 let mut d = d.clone();

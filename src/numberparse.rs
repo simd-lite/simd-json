@@ -1,6 +1,6 @@
 use crate::charutils::*;
 use crate::unlikely;
-use crate::Error;
+use crate::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -155,317 +155,319 @@ unsafe fn parse_eight_digits_unrolled(chars: *const u8) -> i32 {
 // Note: a redesign could avoid this function entirely.
 //
 
-//#[inline(never)]
-pub fn parse_float(mut p: &[u8], found_minus: bool) -> Result<Number, Error> {
-    let mut negative: bool = false;
-    if found_minus {
-        p = &p[1..];
-        negative = true;
-    }
-    let mut i: f64;
-    if p[0] == b'0' {
-        // 0 cannot be followed by an integer
-        p = &p[1..];
-        i = 0.0;
-    } else {
-        let mut digit: u8 = p[0] - b'0';
-        i = digit as f64;
-        p = &p[1..];
-        while is_integer(p[0]) {
-            digit = p[0] - b'0';
-            i = 10.0 * i + digit as f64;
-            p = &p[1..];
-        }
-    }
-    if p[0] == b'.' {
-        p = &p[1..];
-        let mut fractionalweight: f64 = 1.0;
-        if is_integer(p[0]) {
-            let digit: u8 = p[0] - b'0';
-            p = &p[1..];
-            fractionalweight *= 0.1;
-            i = i + digit as f64 * fractionalweight;
-        } else {
-            return Err(Error::Parser);
-        }
-        while is_integer(p[0]) {
-            let digit: u8 = p[0] - b'0';
-            p = &p[1..];
-            fractionalweight *= 0.1;
-            i = i + digit as f64 * fractionalweight;
-        }
-    }
-    if (p[0] == b'e') || (p[0] == b'E') {
-        p = &p[1..];
-        let mut negexp: bool = false;
-        if p[0] == b'-' {
-            negexp = true;
-            p = &p[1..];
-        } else if p[0] == b'+' {
-            p = &p[1..];
-        }
-        if !is_integer(p[0]) {
-            return Err(Error::Parser);
-        }
-        let mut digit: u8 = p[0] - b'0';
-        let mut expnumber: i64 = digit as i64; // exponential part
-        p = &p[1..];
-        if is_integer(p[0]) {
-            digit = p[0] - b'0';
-            expnumber = 10 * expnumber + digit as i64;
-            p = &p[1..];
-        }
-        if is_integer(p[0]) {
-            digit = p[0] - b'0';
-            expnumber = 10 * expnumber + digit as i64;
-            p = &p[1..];
-        }
-        if is_integer(p[0]) {
-            digit = p[0] - b'0';
-            expnumber = 10 * expnumber + digit as i64;
-            p = &p[1..];
-        }
-        if is_integer(p[0]) {
-            // we refuse to parse this
-            return Err(Error::Parser);
-        }
-        let exponent: i32 = if negexp {
-            -expnumber as i32
-        } else {
-            expnumber as i32
-        };
-        if (exponent > 308) || (exponent < -308) {
-            // we refuse to parse this
-            return Err(Error::Parser);
-        }
-        i *= POWER_OF_TEN[(308 + exponent) as usize];
-    }
-    if is_not_structural_or_whitespace(p[0]) != 0 {
-        return Err(Error::Parser);
-    }
-
-    if is_structural_or_whitespace(p[0]) != 0 {
-        Ok(Number::F64(if negative { -i } else { i }))
-    } else {
-        Err(Error::Parser)
-    }
-}
-
-/*
-// called by parse_number when we know that the output is an integer,
-// but where there might be some integer overflow.
-// we want to catch overflows!
-// Do not call this function directly as it skips some of the checks from
-// parse_number
-//
-// This function will almost never be called!!!
-//
-static never_inline bool parse_large_integer(const uint8_t *const buf,
-                                             ParsedJson &pj,
-                                             const uint32_t offset,
-                                             bool found_minus) {
-  const char *p = reinterpret_cast<const char *>(buf + offset);
-
-  bool negative = false;
-  if (found_minus) {
-    ++p;
-    negative = true;
-  }
-  uint64_t i;
-  if (*p == '0') { // 0 cannot be followed by an integer
-    ++p;
-    i = 0;
-  } else {
-    unsigned char digit = *p - '0';
-    i = digit;
-    p++;
-    // the is_made_of_eight_digits_fast routine is unlikely to help here because
-    // we rarely see large integer parts like 123456789
-    while (is_integer(*p)) {
-      digit = *p - '0';
-      if (mul_overflow(i, 10, &i)) {
-#ifdef JSON_TEST_NUMBERS // for unit testing
-        foundInvalidNumber(buf + offset);
-#endif
-        return false; // overflow
-      }
-      if (add_overflow(i, digit, &i)) {
-#ifdef JSON_TEST_NUMBERS // for unit testing
-        foundInvalidNumber(buf + offset);
-#endif
-        return false; // overflow
-      }
-      ++p;
-    }
-  }
-  if (negative) {
-    if (i > 0x8000000000000000) {
-// overflows!
-#ifdef JSON_TEST_NUMBERS // for unit testing
-      foundInvalidNumber(buf + offset);
-#endif
-      return false; // overflow
-    }
-  } else {
-    if (i >= 0x8000000000000000) {
-// overflows!
-#ifdef JSON_TEST_NUMBERS // for unit testing
-      foundInvalidNumber(buf + offset);
-#endif
-      return false; // overflow
-    }
-  }
-  int64_t signed_answer = negative ? -static_cast<int64_t>(i) : static_cast<int64_t>(i);
-  pj.write_tape_s64(signed_answer);
-#ifdef JSON_TEST_NUMBERS // for unit testing
-  foundInteger(signed_answer, buf + offset);
-#endif
-  return is_structural_or_whitespace(*p);
-}
-
-*/
-
-// parse the number at buf + offset
-// define JSON_TEST_NUMBERS for unit testing
-//#[inline(always)]
-pub fn parse_number(buf: &[u8], found_minus: bool) -> Result<Number, Error> {
-    unsafe {
-        let mut p: *const u8 = buf.as_ptr();
+impl<'de> Deserializer<'de> {
+    //#[inline(never)]
+    pub fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<Number> {
         let mut negative: bool = false;
         if found_minus {
-            p = p.add(1);
+            p = &p[1..];
             negative = true;
-            if !is_integer(*p) {
-                // a negative sign must be followed by an integer
-                return Err(Error::Parser);
-            }
         }
-
-        let startdigits: *const u8 = p;
-        let mut i: i64;
-        if *p == b'0' {
+        let mut i: f64;
+        if p[0] == b'0' {
             // 0 cannot be followed by an integer
-            p = p.add(1);
-            if is_not_structural_or_whitespace_or_exponent_or_decimal(*p) {
-                return Err(Error::Parser);
-            }
-            i = 0;
+            p = &p[1..];
+            i = 0.0;
         } else {
-            if !is_integer(*p) {
-                // must start with an integer
-                return Err(Error::Parser);
-            }
-            let mut digit: u8 = *p - b'0';
-            i = digit as i64;
-            p = p.add(1);
-            // the is_made_of_eight_digits_fast routine is unlikely to help here because
-            // we rarely see large integer parts like 123456789
-            while is_integer(*p) {
-                digit = *p - b'0';
-                i = 10 * i + digit as i64; // might overflow
-                p = p.add(1);
+            let mut digit: u8 = p[0] - b'0';
+            i = digit as f64;
+            p = &p[1..];
+            while is_integer(p[0]) {
+                digit = p[0] - b'0';
+                i = 10.0 * i + digit as f64;
+                p = &p[1..];
             }
         }
-
-        let mut exponent: i64 = 0;
-        if b'.' == *p {
-            p = p.add(1);
-            let firstafterperiod: *const u8 = p;
-            if is_integer(*p) {
-                let digit: u8 = *p - b'0';
-                p = p.add(1);
-                i = i * 10 + digit as i64;
+        if p[0] == b'.' {
+            p = &p[1..];
+            let mut fractionalweight: f64 = 1.0;
+            if is_integer(p[0]) {
+                let digit: u8 = p[0] - b'0';
+                p = &p[1..];
+                fractionalweight *= 0.1;
+                i = i + digit as f64 * fractionalweight;
             } else {
-                return Err(Error::Parser);
+                return Err(self.error(ErrorType::Parser));
             }
-            // this helps if we have lots of decimals!
-            // this turns out to be frequent enough.
-
-            #[cfg(feature = "swar-number-parsing")]
-            {
-                if is_made_of_eight_digits_fast(p) {
-                    i = i * 100000000 + parse_eight_digits_unrolled(p) as i64;
-                    p = p.add(8);
-                    // exponent -= 8;
-                }
+            while is_integer(p[0]) {
+                let digit: u8 = p[0] - b'0';
+                p = &p[1..];
+                fractionalweight *= 0.1;
+                i = i + digit as f64 * fractionalweight;
             }
-
-            while is_integer(*p) {
-                let digit: u8 = *p - b'0';
-                p = p.add(1);
-                i = i * 10 + digit as i64; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
-            }
-            exponent = firstafterperiod.offset_from(p) as i64;
         }
-        let digitcount = startdigits.offset_from(p) - 1;
-        let mut expnumber: i64 = 0; // exponential part
-        if (b'e' == *p) || (b'E' == *p) {
-            p = p.add(1);
+        if (p[0] == b'e') || (p[0] == b'E') {
+            p = &p[1..];
             let mut negexp: bool = false;
-            if b'-' == *p {
+            if p[0] == b'-' {
                 negexp = true;
-                p = p.add(1);
-            } else if b'+' == *p {
-                p = p.add(1);
+                p = &p[1..];
+            } else if p[0] == b'+' {
+                p = &p[1..];
             }
-            if !is_integer(*p) {
-                return Err(Error::Parser);
+            if !is_integer(p[0]) {
+                return Err(self.error(ErrorType::Parser));
             }
-            let mut digit: u8 = *p - b'0';
-            expnumber = digit as i64;
-            p = p.add(1);
-            if is_integer(*p) {
-                digit = *p - b'0';
+            let mut digit: u8 = p[0] - b'0';
+            let mut expnumber: i64 = digit as i64; // exponential part
+            p = &p[1..];
+            if is_integer(p[0]) {
+                digit = p[0] - b'0';
                 expnumber = 10 * expnumber + digit as i64;
-                p = p.add(1);
+                p = &p[1..];
             }
-            if is_integer(*p) {
-                digit = *p - b'0';
+            if is_integer(p[0]) {
+                digit = p[0] - b'0';
                 expnumber = 10 * expnumber + digit as i64;
-                p = p.add(1);
+                p = &p[1..];
             }
-            if is_integer(*p) {
+            if is_integer(p[0]) {
+                digit = p[0] - b'0';
+                expnumber = 10 * expnumber + digit as i64;
+                p = &p[1..];
+            }
+            if is_integer(p[0]) {
                 // we refuse to parse this
-                return Err(Error::Parser);
+                return Err(self.error(ErrorType::Parser));
             }
-            exponent += if negexp { -expnumber } else { expnumber };
-        }
-        i = if negative { -i } else { i };
-        let v = if (exponent != 0) || (expnumber != 0) {
-            if unlikely!(digitcount >= 19) {
-                // this is uncommon!!!
-                // this is almost never going to get called!!!
-                // we start anew, going slowly!!!
-                return parse_float(buf, found_minus);
-            }
-            ///////////
-            // We want 0.1e1 to be a float.
-            //////////
-            if i == 0 {
-                Number::F64(0.0)
+            let exponent: i32 = if negexp {
+                -expnumber as i32
             } else {
-                if (exponent > 308) || (exponent < -308) {
-                    // we refuse to parse this
-                    return Err(Error::Parser);
+                expnumber as i32
+            };
+            if (exponent > 308) || (exponent < -308) {
+                // we refuse to parse this
+                return Err(self.error(ErrorType::Parser));
+            }
+            i *= POWER_OF_TEN[(308 + exponent) as usize];
+        }
+        if is_not_structural_or_whitespace(p[0]) != 0 {
+            return Err(self.error(ErrorType::Parser));
+        }
+
+        if is_structural_or_whitespace(p[0]) != 0 {
+            Ok(Number::F64(if negative { -i } else { i }))
+        } else {
+            Err(self.error(ErrorType::Parser))
+        }
+    }
+
+    /*
+    // called by parse_number when we know that the output is an integer,
+    // but where there might be some integer overflow.
+    // we want to catch overflows!
+    // Do not call this function directly as it skips some of the checks from
+    // parse_number
+    //
+    // This function will almost never be called!!!
+    //
+    static never_inline bool parse_large_integer(const uint8_t *const buf,
+                                                 ParsedJson &pj,
+                                                 const uint32_t offset,
+                                                 bool found_minus) {
+      const char *p = reinterpret_cast<const char *>(buf + offset);
+
+      bool negative = false;
+      if (found_minus) {
+        ++p;
+        negative = true;
+      }
+      uint64_t i;
+      if (*p == '0') { // 0 cannot be followed by an integer
+        ++p;
+        i = 0;
+      } else {
+        unsigned char digit = *p - '0';
+        i = digit;
+        p++;
+        // the is_made_of_eight_digits_fast routine is unlikely to help here because
+        // we rarely see large integer parts like 123456789
+        while (is_integer(*p)) {
+          digit = *p - '0';
+          if (mul_overflow(i, 10, &i)) {
+    #ifdef JSON_TEST_NUMBERS // for unit testing
+            foundInvalidNumber(buf + offset);
+    #endif
+            return false; // overflow
+          }
+          if (add_overflow(i, digit, &i)) {
+    #ifdef JSON_TEST_NUMBERS // for unit testing
+            foundInvalidNumber(buf + offset);
+    #endif
+            return false; // overflow
+          }
+          ++p;
+        }
+      }
+      if (negative) {
+        if (i > 0x8000000000000000) {
+    // overflows!
+    #ifdef JSON_TEST_NUMBERS // for unit testing
+          foundInvalidNumber(buf + offset);
+    #endif
+          return false; // overflow
+        }
+      } else {
+        if (i >= 0x8000000000000000) {
+    // overflows!
+    #ifdef JSON_TEST_NUMBERS // for unit testing
+          foundInvalidNumber(buf + offset);
+    #endif
+          return false; // overflow
+        }
+      }
+      int64_t signed_answer = negative ? -static_cast<int64_t>(i) : static_cast<int64_t>(i);
+      pj.write_tape_s64(signed_answer);
+    #ifdef JSON_TEST_NUMBERS // for unit testing
+      foundInteger(signed_answer, buf + offset);
+    #endif
+      return is_structural_or_whitespace(*p);
+    }
+
+    */
+
+    // parse the number at buf + offset
+    // define JSON_TEST_NUMBERS for unit testing
+    //#[inline(always)]
+    pub fn parse_number_int(&self, buf: &[u8], found_minus: bool) -> Result<Number> {
+        unsafe {
+            let mut p: *const u8 = buf.as_ptr();
+            let mut negative: bool = false;
+            if found_minus {
+                p = p.add(1);
+                negative = true;
+                if !is_integer(*p) {
+                    // a negative sign must be followed by an integer
+                    return Err(self.error(ErrorType::Parser));
                 }
-                let mut d: f64 = i as f64;
-                d *= POWER_OF_TEN[(308 + exponent) as usize];
-                // d = negative ? -d : d;
-                Number::F64(d)
             }
-        } else {
-            /* TODO: implement this
-            if unlikely!(digitcount >= 18) {
-                // this is uncommon!!!
-                return parse_large_integer(buf, pj, offset, found_minus);
+
+            let startdigits: *const u8 = p;
+            let mut i: i64;
+            if *p == b'0' {
+                // 0 cannot be followed by an integer
+                p = p.add(1);
+                if is_not_structural_or_whitespace_or_exponent_or_decimal(*p) {
+                    return Err(self.error(ErrorType::Parser));
+                }
+                i = 0;
+            } else {
+                if !is_integer(*p) {
+                    // must start with an integer
+                    return Err(self.error(ErrorType::Parser));
+                }
+                let mut digit: u8 = *p - b'0';
+                i = digit as i64;
+                p = p.add(1);
+                // the is_made_of_eight_digits_fast routine is unlikely to help here because
+                // we rarely see large integer parts like 123456789
+                while is_integer(*p) {
+                    digit = *p - b'0';
+                    i = 10 * i + digit as i64; // might overflow
+                    p = p.add(1);
+                }
             }
-             */
-            Number::I64(i)
-        };
-        if is_structural_or_whitespace(*p) != 0 {
-            Ok(v)
-        } else {
-            Err(Error::Parser)
+
+            let mut exponent: i64 = 0;
+            if b'.' == *p {
+                p = p.add(1);
+                let firstafterperiod: *const u8 = p;
+                if is_integer(*p) {
+                    let digit: u8 = *p - b'0';
+                    p = p.add(1);
+                    i = i * 10 + digit as i64;
+                } else {
+                    return Err(self.error(ErrorType::Parser));
+                }
+                // this helps if we have lots of decimals!
+                // this turns out to be frequent enough.
+
+                #[cfg(feature = "swar-number-parsing")]
+                {
+                    if is_made_of_eight_digits_fast(p) {
+                        i = i * 100000000 + parse_eight_digits_unrolled(p) as i64;
+                        p = p.add(8);
+                        // exponent -= 8;
+                    }
+                }
+
+                while is_integer(*p) {
+                    let digit: u8 = *p - b'0';
+                    p = p.add(1);
+                    i = i * 10 + digit as i64; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
+                }
+                exponent = firstafterperiod.offset_from(p) as i64;
+            }
+            let digitcount = startdigits.offset_from(p) - 1;
+            let mut expnumber: i64 = 0; // exponential part
+            if (b'e' == *p) || (b'E' == *p) {
+                p = p.add(1);
+                let mut negexp: bool = false;
+                if b'-' == *p {
+                    negexp = true;
+                    p = p.add(1);
+                } else if b'+' == *p {
+                    p = p.add(1);
+                }
+                if !is_integer(*p) {
+                    return Err(self.error(ErrorType::Parser));
+                }
+                let mut digit: u8 = *p - b'0';
+                expnumber = digit as i64;
+                p = p.add(1);
+                if is_integer(*p) {
+                    digit = *p - b'0';
+                    expnumber = 10 * expnumber + digit as i64;
+                    p = p.add(1);
+                }
+                if is_integer(*p) {
+                    digit = *p - b'0';
+                    expnumber = 10 * expnumber + digit as i64;
+                    p = p.add(1);
+                }
+                if is_integer(*p) {
+                    // we refuse to parse this
+                    return Err(self.error(ErrorType::Parser));
+                }
+                exponent += if negexp { -expnumber } else { expnumber };
+            }
+            i = if negative { -i } else { i };
+            let v = if (exponent != 0) || (expnumber != 0) {
+                if unlikely!(digitcount >= 19) {
+                    // this is uncommon!!!
+                    // this is almost never going to get called!!!
+                    // we start anew, going slowly!!!
+                    return self.parse_float(buf, found_minus);
+                }
+                ///////////
+                // We want 0.1e1 to be a float.
+                //////////
+                if i == 0 {
+                    Number::F64(0.0)
+                } else {
+                    if (exponent > 308) || (exponent < -308) {
+                        // we refuse to parse this
+                        return Err(self.error(ErrorType::Parser));
+                    }
+                    let mut d: f64 = i as f64;
+                    d *= POWER_OF_TEN[(308 + exponent) as usize];
+                    // d = negative ? -d : d;
+                    Number::F64(d)
+                }
+            } else {
+                /* TODO: implement this
+                if unlikely!(digitcount >= 18) {
+                    // this is uncommon!!!
+                    return parse_large_integer(buf, pj, offset, found_minus);
+                }
+                 */
+                Number::I64(i)
+            };
+            if is_structural_or_whitespace(*p) != 0 {
+                Ok(v)
+            } else {
+                Err(self.error(ErrorType::Parser))
+            }
         }
     }
 }

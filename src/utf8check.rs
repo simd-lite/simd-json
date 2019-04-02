@@ -1,8 +1,8 @@
+use crate::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-use crate::*;
 
 /*
  * legal utf-8 byte sequence
@@ -108,8 +108,14 @@ fn avxcheck_first_continuation_max(
     has_error: &mut __m256i,
 ) {
     unsafe {
-        let mask_ed: __m256i = _mm256_cmpeq_epi8(off1_current_bytes, _mm256_set1_epi8(static_cast_i8!(0xEDu8)));
-        let mask_f4: __m256i = _mm256_cmpeq_epi8(off1_current_bytes, _mm256_set1_epi8(static_cast_i8!(0xF4u8)));
+        let mask_ed: __m256i = _mm256_cmpeq_epi8(
+            off1_current_bytes,
+            _mm256_set1_epi8(static_cast_i8!(0xEDu8)),
+        );
+        let mask_f4: __m256i = _mm256_cmpeq_epi8(
+            off1_current_bytes,
+            _mm256_set1_epi8(static_cast_i8!(0xF4u8)),
+        );
 
         let badfollow_ed: __m256i = _mm256_and_si256(
             _mm256_cmpgt_epi8(current_bytes, _mm256_set1_epi8(static_cast_i8!(0x9Fu8))),
@@ -142,14 +148,36 @@ fn avxcheck_overlong(
         let off1_hibits: __m256i = push_last_byte_of_a_to_b(previous_hibits, hibits);
         let initial_mins: __m256i = _mm256_shuffle_epi8(
             _mm256_setr_epi8(
-                -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
                 -128, // 10xx => false
-                static_cast_i8!(0xC2u8), -128, // 110x
+                static_cast_i8!(0xC2u8),
+                -128,                    // 110x
                 static_cast_i8!(0xE1u8), // 1110
                 static_cast_i8!(0xF1u8), // 1111
-                -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
                 -128, // 10xx => false
-                static_cast_i8!(0xC2u8), -128, // 110x
+                static_cast_i8!(0xC2u8),
+                -128,                    // 110x
                 static_cast_i8!(0xE1u8), // 1110
                 static_cast_i8!(0xF1u8),
             ), // 1111
@@ -160,14 +188,36 @@ fn avxcheck_overlong(
 
         let second_mins: __m256i = _mm256_shuffle_epi8(
             _mm256_setr_epi8(
-                -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
                 -128, // 10xx => false
-                127, 127,  // 110x => true
+                127,
+                127,                     // 110x => true
                 static_cast_i8!(0xA0u8), // 1110
                 static_cast_i8!(0x90u8), // 1111
-                -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
+                -128,
                 -128, // 10xx => false
-                127, 127,  // 110x => true
+                127,
+                127,                     // 110x => true
                 static_cast_i8!(0xA0u8), // 1110
                 static_cast_i8!(0x90u8),
             ), // 1111
@@ -199,7 +249,8 @@ impl Default for AvxProcessedUtfBytes {
 //#[inline]
 fn avx_count_nibbles(bytes: __m256i, answer: &mut AvxProcessedUtfBytes) {
     answer.rawbytes = bytes;
-    answer.high_nibbles = unsafe{_mm256_and_si256(_mm256_srli_epi16(bytes, 4), _mm256_set1_epi8(0x0F))};
+    answer.high_nibbles =
+        unsafe { _mm256_and_si256(_mm256_srli_epi16(bytes, 4), _mm256_set1_epi8(0x0F)) };
 }
 
 // check whether the current bytes are valid UTF-8

@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-use crate::parsedjson::*;
 use crate::portability::*;
 use crate::utf8check::*;
 use crate::*;
@@ -16,27 +15,34 @@ struct SimdInput {
     hi: __m256i,
 }
 
- fn fill_input(ptr: &[u8]) -> SimdInput {
-     unsafe{
-         SimdInput {
-             lo: _mm256_loadu_si256(ptr[0..32].as_ptr() as *const __m256i),
-             hi: _mm256_loadu_si256(ptr[32..64].as_ptr() as *const __m256i),
-         }
-     }
- }
+fn fill_input(ptr: &[u8]) -> SimdInput {
+    unsafe {
+        SimdInput {
+            lo: _mm256_loadu_si256(ptr[0..32].as_ptr() as *const __m256i),
+            hi: _mm256_loadu_si256(ptr[32..64].as_ptr() as *const __m256i),
+        }
+    }
+}
 
 //#[inline(always)]
-unsafe fn check_utf8(input: &SimdInput, has_error: &mut __m256i,
-                     previous: &mut AvxProcessedUtfBytes) {
+unsafe fn check_utf8(
+    input: &SimdInput,
+    has_error: &mut __m256i,
+    previous: &mut AvxProcessedUtfBytes,
+) {
     let highbit: __m256i = _mm256_set1_epi8(static_cast_i8!(0x80u8));
     if (_mm256_testz_si256(_mm256_or_si256(input.lo, input.hi), highbit)) == 1 {
         // it is ascii, we just check continuation
         *has_error = _mm256_or_si256(
             _mm256_cmpgt_epi8(
                 previous.carried_continuations,
-                _mm256_setr_epi8(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-                                 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1)),
-            *has_error);
+                _mm256_setr_epi8(
+                    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+                    9, 9, 9, 9, 9, 1,
+                ),
+            ),
+            *has_error,
+        );
     } else {
         // it is not ascii so we have to do heavy work
         *previous = avxcheck_utf8_bytes(input.lo, &previous, has_error);
@@ -316,139 +322,143 @@ fn finalize_structurals(
 //WARN_UNUSED
 /*never_inline*/
 //#[inline(never)]
-pub unsafe fn find_structural_bits(buf: &[u8], len: u32, pj: &mut ParsedJson) -> Result<()> {
-    let mut has_error: __m256i = _mm256_setzero_si256();
-    let mut previous = AvxProcessedUtfBytes::default();
-    // we have padded the input out to 64 byte multiple with the remainder being
-    // zeros
+impl<'de> Deserializer<'de> {
+    pub unsafe fn find_structural_bits(&mut self) -> Result<()> {
+        let len = self.input.len();
+        let mut has_error: __m256i = _mm256_setzero_si256();
+        let mut previous = AvxProcessedUtfBytes::default();
+        // we have padded the input out to 64 byte multiple with the remainder being
+        // zeros
 
-    // persistent state across loop
-    // does the last iteration end with an odd-length sequence of backslashes?
-    // either 0 or 1, but a 64-bit value
-    let mut prev_iter_ends_odd_backslash: u64 = 0;
-    // does the previous iteration end inside a double-quote pair?
-    let mut prev_iter_inside_quote: u64 = 0; // either all zeros or all ones
-                                             // does the previous iteration end on something that is a predecessor of a
-                                             // pseudo-structural character - i.e. whitespace or a structural character
-                                             // effectively the very first char is considered to follow "whitespace" for
-                                             // the
-                                             // purposes of pseudo-structural character detection so we initialize to 1
-    let mut prev_iter_ends_pseudo_pred: u64 = 1;
+        // persistent state across loop
+        // does the last iteration end with an odd-length sequence of backslashes?
+        // either 0 or 1, but a 64-bit value
+        let mut prev_iter_ends_odd_backslash: u64 = 0;
+        // does the previous iteration end inside a double-quote pair?
+        let mut prev_iter_inside_quote: u64 = 0; // either all zeros or all ones
+                                                 // does the previous iteration end on something that is a predecessor of a
+                                                 // pseudo-structural character - i.e. whitespace or a structural character
+                                                 // effectively the very first char is considered to follow "whitespace" for
+                                                 // the
+                                                 // purposes of pseudo-structural character detection so we initialize to 1
+        let mut prev_iter_ends_pseudo_pred: u64 = 1;
 
-    // structurals are persistent state across loop as we flatten them on the
-    // subsequent iteration into our array pointed to be base_ptr.
-    // This is harmless on the first iteration as structurals==0
-    // and is done for performance reasons; we can hide some of the latency of the
-    // expensive carryless multiply in the previous step with this work
-    let mut structurals: u64 = 0;
+        // structurals are persistent state across loop as we flatten them on the
+        // subsequent iteration into our array pointed to be base_ptr.
+        // This is harmless on the first iteration as structurals==0
+        // and is done for performance reasons; we can hide some of the latency of the
+        // expensive carryless multiply in the previous step with this work
+        let mut structurals: u64 = 0;
 
-    let lenminus64: usize = if len < 64 { 0 } else { len as usize - 64 };
-    let mut idx: usize = 0;
-    let mut error_mask: u64 = 0; // for unescaped characters within strings (ASCII code points < 0x20)
+        let lenminus64: usize = if len < 64 { 0 } else { len as usize - 64 };
+        let mut idx: usize = 0;
+        let mut error_mask: u64 = 0; // for unescaped characters within strings (ASCII code points < 0x20)
 
-    while idx < lenminus64 {
-        /*
-        #ifndef _MSC_VER
-          __builtin_prefetch(buf + idx + 128);
-        #endif
-         */
-        let input: SimdInput = fill_input(&buf[idx as usize..]);
-        check_utf8(&input, &mut has_error, &mut previous);
-        // detect odd sequences of backslashes
-        let odd_ends: u64 = find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
+        while idx < lenminus64 {
+            /*
+            #ifndef _MSC_VER
+              __builtin_prefetch(buf + idx + 128);
+            #endif
+             */
+            let input: SimdInput = fill_input(&self.input[idx as usize..]);
+            check_utf8(&input, &mut has_error, &mut previous);
+            // detect odd sequences of backslashes
+            let odd_ends: u64 =
+                find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
 
-        // detect insides of quote pairs ("quote_mask") and also our quote_bits
-        // themselves
-        let mut quote_bits: u64 = 0;
-        let quote_mask: u64 = find_quote_mask_and_bits(
-            &input,
-            odd_ends,
-            &mut prev_iter_inside_quote,
-            &mut quote_bits,
-            &mut error_mask,
-        );
+            // detect insides of quote pairs ("quote_mask") and also our quote_bits
+            // themselves
+            let mut quote_bits: u64 = 0;
+            let quote_mask: u64 = find_quote_mask_and_bits(
+                &input,
+                odd_ends,
+                &mut prev_iter_inside_quote,
+                &mut quote_bits,
+                &mut error_mask,
+            );
 
-        // take the previous iterations structural bits, not our current iteration,
-        // and flatten
-        flatten_bits(&mut pj.structural_indexes, idx as u32, structurals);
+            // take the previous iterations structural bits, not our current iteration,
+            // and flatten
+            flatten_bits(&mut self.structural_indexes, idx as u32, structurals);
 
-        let mut whitespace: u64 = 0;
-        find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
+            let mut whitespace: u64 = 0;
+            find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
 
-        // fixup structurals to reflect quotes and add pseudo-structural characters
-        structurals = finalize_structurals(
-            structurals,
-            whitespace,
-            quote_mask,
-            quote_bits,
-            &mut prev_iter_ends_pseudo_pred,
-        );
-        idx += 64;
-    }
+            // fixup structurals to reflect quotes and add pseudo-structural characters
+            structurals = finalize_structurals(
+                structurals,
+                whitespace,
+                quote_mask,
+                quote_bits,
+                &mut prev_iter_ends_pseudo_pred,
+            );
+            idx += 64;
+        }
 
-    // we use a giant copy-paste which is ugly.
-    // but otherwise the string needs to be properly padded or else we
-    // risk invalidating the UTF-8 checks.
-    if idx < len as usize {
-        let mut tmpbuf: [u8; 64] = [0x20; 64];
-        tmpbuf
-            .as_mut_ptr()
-            .copy_from(buf.as_ptr().offset(idx as isize), len as usize - idx);
-        let input: SimdInput = fill_input(&tmpbuf);
+        // we use a giant copy-paste which is ugly.
+        // but otherwise the string needs to be properly padded or else we
+        // risk invalidating the UTF-8 checks.
+        if idx < len {
+            let mut tmpbuf: [u8; 64] = [0x20; 64];
+            tmpbuf
+                .as_mut_ptr()
+                .copy_from(self.input.as_ptr().offset(idx as isize), len as usize - idx);
+            let input: SimdInput = fill_input(&tmpbuf);
 
-        check_utf8(&input, &mut has_error, &mut previous);
+            check_utf8(&input, &mut has_error, &mut previous);
 
-        // detect odd sequences of backslashes
-        let odd_ends: u64 = find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
+            // detect odd sequences of backslashes
+            let odd_ends: u64 =
+                find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
 
-        // detect insides of quote pairs ("quote_mask") and also our quote_bits
-        // themselves
-        let mut quote_bits: u64 = 0;
-        let quote_mask: u64 = find_quote_mask_and_bits(
-            &input,
-            odd_ends,
-            &mut prev_iter_inside_quote,
-            &mut quote_bits,
-            &mut error_mask,
-        );
+            // detect insides of quote pairs ("quote_mask") and also our quote_bits
+            // themselves
+            let mut quote_bits: u64 = 0;
+            let quote_mask: u64 = find_quote_mask_and_bits(
+                &input,
+                odd_ends,
+                &mut prev_iter_inside_quote,
+                &mut quote_bits,
+                &mut error_mask,
+            );
 
-        // take the previous iterations structural bits, not our current iteration,
-        // and flatten
-        flatten_bits(&mut pj.structural_indexes, idx as u32, structurals);
+            // take the previous iterations structural bits, not our current iteration,
+            // and flatten
+            flatten_bits(&mut self.structural_indexes, idx as u32, structurals);
 
-        let mut whitespace: u64 = 0;
-        find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
+            let mut whitespace: u64 = 0;
+            find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
 
-        // fixup structurals to reflect quotes and add pseudo-structural characters
-        structurals = finalize_structurals(
-            structurals,
-            whitespace,
-            quote_mask,
-            quote_bits,
-            &mut prev_iter_ends_pseudo_pred,
-        );
-        idx += 64;
-    }
-    // finally, flatten out the remaining structurals from the last iteration
-    flatten_bits(&mut pj.structural_indexes, idx as u32, structurals);
+            // fixup structurals to reflect quotes and add pseudo-structural characters
+            structurals = finalize_structurals(
+                structurals,
+                whitespace,
+                quote_mask,
+                quote_bits,
+                &mut prev_iter_ends_pseudo_pred,
+            );
+            idx += 64;
+        }
+        // finally, flatten out the remaining structurals from the last iteration
+        flatten_bits(&mut self.structural_indexes, idx as u32, structurals);
 
-    // a valid JSON file cannot have zero structural indexes - we should have
-    // found something
-    if pj.structural_indexes.len() == 0 {
-        return Err(Error::NoStructure);
-    }
-    if pj.structural_indexes.last() > Some(&len) {
-        return Err(Error::InternalError);
-    }
+        // a valid JSON file cannot have zero structural indexes - we should have
+        // found something
+        if self.structural_indexes.len() == 0 {
+            return Err(self.error(ErrorType::NoStructure));
+        }
+        if self.structural_indexes.last() > Some(&(len as u32)) {
+            return Err(self.error(ErrorType::InternalError));
+        }
 
-    // make it safe to dereference one beyond this array
-    if error_mask != 0 {
-        return Err(Error::Syntax);
-
-    }
-    if _mm256_testz_si256(has_error, has_error) != 0 {
-        Ok(())
-    } else {
-        return Err(Error::InvalidUTF8);
+        // make it safe to dereference one beyond this array
+        if error_mask != 0 {
+            return Err(self.error(ErrorType::Syntax));
+        }
+        if _mm256_testz_si256(has_error, has_error) != 0 {
+            Ok(())
+        } else {
+            return Err(self.error(ErrorType::InvalidUTF8));
+        }
     }
 }
