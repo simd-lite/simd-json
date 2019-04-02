@@ -193,7 +193,7 @@ impl<'de> Deserializer<'de> {
         unsafe {
             v.set_len(len + SIMDJSON_PADDING);
         };
-        let mut structural_indexes = Vec::with_capacity(512);
+        let mut structural_indexes = Vec::with_capacity(128);
         structural_indexes.push(0); // push extra root element
         let mut d = Deserializer {
             structural_indexes,
@@ -209,18 +209,22 @@ impl<'de> Deserializer<'de> {
         Ok(d)
     }
 
+    #[cfg_attr(feature = "inline", inline(always))]
     fn skip(&mut self) {
         self.idx += 1;
     }
 
+    #[cfg_attr(feature = "inline", inline(always))]
     fn idx(&self) -> usize {
         self.structural_indexes[self.idx] as usize
     }
 
+    #[cfg_attr(feature = "inline", inline(always))]
     fn c(&self) -> u8 {
         self.input[self.structural_indexes[self.idx] as usize]
     }
 
+    #[cfg_attr(feature = "inline", inline(always))]
     fn next(&mut self) -> Result<u8> {
         self.idx += 1;
         if let Some(idx) = self.structural_indexes.get(self.idx) {
@@ -231,6 +235,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline(always))]
     fn peek(&self) -> Result<u8> {
         if let Some(idx) = self.structural_indexes.get(self.idx + 1) {
             let idx = *idx as usize;
@@ -241,8 +246,9 @@ impl<'de> Deserializer<'de> {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline(always))]
     fn at(&self, idx: usize) -> Option<&u8> {
-        self.input.get(idx)
+        self.input.get(*self.structural_indexes.get(idx)? as usize)
     }
 
     /*
@@ -261,9 +267,11 @@ impl<'de> Deserializer<'de> {
         }
     }
      */
-    
+
+    #[cfg_attr(feature = "inline", inline(always))]
     pub fn to_value(&mut self) -> Result<Value<'de>> {
         match stry!(self.next()) {
+            b'"' => self.parse_str_().map(Value::String),
             b'n' => {
                 stry!(self.parse_null_());
                 Ok(Value::Null)
@@ -273,7 +281,6 @@ impl<'de> Deserializer<'de> {
                 let v = stry!(self.parse_number_());
                 Ok(Value::Number(v))
             }
-            b'"' => self.parse_str_().map(Value::String),
             b'[' => {
                 let a = stry!(self.parse_array_());
                 Ok(Value::Array(a))
@@ -283,33 +290,27 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    fn count_elements(&self, mut idx: usize) -> Result<usize> {
+    #[cfg_attr(feature = "inline", inline(always))]
+    fn count_elements(&self) -> Option<usize> {
+        let mut idx = self.idx + 1;
         let mut depth = 0;
         let mut count = 0;
         loop {
-            match self.at(idx) {
-                Some(b'[') if depth == 0 => {
-                    depth += 1;
-                    count += 1;
-                }
-                Some(b'[') => depth += 1,
-                Some(b']') if depth == 0 => return Ok(count + 1),
-                Some(b']') => depth -= 1,
-                Some(b'{') if depth == 0 => {
-                    depth += 1;
-                    count += 1;
-                }
-                Some(b'{') => depth += 1,
-                Some(b'}') if depth == 0 => return Ok(count + 1),
-                Some(b'}') => depth -= 1,
-                None => return Err(self.error(ErrorType::Syntax)),
-                Some(b',') if depth == 0 => count += 1,
+            match self.at(idx)? {
+                b'[' => depth += 1,
+                b']' if depth == 0 => return Some(count + 1),
+                b']' => depth -= 1,
+                b'{' => depth += 1,
+                b'}' if depth == 0 => return Some(count + 1),
+                b'}' => depth -= 1,
+                b',' if depth == 0 => count += 1,
                 _ => (),
             }
             idx += 1
         }
     }
 
+    #[cfg_attr(feature = "inline", inline(always))]
     fn parse_array_(&mut self) -> Result<Vec<Value<'de>>> {
         // We short cut for empty arrays
         if stry!(self.peek()) == b']' {
@@ -317,7 +318,7 @@ impl<'de> Deserializer<'de> {
             return Ok(Vec::new());
         }
 
-        let mut res = Vec::with_capacity(stry!(self.count_elements(self.idx)));
+        let mut res = Vec::with_capacity(self.count_elements().unwrap_or(0));
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
@@ -340,6 +341,7 @@ impl<'de> Deserializer<'de> {
         Ok(res)
     }
 
+    #[cfg_attr(feature = "inline", inline(always))]
     fn parse_map_(&mut self) -> Result<Map<'de>> {
         // We short cut for empty arrays
 
@@ -348,7 +350,7 @@ impl<'de> Deserializer<'de> {
             return Ok(Map::new());
         }
 
-        let mut res = Map::with_capacity(stry!(self.count_elements(self.idx)));
+        let mut res = Map::with_capacity(self.count_elements().unwrap_or(0));
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
@@ -380,12 +382,15 @@ impl<'de> Deserializer<'de> {
         self.skip();
         Ok(res)
     }
+
+    #[cfg_attr(feature = "inline", inline(always))]
     fn parse_str(&mut self) -> Result<&'de str> {
         if stry!(self.next()) != b'"' {
             return Err(self.error(ErrorType::ExpectedString));
         }
         self.parse_str_()
     }
+
     #[cfg_attr(feature = "inline", inline(always))]
     fn parse_str_(&mut self) -> Result<&'de str> {
         use std::num::Wrapping;
@@ -531,6 +536,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline(always))]
     fn parse_null_(&mut self) -> Result<()> {
         let input = &self.input[self.idx()..];
         let len = input.len();
@@ -551,6 +557,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline(always))]
     fn parse_bool_(&mut self) -> Result<bool> {
         match self.c() {
             b't' => {
@@ -608,6 +615,7 @@ impl<'de> Deserializer<'de> {
     }
 
     */
+    #[cfg_attr(feature = "inline", inline(always))]
     fn parse_number_(&mut self) -> Result<Number> {
         let input = &self.input[self.idx()..];
         let len = input.len();
@@ -645,6 +653,7 @@ impl<'de> Deserializer<'de> {
     */
 }
 
+#[cfg_attr(feature = "inline", inline(always))]
 pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
 where
     T: Deserialize<'a>,
@@ -654,6 +663,7 @@ where
     T::deserialize(&mut deserializer)
 }
 
+#[cfg_attr(feature = "inline", inline(always))]
 pub fn from_str<'a, T>(s: &'a mut str) -> Result<T>
 where
     T: Deserialize<'a>,
@@ -663,6 +673,7 @@ where
     T::deserialize(&mut deserializer)
 }
 
+#[cfg_attr(feature = "inline", inline(always))]
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.to_value()
@@ -812,6 +823,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     // more intelligently if possible.
 
     
+    #[cfg_attr(feature = "inline", inline)]
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -861,6 +873,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     // for a tuple in the Serde data model is required to know the length of the
     // tuple before even looking at the input data.
 
+    #[cfg_attr(feature = "inline", inline)]
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -903,6 +916,7 @@ impl<'a, 'de> CommaSeparated<'a, 'de> {
 impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     type Error = Error;
 
+    #[cfg_attr(feature = "inline", inline)]
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
         T: DeserializeSeed<'de>,
@@ -967,34 +981,10 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
             _ => Ok(Some(stry!(seed.deserialize(&mut *self.de)))),
         }
     }
-    /*
+    #[cfg_attr(feature = "inline", inline)]
     fn size_hint(&self) -> Option<usize> {
-        let mut depth = 0;
-        let mut count = 0;
-        let mut i = self.de.idx;
-        loop {
-            match self.de.at(i) {
-                Some(b'[') if depth == 0 => {
-                    depth += 1;
-                    count += 1;
-                }
-                Some(b'[') => depth += 1,
-                Some(b']') if depth == 0 => break,
-                Some(b']') => depth -= 1,
-                Some(b'{') if depth == 0 => {
-                    depth += 1;
-                    count += 1;
-                }
-                Some(b'{') => depth += 1,
-                Some(b'}') => depth -= 1,
-                None => break,
-    _ if depth == 0 => count += 1,
-                _ => (),
-            }
-            i += 1
-        }
-        Some(count)
-    }*/
+        self.de.count_elements()
+    }
 }
 
 // `MapAccess` is provided to the `Visitor` to give it the ability to iterate
@@ -1002,6 +992,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
 impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     type Error = Error;
 
+    #[cfg_attr(feature = "inline", inline)]
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
     where
         K: DeserializeSeed<'de>,
@@ -1057,6 +1048,7 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
     where
         V: DeserializeSeed<'de>,
@@ -1068,32 +1060,9 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         seed.deserialize(&mut *self.de)
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     fn size_hint(&self) -> Option<usize> {
-        let mut depth = 0;
-        let mut count = 0;
-        let mut i = self.de.idx;
-        loop {
-            match self.de.at(i) {
-                Some(b'[') if depth == 0 => {
-                    depth += 1;
-                    count += 1;
-                }
-                Some(b'[') => depth += 1,
-                Some(b']') => depth -= 1,
-                Some(b'{') if depth == 0 => {
-                    depth += 1;
-                    count += 1;
-                }
-                Some(b'{') => depth += 1,
-                Some(b'}') if depth == 0 => break,
-                Some(b'}') => depth -= 1,
-                None => break,
-                _ if depth == 0 => count += 1,
-                _ => (),
-            }
-            i += 1
-        }
-        Some(count)
+        self.de.count_elements()
     }
 }
 

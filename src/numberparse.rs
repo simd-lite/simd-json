@@ -58,9 +58,10 @@ const POWER_OF_TEN: [f64; 617] = [
 ];
 
 //#[inline(always)]
+#[cfg_attr(feature = "inline", inline(always))]
 pub fn is_integer(c: u8) -> bool {
-    c >= b'0' && c <= b'9'
     // this gets compiled to (uint8_t)(c - '0') <= 9 on all decent compilers
+    c >= b'0' && c <= b'9'
 }
 
 // We need to check that the character following a zero is valid. This is
@@ -86,7 +87,7 @@ const STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED: [bool; 256] = [
     true, true, true, true, true, true, true,
 ];
 
-//#[inline(always)]
+#[cfg_attr(feature = "inline", inline(always))]
 fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
     STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED[c as usize]
 }
@@ -100,9 +101,8 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // at a glance, it looks better than Mula's
 // http://0x80.pl/articles/swar-digits-validate.html
 #[cfg_attr(feature = "inline", inline)]
-
-unsafe fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
-    let val: u64 = *(chars as *const u64);
+fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
+    let val: u64 = unsafe{*(chars as *const u64)};
 
     //    let val: __m64 = *(chars as *const __m64);
     // a branchy method might be faster:
@@ -158,7 +158,6 @@ unsafe fn parse_eight_digits_unrolled(chars: *const u8) -> i32 {
 //
 
 impl<'de> Deserializer<'de> {
-    //#[inline(never)]
     pub fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<Number> {
         let mut negative: bool = false;
         if found_minus {
@@ -331,6 +330,7 @@ impl<'de> Deserializer<'de> {
     // parse the number at buf + offset
     // define JSON_TEST_NUMBERS for unit testing
     //#[inline(always)]
+    #[cfg_attr(feature = "inline", inline(always))]
     pub fn parse_number_int(&self, buf: &[u8], found_minus: bool) -> Result<Number> {
         unsafe {
             let mut p: *const u8 = buf.as_ptr();
