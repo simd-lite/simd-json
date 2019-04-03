@@ -8,12 +8,12 @@ edition = "2018"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 hashbrown = { version = "*", features = ["serde"] }
+lazy_static = "1"
 
 [dev-dependencies]
 proptest = "0.9.2"
 serde_derive = "*"
 serde_bytes = "*"
-assert_approx_eq = "1.1.0"
 
 [features]
 default = ["swar-number-parsing"]

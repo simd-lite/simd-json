@@ -21,7 +21,17 @@ use std::mem;
 //use std::ops::{AddAssign, MulAssign, Neg};
 use std::str;
 
+#[macro_use]
+extern crate lazy_static;
+
 pub type Map<'a> = HashMap<&'a str, Value<'a>>;
+
+
+// _mm256_set1_epi8(b'\\' as i8)
+lazy_static! {
+    static ref MM256_SET1_EPI8_SLASH: __m256i = {unsafe{ _mm256_set1_epi8(b'\\' as i8)}};
+    static ref MM256_SET1_EPI8_QUOTE: __m256i = {unsafe{ _mm256_set1_epi8(b'"' as i8)}};
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Value<'a> {
@@ -364,34 +374,19 @@ impl<'de> Deserializer<'de> {
                 stry!(self.parse_null_());
                 Ok(Value::Null)
             }
-            b't' => {
-                stry!(self.parse_true_());
-                Ok(Value::Bool(true))
-            }
-            b'f' => {
-                stry!(self.parse_false_());
-                Ok(Value::Bool(false))
-            }
-            b'-' => {
-                let v = stry!(self.parse_number_(true));
-                Ok(Value::Number(v))
-            }
-            b'0'...b'9' => {
-                let v = stry!(self.parse_number_(false));
-                Ok(Value::Number(v))
-            }
-            b'[' => {
-                let a = stry!(self.parse_array_());
-                Ok(Value::Array(a))
-            }
+            b't' => self.parse_true_().map(Value::Bool),
+            b'f' => self.parse_false_().map(Value::Bool),
+            b'-' => self.parse_number_(true).map(Value::Number),
+            b'0'...b'9' => self.parse_number_(false).map(Value::Number),
+            b'[' => self.parse_array_().map(Value::Array),
             b'{' => self.parse_map_().map(Value::Map),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
         }
     }
 
     #[cfg_attr(feature = "inline", inline(always))]
-    fn count_elements(&self) -> Option<usize> {
-        Some(self.counts[self.idx])
+    fn count_elements(&self) -> usize {
+        self.counts[self.idx]
         /*
         let mut idx = self.idx + 1;
         let mut depth = 0;
@@ -420,7 +415,7 @@ impl<'de> Deserializer<'de> {
             return Ok(Vec::new());
         }
 
-        let mut res = Vec::with_capacity(self.count_elements().unwrap_or(0));
+        let mut res = Vec::with_capacity(self.count_elements());
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
@@ -452,12 +447,16 @@ impl<'de> Deserializer<'de> {
             return Ok(Map::new());
         }
 
-        let mut res = Map::with_capacity(self.count_elements().unwrap_or(0));
+        let mut res = Map::with_capacity(self.count_elements());
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
 
-        let key = stry!(self.parse_str());
+        if stry!(self.next()) != b'"' {
+            return Err(self.error(ErrorType::ExpectedString));
+        }
+
+        let key = stry!(self.parse_short_str_());
 
         match stry!(self.next()) {
             b':' => (),
@@ -472,7 +471,10 @@ impl<'de> Deserializer<'de> {
                 b',' => self.skip(),
                 _c => return Err(self.error(ErrorType::ExpectedArrayComma)),
             }
-            let key = stry!(self.parse_str());
+            if stry!(self.next()) != b'"' {
+                return Err(self.error(ErrorType::ExpectedString));
+            }
+            let key = stry!(self.parse_short_str_());
 
             match stry!(self.next()) {
                 b':' => (),
@@ -489,6 +491,42 @@ impl<'de> Deserializer<'de> {
     fn parse_str(&mut self) -> Result<&'de str> {
         if stry!(self.next()) != b'"' {
             return Err(self.error(ErrorType::ExpectedString));
+        }
+        self.parse_str_()
+    }
+
+    // We parse a string that's likely to be less then 32 characters and without any
+    // fancy in it like object keys
+    #[cfg_attr(feature = "inline", inline(always))]
+    fn parse_short_str_(&mut self) -> Result<&'de str> {
+        use std::num::Wrapping;
+        let mut padding = [0u8; 32];
+        let idx = self.idx() + 1;
+        let mut src: &[u8] = &self.input[idx..];
+
+        //short strings are very common for IDs
+        let v: __m256i = if src.len() >= 32 {
+            // This is safe since we ensure src is at least 32 wide
+            unsafe { _mm256_loadu_si256(src[..32].as_ptr() as *const __m256i) }
+        } else {
+            padding[..src.len()].clone_from_slice(&src);
+            // This is safe since we ensure src is at least 32 wide
+            unsafe { _mm256_loadu_si256(padding[..32].as_ptr() as *const __m256i) }
+        };
+        let bs_bits: u32 = unsafe {
+            static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
+                v,
+                *MM256_SET1_EPI8_SLASH
+            )))
+        };
+        let quote_mask = unsafe { _mm256_cmpeq_epi8(v, *MM256_SET1_EPI8_QUOTE) };
+        let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
+        if ((Wrapping(bs_bits) - Wrapping(1)).0 & quote_bits) != 0 {
+            let quote_dist: u32 = trailingzeroes(quote_bits as u64) as u32;
+            let v = &self.input[idx..idx + quote_dist as usize] as *const [u8] as *const str;
+            unsafe{
+                return Ok(&*v);
+            }
         }
         self.parse_str_()
     }
@@ -511,6 +549,7 @@ impl<'de> Deserializer<'de> {
         // create sub sliced form sub to `sub.len()`.
         let mut dst: &mut [u8] = &mut self.strings;
         let mut src: &[u8] = &self.input[idx..];
+
         loop {
             #[cfg(test1)]
             unsafe {
@@ -544,10 +583,10 @@ impl<'de> Deserializer<'de> {
             let bs_bits: u32 = unsafe {
                 static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                     v,
-                    _mm256_set1_epi8(b'\\' as i8)
+                    *MM256_SET1_EPI8_SLASH
                 )))
             };
-            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
+            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, *MM256_SET1_EPI8_QUOTE) };
             let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
             if ((Wrapping(bs_bits) - Wrapping(1)).0 & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
@@ -1088,7 +1127,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     }
     #[cfg_attr(feature = "inline", inline)]
     fn size_hint(&self) -> Option<usize> {
-        self.de.count_elements()
+        Some(self.de.count_elements())
     }
 }
 
@@ -1167,7 +1206,7 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
 
     #[cfg_attr(feature = "inline", inline)]
     fn size_hint(&self) -> Option<usize> {
-        self.de.count_elements()
+        Some(self.de.count_elements())
     }
 }
 
