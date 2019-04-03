@@ -1,6 +1,3 @@
-#![feature(ptr_offset_from)]
-#![feature(custom_attribute)]
-
 mod charutils;
 mod numberparse;
 mod parsedjson;
@@ -118,6 +115,8 @@ pub enum ErrorType {
     ExpectedMapComma,
     ExpectedMapEnd,
     ExpectedNull,
+    InvalidNumber,
+    InvalidExponent,
     InternalError,
     InvalidEscape,
     InvalidUTF8,
