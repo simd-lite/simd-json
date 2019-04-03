@@ -26,9 +26,9 @@ pub type Map<'a> = HashMap<&'a str, Value<'a>>;
 #[derive(Debug, PartialEq)]
 pub enum Value<'a> {
     Array(Vec<Value<'a>>),
-    //Bool(bool),
-    True,
-    False,
+    Bool(bool),
+    //True,
+    //False,
     Map(Map<'a>),
     Null,
     Number(Number),
@@ -303,15 +303,19 @@ impl<'de> Deserializer<'de> {
             }
             b't' => {
                 stry!(self.parse_true_());
-                Ok(Value::True)
+                Ok(Value::Bool(true))
             },
             b'f' => {
                 stry!(self.parse_false_());
-                Ok(Value::False)
+                Ok(Value::Bool(false))
             },
 //            b'f' => self.parse_bool_().map(Value::Bool),
-            b'0'...b'9' | b'-' => {
-                let v = stry!(self.parse_number_());
+            b'-' => {
+                let v = stry!(self.parse_number_(true));
+                Ok(Value::Number(v))
+            }
+            b'0'...b'9' => {
+                let v = stry!(self.parse_number_(false));
                 Ok(Value::Number(v))
             }
             b'[' => {
@@ -662,7 +666,7 @@ impl<'de> Deserializer<'de> {
 
     */
     #[cfg_attr(feature = "inline", inline(always))]
-    fn parse_number_(&mut self) -> Result<Number> {
+    fn parse_number_(&mut self, minus: bool) -> Result<Number> {
         let input = &self.input[self.idx()..];
         let len = input.len();
         if len < SIMDJSON_PADDING {
@@ -670,9 +674,9 @@ impl<'de> Deserializer<'de> {
             unsafe {
                 copy.as_mut_ptr().copy_from(input.as_ptr(), len);
             };
-            self.parse_number_int(&copy, self.c() == b'-')
+            self.parse_number_int(&copy, minus)
         } else {
-            self.parse_number_int(input, self.c() == b'-')
+            self.parse_number_int(input, minus)
         }
     }
 
@@ -742,7 +746,11 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 visitor.visit_unit()
             }
             b't' | b'f' => visitor.visit_bool(stry!(self.parse_bool_())),
-            b'0'...b'9' | b'-' => match stry!(self.parse_number_()) {
+            b'-' => match stry!(self.parse_number_(true)) {
+                Number::F64(n) => visitor.visit_f64(n),
+                Number::I64(n) => visitor.visit_i64(n),
+            },
+            b'0'...b'9' => match stry!(self.parse_number_(false)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
             },
