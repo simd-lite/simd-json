@@ -50,7 +50,6 @@ fn avxcheck_smaller_than_0xf4(current_bytes: __m256i, has_error: &mut __m256i) {
 }
 
 #[cfg_attr(feature = "inline", inline)]
-
 fn avxcontinuation_lengths(high_nibbles: __m256i) -> __m256i {
     unsafe {
         _mm256_shuffle_epi8(
