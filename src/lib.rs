@@ -26,7 +26,9 @@ pub type Map<'a> = HashMap<&'a str, Value<'a>>;
 #[derive(Debug, PartialEq)]
 pub enum Value<'a> {
     Array(Vec<Value<'a>>),
-    Bool(bool),
+    //Bool(bool),
+    True,
+    False,
     Map(Map<'a>),
     Null,
     Number(Number),
@@ -193,7 +195,10 @@ impl<'de> Deserializer<'de> {
         unsafe {
             v.set_len(len + SIMDJSON_PADDING);
         };
-        let mut structural_indexes = Vec::with_capacity(128);
+        // We have to pick an initial size of the structural indexes.
+        // 6 is a heuristic that seems to work well for the benchmark
+        // data and limit re-allocation frequency.
+        let mut structural_indexes = Vec::with_capacity(len/6);
         structural_indexes.push(0); // push extra root element
         let mut d = Deserializer {
             structural_indexes,
@@ -212,7 +217,12 @@ impl<'de> Deserializer<'de> {
     }
 
     fn compute_size(&mut self) -> Result<()> {
-        self.counts = vec![0; self.structural_indexes.len()];
+        self.counts = Vec::with_capacity(self.structural_indexes.len());
+        // We don't care about the initial data we'll overwrite it anyway.
+        unsafe {
+            self.counts.set_len(self.structural_indexes.len());
+        };
+
         let mut depth = Vec::with_capacity(self.structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
         let mut last_start = 1;
         let mut cnt = 0;
@@ -283,23 +293,6 @@ impl<'de> Deserializer<'de> {
         self.input.get(*self.structural_indexes.get(idx)? as usize)
     }
 
-    /*
-    pub fn to_value(&mut self) -> Result<Value<'de>> {
-        match stry!(self.peek()) {
-            b'n' => {
-                stry!(self.parse_null());
-                Ok(Value::Null)
-            }
-            b't' | b'f' => self.parse_bool().map(Value::Bool),
-            b'0'...b'9' | b'-' => self.parse_number().map(Value::Number),
-            b'"' => self.parse_str().map(Value::String),
-            b'[' => self.parse_array().map(Value::Array),
-            b'{' => self.parse_map().map(Value::Map),
-            c => Err(Error::UnexpectedCharacter(c as char)),
-        }
-    }
-     */
-    
     #[cfg_attr(feature = "inline", inline(always))]
     pub fn to_value(&mut self) -> Result<Value<'de>> {
         match stry!(self.next()) {
@@ -308,7 +301,15 @@ impl<'de> Deserializer<'de> {
                 stry!(self.parse_null_());
                 Ok(Value::Null)
             }
-            b't' | b'f' => self.parse_bool_().map(Value::Bool),
+            b't' => {
+                stry!(self.parse_true_());
+                Ok(Value::True)
+            },
+            b'f' => {
+                stry!(self.parse_false_());
+                Ok(Value::False)
+            },
+//            b'f' => self.parse_bool_().map(Value::Bool),
             b'0'...b'9' | b'-' => {
                 let v = stry!(self.parse_number_());
                 Ok(Value::Number(v))
@@ -593,49 +594,59 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(feature = "inline", inline(always))]
+    fn parse_true_(&mut self) -> Result<bool> {
+        let input = &self.input[self.idx()..];
+        let len = input.len();
+        if len < SIMDJSON_PADDING {
+            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+            unsafe {
+                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+            };
+            if is_valid_true_atom(&copy) {
+                Ok(true)
+            } else {
+                Err(self.error(ErrorType::ExpectedBoolean))
+            }
+        } else {
+            if is_valid_true_atom(input) {
+                Ok(true)
+            } else {
+                Err(self.error(ErrorType::ExpectedBoolean))
+            }
+        }
+    }
+    #[cfg_attr(feature = "inline", inline(always))]
+    fn parse_false_(&mut self) -> Result<bool> {
+        let input = &self.input[self.idx()..];
+        let len = input.len();
+        if len < SIMDJSON_PADDING {
+            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+            unsafe {
+                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+            };
+            if is_valid_false_atom(&copy) {
+                Ok(false)
+            } else {
+                Err(self.error(ErrorType::ExpectedBoolean))
+            }
+        } else {
+            if is_valid_false_atom(input) {
+                Ok(false)
+            } else {
+                Err(self.error(ErrorType::ExpectedBoolean))
+            }
+        }
+    }
+
+    #[cfg_attr(feature = "inline", inline(always))]
     fn parse_bool_(&mut self) -> Result<bool> {
         match self.c() {
             b't' => {
-                let input = &self.input[self.idx()..];
-                let len = input.len();
-                if len < SIMDJSON_PADDING {
-                    let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-                    unsafe {
-                        copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    };
-                    if is_valid_true_atom(&copy) {
-                        Ok(true)
-                    } else {
-                        Err(self.error(ErrorType::ExpectedBoolean))
-                    }
-                } else {
-                    if is_valid_true_atom(input) {
-                        Ok(true)
-                    } else {
-                        Err(self.error(ErrorType::ExpectedBoolean))
-                    }
-                }
+                self.parse_true_()
+
             }
             b'f' => {
-                let input = &self.input[self.idx()..];
-                let len = input.len();
-                if len < SIMDJSON_PADDING {
-                    let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-                    unsafe {
-                        copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    };
-                    if is_valid_false_atom(&copy) {
-                        Ok(false)
-                    } else {
-                        Err(self.error(ErrorType::ExpectedBoolean))
-                    }
-                } else {
-                    if is_valid_false_atom(input) {
-                        Ok(false)
-                    } else {
-                        Err(self.error(ErrorType::ExpectedBoolean))
-                    }
-                }
+                self.parse_false_()
             }
             _ => Err(self.error(ErrorType::ExpectedBoolean)),
         }
