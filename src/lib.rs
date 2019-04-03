@@ -27,7 +27,8 @@ extern crate lazy_static;
 pub type Map<'a> = HashMap<&'a str, Value<'a>>;
 
 
-// _mm256_set1_epi8(b'\\' as i8)
+// We only do this for the string parse function as it seems to slow down other frunctions
+// odd...
 lazy_static! {
     static ref MM256_SET1_EPI8_SLASH: __m256i = {unsafe{ _mm256_set1_epi8(b'\\' as i8)}};
     static ref MM256_SET1_EPI8_QUOTE: __m256i = {unsafe{ _mm256_set1_epi8(b'"' as i8)}};
