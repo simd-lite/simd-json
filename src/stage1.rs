@@ -251,29 +251,31 @@ unsafe fn find_whitespace_and_structurals(
 //TODO: usize was u32 here does this matter?
 #[cfg_attr(feature = "inline", inline(always))]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
-    let cnt: usize = hamming(bits) as usize;
-    let next_base: usize = base.len() + cnt;
-    let idx_minus_64 = unsafe { static_cast_u32!(idx) - 64 };
-    while bits != 0 {
-        base.push(idx_minus_64 + trailingzeroes(bits));
-        bits = bits & bits.wrapping_sub(1);
-        base.push(idx_minus_64 + trailingzeroes(bits));
-        bits = bits & bits.wrapping_sub(1);
-        base.push(idx_minus_64 + trailingzeroes(bits));
-        bits = bits & bits.wrapping_sub(1);
-        base.push(idx_minus_64 + trailingzeroes(bits));
-        bits = bits & bits.wrapping_sub(1);
-        base.push(idx_minus_64 + trailingzeroes(bits));
-        bits = bits & bits.wrapping_sub(1);
-        base.push(idx_minus_64 + trailingzeroes(bits));
-        bits = bits & bits.wrapping_sub(1);
-        base.push(idx_minus_64 + trailingzeroes(bits));
-        bits = bits & bits.wrapping_sub(1);
-        base.push(idx_minus_64 + trailingzeroes(bits));
-        bits = bits & bits.wrapping_sub(1);
-    }
-    base.truncate(next_base);
-}
+    use std::num::Wrapping;
+     let cnt: usize = hamming(bits) as usize;
+     let next_base: usize = base.len() + cnt;
+     while bits != 0 {
+        unsafe {
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
+            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+        }
+     }
+     base.truncate(next_base);
+ }
 
 // return a updated structural bit vector with quoted contents cleared out and
 // pseudo-structural characters added to the mask

@@ -164,6 +164,7 @@ impl<'de> Deserializer<'de> {
     /// Note: a redesign could avoid this function entirely.
     ///
     fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<Number> {
+        dbg!("float");
         let mut negative: bool = false;
         if found_minus {
             p = &p[1..];
@@ -185,22 +186,31 @@ impl<'de> Deserializer<'de> {
             }
         }
         if p[0] == b'.' {
+            let mut fraction: u64 = 0;
+            let mut fractionalweight: u64 = 1;
             p = &p[1..];
-            let mut fractionalweight: f64 = 1.0;
+            //let mut fractionalweight: f64 = 1.0;
             if is_integer(p[0]) {
                 let digit: u8 = p[0] - b'0';
                 p = &p[1..];
-                fractionalweight *= 0.1;
-                i = i + digit as f64 * fractionalweight;
+                fractionalweight = 10;
+                fraction += digit as u64;
+                    //i = i + digit as f64 * fractionalweight;
             } else {
                 return Err(self.error(ErrorType::Parser));
             }
             while is_integer(p[0]) {
                 let digit: u8 = p[0] - b'0';
+                //dbg!(digit);
                 p = &p[1..];
-                fractionalweight *= 0.1;
-                i = i + digit as f64 * fractionalweight;
+                fractionalweight *= 10;
+                fraction *= 10;
+                fraction += digit as u64;
+//                dbg!(fraction);
+                //dbg!(fractionalweight);
             }
+            i += fraction as f64 / fractionalweight as f64;
+            //dbg!(i);
         }
         if (p[0] == b'e') || (p[0] == b'E') {
             p = &p[1..];
@@ -399,6 +409,7 @@ impl<'de> Deserializer<'de> {
                 if p.len() >= 16 && is_made_of_eight_digits_fast(p) {
                     i = i * 100000000 + parse_eight_digits_unrolled(p) as i64;
                     p = &p[8..];
+                    digitcount += 8;
                     // exponent -= 8;
                 }
             }
@@ -409,7 +420,7 @@ impl<'de> Deserializer<'de> {
                 digitcount += 1;
                 i = i * 10 + digit as i64; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
             }
-            exponent = digitcount - firstafterperiod;
+            exponent = firstafterperiod - digitcount;
         }
         let mut expnumber: i64 = 0; // exponential part
         if (b'e' == p[0]) || (b'E' == p[0]) {
