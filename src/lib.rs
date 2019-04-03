@@ -193,7 +193,6 @@ pub struct Deserializer<'de> {
     // the beginning as data is parsed.
     input: &'de mut [u8],
     strings: Vec<u8>,
-    sidx: usize,
     structural_indexes: Vec<u32>,
     idx: usize,
     counts: Vec<usize>,
@@ -213,48 +212,48 @@ impl<'de> Deserializer<'de> {
     // `serde_json::from_str(...)` while advanced use cases that require a
     // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
     pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
-        let len = input.len();
-        let mut v = Vec::with_capacity(len + SIMDJSON_PADDING);
-        unsafe {
-            v.set_len(len + SIMDJSON_PADDING);
-        };
         // We have to pick an initial size of the structural indexes.
         // 6 is a heuristic that seems to work well for the benchmark
         // data and limit re-allocation frequency.
-        let structural_indexes  = match unsafe {Deserializer::find_structural_bits(input)} {
+        let structural_indexes = match unsafe { Deserializer::find_structural_bits(input) } {
             Ok(i) => i,
-            Err(t) => return Err(Error{
-                structural: 0,
-                index: 0,
-                character: '💩', //this is the poop emoji
-                error: t
-            })
+            Err(t) => {
+                return Err(Error {
+                    structural: 0,
+                    index: 0,
+                    character: '💩', //this is the poop emoji
+                    error: t,
+                });
+            }
         };
-        let counts = Deserializer::compute_size(input, &structural_indexes)?;
-        let mut d = Deserializer {
+        let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
+
+        let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
+        unsafe {
+            v.set_len(str_len + SIMDJSON_PADDING);
+        };
+
+        Ok(Deserializer {
             counts,
             structural_indexes,
             input,
             idx: 0,
             strings: v,
-            sidx: 0,
-        };
-        Ok(d)
+        })
     }
 
-    fn compute_size(input: &[u8], structural_indexes: &[u32]) -> Result<Vec<usize>> {
-
+    fn compute_size(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
         let mut counts = Vec::with_capacity(structural_indexes.len());
         unsafe {
             counts.set_len(structural_indexes.len());
-
         };
         let mut depth = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-
         let mut last_start = 1;
         let mut cnt = 0;
+        let mut str_len = 0;
         for i in 1..structural_indexes.len() {
-            match input[structural_indexes[i] as usize] {
+            let idx = structural_indexes[i];
+            match input[idx as usize] {
                 b'[' | b'{' => {
                     depth.push((last_start, cnt));
                     last_start = i;
@@ -265,22 +264,29 @@ impl<'de> Deserializer<'de> {
                     if i != last_start + 1 {
                         cnt += 1;
                     }
-                    let (a_last_start, a_cnt) =
-                        stry!(depth.pop().ok_or_else(|| (Error{
-                            structural: 0,
-                            index: 0,
-                            character: '💩', //this is the poop emoji
-                            error: ErrorType::Syntax
-                        })));
+                    let (a_last_start, a_cnt) = stry!(depth.pop().ok_or_else(|| (Error {
+                        structural: 0,
+                        index: 0,
+                        character: '💩', //this is the poop emoji
+                        error: ErrorType::Syntax
+                    })));
                     counts[last_start] = cnt;
                     last_start = a_last_start;
                     cnt = a_cnt;
                 }
                 b',' => cnt += 1,
+                b'"' => {
+                    if let Some(next) = structural_indexes.get(i + 1) {
+                        let d = next - idx;
+                        if d > str_len {
+                            str_len = d;
+                        }
+                    }
+                }
                 _ => (),
             }
         }
-        Ok(counts)
+        Ok((counts, str_len as usize))
     }
 
     #[cfg_attr(feature = "inline", inline(always))]
@@ -342,11 +348,11 @@ impl<'de> Deserializer<'de> {
             b't' => {
                 stry!(self.parse_true_());
                 Ok(Value::Bool(true))
-            },
+            }
             b'f' => {
                 stry!(self.parse_false_());
                 Ok(Value::Bool(false))
-            },
+            }
             b'-' => {
                 let v = stry!(self.parse_number_(true));
                 Ok(Value::Number(v))
@@ -484,7 +490,7 @@ impl<'de> Deserializer<'de> {
         // we include the terminal '"' so we know where to end
         // This is safe since we check sub's lenght in the range access above and only
         // create sub sliced form sub to `sub.len()`.
-        let mut dst: &mut [u8] = &mut self.strings[self.sidx..];
+        let mut dst: &mut [u8] = &mut self.strings;
         let mut src: &[u8] = &self.input[idx..];
         loop {
             #[cfg(test1)]
@@ -542,12 +548,10 @@ impl<'de> Deserializer<'de> {
                 //let s = String::from_utf8_lossy(&self.strings[self.sidx..self.sidx + written as usize]).to_string();
                 unsafe {
                     // We need to copy this back into the original data structure to guarantee that it lives as long as claimed.
-                    self.input[idx..idx + written]
-                        .clone_from_slice(&self.strings[self.sidx..self.sidx + written]);
+                    self.input[idx..idx + written].clone_from_slice(&self.strings[..written]);
                     //let v = &self.strings[self.sidx..self.sidx + written as usize] as *const [u8] as *const str;
 
                     let v = &self.input[idx..idx + written] as *const [u8] as *const str;
-                    self.sidx += written;
                     return Ok(&*v);
                 }
                 /*
@@ -683,13 +687,8 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(feature = "inline", inline(always))]
     fn parse_bool_(&mut self) -> Result<bool> {
         match self.c() {
-            b't' => {
-                self.parse_true_()
-
-            }
-            b'f' => {
-                self.parse_false_()
-            }
+            b't' => self.parse_true_(),
+            b'f' => self.parse_false_(),
             _ => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
@@ -915,7 +914,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     // expect when working with JSON. Other formats are encouraged to behave
     // more intelligently if possible.
 
-    
     #[cfg_attr(feature = "inline", inline)]
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
@@ -995,10 +993,7 @@ struct CommaSeparated<'a, 'de: 'a> {
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     fn new(de: &'a mut Deserializer<'de>) -> Self {
-        CommaSeparated {
-            first: true,
-            de,
-        }
+        CommaSeparated { first: true, de }
     }
 }
 
@@ -1201,7 +1196,7 @@ mod tests {
     #[test]
     fn count4() {
         let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
-        let res = vec![          0,3,0,0,1,0,0,0,0,0];
+        let res = vec![0, 3, 0, 0, 1, 0, 0, 0, 0, 0];
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
         dbg!(&simd.counts);
