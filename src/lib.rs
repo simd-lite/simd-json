@@ -248,6 +248,8 @@ impl<'de> Deserializer<'de> {
             counts.set_len(structural_indexes.len());
         };
         let mut depth = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+        let mut arrays = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+        let mut maps = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
         let mut last_start = 1;
         let mut cnt = 0;
         let mut str_len = 0;
@@ -259,7 +261,7 @@ impl<'de> Deserializer<'de> {
                     last_start = i;
                     cnt = 0;
                 }
-                b']' | b'}' => {
+                b']' => {
                     // if we had any elements we have to add 1 for the last element
                     if i != last_start + 1 {
                         cnt += 1;
@@ -272,6 +274,23 @@ impl<'de> Deserializer<'de> {
                     })));
                     counts[last_start] = cnt;
                     last_start = a_last_start;
+                    arrays.push(cnt);
+                    cnt = a_cnt;
+                }
+                b'}' => {
+                    // if we had any elements we have to add 1 for the last element
+                    if i != last_start + 1 {
+                        cnt += 1;
+                    }
+                    let (a_last_start, a_cnt) = stry!(depth.pop().ok_or_else(|| (Error {
+                        structural: 0,
+                        index: 0,
+                        character: '💩', //this is the poop emoji
+                        error: ErrorType::Syntax
+                    })));
+                    counts[last_start] = cnt;
+                    last_start = a_last_start;
+                    maps.push(cnt);
                     cnt = a_cnt;
                 }
                 b',' => cnt += 1,
