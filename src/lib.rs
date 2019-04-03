@@ -27,8 +27,6 @@ pub type Map<'a> = HashMap<&'a str, Value<'a>>;
 pub enum Value<'a> {
     Array(Vec<Value<'a>>),
     Bool(bool),
-    //True,
-    //False,
     Map(Map<'a>),
     Null,
     Number(Number),
@@ -43,6 +41,31 @@ macro_rules! likely {
     };
 }
 */
+#[cfg(nightly)]
+#[macro_export]
+macro_rules! likely {
+    ($e:expr) => {
+        std::intrinsics::likely($e)
+    };
+}
+
+#[cfg(not(nightly))]
+#[macro_export]
+macro_rules! likely {
+    ($e:expr) => {
+        $e
+    };
+}
+
+#[cfg(nightly)]
+#[macro_export]
+macro_rules! unlikely {
+    ($e:expr) => {
+        std::intrinsics::unlikely($e)
+    };
+}
+
+#[cfg(not(nightly))]
 #[macro_export]
 macro_rules! unlikely {
     ($e:expr) => {
@@ -198,30 +221,34 @@ impl<'de> Deserializer<'de> {
         // We have to pick an initial size of the structural indexes.
         // 6 is a heuristic that seems to work well for the benchmark
         // data and limit re-allocation frequency.
-        let mut structural_indexes = Vec::with_capacity(len/6);
-        structural_indexes.push(0); // push extra root element
+        let structural_indexes  = match unsafe {Deserializer::find_structural_bits(input)} {
+            Ok(i) => i,
+            Err(t) => return Err(Error{
+                structural: 0,
+                index: 0,
+                character: '💩', //this is the poop emoji
+                error: t
+            })
+        };
+
+        let mut counts = Vec::with_capacity(structural_indexes.len());
+        unsafe {
+            counts.set_len(structural_indexes.len());
+
+        };
         let mut d = Deserializer {
+            counts,
             structural_indexes,
             input,
             idx: 0,
             strings: v,
             sidx: 0,
-            counts: Vec::new(), // this is a bit silly
-        };
-        unsafe {
-            stry!(d.find_structural_bits());
-            //unified_machine(input, input.len(), &mut pj);
         };
         d.compute_size()?;
         Ok(d)
     }
 
     fn compute_size(&mut self) -> Result<()> {
-        self.counts = Vec::with_capacity(self.structural_indexes.len());
-        // We don't care about the initial data we'll overwrite it anyway.
-        unsafe {
-            self.counts.set_len(self.structural_indexes.len());
-        };
 
         let mut depth = Vec::with_capacity(self.structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
         let mut last_start = 1;
@@ -277,6 +304,14 @@ impl<'de> Deserializer<'de> {
         }
     }
 
+    // pull out the check so we don't need to
+    // stry every time
+    #[cfg_attr(feature = "inline", inline(always))]
+    fn next_(&mut self) -> u8 {
+        self.idx += 1;
+        self.input[self.structural_indexes[self.idx] as usize]
+    }
+
     #[cfg_attr(feature = "inline", inline(always))]
     fn peek(&self) -> Result<u8> {
         if let Some(idx) = self.structural_indexes.get(self.idx + 1) {
@@ -289,13 +324,11 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(feature = "inline", inline(always))]
-    fn at(&self, idx: usize) -> Option<&u8> {
-        self.input.get(*self.structural_indexes.get(idx)? as usize)
-    }
-
-    #[cfg_attr(feature = "inline", inline(always))]
     pub fn to_value(&mut self) -> Result<Value<'de>> {
-        match stry!(self.next()) {
+        if self.idx + 1 > self.structural_indexes.len() {
+            return Err(self.error(ErrorType::UnexpectedEnd));
+        }
+        match self.next_() {
             b'"' => self.parse_str_().map(Value::String),
             b'n' => {
                 stry!(self.parse_null_());
@@ -309,7 +342,6 @@ impl<'de> Deserializer<'de> {
                 stry!(self.parse_false_());
                 Ok(Value::Bool(false))
             },
-//            b'f' => self.parse_bool_().map(Value::Bool),
             b'-' => {
                 let v = stry!(self.parse_number_(true));
                 Ok(Value::Number(v))
@@ -619,6 +651,7 @@ impl<'de> Deserializer<'de> {
             }
         }
     }
+
     #[cfg_attr(feature = "inline", inline(always))]
     fn parse_false_(&mut self) -> Result<bool> {
         let input = &self.input[self.idx()..];
@@ -745,7 +778,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 stry!(self.parse_null_());
                 visitor.visit_unit()
             }
-            b't' | b'f' => visitor.visit_bool(stry!(self.parse_bool_())),
+            b't' => visitor.visit_bool(stry!(self.parse_true_())),
+            b'f' => visitor.visit_bool(stry!(self.parse_false_())),
             b'-' => match stry!(self.parse_number_(true)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
@@ -952,14 +986,12 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 struct CommaSeparated<'a, 'de: 'a> {
     de: &'a mut Deserializer<'de>,
     first: bool,
-    idx: usize,
 }
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     fn new(de: &'a mut Deserializer<'de>) -> Self {
         CommaSeparated {
             first: true,
-            idx: de.idx,
             de,
         }
     }

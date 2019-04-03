@@ -321,8 +321,11 @@ fn finalize_structurals(
 /*never_inline*/
 //#[inline(never)]
 impl<'de> Deserializer<'de> {
-    pub unsafe fn find_structural_bits(&mut self) -> Result<()> {
-        let len = self.input.len();
+    pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
+        let len = input.len();
+        let mut structural_indexes = Vec::with_capacity(len/6);
+        structural_indexes.push(0); // push extra root element
+
         let mut has_error: __m256i = _mm256_setzero_si256();
         let mut previous = AvxProcessedUtfBytes::default();
         // we have padded the input out to 64 byte multiple with the remainder being
@@ -358,7 +361,7 @@ impl<'de> Deserializer<'de> {
               __builtin_prefetch(buf + idx + 128);
             #endif
              */
-            let input: SimdInput = fill_input(&self.input[idx as usize..]);
+            let input: SimdInput = fill_input(&input[idx as usize..]);
             check_utf8(&input, &mut has_error, &mut previous);
             // detect odd sequences of backslashes
             let odd_ends: u64 =
@@ -377,7 +380,7 @@ impl<'de> Deserializer<'de> {
 
             // take the previous iterations structural bits, not our current iteration,
             // and flatten
-            flatten_bits(&mut self.structural_indexes, idx as u32, structurals);
+            flatten_bits(&mut structural_indexes, idx as u32, structurals);
 
             let mut whitespace: u64 = 0;
             find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
@@ -400,7 +403,7 @@ impl<'de> Deserializer<'de> {
             let mut tmpbuf: [u8; 64] = [0x20; 64];
             tmpbuf
                 .as_mut_ptr()
-                .copy_from(self.input.as_ptr().offset(idx as isize), len as usize - idx);
+                .copy_from(input.as_ptr().offset(idx as isize), len as usize - idx);
             let input: SimdInput = fill_input(&tmpbuf);
 
             check_utf8(&input, &mut has_error, &mut previous);
@@ -422,7 +425,7 @@ impl<'de> Deserializer<'de> {
 
             // take the previous iterations structural bits, not our current iteration,
             // and flatten
-            flatten_bits(&mut self.structural_indexes, idx as u32, structurals);
+            flatten_bits(&mut structural_indexes, idx as u32, structurals);
 
             let mut whitespace: u64 = 0;
             find_whitespace_and_structurals(&input, &mut whitespace, &mut structurals);
@@ -438,25 +441,25 @@ impl<'de> Deserializer<'de> {
             idx += 64;
         }
         // finally, flatten out the remaining structurals from the last iteration
-        flatten_bits(&mut self.structural_indexes, idx as u32, structurals);
+        flatten_bits(&mut structural_indexes, idx as u32, structurals);
 
         // a valid JSON file cannot have zero structural indexes - we should have
         // found something
-        if self.structural_indexes.len() == 0 {
-            return Err(self.error(ErrorType::NoStructure));
+        if structural_indexes.len() == 0 {
+            return Err(ErrorType::NoStructure);
         }
-        if self.structural_indexes.last() > Some(&(len as u32)) {
-            return Err(self.error(ErrorType::InternalError));
+        if structural_indexes.last() > Some(&(len as u32)) {
+            return Err(ErrorType::InternalError);
         }
 
         // make it safe to dereference one beyond this array
         if error_mask != 0 {
-            return Err(self.error(ErrorType::Syntax));
+            return Err(ErrorType::Syntax);
         }
         if _mm256_testz_si256(has_error, has_error) != 0 {
-            Ok(())
+            Ok(structural_indexes)
         } else {
-            return Err(self.error(ErrorType::InvalidUTF8));
+            Err(ErrorType::InvalidUTF8)
         }
     }
 }
