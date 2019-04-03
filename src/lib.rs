@@ -230,12 +230,7 @@ impl<'de> Deserializer<'de> {
                 error: t
             })
         };
-
-        let mut counts = Vec::with_capacity(structural_indexes.len());
-        unsafe {
-            counts.set_len(structural_indexes.len());
-
-        };
+        let counts = Deserializer::compute_size(input, &structural_indexes)?;
         let mut d = Deserializer {
             counts,
             structural_indexes,
@@ -244,17 +239,22 @@ impl<'de> Deserializer<'de> {
             strings: v,
             sidx: 0,
         };
-        d.compute_size()?;
         Ok(d)
     }
 
-    fn compute_size(&mut self) -> Result<()> {
+    fn compute_size(input: &[u8], structural_indexes: &[u32]) -> Result<Vec<usize>> {
 
-        let mut depth = Vec::with_capacity(self.structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+        let mut counts = Vec::with_capacity(structural_indexes.len());
+        unsafe {
+            counts.set_len(structural_indexes.len());
+
+        };
+        let mut depth = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+
         let mut last_start = 1;
         let mut cnt = 0;
-        for i in 1..self.structural_indexes.len() {
-            match self.input[self.structural_indexes[i] as usize] {
+        for i in 1..structural_indexes.len() {
+            match input[structural_indexes[i] as usize] {
                 b'[' | b'{' => {
                     depth.push((last_start, cnt));
                     last_start = i;
@@ -266,8 +266,13 @@ impl<'de> Deserializer<'de> {
                         cnt += 1;
                     }
                     let (a_last_start, a_cnt) =
-                        depth.pop().ok_or_else(|| self.error(ErrorType::Syntax))?;
-                    self.counts[last_start] = cnt;
+                        stry!(depth.pop().ok_or_else(|| (Error{
+                            structural: 0,
+                            index: 0,
+                            character: '💩', //this is the poop emoji
+                            error: ErrorType::Syntax
+                        })));
+                    counts[last_start] = cnt;
                     last_start = a_last_start;
                     cnt = a_cnt;
                 }
@@ -275,7 +280,7 @@ impl<'de> Deserializer<'de> {
                 _ => (),
             }
         }
-        Ok(())
+        Ok(counts)
     }
 
     #[cfg_attr(feature = "inline", inline(always))]
