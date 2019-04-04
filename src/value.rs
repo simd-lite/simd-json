@@ -1,3 +1,4 @@
+mod de;
 mod se;
 use crate::scalemap::ScaleMap;
 use crate::numberparse::Number;
