@@ -142,6 +142,42 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
     }
 }
 
+pub enum IntoIter<K, V> {
+    Map(hashbrown::hash_map::IntoIter<K, V>),
+    Vec(std::vec::IntoIter<(K, V)>),
+}
+
+impl<K, V> Iterator for IntoIter<K, V> {
+    type Item = (K, V);
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            IntoIter::Map(m) => m.next(),
+            IntoIter::Vec(m) => m.next()
+        }
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            IntoIter::Map(m) => m.size_hint(),
+            IntoIter::Vec(m) => m.size_hint(),
+        }
+    }
+}
+
+impl<K, V> IntoIterator for ScaleMap<K, V> where K: Eq + Hash {
+    type Item = (K, V);
+    type IntoIter = IntoIter<K, V>;
+
+    #[inline]
+    fn into_iter(self) -> IntoIter<K, V> {
+        match self {
+            ScaleMap::Map(m) => IntoIter::Map(m.into_iter()),
+            ScaleMap::Vec(m) => IntoIter::Vec(m.into_iter()),
+            ScaleMap::None => unreachable!()
+        }
+    }
+}
+
+
 // Taken from hashbrown
 impl<K, V> PartialEq for ScaleMap<K, V>
 where
@@ -231,24 +267,7 @@ impl<K, V> IntoIterator for VecMap<K, V> {
     }
 }
 
-/*
 
-impl<'a, K, V> Iterator for Iter<'a, K, V> {
-    type Item = (&'a K, &'a V);
-
-    #[inline]
-    fn next(&mut self) -> Option<(&'a K, &'a V)> {
-        self.inner.next().map(|x| unsafe {
-            let r = x.as_ref();
-            (&r.0, &r.1)
-        })
-    }
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
-    }
-}
-*/
 
 #[cfg(test)]
 mod tests {
