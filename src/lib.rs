@@ -6,12 +6,15 @@ mod stage1;
 mod stage2;
 mod stringparse;
 mod utf8check;
+mod scalemap;
 
 use crate::numberparse::Number;
 use crate::portability::*;
+use crate::scalemap::ScaleMap;
 use crate::stage2::*;
 use crate::stringparse::*;
-use hashbrown::HashMap;
+//use hashbrown::HashMap;
+use std::collections::HashMap;
 use serde::forward_to_deserialize_any;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -24,7 +27,34 @@ use std::str;
 #[macro_use]
 extern crate lazy_static;
 
-pub type Map<'a> = HashMap<&'a str, Value<'a>>;
+#[derive(Debug, PartialEq)]
+struct MiniMap<K, V> {
+    vec: Vec<(K, V)>
+}
+
+impl<K, V> MiniMap<K, V> where
+    K: Eq,
+{
+    fn new() -> Self {
+        Self{vec: Vec::new()}
+    }
+    fn with_capacity(capacity: usize) -> Self {
+        Self{vec: Vec::with_capacity(capacity)}
+    }
+
+    fn insert(&mut self, k: K, mut v: V) {
+        for (ak, av) in self.vec.iter_mut() {
+            if k == *ak {
+                std::mem::swap(av, &mut v);
+                return ;
+            }
+        }
+        self.vec.push((k, v));
+    }
+
+}
+
+pub type Map<'a> = ScaleMap<&'a str, Value<'a>>;
 
 
 // We only do this for the string parse function as it seems to slow down other frunctions
@@ -482,7 +512,7 @@ impl<'de> Deserializer<'de> {
             b':' => (),
             _c => return Err(self.error(ErrorType::ExpectedMapColon)),
         }
-        res.insert(key, stry!(self.to_value()));
+        res.insert_nocheck(key, stry!(self.to_value()));
         loop {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
@@ -500,7 +530,7 @@ impl<'de> Deserializer<'de> {
                 b':' => (),
                 _c => return Err(self.error(ErrorType::ExpectedMapColon)),
             }
-            res.insert(key, stry!(self.to_value()));
+            res.insert_nocheck(key, stry!(self.to_value()));
         }
         // We found a closing bracket and ended our loop, we skip it
         self.skip();
@@ -558,7 +588,7 @@ impl<'de> Deserializer<'de> {
             dbg!(end);
         }
 
-        let needs_relocation = idx - self.str_offset <= 64;
+        let needs_relocation = idx - self.str_offset <= 32;
         // we include the terminal '"' so we know where to end
         // This is safe since we check sub's lenght in the range access above and only
         // create sub sliced form sub to `sub.len()`.
