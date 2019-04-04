@@ -251,11 +251,19 @@ unsafe fn find_whitespace_and_structurals(
 #[cfg_attr(feature = "inline", inline(always))]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     let cnt: usize = hamming(bits) as usize;
-    let next_base: usize = base.len() + cnt;
+    let mut l = base.len();
     let idx_minus_64 = idx.wrapping_sub(64);
+
+    // We're doing some trickery here.
+    // We reserve 64 extra entries, because we've at most 64 bit to set
+    // then we trunctate the base to the next base (that we calcuate above)
+    // We later indiscriminatory writre over the len we set but that's OK
+    // since we ensure we reserve the needed space
+    base.reserve(64);
+    unsafe{
+        base.set_len(l + cnt);
+    }
     while bits != 0 {
-        let l = base.len();
-        let l8 = l + 8;
         unsafe{
             let v0 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
@@ -274,13 +282,11 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
             let v7 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
 
-            base.reserve(8);
-            base.set_len(l8);
             let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
-            _mm256_storeu_si256(base[l..l8].as_mut_ptr() as *mut __m256i, v);
+            _mm256_storeu_si256(base[l..].as_mut_ptr() as *mut __m256i, v);
         }
-     }
-     base.truncate(next_base);
+         l +=  8;
+    }
  }
 
 // return a updated structural bit vector with quoted contents cleared out and
