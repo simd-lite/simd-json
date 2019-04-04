@@ -238,10 +238,11 @@ impl<'de> Deserializer<'de> {
             }
         };
         let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
+        dbg!(str_len);
 
-        let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING*2);
+        let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
         unsafe {
-            v.set_len(str_len +  SIMDJSON_PADDING*2);
+            v.set_len(str_len +  SIMDJSON_PADDING);
         };
 
         Ok(Deserializer {
@@ -306,12 +307,16 @@ impl<'de> Deserializer<'de> {
                 }
                 b',' => cnt += 1,
                 b'"' => {
-                    if let Some(next) = structural_indexes.get(i + 1) {
-                        let d = next - idx;
-                        if d > str_len {
-                            str_len = d;
-                        }
+                    let d = if let Some(next) = structural_indexes.get(i + 1) {
+                         next - idx
+                    } else {
+                        // If we're the last element we count to the end
+                        input.len() as u32 - idx
+                    };
+                    if d > str_len {
+                        str_len = d;
                     }
+
                 }
                 _ => (),
             }
@@ -1768,6 +1773,18 @@ mod tests {
         let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
         assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn crazy_string() {
+        // there is unicode in here!
+        let d = "\"𐀀𐀀  𐀀𐀀0 𐀀A\\u00000A0 A \\u000b\"";
+        let mut d = String::from(d);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+
     }
 
     #[test]

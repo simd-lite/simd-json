@@ -54,6 +54,5 @@ pub fn handle_unicode_codepoint(mut src_ptr: &[u8], dst_ptr: &mut [u8]) -> (usiz
         src_offset += 6;
     }
     let offset: usize = codepoint_to_utf8(code_point, dst_ptr);
-    dbg!(offset);
     (offset, src_offset)
 }
