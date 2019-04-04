@@ -1,4 +1,4 @@
-use crate::{Number, ErrorType, Deserializer, Error, Result, stry};
+use crate::{stry, Deserializer, Error, ErrorType, Number, Result};
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
 use std::fmt;
@@ -16,8 +16,7 @@ impl serde::de::Error for Error {
     }
 }
 
-impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de>
-{
+impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
     // Look at the input data to decide what Serde data model type to
@@ -46,11 +45,11 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de>
             b'"' => {
                 if let Some(next) = self.structural_indexes.get(self.idx + 1) {
                     if *next as usize - self.iidx < 32 {
-                        return visitor.visit_borrowed_str(stry!(self.parse_short_str_()))
+                        return visitor.visit_borrowed_str(stry!(self.parse_short_str_()));
                     }
                 }
                 visitor.visit_borrowed_str(stry!(self.parse_str_()))
-            },
+            }
 
             b'[' => visitor.visit_seq(CommaSeparated::new(&mut self)),
             b'{' => visitor.visit_map(CommaSeparated::new(&mut self)),
@@ -242,7 +241,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de>
     }
 }
 
-
 // In order to handle commas correctly when deserializing a JSON array or map,
 // we need to track whether we are on the first element or past the first
 // element.
@@ -267,7 +265,6 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     where
         T: DeserializeSeed<'de>,
     {
-
         let peek = match stry!(self.de.peek()) {
             b']' => {
                 self.de.skip();
@@ -294,7 +291,6 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     }
 }
 
-
 // `MapAccess` is provided to the `Visitor` to give it the ability to iterate
 // through entries of the map.
 impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
@@ -305,7 +301,6 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         K: DeserializeSeed<'de>,
     {
-
         let peek = match stry!(self.de.peek()) {
             b'}' => {
                 self.de.skip();

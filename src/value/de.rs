@@ -1,7 +1,6 @@
-use crate::{Value, Number};
+use crate::{Number, Value};
 use serde::de::{self, Visitor};
 use std::fmt;
-
 
 impl<'de> Visitor<'de> for Value<'de> {
     type Value = Value<'de>;
@@ -70,5 +69,4 @@ impl<'de> Visitor<'de> for Value<'de> {
             Err(E::custom(format!("Integer out of range: {}", value)))
         }
     }
-
 }

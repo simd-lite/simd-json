@@ -1,7 +1,7 @@
 mod de;
 mod se;
-use crate::scalemap::ScaleMap;
 use crate::numberparse::Number;
+use crate::scalemap::ScaleMap;
 
 pub type Map<'a> = ScaleMap<&'a str, Value<'a>>;
 

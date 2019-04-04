@@ -260,11 +260,11 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     // We later indiscriminatory writre over the len we set but that's OK
     // since we ensure we reserve the needed space
     base.reserve(64);
-    unsafe{
+    unsafe {
         base.set_len(l + cnt);
     }
     while bits != 0 {
-        unsafe{
+        unsafe {
             let v0 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
             let v1 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
@@ -285,9 +285,9 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
             let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
             _mm256_storeu_si256(base[l..].as_mut_ptr() as *mut __m256i, v);
         }
-         l +=  8;
+        l += 8;
     }
- }
+}
 
 // return a updated structural bit vector with quoted contents cleared out and
 // pseudo-structural characters added to the mask
@@ -337,7 +337,7 @@ fn finalize_structurals(
 impl<'de> Deserializer<'de> {
     pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
-        let mut structural_indexes = Vec::with_capacity(len/6);
+        let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
         let mut has_error: __m256i = _mm256_setzero_si256();

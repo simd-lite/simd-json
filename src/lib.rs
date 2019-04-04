@@ -2,19 +2,19 @@ mod charutils;
 mod numberparse;
 mod parsedjson;
 mod portability;
+mod scalemap;
+pub mod serde;
 mod stage1;
 mod stage2;
 mod stringparse;
 mod utf8check;
-mod scalemap;
 mod value;
-mod serde;
 
-pub use value::{Value, Map};
 use crate::numberparse::Number;
 use crate::portability::*;
 use crate::stage2::*;
 use crate::stringparse::*;
+pub use value::{Map, Value};
 //use hashbrown::HashMap;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -22,18 +22,17 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 use std::mem;
 //use std::ops::{AddAssign, MulAssign, Neg};
-use std::str;
 use std::fmt;
+use std::str;
 #[macro_use]
 extern crate lazy_static;
-
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 // We only do this for the string parse function as it seems to slow down other frunctions
 // odd...
 lazy_static! {
-    static ref MM256_SET1_EPI8_SLASH: __m256i = {unsafe{ _mm256_set1_epi8(b'\\' as i8)}};
-    static ref MM256_SET1_EPI8_QUOTE: __m256i = {unsafe{ _mm256_set1_epi8(b'"' as i8)}};
+    static ref MM256_SET1_EPI8_SLASH: __m256i = { unsafe { _mm256_set1_epi8(b'\\' as i8) } };
+    static ref MM256_SET1_EPI8_QUOTE: __m256i = { unsafe { _mm256_set1_epi8(b'"' as i8) } };
 }
 
 #[cfg(nightly)]
@@ -170,7 +169,6 @@ impl fmt::Display for Error {
     }
 }
 
-
 pub struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
     // the beginning as data is parsed.
@@ -180,7 +178,7 @@ pub struct Deserializer<'de> {
     idx: usize,
     counts: Vec<usize>,
     str_offset: usize,
-    iidx: usize
+    iidx: usize,
 }
 
 impl<'de> Deserializer<'de> {
@@ -215,7 +213,7 @@ impl<'de> Deserializer<'de> {
 
         let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
         unsafe {
-            v.set_len(str_len +  SIMDJSON_PADDING);
+            v.set_len(str_len + SIMDJSON_PADDING);
         };
 
         Ok(Deserializer {
@@ -225,7 +223,7 @@ impl<'de> Deserializer<'de> {
             idx: 0,
             strings: v,
             str_offset: 0,
-            iidx: 0
+            iidx: 0,
         })
     }
 
@@ -283,7 +281,7 @@ impl<'de> Deserializer<'de> {
                 b',' => cnt += 1,
                 b'"' => {
                     let d = if let Some(next) = structural_indexes.get(i + 1) {
-                         next - idx
+                        next - idx
                     } else {
                         // If we're the last element we count to the end
                         input.len() as u32 - idx
@@ -291,7 +289,6 @@ impl<'de> Deserializer<'de> {
                     if d > str_len {
                         str_len = d;
                     }
-
                 }
                 _ => (),
             }
@@ -350,11 +347,11 @@ impl<'de> Deserializer<'de> {
             b'"' => {
                 if let Some(next) = self.structural_indexes.get(self.idx + 1) {
                     if *next as usize - self.iidx < 32 {
-                        return self.parse_short_str_().map(Value::String)
+                        return self.parse_short_str_().map(Value::String);
                     }
                 }
                 self.parse_str_().map(Value::String)
-            },
+            }
             b'n' => {
                 stry!(self.parse_null_());
                 Ok(Value::Null)
@@ -502,7 +499,7 @@ impl<'de> Deserializer<'de> {
             let v = &self.input[idx..idx + quote_dist as usize] as *const [u8] as *const str;
             self.str_offset = idx + quote_dist as usize;
 
-            unsafe{
+            unsafe {
                 return Ok(&*v);
             }
         }
@@ -537,10 +534,14 @@ impl<'de> Deserializer<'de> {
             &mut self.strings
         } else {
             let ptr = self.input.as_mut_ptr();
-            unsafe{from_raw_parts_mut(ptr.offset(self.str_offset as isize), self.input.len() - self.str_offset)}
+            unsafe {
+                from_raw_parts_mut(
+                    ptr.offset(self.str_offset as isize),
+                    self.input.len() - self.str_offset,
+                )
+            }
         };
         let mut src: &[u8] = &self.input[idx..];
-
 
         loop {
             #[cfg(test1)]
@@ -608,13 +609,15 @@ impl<'de> Deserializer<'de> {
                 */
 
                 if needs_relocation {
-//                    let ptr = self.input.as_mut_ptr();
-//                    let target = unsafe{from_raw_parts_mut(ptr.offset(self.str_offset as isize), written as usize)};
-                    self.input[self.str_offset..self.str_offset+written as usize].clone_from_slice(&self.strings[..written]);
+                    //                    let ptr = self.input.as_mut_ptr();
+                    //                    let target = unsafe{from_raw_parts_mut(ptr.offset(self.str_offset as isize), written as usize)};
+                    self.input[self.str_offset..self.str_offset + written as usize]
+                        .clone_from_slice(&self.strings[..written]);
                 }
-                let v = &self.input[self.str_offset..self.str_offset + written as usize] as *const [u8] as *const str;
+                let v = &self.input[self.str_offset..self.str_offset + written as usize]
+                    as *const [u8] as *const str;
                 self.str_offset += written as usize;
-                unsafe{
+                unsafe {
                     return Ok(&*v);
                 }
 
@@ -771,7 +774,6 @@ impl<'de> Deserializer<'de> {
             self.parse_number_int(input, minus)
         }
     }
-
 }
 
 #[cfg_attr(feature = "inline", inline(always))]
@@ -780,15 +782,14 @@ pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
     deserializer.to_value()
 }
 
-
 #[cfg(test)]
 mod tests {
+    use super::serde::from_slice;
+    use super::{to_value, Deserializer, Map, Number, Value};
+    use hashbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
     use serde_json::{self, json};
-    use super::serde::from_slice;
-    use super::{Deserializer, Value, Number, Map, to_value};
-    use hashbrown::HashMap;
 
     #[test]
     fn count1() {
@@ -1170,7 +1171,6 @@ mod tests {
         assert_eq!(v_simd, v_serde)
     }
 
-
     #[test]
     fn float1() {
         let mut d = String::from("2.3250706903316115e307");
@@ -1352,7 +1352,6 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
         assert_eq!(v_simd, v_serde)
-
     }
 
     #[test]

@@ -195,7 +195,7 @@ impl<'de> Deserializer<'de> {
                 p = &p[1..];
                 fractionalweight = 10;
                 fraction += digit as u64;
-                    //i = i + digit as f64 * fractionalweight;
+            //i = i + digit as f64 * fractionalweight;
             } else {
                 return Err(self.error(ErrorType::Parser));
             }
@@ -206,7 +206,7 @@ impl<'de> Deserializer<'de> {
                 fractionalweight *= 10;
                 fraction *= 10;
                 fraction += digit as u64;
-//                dbg!(fraction);
+                //                dbg!(fraction);
                 //dbg!(fractionalweight);
             }
             i += fraction as f64 / fractionalweight as f64;
