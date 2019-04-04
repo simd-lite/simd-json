@@ -88,7 +88,6 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
 // sequences of backslashes in an obvious way.
 #[cfg_attr(feature = "inline", inline(always))]
 fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
-    use std::num::Wrapping;
     // TODO: const?
     let even_bits: u64 = 0x5555555555555555;
     // TODO: const?
@@ -100,7 +99,7 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
     let even_start_mask: u64 = even_bits ^ *prev_iter_ends_odd_backslash;
     let even_starts: u64 = start_edges & even_start_mask;
     let odd_starts: u64 = start_edges & !even_start_mask;
-    let even_carries: u64 = (Wrapping(bs_bits) + Wrapping(even_starts)).0;
+    let even_carries: u64 = bs_bits.wrapping_add(even_starts);
 
     let mut odd_carries: u64 = 0;
     // must record the carry-out of our odd-carries out of bit 63; this
@@ -251,7 +250,6 @@ unsafe fn find_whitespace_and_structurals(
 //TODO: usize was u32 here does this matter?
 #[cfg_attr(feature = "inline", inline(always))]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
-    use std::num::Wrapping;
     let cnt: usize = hamming(bits) as usize;
     let next_base: usize = base.len() + cnt;
     let idx_minus_64 = idx.wrapping_sub(64);

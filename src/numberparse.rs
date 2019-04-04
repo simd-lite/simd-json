@@ -187,7 +187,7 @@ impl<'de> Deserializer<'de> {
         }
         if p[0] == b'.' {
             let mut fraction: u64 = 0;
-            let mut fractionalweight: u64 = 1;
+            let mut fractionalweight: u64;
             p = &p[1..];
             //let mut fractionalweight: f64 = 1.0;
             if is_integer(p[0]) {

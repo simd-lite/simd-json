@@ -214,13 +214,15 @@ pub struct Deserializer<'de> {
     structural_indexes: Vec<u32>,
     idx: usize,
     counts: Vec<usize>,
+    str_offset: usize,
+    iidx: usize
 }
 
 impl<'de> Deserializer<'de> {
     fn error(&self, error: ErrorType) -> Error {
         Error {
             structural: self.idx,
-            index: self.idx(),
+            index: self.iidx,
             character: self.c() as char,
             error,
         }
@@ -257,6 +259,8 @@ impl<'de> Deserializer<'de> {
             input,
             idx: 0,
             strings: v,
+            str_offset: 0,
+            iidx: 0
         })
     }
 
@@ -333,11 +337,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(feature = "inline", inline(always))]
     fn skip(&mut self) {
         self.idx += 1;
-    }
-
-    #[cfg_attr(feature = "inline", inline(always))]
-    fn idx(&self) -> usize {
-        self.structural_indexes[self.idx] as usize
+        self.iidx = self.structural_indexes[self.idx] as usize;
     }
 
     #[cfg_attr(feature = "inline", inline(always))]
@@ -349,7 +349,8 @@ impl<'de> Deserializer<'de> {
     fn next(&mut self) -> Result<u8> {
         self.idx += 1;
         if let Some(idx) = self.structural_indexes.get(self.idx) {
-            let r = self.input[*idx as usize];
+            self.iidx = *idx as usize;
+            let r = self.input[self.iidx];
             Ok(r)
         } else {
             Err(self.error(ErrorType::UnexpectedEnd))
@@ -361,14 +362,14 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(feature = "inline", inline(always))]
     fn next_(&mut self) -> u8 {
         self.idx += 1;
-        self.input[self.structural_indexes[self.idx] as usize]
+        self.iidx = self.structural_indexes[self.idx] as usize;
+        self.input[self.iidx]
     }
 
     #[cfg_attr(feature = "inline", inline(always))]
     fn peek(&self) -> Result<u8> {
         if let Some(idx) = self.structural_indexes.get(self.idx + 1) {
-            let idx = *idx as usize;
-            let r = self.input[idx];
+            let r = self.input[*idx as usize];
             Ok(r)
         } else {
             Err(self.error(ErrorType::UnexpectedEnd))
@@ -381,7 +382,14 @@ impl<'de> Deserializer<'de> {
             return Err(self.error(ErrorType::UnexpectedEnd));
         }
         match self.next_() {
-            b'"' => self.parse_str_().map(Value::String),
+            b'"' => {
+                if let Some(next) = self.structural_indexes.get(self.idx + 1) {
+                    if *next as usize - self.iidx < 32 {
+                        return self.parse_short_str_().map(Value::String)
+                    }
+                }
+                self.parse_str_().map(Value::String)
+            },
             b'n' => {
                 stry!(self.parse_null_());
                 Ok(Value::Null)
@@ -499,22 +507,13 @@ impl<'de> Deserializer<'de> {
         Ok(res)
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
-    fn parse_str(&mut self) -> Result<&'de str> {
-        if stry!(self.next()) != b'"' {
-            return Err(self.error(ErrorType::ExpectedString));
-        }
-        self.parse_str_()
-    }
-
     // We parse a string that's likely to be less then 32 characters and without any
     // fancy in it like object keys
     #[cfg_attr(feature = "inline", inline(always))]
     fn parse_short_str_(&mut self) -> Result<&'de str> {
-        use std::num::Wrapping;
         let mut padding = [0u8; 32];
-        let idx = self.idx() + 1;
-        let mut src: &[u8] = &self.input[idx..];
+        let idx = self.iidx + 1;
+        let src: &[u8] = &self.input[idx..];
 
         //short strings are very common for IDs
         let v: __m256i = if src.len() >= 32 {
@@ -533,9 +532,11 @@ impl<'de> Deserializer<'de> {
         };
         let quote_mask = unsafe { _mm256_cmpeq_epi8(v, *MM256_SET1_EPI8_QUOTE) };
         let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
-        if ((Wrapping(bs_bits) - Wrapping(1)).0 & quote_bits) != 0 {
+        if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
             let quote_dist: u32 = trailingzeroes(quote_bits as u64) as u32;
             let v = &self.input[idx..idx + quote_dist as usize] as *const [u8] as *const str;
+            self.str_offset = idx + quote_dist as usize;
+
             unsafe{
                 return Ok(&*v);
             }
@@ -545,9 +546,9 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(feature = "inline", inline(always))]
     fn parse_str_(&mut self) -> Result<&'de str> {
-        use std::num::Wrapping;
+        use std::slice::from_raw_parts_mut;
         // Add 1 to skip the initial "
-        let idx = self.idx() + 1;
+        let idx = self.iidx + 1;
         let mut padding = [0u8; 32];
         //let mut read: usize = 0;
         let mut written: usize = 0;
@@ -556,11 +557,25 @@ impl<'de> Deserializer<'de> {
             dbg!(idx);
             dbg!(end);
         }
+
+        let needs_relocation = idx - self.str_offset <= 64;
         // we include the terminal '"' so we know where to end
         // This is safe since we check sub's lenght in the range access above and only
         // create sub sliced form sub to `sub.len()`.
-        let mut dst: &mut [u8] = &mut self.strings;
+
+        // if we don't need relocation we can write directly to the input
+        // saving us to copy data to the string storage first and then
+        // back tot he input.
+        // We can't always do that as if we're less then 32 characters
+        // behind we'll overwrite important parts of the input.
+        let mut dst: &mut [u8] = if needs_relocation {
+            &mut self.strings
+        } else {
+            let ptr = self.input.as_mut_ptr();
+            unsafe{from_raw_parts_mut(ptr.offset(self.str_offset as isize), self.input.len() - self.str_offset)}
+        };
         let mut src: &[u8] = &self.input[idx..];
+
 
         loop {
             #[cfg(test1)]
@@ -600,7 +615,7 @@ impl<'de> Deserializer<'de> {
             };
             let quote_mask = unsafe { _mm256_cmpeq_epi8(v, *MM256_SET1_EPI8_QUOTE) };
             let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
-            if ((Wrapping(bs_bits) - Wrapping(1)).0 & quote_bits) != 0 {
+            if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
                 // find out where the quote is...
                 let quote_dist: u32 = trailingzeroes(quote_bits as u64) as u32;
@@ -616,6 +631,7 @@ impl<'de> Deserializer<'de> {
 
                 written += quote_dist as usize;
                 //let s = String::from_utf8_lossy(&self.strings[self.sidx..self.sidx + written as usize]).to_string();
+                /*
                 unsafe {
                     // We need to copy this back into the original data structure to guarantee that it lives as long as claimed.
                     self.input[idx..idx + written].clone_from_slice(&self.strings[..written]);
@@ -624,13 +640,26 @@ impl<'de> Deserializer<'de> {
                     let v = &self.input[idx..idx + written] as *const [u8] as *const str;
                     return Ok(&*v);
                 }
+                */
+
+                if needs_relocation {
+//                    let ptr = self.input.as_mut_ptr();
+//                    let target = unsafe{from_raw_parts_mut(ptr.offset(self.str_offset as isize), written as usize)};
+                    self.input[self.str_offset..self.str_offset+written as usize].clone_from_slice(&self.strings[..written]);
+                }
+                let v = &self.input[self.str_offset..self.str_offset + written as usize] as *const [u8] as *const str;
+                self.str_offset += written as usize;
+                unsafe{
+                    return Ok(&*v);
+                }
+
                 /*
                 return Ok(str::from_utf8_unchecked(s));
                      */
                 // we compare the pointers since we care if they are 'at the same spot'
                 // not if they are the same value
             }
-            if ((Wrapping(quote_bits) - Wrapping(1)).0 & bs_bits) != 0 {
+            if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
                 // find out where the backspace is
                 let bs_dist: u32 = trailingzeroes(bs_bits as u64);
                 #[cfg(test1)]
@@ -689,7 +718,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(feature = "inline", inline(always))]
     fn parse_null_(&mut self) -> Result<()> {
-        let input = &self.input[self.idx()..];
+        let input = &self.input[self.iidx..];
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
@@ -710,7 +739,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(feature = "inline", inline(always))]
     fn parse_true_(&mut self) -> Result<bool> {
-        let input = &self.input[self.idx()..];
+        let input = &self.input[self.iidx..];
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
@@ -733,7 +762,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(feature = "inline", inline(always))]
     fn parse_false_(&mut self) -> Result<bool> {
-        let input = &self.input[self.idx()..];
+        let input = &self.input[self.iidx..];
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
@@ -754,15 +783,6 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
-    fn parse_bool_(&mut self) -> Result<bool> {
-        match self.c() {
-            b't' => self.parse_true_(),
-            b'f' => self.parse_false_(),
-            _ => Err(self.error(ErrorType::ExpectedBoolean)),
-        }
-    }
-
     /*
     fn parse_number(&mut self) -> Result<Number> {
         match stry!(self.next()) {
@@ -774,7 +794,7 @@ impl<'de> Deserializer<'de> {
     */
     #[cfg_attr(feature = "inline", inline(always))]
     fn parse_number_(&mut self, minus: bool) -> Result<Number> {
-        let input = &self.input[self.idx()..];
+        let input = &self.input[self.iidx..];
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
@@ -787,27 +807,6 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    /*
-    fn parse_signed<T>(&mut self) -> Result<T>
-    where
-        T: Neg<Output = T> + AddAssign<T> + MulAssign<T> + From<i64>,
-    {
-        match stry!(self.parse_number()) {
-            Number::I64(i) => Ok(T::from(i)),
-            _ => Err(self.error(ErrorType::ExpectedSigned)),
-        }
-    }
-
-    fn parse_unsigned<T>(&mut self) -> Result<T>
-    where
-        T: AddAssign<T> + MulAssign<T> + From<u64>,
-    {
-        match stry!(self.parse_number()) {
-            Number::I64(i) if i >= 0 => Ok(T::from(i as u64)),
-            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
-        }
-    }
-    */
 }
 
 #[cfg_attr(feature = "inline", inline(always))]
@@ -862,7 +861,15 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
             },
-            b'"' => visitor.visit_borrowed_str(stry!(self.parse_str_())),
+            b'"' => {
+                if let Some(next) = self.structural_indexes.get(self.idx + 1) {
+                    if *next as usize - self.iidx < 32 {
+                        return visitor.visit_borrowed_str(stry!(self.parse_short_str_()))
+                    }
+                }
+                visitor.visit_borrowed_str(stry!(self.parse_str_()))
+            },
+
             b'[' => visitor.visit_seq(CommaSeparated::new(&mut self)),
             b'{' => visitor.visit_map(CommaSeparated::new(&mut self)),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
@@ -1077,46 +1084,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     where
         T: DeserializeSeed<'de>,
     {
-        /*
-        println!("===[{}] loop", self.idx);
-        // If the next structural  would be a ] eat it and end the array
-        if self.done {
-            return Ok(None)
-        }
-        let r = if self.first {
-            println!("===[{}] first", self.idx);
-            if stry!(self.de.peek()) == b']' {
-                println!("==[{}] Ending array", self.idx);
-                return Ok(None)
-            };
-            self.first = false;
-            println!("===[{}] value => {}", self.idx, stry!(self.de.peek()) as char );
-            println!("===[{}] loop end 2", self.idx);
-            seed.deserialize(&mut *self.de).map(Some)
-        } else {
-            println!("===[{}] successive", self.idx);
-            match stry!(self.de.next()) {
-                b','  => (),
-                b']' => {
-                    println!("===[{}] Ending array", self.idx);
-                    return Ok(None)
-                },
-                c => return Err(ErrorType::ExpectedArrayComma(self.de.idx(), c as char)),
-            }
-            println!("===[{}] value => {}", self.idx, stry!(self.de.peek()) as char);
-        seed.deserialize(&mut *self.de).map(Some)
-        };
 
-        // Serde is evil it won't ask for the next element if it knows the length so we
-        // have to make sure we check if the next iteration would be a terminal ] and
-        // if so consume it.
-        if self.de.c() == b']' {
-            println!("===[{}] Ending array", self.idx);
-            self.de.skip();
-            self.done = true
-        }
-        r
-         */
         let peek = match stry!(self.de.peek()) {
             b']' => {
                 self.de.skip();
@@ -1153,30 +1121,6 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         K: DeserializeSeed<'de>,
     {
-        /*
-        // Check if there are no more entries.
-        if stry!(self.de.peek()) == b'}' {
-            self.de.skip();
-            return Ok(None)
-        };
-
-        let r = if self.first {
-            self.first = false;
-            seed.deserialize(&mut *self.de).map(Some)
-        } else {
-            let c = stry!(self.de.next());
-            if c != b',' {
-                return Err(ErrorType::ExpectedMapComma(self.de.idx(), c as char));
-            }
-            seed.deserialize(&mut *self.de).map(Some)
-        };
-
-        let c = stry!(self.de.next());
-        if c != b':' {
-            return Err(ErrorType::ExpectedMapColon(self.de.idx(), c as char));
-        }
-        r
-         */
 
         let peek = match stry!(self.de.peek()) {
             b'}' => {
