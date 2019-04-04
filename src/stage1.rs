@@ -252,26 +252,34 @@ unsafe fn find_whitespace_and_structurals(
 #[cfg_attr(feature = "inline", inline(always))]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     use std::num::Wrapping;
-     let cnt: usize = hamming(bits) as usize;
-     let next_base: usize = base.len() + cnt;
-     while bits != 0 {
-        unsafe {
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
-            base.push(static_cast_u32!(idx) - 64 + trailingzeroes(bits));
-            bits = bits & (Wrapping(bits) - Wrapping(1)).0;
+    let cnt: usize = hamming(bits) as usize;
+    let next_base: usize = base.len() + cnt;
+    let idx_minus_64 = idx.wrapping_sub(64);
+    while bits != 0 {
+        let l = base.len();
+        let l8 = l + 8;
+        unsafe{
+            let v0 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v1 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v2 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v3 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v4 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v5 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v6 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v7 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+
+            base.reserve(8);
+            base.set_len(l8);
+            let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
+            _mm256_storeu_si256(base[l..l8].as_mut_ptr() as *mut __m256i, v);
         }
      }
      base.truncate(next_base);

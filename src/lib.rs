@@ -112,6 +112,13 @@ macro_rules! static_cast_u64 {
     };
 }
 
+#[macro_export]
+macro_rules! static_cast_i32 {
+    ($v:expr) => {
+        mem::transmute::<_, i32>($v)
+    };
+}
+
 // FROM serde-json
 // We only use our own error type; no need for From conversions provided by the
 // standard library's try! macro. This reduces lines of LLVM IR by 4%.
@@ -238,7 +245,6 @@ impl<'de> Deserializer<'de> {
             }
         };
         let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
-        dbg!(str_len);
 
         let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
         unsafe {
@@ -1282,6 +1288,7 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
         assert_eq!(to_value(&mut d1), Ok(Value::Bool(false)));
+        //assert!(false)
     }
 
     #[test]
