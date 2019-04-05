@@ -45,7 +45,7 @@ macro_rules! bench_file {
                     b.iter_batched(
                         || data.clone(),
                         |mut bytes| {
-                            let _: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                            let _: simdjson::Value = serde_json::from_slice(&bytes).unwrap();
                         },
                         BatchSize::SmallInput,
                     )
