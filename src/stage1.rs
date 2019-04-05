@@ -253,6 +253,18 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     let cnt: usize = hamming(bits) as usize;
     let mut l = base.len();
     let idx_minus_64 = idx.wrapping_sub(64);
+    let idx_64_v = unsafe {
+        _mm256_set_epi32(
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+        )
+    };
 
     // We're doing some trickery here.
     // We reserve 64 extra entries, because we've at most 64 bit to set
@@ -263,26 +275,28 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     unsafe {
         base.set_len(l + cnt);
     }
+
     while bits != 0 {
         unsafe {
-            let v0 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            let v0 = static_cast_i32!(trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
-            let v1 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            let v1 = static_cast_i32!(trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
-            let v2 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            let v2 = static_cast_i32!(trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
-            let v3 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            let v3 = static_cast_i32!(trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
-            let v4 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            let v4 = static_cast_i32!(trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
-            let v5 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            let v5 = static_cast_i32!(trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
-            let v6 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            let v6 = static_cast_i32!(trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
-            let v7 = static_cast_i32!(idx_minus_64 + trailingzeroes(bits));
+            let v7 = static_cast_i32!(trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
 
             let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
+            let v: __m256i = _mm256_add_epi32(idx_64_v, v);
             _mm256_storeu_si256(base[l..].as_mut_ptr() as *mut __m256i, v);
         }
         l += 8;
