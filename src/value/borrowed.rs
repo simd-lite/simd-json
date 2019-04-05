@@ -3,6 +3,7 @@ use crate::scalemap::ScaleMap;
 use std::fmt;
 use std::borrow::Borrow;
 use std::ops::Deref;
+use std::cmp::{PartialOrd, Ordering};
 
 pub type Map<'a> = ScaleMap<&'a str, Value<'a>>;
 
@@ -46,6 +47,20 @@ impl<'a> fmt::Debug for MaybeBorrowedString<'a> {
             MaybeBorrowedString::B(s) => write!(f, "{:?}", s),
             MaybeBorrowedString::O(s) => write!(f, "{:?}", s),
         }
+    }
+}
+impl<'a> PartialOrd for MaybeBorrowedString<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let self_s = match self {
+            MaybeBorrowedString::B(s) => s,
+            MaybeBorrowedString::O(s) => s.as_str(),
+        };
+        let other_s = match other {
+            MaybeBorrowedString::B(s) => s,
+            MaybeBorrowedString::O(s) => s.as_str(),
+        };
+
+        Some(self_s.cmp(other_s))
     }
 }
 

@@ -10,7 +10,7 @@ mod stringparse;
 mod utf8check;
 mod value;
 
-use crate::numberparse::Number;
+pub use crate::numberparse::Number;
 use crate::portability::*;
 use crate::stage2::*;
 use crate::stringparse::*;
