@@ -2,13 +2,13 @@ mod cmp;
 mod from;
 mod mbs;
 
+use crate::halfbrown::HashMap;
 use crate::numberparse::Number;
-use crate::scalemap::ScaleMap;
 pub use mbs::*;
 use std::fmt;
 use std::ops::Index;
 
-pub type Map = ScaleMap<String, Value>;
+pub type Map = HashMap<String, Value>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {

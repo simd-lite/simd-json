@@ -2,12 +2,12 @@ mod cmp;
 mod from;
 mod mbs;
 
+use crate::halfbrown::HashMap;
 use crate::numberparse::Number;
-use crate::scalemap::ScaleMap;
 use std::fmt;
 use std::ops::Index;
 
-pub type Map<'a> = ScaleMap<&'a str, Value<'a>>;
+pub type Map<'a> = HashMap<&'a str, Value<'a>>;
 pub use mbs::*;
 
 #[derive(Debug, PartialEq, Clone)]

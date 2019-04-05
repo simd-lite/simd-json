@@ -1,8 +1,8 @@
 mod charutils;
+mod halfbrown;
 mod numberparse;
 mod parsedjson;
 mod portability;
-mod scalemap;
 pub mod serde;
 mod stage1;
 mod stage2;

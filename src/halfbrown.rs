@@ -1,6 +1,6 @@
 use core::borrow::Borrow;
 use core::hash::Hash;
-use hashbrown::HashMap;
+use hashbrown::HashMap as HashBrown;
 use std::iter::IntoIterator;
 use std::ops::Index;
 
@@ -8,16 +8,16 @@ use std::ops::Index;
 const VEC_LIMIT_UPPER: usize = 64;
 
 #[derive(Clone, Debug)]
-pub enum ScaleMap<K, V>
+pub enum HashMap<K, V>
 where
     K: Eq + Hash,
 {
-    Map(HashMap<K, V>),
+    Map(HashBrown<K, V>),
     Vec(VecMap<K, V>),
     None,
 }
 
-impl<K, Q: ?Sized, V> Index<&Q> for ScaleMap<K, V>
+impl<K, Q: ?Sized, V> Index<&Q> for HashMap<K, V>
 where
     K: Eq + Hash + Borrow<Q>,
     Q: Eq + Hash,
@@ -30,36 +30,36 @@ where
     }
 }
 
-impl<K, V> ScaleMap<K, V>
+impl<K, V> HashMap<K, V>
 where
     K: Eq + Hash,
 {
     #[inline]
     pub fn new() -> Self {
-        ScaleMap::Vec(VecMap::new())
+        HashMap::Vec(VecMap::new())
     }
 
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         if capacity > VEC_LIMIT_UPPER {
-            ScaleMap::Map(HashMap::with_capacity(capacity))
+            HashMap::Map(HashBrown::with_capacity(capacity))
         } else {
-            ScaleMap::Vec(VecMap::with_capacity(capacity))
+            HashMap::Vec(VecMap::with_capacity(capacity))
         }
     }
 
     #[inline]
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
         match self {
-            ScaleMap::Map(m) => m.insert(k, v),
-            ScaleMap::Vec(m) => {
+            HashMap::Map(m) => m.insert(k, v),
+            HashMap::Vec(m) => {
                 if m.len() >= VEC_LIMIT_UPPER {
                     let mut r;
-                    *self = match std::mem::replace(self, ScaleMap::None) {
-                        ScaleMap::Vec(m) => {
-                            let mut m1: HashMap<K, V> = m.into_iter().collect();
+                    *self = match std::mem::replace(self, HashMap::None) {
+                        HashMap::Vec(m) => {
+                            let mut m1: HashBrown<K, V> = m.into_iter().collect();
                             r = m1.insert(k, v);
-                            ScaleMap::Map(m1)
+                            HashMap::Map(m1)
                         }
                         _ => unreachable!(),
                     };
@@ -68,35 +68,35 @@ where
                     m.insert(k, v)
                 }
             }
-            ScaleMap::None => unreachable!(),
+            HashMap::None => unreachable!(),
         }
     }
 
     #[inline]
     pub fn clear(&mut self) {
         match self {
-            ScaleMap::Map(m) => m.clear(),
-            ScaleMap::Vec(m) => m.clear(),
-            ScaleMap::None => unreachable!(),
+            HashMap::Map(m) => m.clear(),
+            HashMap::Vec(m) => m.clear(),
+            HashMap::None => unreachable!(),
         }
     }
     #[inline]
     pub fn insert_nocheck(&mut self, k: K, v: V) {
         match self {
-            ScaleMap::Map(m) => {
+            HashMap::Map(m) => {
                 m.insert(k, v);
             }
-            ScaleMap::Vec(m) => m.insert_nocheck(k, v),
-            ScaleMap::None => unreachable!(),
+            HashMap::Vec(m) => m.insert_nocheck(k, v),
+            HashMap::None => unreachable!(),
         }
     }
 
     #[inline]
     pub fn len(&self) -> usize {
         match self {
-            ScaleMap::Map(m) => m.len(),
-            ScaleMap::Vec(v) => v.len(),
-            ScaleMap::None => unreachable!(),
+            HashMap::Map(m) => m.len(),
+            HashMap::Vec(v) => v.len(),
+            HashMap::None => unreachable!(),
         }
     }
 
@@ -107,9 +107,9 @@ where
         Q: Hash + Eq,
     {
         match self {
-            ScaleMap::Map(m) => m.get(k),
-            ScaleMap::Vec(m) => m.get(k),
-            ScaleMap::None => unreachable!(),
+            HashMap::Map(m) => m.get(k),
+            HashMap::Vec(m) => m.get(k),
+            HashMap::None => unreachable!(),
         }
     }
 
@@ -120,36 +120,36 @@ where
         Q: Hash + Eq,
     {
         match self {
-            ScaleMap::Map(m) => m.get_mut(k),
-            ScaleMap::Vec(m) => m.get_mut(k),
-            ScaleMap::None => unreachable!(),
+            HashMap::Map(m) => m.get_mut(k),
+            HashMap::Vec(m) => m.get_mut(k),
+            HashMap::None => unreachable!(),
         }
     }
 
     #[inline]
     pub fn iter(&self) -> Iter<'_, K, V> {
         match self {
-            ScaleMap::Map(m) => Iter::Map(m.iter()),
-            ScaleMap::Vec(m) => Iter::Vec(m.iter()),
-            ScaleMap::None => unreachable!(),
+            HashMap::Map(m) => Iter::Map(m.iter()),
+            HashMap::Vec(m) => Iter::Vec(m.iter()),
+            HashMap::None => unreachable!(),
         }
     }
 
     #[cfg(test)]
     fn is_map(&self) -> bool {
         match self {
-            ScaleMap::Map(_m) => true,
-            ScaleMap::Vec(_m) => false,
-            ScaleMap::None => unreachable!(),
+            HashMap::Map(_m) => true,
+            HashMap::Vec(_m) => false,
+            HashMap::None => unreachable!(),
         }
     }
 
     #[cfg(test)]
     fn is_vec(&self) -> bool {
         match self {
-            ScaleMap::Map(_m) => false,
-            ScaleMap::Vec(_m) => true,
-            ScaleMap::None => unreachable!(),
+            HashMap::Map(_m) => false,
+            HashMap::Vec(_m) => true,
+            HashMap::None => unreachable!(),
         }
     }
 }
@@ -206,7 +206,7 @@ impl<K, V> Iterator for IntoIter<K, V> {
     }
 }
 
-impl<K, V> IntoIterator for ScaleMap<K, V>
+impl<K, V> IntoIterator for HashMap<K, V>
 where
     K: Eq + Hash,
 {
@@ -216,15 +216,15 @@ where
     #[inline]
     fn into_iter(self) -> IntoIter<K, V> {
         match self {
-            ScaleMap::Map(m) => IntoIter::Map(m.into_iter()),
-            ScaleMap::Vec(m) => IntoIter::Vec(m.into_iter()),
-            ScaleMap::None => unreachable!(),
+            HashMap::Map(m) => IntoIter::Map(m.into_iter()),
+            HashMap::Vec(m) => IntoIter::Vec(m.into_iter()),
+            HashMap::None => unreachable!(),
         }
     }
 }
 
 // Taken from hashbrown
-impl<K, V> PartialEq for ScaleMap<K, V>
+impl<K, V> PartialEq for HashMap<K, V>
 where
     K: Eq + Hash,
     V: PartialEq,
@@ -335,7 +335,7 @@ mod tests {
     use super::*;
     #[test]
     fn scale_up() {
-        let mut v = ScaleMap::new();
+        let mut v = HashMap::new();
         assert!(v.is_vec());
         for i in 1..65 {
             // 64 entries
@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn str_key() {
-        let mut v: ScaleMap<String, u32> = ScaleMap::new();
+        let mut v: HashMap<String, u32> = HashMap::new();
         v.insert("hello".to_owned(), 42);
         assert_eq!(v["hello"], 42);
     }
