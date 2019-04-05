@@ -108,6 +108,19 @@ pub enum Value {
     Object(Map),
 }
 
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Value::Null => write!(f, "null"),
+            Value::Bool(b) => write!(f, "{}", b),
+            Value::Number(n) => write!(f, "{}", n),
+            Value::String(s) => write!(f, "{}", s),
+            Value::Array(a) => write!(f, "{:?}", a),
+            Value::Object(o) => write!(f, "{:?}", o),
+        }
+    }
+}
+
 impl Value {
     pub fn get(&self, k: &str) -> Option<&Value>{
         match self {

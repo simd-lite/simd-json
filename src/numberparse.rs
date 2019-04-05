@@ -5,6 +5,7 @@ use crate::*;
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+use std::fmt;
 
 const POWER_OF_TEN: [f64; 617] = [
     1e-308, 1e-307, 1e-306, 1e-305, 1e-304, 1e-303, 1e-302, 1e-301, 1e-300, 1e-299, 1e-298, 1e-297,
@@ -129,6 +130,15 @@ unsafe fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
 pub enum Number {
     F64(f64),
     I64(i64),
+}
+
+impl fmt::Display for Number {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Number::I64(n) => write!(f, "{}", n),
+            Number::F64(n) => write!(f, "{}", n),
+        }
+    }
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
