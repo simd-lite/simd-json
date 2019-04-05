@@ -27,7 +27,6 @@ use std::str;
 extern crate lazy_static;
 pub use value::{Map, MaybeBorrowedString, Value};
 
-
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 // We only do this for the string parse function as it seems to slow down other frunctions
 // odd...
@@ -102,7 +101,6 @@ macro_rules! static_cast_i32 {
         mem::transmute::<_, i32>($v)
     };
 }
-
 
 #[cfg(not(feature = "no-borrow"))]
 macro_rules! value {
@@ -362,8 +360,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn to_value(&mut self) -> Result<value!{}>
-    {
+    pub fn to_value(&mut self) -> Result<value! {}> {
         if self.idx + 1 > self.structural_indexes.len() {
             return Err(self.error(ErrorType::UnexpectedEnd));
         }
@@ -371,13 +368,10 @@ impl<'de> Deserializer<'de> {
             b'"' => {
                 if let Some(next) = self.structural_indexes.get(self.idx + 1) {
                     if *next as usize - self.iidx < 32 {
-                        return self
-                            .parse_short_str_()
-                            .map(Value::from);
+                        return self.parse_short_str_().map(Value::from);
                     }
                 }
-                self.parse_str_()
-                    .map(Value::from)
+                self.parse_str_().map(Value::from)
             }
             b'n' => {
                 stry!(self.parse_null_());
@@ -417,7 +411,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array_(&mut self) -> Result<Vec<value!{}>> {
+    fn parse_array_(&mut self) -> Result<Vec<value! {}>> {
         // We short cut for empty arrays
         if stry!(self.peek()) == b']' {
             self.skip();
@@ -448,7 +442,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map_(&mut self) -> Result<map!{}> {
+    fn parse_map_(&mut self) -> Result<map! {}> {
         // We short cut for empty arrays
 
         if stry!(self.peek()) == b'}' {
@@ -965,10 +959,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(
-            to_value(&mut d1),
-            Ok(Value::from("snot"))
-        );
+        assert_eq!(to_value(&mut d1), Ok(Value::from("snot")));
         assert_eq!(v_simd, v_serde);
     }
 
@@ -1058,10 +1049,7 @@ mod tests {
             to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::Number(Number::I64(42)),
-                Value::Array(vec![
-                    Value::Number(Number::F64(23.0)),
-                    Value::from("snot")
-                ]),
+                Value::Array(vec![Value::Number(Number::F64(23.0)), Value::from("snot")]),
                 Value::from("bad"),
                 Value::from("ger")
             ]))

@@ -1,4 +1,4 @@
-use core::borrow::{Borrow};
+use core::borrow::Borrow;
 use core::hash::Hash;
 use hashbrown::HashMap;
 use std::iter::IntoIterator;
@@ -58,7 +58,6 @@ where
         }
     }
 
-
     #[inline]
     pub fn clear(&mut self) {
         match self {
@@ -66,7 +65,6 @@ where
             ScaleMap::Vec(m) => m.clear(),
             ScaleMap::None => unreachable!(),
         }
-
     }
     #[inline]
     pub fn insert_nocheck(&mut self, k: K, v: V) {
@@ -298,7 +296,7 @@ where
         self.v.len()
     }
     #[inline]
-    pub fn clear(&mut self)  {
+    pub fn clear(&mut self) {
         self.v.clear()
     }
 

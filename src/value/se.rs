@@ -1,4 +1,4 @@
-use crate::{Number, Value, MaybeBorrowedString};
+use crate::{MaybeBorrowedString, Number, Value};
 use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
 
 #[cfg(not(feature = "no-borrow"))]
@@ -11,7 +11,7 @@ impl<'a> Serialize for Value<'a> {
             Value::Bool(b) => serializer.serialize_bool(*b),
             Value::Null => serializer.serialize_unit(),
             Value::Number(Number::F64(f)) => serializer.serialize_f64(*f),
-            Value::Number(Number::I64(i)) =>  serializer.serialize_i64(*i),
+            Value::Number(Number::I64(i)) => serializer.serialize_i64(*i),
             Value::String(MaybeBorrowedString::B(s)) => serializer.serialize_str(s),
             Value::String(MaybeBorrowedString::O(s)) => serializer.serialize_str(&s),
             Value::Array(v) => {
@@ -42,7 +42,7 @@ impl Serialize for Value {
             Value::Bool(b) => serializer.serialize_bool(*b),
             Value::Null => serializer.serialize_unit(),
             Value::Number(Number::F64(f)) => serializer.serialize_f64(*f),
-            Value::Number(Number::I64(i)) =>  serializer.serialize_i64(*i),
+            Value::Number(Number::I64(i)) => serializer.serialize_i64(*i),
             Value::String(MaybeBorrowedString::O(s)) => serializer.serialize_str(&s),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
