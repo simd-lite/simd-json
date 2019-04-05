@@ -2,6 +2,7 @@ use crate::numberparse::Number;
 use crate::scalemap::ScaleMap;
 use std::fmt;
 use std::borrow::Borrow;
+use std::ops::Deref;
 
 pub type Map = ScaleMap<String, Value>;
 
@@ -12,6 +13,15 @@ pub enum MaybeBorrowedString {
 
 impl Borrow<str> for MaybeBorrowedString {
     fn borrow(&self) -> &str {
+        match self {
+            MaybeBorrowedString::O(s) => &s
+        }
+    }
+}
+
+impl Deref for MaybeBorrowedString {
+    type Target = str;
+    fn deref(&self) -> &str {
         match self {
             MaybeBorrowedString::O(s) => &s
         }
@@ -96,6 +106,12 @@ impl Value {
         match self {
             Value::Object(m) => m.get_mut(k),
             _ => None
+        }
+    }
+    pub fn is_object(&self) -> bool {
+        match self {
+            Value::Object(_m) => true,
+            _ => false
         }
     }
 }
