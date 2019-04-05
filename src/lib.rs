@@ -145,6 +145,7 @@ pub enum ErrorType {
     ExpectedBoolean,
     ExpectedString,
     ExpectedSigned,
+    ExpectedFloat,
     ExpectedUnsigned,
     ExpectedEnum,
     ExpectedInteger,
@@ -790,6 +791,42 @@ impl<'de> Deserializer<'de> {
             self.parse_number_int(&copy, minus)
         } else {
             self.parse_number_int(input, minus)
+        }
+    }
+    fn parse_signed(&mut self) -> Result<i64> {
+        match stry!(self.next()) {
+            b'-' => match stry!(self.parse_number_(true)) {
+                Number::F64(_n) => Err(self.error(ErrorType::ExpectedSigned)),
+                Number::I64(n) => Ok(n),
+            },
+            b'0'...b'9' => match stry!(self.parse_number_(false)) {
+                Number::F64(n) => Err(self.error(ErrorType::ExpectedSigned)),
+                Number::I64(n) => Ok(n),
+            },
+            _ => Err(self.error(ErrorType::ExpectedSigned)),
+        }
+    }
+    fn parse_unsigned(&mut self) -> Result<u64> {
+        match stry!(self.next()) {
+            b'0'...b'9' => match stry!(self.parse_number_(false)) {
+                Number::F64(_n) => Err(self.error(ErrorType::ExpectedUnsigned)),
+                Number::I64(n) => Ok(n as u64),
+            },
+            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+        }
+    }
+
+    fn parse_double(&mut self) -> Result<f64> {
+        match stry!(self.next()) {
+            b'-' => match stry!(self.parse_number_(true)) {
+                Number::F64(n) => Ok(n),
+                Number::I64(n) => Ok(n as f64),
+            },
+            b'0'...b'9' => match stry!(self.parse_number_(false)) {
+                Number::F64(n) => Ok(n),
+                Number::I64(n) => Ok(n as f64),
+            },
+            _ => Err(self.error(ErrorType::ExpectedFloat)),
         }
     }
 }

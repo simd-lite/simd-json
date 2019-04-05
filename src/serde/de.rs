@@ -56,7 +56,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
         }
     }
-    /*
 
     // Uses the `parse_bool` parsing function defined above to read the JSON
     // identifier `true` or `false` from the input.
@@ -77,7 +76,11 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_bool(self.parse_bool()?)
+        match stry!(self.next()) {
+            b't' => visitor.visit_bool(stry!(self.parse_true_())),
+            b'f' => visitor.visit_bool(stry!(self.parse_false_())),
+            _c => Err(self.error(ErrorType::ExpectedBoolean)),
+        }
     }
 
     // Refer to the "Understanding deserializer lifetimes" page for information
@@ -87,8 +90,13 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if self.c() != b'"' {
-            return Err(ErrorType::ExpectedString);
+        if stry!(self.next()) != b'"' {
+            return Err(self.error(ErrorType::ExpectedString));
+        }
+        if let Some(next) = self.structural_indexes.get(self.idx + 1) {
+            if *next as usize - self.iidx < 32 {
+                return visitor.visit_borrowed_str(stry!(self.parse_short_str_()));
+            }
         }
         visitor.visit_borrowed_str(stry!(self.parse_str_()))
     }
@@ -98,7 +106,15 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_str(visitor)
+        if stry!(self.next()) != b'"' {
+            return Err(self.error(ErrorType::ExpectedString));
+        }
+        if let Some(next) = self.structural_indexes.get(self.idx + 1) {
+            if *next as usize - self.iidx < 32 {
+                return visitor.visit_str(stry!(self.parse_short_str_()));
+            }
+        }
+        visitor.visit_str(stry!(self.parse_str_()))
     }
 
     // The `parse_signed` function is generic over the integer type `T` so here
@@ -173,7 +189,23 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_u64(stry!(self.parse_unsigned()))
     }
 
-    */
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        let v: f64 = stry!(self.parse_double());
+        visitor.visit_f32(v as f32)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_f64(stry!(self.parse_double()))
+    }
+
     // An absent optional is represented as the JSON `null` and a present
     // optional is represented as just the contained value.
     //
@@ -197,14 +229,16 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    /*
     // In Serde, unit means an anonymous value containing no data.
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        stry!(self.parse_null());
+        if stry!(self.next()) != b'n' {
+            return Err(self.error(ErrorType::ExpectedNull));
+        }
+        stry!(self.parse_null_());
         visitor.visit_unit()
     }
 
@@ -216,17 +250,14 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        dbg!();
         // Parse the opening bracket of the sequence.
         if stry!(self.next()) == b'[' {
             // Give the visitor access to each element of the sequence.
             visitor.visit_seq(CommaSeparated::new(&mut self))
         } else {
-            Err(ErrorType::ExpectedArray(self.idx(), self.c() as char))
+            Err(self.error(ErrorType::ExpectedArray))
         }
     }
-
-     */
 
     // Tuples look just like sequences in JSON. Some formats may be able to
     // represent tuples more efficiently.
@@ -246,11 +277,68 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         r
     }
 
+    // Tuple structs look just like sequences in JSON.
+    fn deserialize_tuple_struct<V>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_seq(visitor)
+    }
+
+    // Unit struct means a named value containing no data.
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_unit(visitor)
+    }
+
+    // As is done here, serializers are encouraged to treat newtype structs as
+    // insignificant wrappers around the data they contain. That means not
+    // parsing anything other than the contained value.
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_newtype_struct(self)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        // Parse the opening bracket of the sequence.
+        if stry!(self.next()) == b'{' {
+            // Give the visitor access to each element of the sequence.
+            visitor.visit_map(CommaSeparated::new(&mut self))
+        } else {
+            Err(self.error(ErrorType::ExpectedMap))
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_struct<V>(
+        mut self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_map(visitor)
+    }
+
     forward_to_deserialize_any! {
-        seq  bool i8 i16 i32 i64 u8 u16 u32 u64 string str unit
-            i128 u128 f32 f64 char
-            bytes byte_buf  unit_struct newtype_struct
-            tuple_struct map struct enum identifier ignored_any
+            i128 u128 char
+            bytes byte_buf
+            enum identifier ignored_any
     }
 }
 
