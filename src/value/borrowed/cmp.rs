@@ -41,6 +41,16 @@ impl<'a> PartialEq<str> for MaybeBorrowedString<'a> {
     }
 }
 
+impl<'a> PartialEq<&str> for MaybeBorrowedString<'a> {
+    fn eq(&self, other: &&str) -> bool {
+        match self {
+            MaybeBorrowedString::B(s) => s == other,
+            MaybeBorrowedString::O(s) => s == other,
+        }
+    }
+}
+
+
 impl<'a> PartialEq<String> for MaybeBorrowedString<'a> {
     fn eq(&self, other: &String) -> bool {
         match self {
@@ -72,6 +82,16 @@ impl<'a> PartialEq<bool> for Value<'a> {
 
 impl<'a> PartialEq<str> for Value<'a> {
     fn eq(&self, other: &str) -> bool {
+        match self {
+            Value::String(s) => s == other,
+            _ => false,
+        }
+    }
+}
+
+
+impl<'a> PartialEq<&str> for Value<'a> {
+    fn eq(&self, other: &&str) -> bool {
         match self {
             Value::String(s) => s == other,
             _ => false,
