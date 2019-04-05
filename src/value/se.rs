@@ -51,7 +51,7 @@ impl Serialize for Value {
                 }
                 seq.end()
             }
-            Value::Map(m) => {
+            Value::Object(m) => {
                 let mut map = serializer.serialize_map(Some(m.len()))?;
                 for (k, v) in m.iter() {
                     map.serialize_entry(k, v)?;

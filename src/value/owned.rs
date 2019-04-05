@@ -72,7 +72,7 @@ pub enum Value {
     Number(Number),
     String(MaybeBorrowedString),
     Array(Vec<Value>),
-    Map(Map),
+    Object(Map),
 }
 
 impl From<&str> for Value {
