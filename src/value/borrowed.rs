@@ -79,7 +79,7 @@ pub enum Value<'a> {
     Number(Number),
     String(MaybeBorrowedString<'a>),
     Array(Vec<Value<'a>>),
-    Map(Map<'a>),
+    Object(Map<'a>),
 }
 
 impl<'a> From<&'a str> for Value<'a> {

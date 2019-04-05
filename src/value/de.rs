@@ -1,7 +1,6 @@
-use crate::{Number, Value, Map, MaybeBorrowedString};
-use serde::de::{self, Visitor, Deserializer, Deserialize, MapAccess, SeqAccess};
+use crate::{Map, MaybeBorrowedString, Number, Value};
+use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use std::fmt;
-
 
 #[cfg(not(feature = "no-borrow"))]
 impl<'de> Deserialize<'de> for Value<'de> {
@@ -12,7 +11,6 @@ impl<'de> Deserialize<'de> for Value<'de> {
         deserializer.deserialize_any(ValueVisitor)
     }
 }
-
 
 #[cfg(feature = "no-borrow")]
 impl<'de> Deserialize<'de> for Value {
@@ -56,8 +54,10 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn visit_some<D>(self, deserializer: D)  -> Result<Self::Value, D::Error> where
-        D: Deserializer<'de>, {
+    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         deserializer.deserialize_any(self)
     }
 
@@ -223,7 +223,8 @@ impl<'de> Visitor<'de> for ValueVisitor {
     /****************** nexted stuff ******************/
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
         A: MapAccess<'de>,
     {
         let size = map.size_hint().unwrap_or_default();
@@ -233,11 +234,12 @@ impl<'de> Visitor<'de> for ValueVisitor {
             let v = map.next_value()?;
             m.insert(k, v);
         }
-        Ok(Value::Map(m))
+        Ok(Value::Object(m))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
         A: SeqAccess<'de>,
     {
         let size = seq.size_hint().unwrap_or_default();

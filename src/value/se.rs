@@ -21,7 +21,7 @@ impl<'a> Serialize for Value<'a> {
                 }
                 seq.end()
             }
-            Value::Map(m) => {
+            Value::Object(m) => {
                 let mut map = serializer.serialize_map(Some(m.len()))?;
                 for (k, v) in m.iter() {
                     map.serialize_entry(k, v)?;
@@ -116,7 +116,7 @@ mod test {
         let mut m = Map::new();
         m.insert("a".into(), Value::Number(Number::I64(42)));
         m.insert("b".into(), Value::Number(Number::I64(23)));
-        let v = Value::Map(m);
+        let v = Value::Object(m);
         let s = serde_json::to_string(&v).expect("Failed to serialize");
         assert_eq!(s, r#"{"a":42,"b":23}"#)
     }

@@ -388,7 +388,7 @@ impl<'de> Deserializer<'de> {
             b'-' => self.parse_number_(true).map(Value::Number),
             b'0'...b'9' => self.parse_number_(false).map(Value::Number),
             b'[' => self.parse_array_().map(Value::Array),
-            b'{' => self.parse_map_().map(Value::Map),
+            b'{' => self.parse_map_().map(Value::Object),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
         }
     }
@@ -1114,7 +1114,7 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![Value::Map(Map::new()), Value::Null]))
+            Ok(Value::Array(vec![Value::Object(Map::new()), Value::Null]))
         );
     }
 
@@ -1237,7 +1237,7 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         let mut h = Map::new();
         h.insert("snot".into(), Value::from("badger"));
-        assert_eq!(to_value(&mut d1), Ok(Value::Map(h)));
+        assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
     }
 
     #[test]
@@ -1252,7 +1252,7 @@ mod tests {
         let mut h = Map::new();
         h.insert("snot".into(), Value::from("badger"));
         h.insert("badger".into(), Value::from("snot"));
-        assert_eq!(to_value(&mut d1), Ok(Value::Map(h)));
+        assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
     }
 
     #[test]
