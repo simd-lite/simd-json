@@ -26,31 +26,32 @@ macro_rules! bench_file {
 
             let len = vec.len();
 
-            c.bench(
-                stringify!($name),
-                ParameterizedBenchmark::new(
-                    "simdjson",
-                    |b, data| {
-                        b.iter_batched(
-                            || data.clone(),
-                            |mut bytes| {
-                                simdjson::to_value(&mut bytes).unwrap();
-                            },
-                            BatchSize::SmallInput,
-                        )
-                    },
-                    vec![vec],
-                )
-                .with_function("serde_json", move |b, data| {
+            let mut b = ParameterizedBenchmark::new(
+                "simdjson",
+                |b, data| {
                     b.iter_batched(
                         || data.clone(),
                         |mut bytes| {
-                            let _: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                            simdjson::to_value(&mut bytes).unwrap();
                         },
                         BatchSize::SmallInput,
                     )
-                })
-                .throughput(|data| Throughput::Bytes(data.len() as u32)),
+                },
+                vec![vec],
+            );
+            #[cfg(feature = "bench-serde")]
+            let b = b.with_function("serde_json", move |b, data| {
+                b.iter_batched(
+                    || data.clone(),
+                    |mut bytes| {
+                        let _: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                    },
+                    BatchSize::SmallInput,
+                )
+            });
+            c.bench(
+                stringify!($name),
+                b.throughput(|data| Throughput::Bytes(data.len() as u32)),
             );
         }
     };
