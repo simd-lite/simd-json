@@ -4,6 +4,7 @@ use std::fmt;
 
 pub type Map<'a> = ScaleMap<&'a str, Value<'a>>;
 
+#[derive(Clone)]
 pub enum MaybeBorrowedString<'a> {
     B(&'a str),
     O(String)
@@ -72,7 +73,7 @@ impl<'a> From<String> for MaybeBorrowedString<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value<'a> {
     Null,
     Bool(bool),

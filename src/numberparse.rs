@@ -125,7 +125,7 @@ unsafe fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
 }
  */
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Number {
     F64(f64),
     I64(i64),
