@@ -26,6 +26,8 @@ jobs:
             - target/debug/deps
           key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
-          name: Run all tests
+          name: Run all tests (borrowed)
           command: cargo test --all
+      - run:
+          name: Run all tests (owned)
           command: cargo test --all --features no-borrow
