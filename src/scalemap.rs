@@ -1,4 +1,4 @@
-use core::borrow::Borrow;
+use core::borrow::{Borrow, BorrowMut};
 use core::hash::Hash;
 use hashbrown::HashMap;
 use std::iter::IntoIterator;
@@ -97,6 +97,19 @@ where
         match self {
             ScaleMap::Map(m) => m.get(k),
             ScaleMap::Vec(m) => m.get(k),
+            ScaleMap::None => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        match self {
+            ScaleMap::Map(m) => m.get_mut(k),
+            ScaleMap::Vec(m) => m.get_mut(k),
             ScaleMap::None => unreachable!(),
         }
     }
@@ -261,6 +274,20 @@ where
         for (ak, v) in &self.v {
             if k == ak.borrow() {
                 return Some(&v);
+            }
+        }
+        None
+    }
+
+    #[inline]
+    pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        for (ak, v) in &mut self.v {
+            if k.eq((*ak).borrow()) {
+                return Some(v);
             }
         }
         None

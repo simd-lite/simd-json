@@ -76,6 +76,21 @@ pub enum Value {
     Object(Map),
 }
 
+impl Value {
+    pub fn get(&self, k: &str) -> Option<&Value>{
+        match self {
+            Value::Object(m) => m.get(k),
+            _ => None
+        }
+    }
+    pub fn get_mut(&mut self, k: &str) -> Option<&mut Value>{
+        match self {
+            Value::Object(m) => m.get_mut(k),
+            _ => None
+        }
+    }
+}
+
 impl From<&str> for Value {
     fn from(s: &str) -> Self {
         Value::String(MaybeBorrowedString::O(s.to_owned()))
