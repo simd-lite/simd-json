@@ -4,7 +4,6 @@ use hashbrown::HashMap;
 use std::iter::IntoIterator;
 use std::ops::Index;
 
-
 //const VEC_LOWER_LIMIT: usize = 32;
 const VEC_LIMIT_UPPER: usize = 64;
 
@@ -18,15 +17,16 @@ where
     None,
 }
 
-
-impl<K, V, Q> Index<Q> for ScaleMap<K, V> where
-    K: Borrow<Q>,
-    K: Eq + Hash,
-    Q: Hash + Eq,
+impl<K, Q: ?Sized, V> Index<&Q> for ScaleMap<K, V>
+where
+    K: Eq + Hash + Borrow<Q>,
+    Q: Eq + Hash,
 {
     type Output = V;
-    fn index(&self, index: Q) -> &V {
-        self.get(index).unwrap()
+
+    #[inline]
+    fn index(&self, key: &Q) -> &V {
+        self.get(key).expect("no entry found for key")
     }
 }
 
@@ -351,6 +351,5 @@ mod tests {
         let mut v: ScaleMap<String, u32> = ScaleMap::new();
         v.insert("hello".to_owned(), 42);
         assert_eq!(v["hello"], 42);
-
     }
 }
