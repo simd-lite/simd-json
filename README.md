@@ -1,6 +1,9 @@
+[![CircleCI](https://circleci.com/gh/Licenser/simdjson-rs/tree/master.svg?style=svg)](https://circleci.com/gh/Licenser/simdjson-rs/tree/master)
+
 # simdjson-rs
+
 Rust port of extremely fast [simdjson](https://github.com/lemire/simdjson) JSON parser with [serde](serde.rs) compatibility.
- 
+
 
 # readme (for real!)
 
