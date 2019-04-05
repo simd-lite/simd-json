@@ -800,7 +800,7 @@ impl<'de> Deserializer<'de> {
                 Number::I64(n) => Ok(n),
             },
             b'0'...b'9' => match stry!(self.parse_number_(false)) {
-                Number::F64(n) => Err(self.error(ErrorType::ExpectedSigned)),
+                Number::F64(_n) => Err(self.error(ErrorType::ExpectedSigned)),
                 Number::I64(n) => Ok(n),
             },
             _ => Err(self.error(ErrorType::ExpectedSigned)),
