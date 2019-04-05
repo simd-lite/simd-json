@@ -8,16 +8,12 @@ mod stage1;
 mod stage2;
 mod stringparse;
 mod utf8check;
-#[cfg(not(feature = "no-borrow"))]
-mod value_borrow;
-#[cfg(feature = "no-borrow")]
-mod value_owned;
+mod value;
 
 use crate::numberparse::Number;
 use crate::portability::*;
 use crate::stage2::*;
 use crate::stringparse::*;
-pub use value::{Map, MaybeBorrowedString, Value};
 //use hashbrown::HashMap;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -29,16 +25,8 @@ use std::fmt;
 use std::str;
 #[macro_use]
 extern crate lazy_static;
+pub use value::{Map, MaybeBorrowedString, Value};
 
-pub mod value {
-    mod de;
-    mod se;
-
-    #[cfg(not(feature = "no-borrow"))]
-    pub use crate::value_borrow::*;
-    #[cfg(feature = "no-borrow")]
-    pub use crate::value_owned::*;
-}
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 // We only do this for the string parse function as it seems to slow down other frunctions
