@@ -2,6 +2,8 @@ use core::borrow::Borrow;
 use core::hash::Hash;
 use hashbrown::HashMap;
 use std::iter::IntoIterator;
+use std::ops::Index;
+
 
 //const VEC_LOWER_LIMIT: usize = 32;
 const VEC_LIMIT_UPPER: usize = 64;
@@ -14,6 +16,18 @@ where
     Map(HashMap<K, V>),
     Vec(VecMap<K, V>),
     None,
+}
+
+
+impl<K, V, Q> Index<Q> for ScaleMap<K, V> where
+    K: Borrow<Q>,
+    K: Eq + Hash,
+    Q: Hash + Eq,
+{
+    type Output = V;
+    fn index(&self, index: Q) -> &V {
+        self.get(index).unwrap()
+    }
 }
 
 impl<K, V> ScaleMap<K, V>
@@ -330,5 +344,13 @@ mod tests {
         }
         v.insert(65, 65);
         assert!(v.is_map());
+    }
+
+    #[test]
+    fn str_key() {
+        let mut v: ScaleMap<String, u32> = ScaleMap::new();
+        v.insert("hello".to_owned(), 42);
+        assert_eq!(v["hello"], 42);
+
     }
 }
