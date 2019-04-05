@@ -2,7 +2,7 @@
 use crate::charutils::*;
 //use crate::portability::*;
 
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
     let mut error: u32;
@@ -20,7 +20,7 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     error == 0
 }
 
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_valid_false_atom(loc: &[u8]) -> bool {
     // TODO: this is ugly and probably copies data every time
     unsafe {
@@ -40,7 +40,7 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
     }
 }
 
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_valid_null_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
     let mut error: u32;

@@ -1,4 +1,4 @@
-use crate::{Number, Value};
+use crate::{Number, Value, MaybeBorrowedString};
 use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
 
 impl<'a> Serialize for Value<'a> {
@@ -9,11 +9,10 @@ impl<'a> Serialize for Value<'a> {
         match self {
             Value::Bool(b) => serializer.serialize_bool(*b),
             Value::Null => serializer.serialize_unit(),
-            Value::Number(n) => match n {
-                Number::F64(f) => serializer.serialize_f64(*f),
-                Number::I64(i) => serializer.serialize_i64(*i),
-            },
-            Value::String(s) => serializer.serialize_str(s),
+            Value::Number(Number::F64(f)) => serializer.serialize_f64(*f),
+            Value::Number(Number::I64(i)) =>  serializer.serialize_i64(*i),
+            Value::String(MaybeBorrowedString::B(s)) => serializer.serialize_str(s),
+            Value::String(MaybeBorrowedString::O(s)) => serializer.serialize_str(&s),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
                 for e in v {

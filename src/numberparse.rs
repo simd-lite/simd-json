@@ -58,7 +58,7 @@ const POWER_OF_TEN: [f64; 617] = [
 ];
 
 //#[inline(always)]
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_integer(c: u8) -> bool {
     // this gets compiled to (uint8_t)(c - '0') <= 9 on all decent compilers
     c >= b'0' && c <= b'9'
@@ -87,7 +87,7 @@ const STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED: [bool; 256] = [
     true, true, true, true, true, true, true,
 ];
 
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
     STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED[c as usize]
 }
@@ -100,7 +100,7 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // check quickly whether the next 8 chars are made of digits
 // at a glance, it looks better than Mula's
 // http://0x80.pl/articles/swar-digits-validate.html
-#[cfg_attr(feature = "inline", inline)]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
     let val: u64 = unsafe { *(chars[0..8].as_ptr() as *const u64) };
 
@@ -115,7 +115,7 @@ fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
 /*
 #else
 // this is more efficient apparently than the scalar code above (fewer instructions)
-    #[cfg_attr(feature = "inline", inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
 
 unsafe fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
     let val: __m64 = *(chars as *const __m64);
@@ -131,7 +131,7 @@ pub enum Number {
     I64(i64),
 }
 
-#[cfg_attr(feature = "inline", inline)]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> i32 {
     unsafe {
         // this actually computes *16* values so we are being wasteful.
@@ -163,6 +163,7 @@ impl<'de> Deserializer<'de> {
     ///
     /// Note: a redesign could avoid this function entirely.
     ///
+    #[inline(never)]
     fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<Number> {
         dbg!("float");
         let mut negative: bool = false;
@@ -345,7 +346,7 @@ impl<'de> Deserializer<'de> {
     // parse the number at buf + offset
     // define JSON_TEST_NUMBERS for unit testing
     //#[inline(always)]
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_number_int(&self, buf: &[u8], found_minus: bool) -> Result<Number> {
         let mut p: &[u8] = buf;
         //            let mut p: *const u8 = buf.as_ptr();

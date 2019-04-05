@@ -126,6 +126,7 @@ pub enum Iter<'a, K, V> {
 
 impl<'a, K, V> Iterator for Iter<'a, K, V> {
     type Item = (&'a K, &'a V);
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Iter::Map(m) => m.next(),
@@ -138,6 +139,7 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
             }
         }
     }
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self {
             Iter::Map(m) => m.size_hint(),
@@ -153,12 +155,14 @@ pub enum IntoIter<K, V> {
 
 impl<K, V> Iterator for IntoIter<K, V> {
     type Item = (K, V);
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             IntoIter::Map(m) => m.next(),
             IntoIter::Vec(m) => m.next(),
         }
     }
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self {
             IntoIter::Map(m) => m.size_hint(),

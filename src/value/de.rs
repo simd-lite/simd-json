@@ -1,4 +1,4 @@
-use crate::{Number, Value, Map};
+use crate::{Number, Value, Map, MaybeBorrowedString};
 use serde::de::{self, Visitor, Deserializer, Deserialize, MapAccess, SeqAccess};
 use std::fmt;
 
@@ -21,20 +21,24 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 
     /****************** unit ******************/
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_unit<E>(self) -> Result<Self::Value, E> {
         Ok(Value::Null)
     }
 
     /****************** bool ******************/
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
         Ok(Value::Bool(value))
     }
 
     /****************** Option ******************/
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_none<E>(self) -> Result<Self::Value, E> {
         Ok(Value::Null)
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_some<D>(self, deserializer: D)  -> Result<Self::Value, D::Error> where
         D: Deserializer<'de>, {
         deserializer.deserialize_any(self)
@@ -49,6 +53,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
      */
 
     /****************** i64 ******************/
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_i8<E>(self, value: i8) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -56,6 +61,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Number(Number::I64(value as i64)))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_i16<E>(self, value: i16) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -63,6 +69,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Number(Number::I64(value as i64)))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_i32<E>(self, value: i32) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -70,6 +77,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Number(Number::I64(value as i64)))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -79,6 +87,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
 
     /****************** u64 ******************/
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_u8<E>(self, value: u8) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -86,6 +95,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Number(Number::I64(value as i64)))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_u16<E>(self, value: u16) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -93,6 +103,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Number(Number::I64(value as i64)))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_u32<E>(self, value: u32) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -100,6 +111,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Number(Number::I64(value as i64)))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -114,6 +126,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
 
     /****************** f64 ******************/
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_f32<E>(self, value: f32) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -121,6 +134,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Number(Number::F64(value as f64)))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -129,6 +143,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 
     /****************** stringy stuff ******************/
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_char<E>(self, _value: char) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -136,33 +151,34 @@ impl<'de> Visitor<'de> for ValueVisitor {
         unimplemented!()
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        Ok(Value::String(value))
+        Ok(Value::String(MaybeBorrowedString::B(value)))
     }
 
-    /*
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
     where
-        'a: 'de
         E: de::Error,
     {
-        Ok(Value::String(value))
+        Ok(Value::String(MaybeBorrowedString::O(value.to_owned())))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        Ok(Value::String(&value))
+        Ok(Value::String(MaybeBorrowedString::O(value)))
     }
-     */
 
     /****************** byte stuff ******************/
 
     /*
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_borrowed_bytes<E>(self, value: &'de [u8]) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -170,6 +186,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::String(value))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_str<E>(self, value: &[u8]) -> Result<Self::Value, E>
     where
     'a: 'de
@@ -178,6 +195,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
       Ok(Value::String(value))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_string<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -187,6 +205,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
      */
     /****************** nexted stuff ******************/
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where
         A: MapAccess<'de>,
     {
@@ -200,6 +219,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Map(m))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where
         A: SeqAccess<'de>,
     {

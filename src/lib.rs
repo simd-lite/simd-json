@@ -14,7 +14,7 @@ use crate::numberparse::Number;
 use crate::portability::*;
 use crate::stage2::*;
 use crate::stringparse::*;
-pub use value::{Map, Value};
+pub use value::{Map, MaybeBorrowedString, Value};
 //use hashbrown::HashMap;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -227,6 +227,7 @@ impl<'de> Deserializer<'de> {
         })
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn compute_size(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
         let mut counts = Vec::with_capacity(structural_indexes.len());
         unsafe {
@@ -296,18 +297,18 @@ impl<'de> Deserializer<'de> {
         Ok((counts, str_len as usize))
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn skip(&mut self) {
         self.idx += 1;
         self.iidx = self.structural_indexes[self.idx] as usize;
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn c(&self) -> u8 {
         self.input[self.structural_indexes[self.idx] as usize]
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn next(&mut self) -> Result<u8> {
         self.idx += 1;
         if let Some(idx) = self.structural_indexes.get(self.idx) {
@@ -321,14 +322,14 @@ impl<'de> Deserializer<'de> {
 
     // pull out the check so we don't need to
     // stry every time
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn next_(&mut self) -> u8 {
         self.idx += 1;
         self.iidx = self.structural_indexes[self.idx] as usize;
         self.input[self.iidx]
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn peek(&self) -> Result<u8> {
         if let Some(idx) = self.structural_indexes.get(self.idx + 1) {
             let r = self.input[*idx as usize];
@@ -338,7 +339,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn to_value(&mut self) -> Result<Value<'de>> {
         if self.idx + 1 > self.structural_indexes.len() {
             return Err(self.error(ErrorType::UnexpectedEnd));
@@ -347,10 +348,15 @@ impl<'de> Deserializer<'de> {
             b'"' => {
                 if let Some(next) = self.structural_indexes.get(self.idx + 1) {
                     if *next as usize - self.iidx < 32 {
-                        return self.parse_short_str_().map(Value::String);
+                        return self
+                            .parse_short_str_()
+                            .map(MaybeBorrowedString::B)
+                            .map(Value::String);
                     }
                 }
-                self.parse_str_().map(Value::String)
+                self.parse_str_()
+                    .map(MaybeBorrowedString::B)
+                    .map(Value::String)
             }
             b'n' => {
                 stry!(self.parse_null_());
@@ -366,7 +372,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn count_elements(&self) -> usize {
         self.counts[self.idx]
         /*
@@ -389,7 +395,7 @@ impl<'de> Deserializer<'de> {
          */
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_array_(&mut self) -> Result<Vec<Value<'de>>> {
         // We short cut for empty arrays
         if stry!(self.peek()) == b']' {
@@ -420,7 +426,7 @@ impl<'de> Deserializer<'de> {
         Ok(res)
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_map_(&mut self) -> Result<Map<'de>> {
         // We short cut for empty arrays
 
@@ -471,7 +477,7 @@ impl<'de> Deserializer<'de> {
 
     // We parse a string that's likely to be less then 32 characters and without any
     // fancy in it like object keys
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_short_str_(&mut self) -> Result<&'de str> {
         let mut padding = [0u8; 32];
         let idx = self.iidx + 1;
@@ -506,7 +512,7 @@ impl<'de> Deserializer<'de> {
         self.parse_str_()
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_str_(&mut self) -> Result<&'de str> {
         use std::slice::from_raw_parts_mut;
         // Add 1 to skip the initial "
@@ -684,7 +690,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_null_(&mut self) -> Result<()> {
         let input = &self.input[self.iidx..];
         let len = input.len();
@@ -705,7 +711,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_true_(&mut self) -> Result<bool> {
         let input = &self.input[self.iidx..];
         let len = input.len();
@@ -728,7 +734,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_false_(&mut self) -> Result<bool> {
         let input = &self.input[self.iidx..];
         let len = input.len();
@@ -751,16 +757,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    /*
-    fn parse_number(&mut self) -> Result<Number> {
-        match stry!(self.next()) {
-            b'0'...b'9' | b'-' => self.parse_number_(),
-            _ => Err(self.error(ErrorType::ExpectedNumber)),
-        }
-    }
-
-    */
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number_(&mut self, minus: bool) -> Result<Number> {
         let input = &self.input[self.iidx..];
         let len = input.len();
@@ -776,7 +773,7 @@ impl<'de> Deserializer<'de> {
     }
 }
 
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.to_value()
@@ -785,7 +782,7 @@ pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
 #[cfg(test)]
 mod tests {
     use super::serde::from_slice;
-    use super::{to_value, Deserializer, Map, Number, Value};
+    use super::{to_value, Deserializer, Map, MaybeBorrowedString, Number, Value};
     use hashbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
@@ -837,7 +834,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Bool(true)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(true)));
     }
 
     #[test]
@@ -849,7 +846,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Bool(false)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(false)));
         //assert!(false)
     }
 
@@ -874,7 +871,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Number(Number::I64(42))));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(42)));
     }
 
     #[test]
@@ -886,7 +883,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Number(Number::I64(0))));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(0)));
     }
 
     #[test]
@@ -910,7 +907,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Number(Number::I64(-1))));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(-1)));
     }
 
     #[test]
@@ -933,7 +930,10 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(to_value(&mut d1), Ok(Value::String("snot")));
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::String(MaybeBorrowedString::B("snot")))
+        );
         assert_eq!(v_simd, v_serde);
     }
 
@@ -945,7 +945,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(to_value(&mut d1), Ok(Value::String("")));
+        assert_eq!(to_value(&mut d1), Ok(Value::from("")));
         assert_eq!(v_simd, v_serde);
     }
 
@@ -969,7 +969,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![Value::String("snot")]))
+            Ok(Value::Array(vec![Value::from("snot")]))
         );
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
@@ -985,8 +985,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![
-                Value::String("snot"),
-                Value::String("badger")
+                Value::from("snot"),
+                Value::from("badger")
             ]))
         );
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
@@ -1006,9 +1006,9 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![
-                Value::Number(Number::I64(42)),
-                Value::Number(Number::F64(23.0)),
-                Value::String("snot badger")
+                Value::from(42),
+                Value::from(23.0),
+                Value::from("snot badger")
             ]))
         );
     }
@@ -1025,10 +1025,10 @@ mod tests {
                 Value::Number(Number::I64(42)),
                 Value::Array(vec![
                     Value::Number(Number::F64(23.0)),
-                    Value::String("snot")
+                    Value::from("snot")
                 ]),
-                Value::String("bad"),
-                Value::String("ger")
+                Value::from("bad"),
+                Value::from("ger")
             ]))
         );
 
@@ -1201,7 +1201,7 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
         let mut h = Map::new();
-        h.insert("snot", Value::String("badger"));
+        h.insert("snot", Value::from("badger"));
         assert_eq!(to_value(&mut d1), Ok(Value::Map(h)));
     }
 
@@ -1215,8 +1215,8 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
         let mut h = Map::new();
-        h.insert("snot", Value::String("badger"));
-        h.insert("badger", Value::String("snot"));
+        h.insert("snot", Value::from("badger"));
+        h.insert("badger", Value::from("snot"));
         assert_eq!(to_value(&mut d1), Ok(Value::Map(h)));
     }
 

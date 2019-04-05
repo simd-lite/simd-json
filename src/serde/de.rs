@@ -22,7 +22,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     // Look at the input data to decide what Serde data model type to
     // deserialize as. Not all data formats are able to support this operation.
     // Formats that support `deserialize_any` are known as self-describing.
-    #[cfg_attr(feature = "inline", inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -72,6 +72,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     // does not. In the `toml` crate, a Datetime in the input is deserialized by
     // mapping it to a Serde data model "struct" type with a special name and a
     // single field containing the Datetime represented as a string.
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -81,6 +82,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     // Refer to the "Understanding deserializer lifetimes" page for information
     // about the three deserialization flavors of strings in Serde.
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -91,6 +93,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_borrowed_str(stry!(self.parse_str_()))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -100,6 +103,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     // The `parse_signed` function is generic over the integer type `T` so here
     // it is invoked with `T=i8`. The next 8 methods are similar.
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -108,6 +112,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_i8(v as i8)
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -116,6 +121,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_i16(v as i16)
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -124,6 +130,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_i32(v as i32)
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -131,6 +138,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_i64(stry!(self.parse_signed()))
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -139,6 +147,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_u8(v as u8)
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -147,6 +156,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_u16(v as u16)
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -155,6 +165,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_u32(v as u32)
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -172,7 +183,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     // expect when working with JSON. Other formats are encouraged to behave
     // more intelligently if possible.
 
-    #[cfg_attr(feature = "inline", inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -188,6 +199,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     /*
     // In Serde, unit means an anonymous value containing no data.
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -199,6 +211,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     // Deserialization of compound types like sequences and maps happens by
     // passing the visitor an "Access" object that gives it the ability to
     // iterate through the data contained in the sequence.
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -222,7 +235,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     // for a tuple in the Serde data model is required to know the length of the
     // tuple before even looking at the input data.
 
-    #[cfg_attr(feature = "inline", inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -250,6 +263,7 @@ struct CommaSeparated<'a, 'de: 'a> {
 }
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn new(de: &'a mut Deserializer<'de>) -> Self {
         CommaSeparated { first: true, de }
     }
@@ -260,7 +274,7 @@ impl<'a, 'de> CommaSeparated<'a, 'de> {
 impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     type Error = Error;
 
-    #[cfg_attr(feature = "inline", inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
         T: DeserializeSeed<'de>,
@@ -285,7 +299,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
             _ => Ok(Some(stry!(seed.deserialize(&mut *self.de)))),
         }
     }
-    #[cfg_attr(feature = "inline", inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn size_hint(&self) -> Option<usize> {
         Some(self.de.count_elements())
     }
@@ -296,7 +310,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
 impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     type Error = Error;
 
-    #[cfg_attr(feature = "inline", inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
     where
         K: DeserializeSeed<'de>,
@@ -327,7 +341,7 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         }
     }
 
-    #[cfg_attr(feature = "inline", inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
     where
         V: DeserializeSeed<'de>,
@@ -339,7 +353,7 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         seed.deserialize(&mut *self.de)
     }
 
-    #[cfg_attr(feature = "inline", inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn size_hint(&self) -> Option<usize> {
         Some(self.de.count_elements())
     }

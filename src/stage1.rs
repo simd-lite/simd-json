@@ -24,7 +24,7 @@ fn fill_input(ptr: &[u8]) -> SimdInput {
     }
 }
 
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn check_utf8(
     input: &SimdInput,
     has_error: &mut __m256i,
@@ -52,7 +52,7 @@ unsafe fn check_utf8(
 
 /// a straightforward comparison of a mask against input. 5 uops; would be
 /// cheaper in AVX512.
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
     unsafe {
         let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.lo, mask);
@@ -65,7 +65,7 @@ fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
 }
 
 // find all values less than or equal than the content of maxval (using unsigned arithmetic)
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
     unsafe {
         let cmp_res_0: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
@@ -86,7 +86,7 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
 // indicate whether we end an iteration on an odd-length sequence of
 // backslashes, which modifies our subsequent search for odd-length
 // sequences of backslashes in an obvious way.
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
     // TODO: const?
     let even_bits: u64 = 0x5555555555555555;
@@ -131,7 +131,7 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
 // Note that we don't do any error checking to see if we have backslash
 // sequences outside quotes; these
 // backslash sequences (of any length) will be detected elsewhere.
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn find_quote_mask_and_bits(
     input: &SimdInput,
     odd_ends: u64,
@@ -163,7 +163,7 @@ unsafe fn find_quote_mask_and_bits(
     return quote_mask;
 }
 
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn find_whitespace_and_structurals(
     input: &SimdInput,
     whitespace: &mut u64,
@@ -248,7 +248,7 @@ unsafe fn find_whitespace_and_structurals(
 // will potentially store extra values beyond end of valid bits, so base_ptr
 // needs to be large enough to handle this
 //TODO: usize was u32 here does this matter?
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     let cnt: usize = hamming(bits) as usize;
     let mut l = base.len();
@@ -295,7 +295,7 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
 // iteration ended on a whitespace or a structural character (which means that
 // the next iteration
 // will have a pseudo-structural character at its start)
-#[cfg_attr(feature = "inline", inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn finalize_structurals(
     mut structurals: u64,
     whitespace: u64,
@@ -335,6 +335,7 @@ fn finalize_structurals(
 /*never_inline*/
 //#[inline(never)]
 impl<'de> Deserializer<'de> {
+    #[inline(never)]
     pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
         let mut structural_indexes = Vec::with_capacity(len / 6);
