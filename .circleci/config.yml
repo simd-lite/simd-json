@@ -1,4 +1,7 @@
-version: 2
+version: 2.1
+
+#orbs:
+#  codecov: codecov/codecov@1.0.4
 
 jobs:
   test:
@@ -31,3 +34,9 @@ jobs:
       - run:
           name: Run all tests (owned)
           command: cargo test --all --features no-borrow
+
+workflows:
+  version: 2
+  workflow:
+    jobs:
+    - test
