@@ -27,3 +27,4 @@ harness = false
 default = ["swar-number-parsing"]
 swar-number-parsing = []
 no-inline = []
+no-borrow = []

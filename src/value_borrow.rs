@@ -1,12 +1,9 @@
-mod de;
-mod se;
 use crate::numberparse::Number;
 use crate::scalemap::ScaleMap;
 use std::fmt;
 
 pub type Map<'a> = ScaleMap<&'a str, Value<'a>>;
 
-//#[derive(Debug)]
 pub enum MaybeBorrowedString<'a> {
     B(&'a str),
     O(String)

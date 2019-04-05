@@ -3,6 +3,7 @@ use serde::de::{self, Visitor, Deserializer, Deserialize, MapAccess, SeqAccess};
 use std::fmt;
 
 
+#[cfg(not(feature = "no-borrow"))]
 impl<'de> Deserialize<'de> for Value<'de> {
     fn deserialize<D>(deserializer: D) -> Result<Value<'de>, D::Error>
     where
@@ -11,10 +12,26 @@ impl<'de> Deserialize<'de> for Value<'de> {
         deserializer.deserialize_any(ValueVisitor)
     }
 }
+
+
+#[cfg(feature = "no-borrow")]
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D>(deserializer: D) -> Result<Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(ValueVisitor)
+    }
+}
+
 struct ValueVisitor;
 
 impl<'de> Visitor<'de> for ValueVisitor {
+    #[cfg(not(feature = "no-borrow"))]
     type Value = Value<'de>;
+
+    #[cfg(feature = "no-borrow")]
+    type Value = Value;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("an JSONesque value")
@@ -156,7 +173,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::String(MaybeBorrowedString::B(value)))
+        Ok(Value::from(value))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

@@ -8,7 +8,10 @@ mod stage1;
 mod stage2;
 mod stringparse;
 mod utf8check;
-mod value;
+#[cfg(not(feature = "no-borrow"))]
+mod value_borrow;
+#[cfg(feature = "no-borrow")]
+mod value_owned;
 
 use crate::numberparse::Number;
 use crate::portability::*;
@@ -26,6 +29,16 @@ use std::fmt;
 use std::str;
 #[macro_use]
 extern crate lazy_static;
+
+pub mod value {
+    mod de;
+    mod se;
+
+    #[cfg(not(feature = "no-borrow"))]
+    pub use crate::value_borrow::*;
+    #[cfg(feature = "no-borrow")]
+    pub use crate::value_owned::*;
+}
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 // We only do this for the string parse function as it seems to slow down other frunctions
@@ -100,6 +113,27 @@ macro_rules! static_cast_i32 {
     ($v:expr) => {
         mem::transmute::<_, i32>($v)
     };
+}
+
+
+#[cfg(not(feature = "no-borrow"))]
+macro_rules! value {
+    {} => {Value<'de>}
+}
+
+#[cfg(feature = "no-borrow")]
+macro_rules! value {
+    {} => {Value}
+}
+
+#[cfg(not(feature = "no-borrow"))]
+macro_rules! map {
+    {} => {Map<'de>}
+}
+
+#[cfg(feature = "no-borrow")]
+macro_rules! map {
+    {} => {Map}
 }
 
 // FROM serde-json
@@ -340,7 +374,8 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn to_value(&mut self) -> Result<Value<'de>> {
+    pub fn to_value(&mut self) -> Result<value!{}>
+    {
         if self.idx + 1 > self.structural_indexes.len() {
             return Err(self.error(ErrorType::UnexpectedEnd));
         }
@@ -350,13 +385,11 @@ impl<'de> Deserializer<'de> {
                     if *next as usize - self.iidx < 32 {
                         return self
                             .parse_short_str_()
-                            .map(MaybeBorrowedString::B)
-                            .map(Value::String);
+                            .map(Value::from);
                     }
                 }
                 self.parse_str_()
-                    .map(MaybeBorrowedString::B)
-                    .map(Value::String)
+                    .map(Value::from)
             }
             b'n' => {
                 stry!(self.parse_null_());
@@ -396,7 +429,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array_(&mut self) -> Result<Vec<Value<'de>>> {
+    fn parse_array_(&mut self) -> Result<Vec<value!{}>> {
         // We short cut for empty arrays
         if stry!(self.peek()) == b']' {
             self.skip();
@@ -427,7 +460,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map_(&mut self) -> Result<Map<'de>> {
+    fn parse_map_(&mut self) -> Result<map!{}> {
         // We short cut for empty arrays
 
         if stry!(self.peek()) == b'}' {
@@ -450,7 +483,10 @@ impl<'de> Deserializer<'de> {
             b':' => (),
             _c => return Err(self.error(ErrorType::ExpectedMapColon)),
         }
+        #[cfg(not(feature = "no-borrow"))]
         res.insert_nocheck(key, stry!(self.to_value()));
+        #[cfg(feature = "no-borrow")]
+        res.insert_nocheck(key.to_owned(), stry!(self.to_value()));
         loop {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
@@ -468,7 +504,10 @@ impl<'de> Deserializer<'de> {
                 b':' => (),
                 _c => return Err(self.error(ErrorType::ExpectedMapColon)),
             }
+            #[cfg(not(feature = "no-borrow"))]
             res.insert_nocheck(key, stry!(self.to_value()));
+            #[cfg(feature = "no-borrow")]
+            res.insert_nocheck(key.to_owned(), stry!(self.to_value()));
         }
         // We found a closing bracket and ended our loop, we skip it
         self.skip();
@@ -773,8 +812,16 @@ impl<'de> Deserializer<'de> {
     }
 }
 
+#[cfg(not(feature = "no-borrow"))]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
+    let mut deserializer = stry!(Deserializer::from_slice(s));
+    deserializer.to_value()
+}
+
+#[cfg(feature = "no-borrow")]
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
+pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.to_value()
 }
@@ -782,7 +829,7 @@ pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
 #[cfg(test)]
 mod tests {
     use super::serde::from_slice;
-    use super::{to_value, Deserializer, Map, MaybeBorrowedString, Number, Value};
+    use super::{to_value, Deserializer, Map, Number, Value};
     use hashbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
@@ -932,7 +979,7 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::String(MaybeBorrowedString::B("snot")))
+            Ok(Value::from("snot"))
         );
         assert_eq!(v_simd, v_serde);
     }
@@ -1201,7 +1248,7 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
         let mut h = Map::new();
-        h.insert("snot", Value::from("badger"));
+        h.insert("snot".into(), Value::from("badger"));
         assert_eq!(to_value(&mut d1), Ok(Value::Map(h)));
     }
 
@@ -1215,8 +1262,8 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
         let mut h = Map::new();
-        h.insert("snot", Value::from("badger"));
-        h.insert("badger", Value::from("snot"));
+        h.insert("snot".into(), Value::from("badger"));
+        h.insert("badger".into(), Value::from("snot"));
         assert_eq!(to_value(&mut d1), Ok(Value::Map(h)));
     }
 
