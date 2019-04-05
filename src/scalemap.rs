@@ -58,6 +58,16 @@ where
         }
     }
 
+
+    #[inline]
+    pub fn clear(&mut self) {
+        match self {
+            ScaleMap::Map(m) => m.clear(),
+            ScaleMap::Vec(m) => m.clear(),
+            ScaleMap::None => unreachable!(),
+        }
+
+    }
     #[inline]
     pub fn insert_nocheck(&mut self, k: K, v: V) {
         match self {
@@ -259,6 +269,10 @@ where
     #[inline]
     pub fn len(&self) -> usize {
         self.v.len()
+    }
+    #[inline]
+    pub fn clear(&mut self)  {
+        self.v.clear()
     }
 
     #[inline]
