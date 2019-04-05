@@ -2,7 +2,7 @@ use crate::numberparse::Number;
 use crate::scalemap::ScaleMap;
 use std::fmt;
 use std::borrow::Borrow;
-use std::ops::Deref;
+use std::ops::{Deref, Index};
 use std::cmp::{PartialOrd, Ordering};
 
 pub type Map<'a> = ScaleMap<&'a str, Value<'a>>;
@@ -132,8 +132,17 @@ impl<'a> fmt::Display for Value<'a> {
     }
 }
 
+impl<'a> Index<&str> for Value<'a> {
+    type Output = Value<'a>;
+    fn index(&self, index: &str) -> &Value<'a> {
+        static NULL: Value = Value::Null;
+        self.get(index).unwrap_or(&NULL)
+    }
+}
+
+
 impl<'a> Value<'a> {
-    pub fn get(&self, k: &str) -> Option<&Value>{
+    pub fn get(&self, k: &str) -> Option<&Value<'a>>{
         match self {
             Value::Object(m) => m.get(k),
             _ => None
