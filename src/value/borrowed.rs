@@ -1,6 +1,7 @@
 use crate::numberparse::Number;
 use crate::scalemap::ScaleMap;
 use std::fmt;
+use std::borrow::Borrow;
 
 pub type Map<'a> = ScaleMap<&'a str, Value<'a>>;
 
@@ -8,6 +9,15 @@ pub type Map<'a> = ScaleMap<&'a str, Value<'a>>;
 pub enum MaybeBorrowedString<'a> {
     B(&'a str),
     O(String)
+}
+
+impl<'a> Borrow<str> for MaybeBorrowedString<'a> {
+    fn borrow(&self) -> &str {
+        match self {
+            MaybeBorrowedString::B(s) => s,
+            MaybeBorrowedString::O(s) => &s
+        }
+    }
 }
 
 impl<'a> fmt::Display for MaybeBorrowedString<'a> {

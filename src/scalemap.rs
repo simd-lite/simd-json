@@ -1,4 +1,4 @@
-use core::borrow::{Borrow, BorrowMut};
+use core::borrow::{Borrow};
 use core::hash::Hash;
 use hashbrown::HashMap;
 use std::iter::IntoIterator;
