@@ -50,7 +50,6 @@ impl<'a> PartialEq<&str> for MaybeBorrowedString<'a> {
     }
 }
 
-
 impl<'a> PartialEq<String> for MaybeBorrowedString<'a> {
     fn eq(&self, other: &String) -> bool {
         match self {
@@ -88,7 +87,6 @@ impl<'a> PartialEq<str> for Value<'a> {
         }
     }
 }
-
 
 impl<'a> PartialEq<&str> for Value<'a> {
     fn eq(&self, other: &&str) -> bool {
