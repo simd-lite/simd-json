@@ -395,8 +395,9 @@ impl<'de> Deserializer<'de> {
 
             #[cfg(feature = "swar-number-parsing")]
             {
-                if buf.len() >= 16 && is_made_of_eight_digits_fast(buf) {
-                    i = i * 100000000 + parse_eight_digits_unrolled(buf) as i64;
+                if buf.len() - digitcount >= 16 && is_made_of_eight_digits_fast(&buf[digitcount..])
+                {
+                    i = i * 100000000 + parse_eight_digits_unrolled(&buf[digitcount..]) as i64;
                     digitcount += 8;
                     // exponent -= 8;
                 }
