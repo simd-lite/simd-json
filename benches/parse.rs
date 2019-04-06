@@ -1,17 +1,20 @@
 extern crate core_affinity;
-extern crate jemallocator;
 #[macro_use]
 extern crate criterion;
 
+#[cfg(feature = "jemallocator")]
+extern crate jemallocator;
+#[cfg(feature = "jemallocator")]
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-use criterion::{BatchSize, Benchmark, Criterion, ParameterizedBenchmark, Throughput};
+use criterion::{BatchSize, Criterion, ParameterizedBenchmark, Throughput};
+#[cfg(feature = "bench-serder")]
 use serde_json;
 use simdjson;
 use simdjson_rust::build_parsed_json;
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::Read;
 
 macro_rules! bench_file {
     ($name:ident) => {
@@ -25,9 +28,7 @@ macro_rules! bench_file {
                 .read_to_end(&mut vec)
                 .unwrap();
 
-            let len = vec.len();
-
-            let mut b = ParameterizedBenchmark::new(
+            let b = ParameterizedBenchmark::new(
                 "simdjson",
                 |b, data| {
                     b.iter_batched(
@@ -40,10 +41,11 @@ macro_rules! bench_file {
                 },
                 vec![vec],
             );
+            #[cfg(feature = "simdjson-rust")]
             let b = b.with_function("simdjson_cpp", move |b, data| {
                 b.iter_batched(
                     || String::from_utf8(data.to_vec()).unwrap(),
-                    |mut bytes| {
+                    |bytes| {
                         let _ = build_parsed_json(&bytes, true);
                     },
                     BatchSize::SmallInput,
