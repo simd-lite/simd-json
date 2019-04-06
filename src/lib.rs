@@ -10,7 +10,6 @@ mod stringparse;
 mod utf8check;
 mod value;
 
-pub use crate::numberparse::Number;
 use crate::portability::*;
 use crate::stage2::*;
 use crate::stringparse::*;
@@ -103,11 +102,13 @@ macro_rules! static_cast_i32 {
 }
 
 #[cfg(not(feature = "no-borrow"))]
+#[macro_export]
 macro_rules! value {
     {} => {Value<'de>}
 }
 
 #[cfg(feature = "no-borrow")]
+#[macro_export]
 macro_rules! value {
     {} => {Value}
 }
@@ -380,8 +381,8 @@ impl<'de> Deserializer<'de> {
             }
             b't' => self.parse_true_().map(Value::Bool),
             b'f' => self.parse_false_().map(Value::Bool),
-            b'-' => self.parse_number_(true).map(Value::Number),
-            b'0'...b'9' => self.parse_number_(false).map(Value::Number),
+            b'-' => self.parse_number_(true),
+            b'0'...b'9' => self.parse_number_(false),
             b'[' => self.parse_array_().map(Value::Array),
             b'{' => self.parse_map_().map(Value::Object),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
@@ -780,7 +781,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_(&mut self, minus: bool) -> Result<Number> {
+    fn parse_number_(&mut self, minus: bool) -> Result<value! {}> {
         let input = &self.input[self.iidx..];
         let len = input.len();
         if len < SIMDJSON_PADDING {
@@ -796,12 +797,12 @@ impl<'de> Deserializer<'de> {
     fn parse_signed(&mut self) -> Result<i64> {
         match stry!(self.next()) {
             b'-' => match stry!(self.parse_number_(true)) {
-                Number::F64(_n) => Err(self.error(ErrorType::ExpectedSigned)),
-                Number::I64(n) => Ok(n),
+                Value::I64(n) => Ok(n),
+                _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
             b'0'...b'9' => match stry!(self.parse_number_(false)) {
-                Number::F64(_n) => Err(self.error(ErrorType::ExpectedSigned)),
-                Number::I64(n) => Ok(n),
+                Value::I64(n) => Ok(n),
+                _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
             _ => Err(self.error(ErrorType::ExpectedSigned)),
         }
@@ -809,8 +810,8 @@ impl<'de> Deserializer<'de> {
     fn parse_unsigned(&mut self) -> Result<u64> {
         match stry!(self.next()) {
             b'0'...b'9' => match stry!(self.parse_number_(false)) {
-                Number::F64(_n) => Err(self.error(ErrorType::ExpectedUnsigned)),
-                Number::I64(n) => Ok(n as u64),
+                Value::I64(n) => Ok(n as u64),
+                _ => Err(self.error(ErrorType::ExpectedUnsigned)),
             },
             _ => Err(self.error(ErrorType::ExpectedUnsigned)),
         }
@@ -819,12 +820,14 @@ impl<'de> Deserializer<'de> {
     fn parse_double(&mut self) -> Result<f64> {
         match stry!(self.next()) {
             b'-' => match stry!(self.parse_number_(true)) {
-                Number::F64(n) => Ok(n),
-                Number::I64(n) => Ok(n as f64),
+                Value::F64(n) => Ok(n),
+                Value::I64(n) => Ok(n as f64),
+                _ => Err(self.error(ErrorType::ExpectedFloat)),
             },
             b'0'...b'9' => match stry!(self.parse_number_(false)) {
-                Number::F64(n) => Ok(n),
-                Number::I64(n) => Ok(n as f64),
+                Value::F64(n) => Ok(n),
+                Value::I64(n) => Ok(n as f64),
+                _ => Err(self.error(ErrorType::ExpectedFloat)),
             },
             _ => Err(self.error(ErrorType::ExpectedFloat)),
         }
@@ -848,7 +851,7 @@ pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::serde::from_slice;
-    use super::{to_value, Deserializer, Map, Number, Value};
+    use super::{to_value, Deserializer, Map, Value};
     use hashbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
@@ -958,7 +961,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Number(Number::I64(1))));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(1)));
     }
 
     #[test]
@@ -982,7 +985,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Number(Number::F64(23.0))));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(23.0)));
     }
 
     #[test]
@@ -1082,8 +1085,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![
-                Value::Number(Number::I64(42)),
-                Value::Array(vec![Value::Number(Number::F64(23.0)), Value::from("snot")]),
+                Value::from(42),
+                Value::Array(vec![Value::from(23.0), Value::from("snot")]),
                 Value::from("bad"),
                 Value::from("ger")
             ]))

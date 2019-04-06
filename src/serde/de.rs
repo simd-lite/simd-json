@@ -1,4 +1,4 @@
-use crate::{stry, Deserializer, Error, ErrorType, Number, Result};
+use crate::{stry, Deserializer, Error, ErrorType, Result, Value};
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
 use std::fmt;
@@ -35,12 +35,14 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             b't' => visitor.visit_bool(stry!(self.parse_true_())),
             b'f' => visitor.visit_bool(stry!(self.parse_false_())),
             b'-' => match stry!(self.parse_number_(true)) {
-                Number::F64(n) => visitor.visit_f64(n),
-                Number::I64(n) => visitor.visit_i64(n),
+                Value::F64(n) => visitor.visit_f64(n),
+                Value::I64(n) => visitor.visit_i64(n),
+                _ => unreachable!(),
             },
             b'0'...b'9' => match stry!(self.parse_number_(false)) {
-                Number::F64(n) => visitor.visit_f64(n),
-                Number::I64(n) => visitor.visit_i64(n),
+                Value::F64(n) => visitor.visit_f64(n),
+                Value::I64(n) => visitor.visit_i64(n),
+                _ => unreachable!(),
             },
             b'"' => {
                 if let Some(next) = self.structural_indexes.get(self.idx + 1) {
@@ -324,7 +326,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_struct<V>(
-        mut self,
+        self,
         _name: &'static str,
         _fields: &'static [&'static str],
         visitor: V,

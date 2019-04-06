@@ -1,5 +1,4 @@
 use super::{MaybeBorrowedString, Value};
-use crate::Number;
 use std::cmp::{Ordering, PartialOrd};
 
 impl<'a> PartialOrd for MaybeBorrowedString<'a> {
@@ -109,7 +108,7 @@ impl<'a> PartialEq<String> for Value<'a> {
 impl<'a> PartialEq<i8> for Value<'a> {
     fn eq(&self, other: &i8) -> bool {
         match self {
-            Value::Number(Number::I64(i)) => i == &i64::from(*other),
+            Value::I64(i) => i == &i64::from(*other),
             _ => false,
         }
     }
@@ -118,7 +117,7 @@ impl<'a> PartialEq<i8> for Value<'a> {
 impl<'a> PartialEq<i16> for Value<'a> {
     fn eq(&self, other: &i16) -> bool {
         match self {
-            Value::Number(Number::I64(i)) => i == &i64::from(*other),
+            Value::I64(i) => i == &i64::from(*other),
             _ => false,
         }
     }
@@ -127,7 +126,7 @@ impl<'a> PartialEq<i16> for Value<'a> {
 impl<'a> PartialEq<i32> for Value<'a> {
     fn eq(&self, other: &i32) -> bool {
         match self {
-            Value::Number(Number::I64(i)) => i == &i64::from(*other),
+            Value::I64(i) => i == &i64::from(*other),
             _ => false,
         }
     }
@@ -136,7 +135,7 @@ impl<'a> PartialEq<i32> for Value<'a> {
 impl<'a> PartialEq<i64> for Value<'a> {
     fn eq(&self, other: &i64) -> bool {
         match self {
-            Value::Number(Number::I64(i)) => i == &i64::from(*other),
+            Value::I64(i) => i == &i64::from(*other),
             _ => false,
         }
     }
@@ -145,7 +144,7 @@ impl<'a> PartialEq<i64> for Value<'a> {
 impl<'a> PartialEq<f32> for Value<'a> {
     fn eq(&self, other: &f32) -> bool {
         match self {
-            Value::Number(Number::F64(f)) => f == &f64::from(*other),
+            Value::F64(f) => f == &f64::from(*other),
             _ => false,
         }
     }
@@ -153,7 +152,7 @@ impl<'a> PartialEq<f32> for Value<'a> {
 impl<'a> PartialEq<f64> for Value<'a> {
     fn eq(&self, other: &f64) -> bool {
         match self {
-            Value::Number(Number::F64(f)) => f == &f64::from(*other),
+            Value::F64(f) => f == &f64::from(*other),
             _ => false,
         }
     }

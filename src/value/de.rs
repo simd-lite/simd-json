@@ -1,4 +1,4 @@
-use crate::{Map, MaybeBorrowedString, Number, Value};
+use crate::{Map, MaybeBorrowedString, Value};
 use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use std::fmt;
 
@@ -75,7 +75,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Number(Number::I64(value as i64)))
+        Ok(Value::I64(value as i64))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -83,7 +83,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Number(Number::I64(value as i64)))
+        Ok(Value::I64(value as i64))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -91,7 +91,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Number(Number::I64(value as i64)))
+        Ok(Value::I64(value as i64))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -99,7 +99,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Number(Number::I64(value)))
+        Ok(Value::I64(value))
     }
 
     /****************** u64 ******************/
@@ -109,7 +109,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Number(Number::I64(value as i64)))
+        Ok(Value::I64(value as i64))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -117,7 +117,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Number(Number::I64(value as i64)))
+        Ok(Value::I64(value as i64))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -125,7 +125,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Number(Number::I64(value as i64)))
+        Ok(Value::I64(value as i64))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -135,7 +135,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         use std::i64;
         if value <= i64::MAX as u64 {
-            Ok(Value::Number(Number::I64(value as i64)))
+            Ok(Value::I64(value as i64))
         } else {
             Err(E::custom(format!("Integer out of range: {}", value)))
         }
@@ -148,7 +148,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Number(Number::F64(value as f64)))
+        Ok(Value::F64(value as f64))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -156,7 +156,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Number(Number::F64(value)))
+        Ok(Value::F64(value))
     }
 
     /****************** stringy stuff ******************/

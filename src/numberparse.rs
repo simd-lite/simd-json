@@ -5,7 +5,6 @@ use crate::*;
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-use std::fmt;
 
 const POWER_OF_TEN: [f64; 617] = [
     1e-308, 1e-307, 1e-306, 1e-305, 1e-304, 1e-303, 1e-302, 1e-301, 1e-300, 1e-299, 1e-298, 1e-297,
@@ -126,21 +125,6 @@ unsafe fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
 }
  */
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Number {
-    F64(f64),
-    I64(i64),
-}
-
-impl fmt::Display for Number {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Number::I64(n) => write!(f, "{}", n),
-            Number::F64(n) => write!(f, "{}", n),
-        }
-    }
-}
-
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> i32 {
     unsafe {
@@ -174,7 +158,7 @@ impl<'de> Deserializer<'de> {
     /// Note: a redesign could avoid this function entirely.
     ///
     #[inline(never)]
-    fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<Number> {
+    fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<value! {}> {
         let mut negative: bool = false;
         if found_minus {
             p = &p[1..];
@@ -211,7 +195,6 @@ impl<'de> Deserializer<'de> {
             }
             while is_integer(p[0]) {
                 let digit: u8 = p[0] - b'0';
-                //dbg!(digit);
                 p = &p[1..];
                 fractionalweight *= 10;
                 fraction *= 10;
@@ -272,7 +255,7 @@ impl<'de> Deserializer<'de> {
         }
 
         if is_structural_or_whitespace(p[0]) != 0 {
-            Ok(Number::F64(if negative { -i } else { i }))
+            Ok(Value::F64(if negative { -i } else { i }))
         } else {
             Err(self.error(ErrorType::Parser))
         }
@@ -356,7 +339,7 @@ impl<'de> Deserializer<'de> {
     // define JSON_TEST_NUMBERS for unit testing
     //#[inline(always)]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
+    pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<value! {}> {
         if negative {
             buf = &buf[1..];
             /*
@@ -470,7 +453,7 @@ impl<'de> Deserializer<'de> {
             // We want 0.1e1 to be a float.
             //////////
             if i == 0 {
-                Number::F64(0.0)
+                Value::F64(0.0)
             } else {
                 if (exponent > 308) || (exponent < -308) {
                     // we refuse to parse this
@@ -479,7 +462,7 @@ impl<'de> Deserializer<'de> {
                 let mut d: f64 = i as f64;
                 d *= POWER_OF_TEN[(308 + exponent) as usize];
                 // d = negative ? -d : d;
-                Number::F64(d)
+                Value::F64(d)
             }
         } else {
             /* TODO: implement this
@@ -488,7 +471,7 @@ impl<'de> Deserializer<'de> {
                 return parse_large_integer(buf, pj, offset, found_minus);
             }
              */
-            Number::I64(i)
+            Value::I64(i)
         };
         if is_structural_or_whitespace(buf[digitcount]) != 0 {
             Ok(v)
