@@ -867,7 +867,6 @@ mod tests {
         let mut d = String::from("[1]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        dbg!(&simd.counts);
         assert_eq!(simd.counts[1], 1);
     }
 
@@ -876,7 +875,6 @@ mod tests {
         let mut d = String::from("[1,2]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        dbg!(&simd.counts);
         assert_eq!(simd.counts[1], 2);
     }
 
@@ -885,7 +883,6 @@ mod tests {
         let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        dbg!(&simd.counts);
         assert_eq!(simd.counts[1], 3);
         assert_eq!(simd.counts[4], 1);
     }

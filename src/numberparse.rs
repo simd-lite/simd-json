@@ -175,7 +175,6 @@ impl<'de> Deserializer<'de> {
     ///
     #[inline(never)]
     fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<Number> {
-        dbg!("float");
         let mut negative: bool = false;
         if found_minus {
             p = &p[1..];
@@ -357,56 +356,52 @@ impl<'de> Deserializer<'de> {
     // define JSON_TEST_NUMBERS for unit testing
     //#[inline(always)]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_number_int(&self, buf: &[u8], found_minus: bool) -> Result<Number> {
-        let mut p: &[u8] = buf;
-        //            let mut p: *const u8 = buf.as_ptr();
-        let mut negative: bool = false;
-        if found_minus {
-            p = &p[1..];
-            negative = true;
+    pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
+        if negative {
+            buf = &buf[1..];
+            /*
+            // We don't need that as the next batch checks:
+            // if it's 0 (if branch)
+            // or if it's an integer (else branch)
             if !is_integer(p[0]) {
                 // a negative sign must be followed by an integer
                 return Err(self.error(ErrorType::InvalidNumber));
             }
+            */
         }
         //let startdigits: *const u8 = p;
         let mut digitcount = 0;
         let mut i: i64;
-        if p[0] == b'0' {
+        if buf[0] == b'0' {
             // 0 cannot be followed by an integer
-            p = &p[1..];
             digitcount += 1;
-            if is_not_structural_or_whitespace_or_exponent_or_decimal(p[0]) {
+            if is_not_structural_or_whitespace_or_exponent_or_decimal(buf[digitcount]) {
                 return Err(self.error(ErrorType::InvalidNumber));
             }
             i = 0;
         } else {
-            if !is_integer(p[0]) {
+            if !is_integer(buf[0]) {
                 // must start with an integer
                 return Err(self.error(ErrorType::InvalidNumber));
             }
-            let mut digit: u8 = p[0] - b'0';
+            let mut digit: u8 = buf[0] - b'0';
             i = digit as i64;
-            p = &p[1..];
             digitcount += 1;
             // the is_made_of_eight_digits_fast routine is unlikely to help here because
             // we rarely see large integer parts like 123456789
-            while is_integer(p[0]) {
-                digit = p[0] - b'0';
+            while is_integer(buf[digitcount]) {
+                digit = buf[digitcount] - b'0';
                 i = 10 * i + digit as i64; // might overflow
-                p = &p[1..];
                 digitcount += 1;
             }
         }
 
         let mut exponent: i64 = 0;
-        if b'.' == p[0] {
-            p = &p[1..];
+        if b'.' == buf[digitcount] {
             digitcount += 1;
             let firstafterperiod = digitcount;
-            if is_integer(p[0]) {
-                let digit: u8 = p[0] - b'0';
-                p = &p[1..];
+            if is_integer(buf[digitcount]) {
+                let digit: u8 = buf[digitcount] - b'0';
                 digitcount += 1;
                 i = i * 10 + digit as i64;
             } else {
@@ -417,55 +412,47 @@ impl<'de> Deserializer<'de> {
 
             #[cfg(feature = "swar-number-parsing")]
             {
-                if p.len() >= 16 && is_made_of_eight_digits_fast(p) {
-                    i = i * 100000000 + parse_eight_digits_unrolled(p) as i64;
-                    p = &p[8..];
+                if buf.len() >= 16 && is_made_of_eight_digits_fast(buf) {
+                    i = i * 100000000 + parse_eight_digits_unrolled(buf) as i64;
                     digitcount += 8;
                     // exponent -= 8;
                 }
             }
 
-            while is_integer(p[0]) {
-                let digit: u8 = p[0] - b'0';
-                p = &p[1..];
+            while is_integer(buf[digitcount]) {
+                let digit: u8 = buf[digitcount] - b'0';
                 digitcount += 1;
                 i = i * 10 + digit as i64; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
             }
-            exponent = firstafterperiod - digitcount;
+            exponent = firstafterperiod as i64 - digitcount as i64;
         }
         let mut expnumber: i64 = 0; // exponential part
-        if (b'e' == p[0]) || (b'E' == p[0]) {
-            p = &p[1..];
+        if (b'e' == buf[digitcount]) || (b'E' == buf[digitcount]) {
             digitcount += 1;
             let mut negexp: bool = false;
-            if b'-' == p[0] {
+            if b'-' == buf[digitcount] {
                 negexp = true;
-                p = &p[1..];
                 digitcount += 1;
-            } else if b'+' == p[0] {
-                p = &p[1..];
+            } else if b'+' == buf[digitcount] {
                 digitcount += 1;
             }
-            if !is_integer(p[0]) {
+            if !is_integer(buf[digitcount]) {
                 return Err(self.error(ErrorType::InvalidNumber));
             }
-            let mut digit: u8 = p[0] - b'0';
+            let mut digit: u8 = buf[digitcount] - b'0';
             expnumber = digit as i64;
-            p = &p[1..];
             digitcount += 1;
-            if is_integer(p[0]) {
-                digit = p[0] - b'0';
+            if is_integer(buf[digitcount]) {
+                digit = buf[digitcount] - b'0';
                 expnumber = 10 * expnumber + digit as i64;
-                p = &p[1..];
                 digitcount += 1;
             }
-            if is_integer(p[0]) {
-                digit = p[0] - b'0';
+            if is_integer(buf[digitcount]) {
+                digit = buf[digitcount] - b'0';
                 expnumber = 10 * expnumber + digit as i64;
-                p = &p[1..];
                 digitcount += 1;
             }
-            if is_integer(p[0]) {
+            if is_integer(buf[digitcount]) {
                 // we refuse to parse this
                 return Err(self.error(ErrorType::InvalidNumber));
             }
@@ -477,7 +464,7 @@ impl<'de> Deserializer<'de> {
                 // this is uncommon!!!
                 // this is almost never going to get called!!!
                 // we start anew, going slowly!!!
-                return self.parse_float(buf, found_minus);
+                return self.parse_float(buf, negative);
             }
             ///////////
             // We want 0.1e1 to be a float.
@@ -503,7 +490,7 @@ impl<'de> Deserializer<'de> {
              */
             Number::I64(i)
         };
-        if is_structural_or_whitespace(p[0]) != 0 {
+        if is_structural_or_whitespace(buf[digitcount]) != 0 {
             Ok(v)
         } else {
             Err(self.error(ErrorType::InvalidNumber))
