@@ -10,7 +10,7 @@ jobs:
     steps:
       - run:
           name: Install CMAKE
-          command: 'apt-get update && sudo apt-get install -y cmake'
+          command: 'apt-get update && apt-get install -y cmake'
       - checkout
       - run:
           name: Version information
