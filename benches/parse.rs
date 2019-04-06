@@ -12,6 +12,7 @@ use criterion::{BatchSize, Criterion, ParameterizedBenchmark, Throughput};
 #[cfg(feature = "bench-serder")]
 use serde_json;
 use simdjson;
+#[cfg(feature = "simdjson-rust")]
 use simdjson_rust::build_parsed_json;
 use std::fs::File;
 use std::io::Read;
