@@ -3,7 +3,6 @@ mod from;
 mod mbs;
 
 use crate::halfbrown::HashMap;
-use crate::numberparse::Number;
 pub use mbs::*;
 use std::fmt;
 use std::ops::Index;
@@ -14,7 +13,8 @@ pub type Map = HashMap<String, Value>;
 pub enum Value {
     Null,
     Bool(bool),
-    Number(Number),
+    I64(i64),
+    F64(f64),
     String(MaybeBorrowedString),
     Array(Vec<Value>),
     Object(Map),
@@ -25,7 +25,8 @@ impl fmt::Display for Value {
         match self {
             Value::Null => write!(f, "null"),
             Value::Bool(b) => write!(f, "{}", b),
-            Value::Number(n) => write!(f, "{}", n),
+            Value::I64(n) => write!(f, "{}", n),
+            Value::F64(n) => write!(f, "{}", n),
             Value::String(s) => write!(f, "{}", s),
             Value::Array(a) => write!(f, "{:?}", a),
             Value::Object(o) => write!(f, "{:?}", o),

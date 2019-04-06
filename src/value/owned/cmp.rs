@@ -1,5 +1,4 @@
 use super::{MaybeBorrowedString, Value};
-use crate::Number;
 use std::cmp::{Ordering, PartialOrd};
 
 impl PartialOrd for MaybeBorrowedString {
@@ -102,7 +101,7 @@ impl PartialEq<String> for Value {
 impl PartialEq<i8> for Value {
     fn eq(&self, other: &i8) -> bool {
         match self {
-            Value::Number(Number::I64(i)) => i == &i64::from(*other),
+            Value::I64(i) => i == &i64::from(*other),
             _ => false,
         }
     }
@@ -111,7 +110,7 @@ impl PartialEq<i8> for Value {
 impl PartialEq<i16> for Value {
     fn eq(&self, other: &i16) -> bool {
         match self {
-            Value::Number(Number::I64(i)) => i == &i64::from(*other),
+            Value::I64(i) => i == &i64::from(*other),
             _ => false,
         }
     }
@@ -120,7 +119,7 @@ impl PartialEq<i16> for Value {
 impl PartialEq<i32> for Value {
     fn eq(&self, other: &i32) -> bool {
         match self {
-            Value::Number(Number::I64(i)) => i == &i64::from(*other),
+            Value::I64(i) => i == &i64::from(*other),
             _ => false,
         }
     }
@@ -129,7 +128,7 @@ impl PartialEq<i32> for Value {
 impl PartialEq<i64> for Value {
     fn eq(&self, other: &i64) -> bool {
         match self {
-            Value::Number(Number::I64(i)) => i == &i64::from(*other),
+            Value::I64(i) => i == &i64::from(*other),
             _ => false,
         }
     }
@@ -138,7 +137,7 @@ impl PartialEq<i64> for Value {
 impl PartialEq<f32> for Value {
     fn eq(&self, other: &f32) -> bool {
         match self {
-            Value::Number(Number::F64(f)) => f == &f64::from(*other),
+            Value::F64(f) => f == &f64::from(*other),
             _ => false,
         }
     }
@@ -146,7 +145,7 @@ impl PartialEq<f32> for Value {
 impl PartialEq<f64> for Value {
     fn eq(&self, other: &f64) -> bool {
         match self {
-            Value::Number(Number::F64(f)) => f == &f64::from(*other),
+            Value::F64(f) => f == &f64::from(*other),
             _ => false,
         }
     }

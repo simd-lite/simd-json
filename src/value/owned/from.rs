@@ -1,5 +1,4 @@
 use super::{MaybeBorrowedString, Value};
-use crate::Number;
 
 impl From<&str> for MaybeBorrowedString {
     fn from(v: &str) -> Self {
@@ -27,37 +26,37 @@ impl From<String> for Value {
 
 impl From<i8> for Value {
     fn from(i: i8) -> Self {
-        Value::Number(Number::I64(i as i64))
+        Value::I64(i as i64)
     }
 }
 
 impl From<i16> for Value {
     fn from(i: i16) -> Self {
-        Value::Number(Number::I64(i as i64))
+        Value::I64(i as i64)
     }
 }
 
 impl From<i32> for Value {
     fn from(i: i32) -> Self {
-        Value::Number(Number::I64(i as i64))
+        Value::I64(i as i64)
     }
 }
 
 impl From<i64> for Value {
     fn from(i: i64) -> Self {
-        Value::Number(Number::I64(i as i64))
+        Value::I64(i as i64)
     }
 }
 
 impl From<f32> for Value {
     fn from(f: f32) -> Self {
-        Value::Number(Number::F64(f as f64))
+        Value::F64(f as f64)
     }
 }
 
 impl From<f64> for Value {
     fn from(f: f64) -> Self {
-        Value::Number(Number::F64(f as f64))
+        Value::F64(f as f64)
     }
 }
 
