@@ -42,6 +42,15 @@ macro_rules! bench_file {
                 },
                 vec![vec],
             );
+            let b = b.with_function("simdjson-tape", move |b, data| {
+                b.iter_batched(
+                    || data.clone(),
+                    |mut bytes| {
+                        simdjson::to_tape(&mut bytes).unwrap();
+                    },
+                    BatchSize::SmallInput,
+                )
+            });
             #[cfg(feature = "simdjson-rust")]
             let b = b.with_function("simdjson_cpp", move |b, data| {
                 b.iter_batched(

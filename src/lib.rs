@@ -139,6 +139,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, PartialEq)]
 pub enum ErrorType {
+    Depth,
     BadKeyType,
     EarlyEnd,
     ExpectedArray,
@@ -212,6 +213,7 @@ impl<'de> Deserializer<'de> {
             error,
         }
     }
+
     // By convention, `Deserializer` constructors are named like `from_xyz`.
     // That way basic use cases are satisfied by something like
     // `serde_json::from_str(...)` while advanced use cases that require a
@@ -834,18 +836,16 @@ impl<'de> Deserializer<'de> {
     }
 }
 
-#[cfg(not(feature = "no-borrow"))]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
+pub fn to_value<'de>(s: &'de mut [u8]) -> Result<value! {}> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.to_value()
 }
 
-#[cfg(feature = "no-borrow")]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
+pub fn to_tape<'de>(s: &'de mut [u8]) -> Result<value! {}> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
-    deserializer.to_value()
+    unsafe { deserializer.unified_machine() }
 }
 
 #[cfg(test)]
