@@ -8,6 +8,9 @@ jobs:
     docker:
       - image: rust:1
     steps:
+      - run:
+        name: Install cmake
+        command: apt install -y cmake
       - checkout
       - run:
           name: Version information
