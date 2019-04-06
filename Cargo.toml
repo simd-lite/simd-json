@@ -17,6 +17,8 @@ serde_bytes = "*"
 criterion = "0.2"
 jemallocator = "*"
 core_affinity = "*"
+simdjson-rust = { git = "https://github.com/SunDoge/simdjson-rust" }
+
 
 [[bench]]
 name = "parse"

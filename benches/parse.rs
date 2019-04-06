@@ -9,6 +9,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 use criterion::{BatchSize, Benchmark, Criterion, ParameterizedBenchmark, Throughput};
 use serde_json;
 use simdjson;
+use simdjson_rust::build_parsed_json;
 use std::fs::File;
 use std::io::{self, Read, Write};
 
@@ -39,6 +40,15 @@ macro_rules! bench_file {
                 },
                 vec![vec],
             );
+            let b = b.with_function("simdjson_cpp", move |b, data| {
+                b.iter_batched(
+                    || String::from_utf8(data.to_vec()).unwrap(),
+                    |mut bytes| {
+                        let _ = build_parsed_json(&bytes, true);
+                    },
+                    BatchSize::SmallInput,
+                )
+            });
             #[cfg(feature = "bench-serde")]
             let b = b.with_function("serde_json", move |b, data| {
                 b.iter_batched(

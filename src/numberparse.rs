@@ -397,7 +397,7 @@ impl<'de> Deserializer<'de> {
             {
                 if buf.len() - digitcount >= 16 && is_made_of_eight_digits_fast(&buf[digitcount..])
                 {
-                    i = i * 100000000 + parse_eight_digits_unrolled(&buf[digitcount..]) as i64;
+                    i = i * 100_000_000 + parse_eight_digits_unrolled(&buf[digitcount..]) as i64;
                     digitcount += 8;
                     // exponent -= 8;
                 }
