@@ -11,6 +11,9 @@ jobs:
       - run:
           name: Install CMAKE
           command: 'apt-get update && apt-get install -y cmake'
+      - run:
+          name: Fetch newer CMAKE ...
+          command: 'wget https://github.com/Kitware/CMake/releases/download/v3.14.1/cmake-3.14.1.tar.gz && tar zxf cmake-3.14.1.tar.gz && cd cmake-3.14.1 && cmake . && make && make install'
       - checkout
       - run:
           name: Version information
