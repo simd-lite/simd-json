@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/Licenser/simdjson-rs/tree/master.svg?style=svg)](https://circleci.com/gh/Licenser/simdjson-rs/tree/master)
+[![CircleCI](https://circleci.com/gh/Licenser/simdjson-rs/tree/master.svg?style=svg)](https://circleci.com/gh/Licenser/simdjson-rs/tree/master)[![Build status](https://ci.appveyor.com/api/projects/status/0kf0v6hj5v2gite9?svg=true)](https://ci.appveyor.com/project/Licenser/simdjson-rs)
 
 # simdjson-rs
 
@@ -8,6 +8,12 @@ Rust port of extremely fast [simdjson](https://github.com/lemire/simdjson) JSON 
 # readme (for real!)
 
 For taking advantage of simdjson your system needs to be SIMD compatible. This means to compile with native cpu support and the given features. Look at [The cargo config in this repsoitory](.carg/config) to get an example.
+
+
+
+### Other interesting things
+
+There are also bindings for simdjson available [here](https://github.com/SunDoge/simdjson-rust)
 
 # License
 
