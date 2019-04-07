@@ -46,7 +46,7 @@ macro_rules! bench_file {
                 b.iter_batched(
                     || data.clone(),
                     |mut bytes| {
-                        simdjson::to_tape(&mut bytes).unwrap();
+                        simdjson::to_value_fsm(&mut bytes).unwrap();
                     },
                     BatchSize::SmallInput,
                 )

@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::charutils::*;
 use crate::*;
 //use crate::portability::*;
@@ -70,7 +69,7 @@ enum State {
     ObjectKey,
     ObjectContinue,
 
-    ScopeEnd(ItemType),
+    ScopeEnd,
 
     ArrayBegin,
     MainArraySwitch,
@@ -80,12 +79,6 @@ enum State {
     Fail,
 }
 
-#[derive(Debug)]
-enum ItemType {
-    Object,
-    Array,
-}
-
 impl<'de> Deserializer<'de> {
     pub unsafe fn unified_machine(&mut self) -> Result<value! {}> {
         //        let mut i: usize = 0; // index of the structural character (0,1,2,3...)
@@ -93,14 +86,10 @@ impl<'de> Deserializer<'de> {
         let mut c: u8; // used to track the (structural) character we are looking at, updated
                        // by UPDATE_CHAR macro
         let mut depth: usize = 0; // could have an arbitrary starting depth
-                                  //pj.init();
 
         // this macro reads the next structural character, updating idx, i and c.
         macro_rules! update_char {
             () => {
-                //idx = self.structural_indexes[i] as usize;
-                //i += 1;
-                //*buf.offset(idx as isize);
                 c = self.next_();
                 idx = self.iidx;
             };
@@ -111,10 +100,19 @@ impl<'de> Deserializer<'de> {
         let depthcapacity = 100;
         let len = self.input.len();
 
+        let mut keys: Vec<&str> = Vec::with_capacity(depthcapacity);
+        keys.push("---illegal json---");
+        let mut objects: Vec<Map> = Vec::with_capacity(depthcapacity);
+        objects.push(Map::new());
+        let mut arrays: Vec<Vec<Value>> = Vec::with_capacity(depthcapacity);
+        arrays.push(Vec::new());
+        let mut current_key: &str = "---illegal json---";
+        let mut current: Value = Value::Null;
+        let mut current_object = &mut objects[0];
+        let mut current_array = &mut arrays[0];
+
         ////////////////////////////// START STATE /////////////////////////////
         ret_address[depth] = b's';
-        //pj.containing_scope_offset[depth] = pj.get_current_loc();
-        //pj.write_tape(0, ItemType::Root); // r for root, 0 is going to get overwritten
         // the root is used, if nothing else, to capture the size of the tape
         depth += 1; // everything starts at depth = 1, depth = 0 is just for the root, the root may contain an object, an array or something else.
         if depth > depthcapacity {
@@ -137,30 +135,35 @@ impl<'de> Deserializer<'de> {
                 Start => {
                     match c {
                         b'{' => {
-                            //pj.containing_scope_offset[depth] = pj.get_current_loc();
+                            objects.push(Map::with_capacity(self.count_elements()));
+                            let l = objects.len();
+                            current_object = &mut objects[l - 1];
+                            keys.push(current_key);
                             ret_address[depth] = b's';
                             depth += 1;
                             if depth > depthcapacity {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::Object); // strangely, moving this to object_begin slows things down
                             goto!(ObjectBegin);
                         }
                         b'[' => {
-                            //pj.containing_scope_offset[depth] = pj.get_current_loc();
+                            arrays.push(Vec::with_capacity(self.count_elements()));
+                            let l = arrays.len();
+                            current_array = &mut arrays[l - 1];
                             ret_address[depth] = b's';
                             depth += 1;
                             if depth > depthcapacity {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::Array);
                             goto!(ArrayBegin);
                         }
                         b'"' => {
-                            if self.parse_str_().is_err() {
+                            if let Ok(s) = self.parse_str_() {
+                                current = Value::from(s);
+                                goto!(StartContinue);
+                            } else {
                                 goto!(Fail);
                             }
-                            goto!(StartContinue);
                         }
                         b't' => {
                             // we need to make a copy to make sure that the string is NULL terminated.
@@ -172,7 +175,7 @@ impl<'de> Deserializer<'de> {
                             if !is_valid_true_atom(&copy[idx..]) {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::True);
+                            current = Value::Bool(true);
                             goto!(StartContinue);
                         }
                         b'f' => {
@@ -185,7 +188,7 @@ impl<'de> Deserializer<'de> {
                             if !is_valid_false_atom(&copy[idx..]) {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::False);
+                            current = Value::Bool(false);
                             goto!(StartContinue);
                         }
                         b'n' => {
@@ -198,30 +201,30 @@ impl<'de> Deserializer<'de> {
                             if !is_valid_null_atom(&copy[idx..]) {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::Null);
+                            current = Value::Null;
                             goto!(StartContinue);
                         }
                         b'0'...b'9' => {
                             // we need to make a copy to make sure that the string is NULL terminated.
                             // this is done only for JSON documents made of a sole number
                             // this will almost never be called in practice
-                            //let copy = vec![0u8; len + SIMDJSON_PADDING].as_mut_ptr();
-                            //copy.copy_from(buf, len);
-                            if self.parse_number_(false).is_err() {
+                            if let Ok(n) = self.parse_number_(false) {
+                                current = n;
+                                goto!(StartContinue);
+                            } else {
                                 goto!(Fail);
                             }
-                            goto!(StartContinue);
                         }
                         b'-' => {
                             // we need to make a copy to make sure that the string is NULL terminated.
                             // this is done only for JSON documents made of a sole number
                             // this will almost never be called in practice
-                            //let copy = vec![0u8; len + SIMDJSON_PADDING].as_mut_ptr();
-                            //copy.copy_from(buf, len);
-                            if self.parse_number_(true).is_err() {
+                            if let Ok(n) = self.parse_number_(true) {
+                                current = n;
+                                goto!(StartContinue);
+                            } else {
                                 goto!(Fail);
                             }
-                            goto!(StartContinue);
                         }
                         _ => {
                             goto!(Fail);
@@ -242,13 +245,18 @@ impl<'de> Deserializer<'de> {
                     update_char!();
                     match c {
                         b'"' => {
-                            if self.parse_short_str_().is_err() {
+                            if let Ok(s) = self.parse_short_str_() {
+                                current_key = s;
+                                goto!(ObjectKey);
+                            } else {
                                 goto!(Fail);
                             }
-                            goto!(ObjectKey);
                         }
                         b'}' => {
-                            goto!(ScopeEnd(ItemType::Object));
+                            current = Value::Object(objects.pop().unwrap());
+                            let l = objects.len();
+                            current_object = &mut objects[l - 1];
+                            goto!(ScopeEnd);
                         }
                         _c => {
                             goto!(Fail);
@@ -263,48 +271,74 @@ impl<'de> Deserializer<'de> {
                     update_char!();
                     match c {
                         b'"' => {
-                            if self.parse_short_str_().is_err() {
+                            if let Ok(s) = self.parse_short_str_() {
+                                #[cfg(not(feature = "no-borrow"))]
+                                current_object.insert(current_key, Value::from(s));
+                                #[cfg(feature = "no-borrow")]
+                                current_object.insert(current_key.to_owned(), Value::from(s));
+                                goto!(ObjectContinue);
+                            } else {
                                 goto!(Fail);
                             }
-                            goto!(ObjectContinue);
                         }
                         b't' => {
                             if !is_valid_true_atom(&self.input[idx..]) {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::True);
+                            #[cfg(not(feature = "no-borrow"))]
+                            current_object.insert(current_key, Value::from(true));
+                            #[cfg(feature = "no-borrow")]
+                            current_object.insert(current_key.to_owned(), Value::from(true));
                             goto!(ObjectContinue);
                         }
                         b'f' => {
                             if !is_valid_false_atom(&self.input[idx..]) {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::False);
+                            #[cfg(not(feature = "no-borrow"))]
+                            current_object.insert(current_key, Value::from(false));
+                            #[cfg(feature = "no-borrow")]
+                            current_object.insert(current_key.to_owned(), Value::from(false));
                             goto!(ObjectContinue);
                         }
                         b'n' => {
                             if !is_valid_null_atom(&self.input[idx..]) {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::Null);
+                            #[cfg(not(feature = "no-borrow"))]
+                            current_object.insert(current_key, Value::Null);
+                            #[cfg(feature = "no-borrow")]
+                            current_object.insert(current_key.to_owned(), Value::Null);
                             goto!(ObjectContinue);
                         }
                         b'0'...b'9' => {
-                            if self.parse_number_(false).is_err() {
+                            if let Ok(n) = self.parse_number_(false) {
+                                #[cfg(not(feature = "no-borrow"))]
+                                current_object.insert(current_key, n);
+                                #[cfg(feature = "no-borrow")]
+                                current_object.insert(current_key.to_owned(), n);
+                                goto!(ObjectContinue);
+                            } else {
                                 goto!(Fail);
                             }
-                            goto!(ObjectContinue);
                         }
                         b'-' => {
-                            if self.parse_number_(true).is_err() {
+                            if let Ok(n) = self.parse_number_(true) {
+                                #[cfg(not(feature = "no-borrow"))]
+                                current_object.insert(current_key, n);
+                                #[cfg(feature = "no-borrow")]
+                                current_object.insert(current_key.to_owned(), n);
+                                goto!(ObjectContinue);
+                            } else {
                                 goto!(Fail);
                             }
-                            goto!(ObjectContinue);
                         }
                         b'{' => {
-                            //pj.containing_scope_offset[depth] = pj.get_current_loc();
-                            //pj.write_tape(0, ItemType::Object); // here the compilers knows what c is so this gets optimized
                             // we have not yet encountered } so we need to come back for it
+                            objects.push(Map::with_capacity(self.count_elements()));
+                            let l = objects.len();
+                            current_object = &mut objects[l - 1];
+                            keys.push(current_key);
                             ret_address[depth] = b'o';
                             // we found an object inside an object, so we need to increment the depth
                             depth += 1;
@@ -314,9 +348,11 @@ impl<'de> Deserializer<'de> {
                             goto!(ObjectBegin);
                         }
                         b'[' => {
-                            //pj.containing_scope_offset[depth] = pj.get_current_loc();
-                            //pj.write_tape(0, ItemType::Array); // here the compilers knows what c is so this gets optimized
                             // we have not yet encountered } so we need to come back for it
+                            arrays.push(Vec::with_capacity(self.count_elements()));
+                            let l = arrays.len();
+                            current_array = &mut arrays[l - 1];
+                            keys.push(current_key);
                             ret_address[depth] = b'o';
                             // we found an array inside an object, so we need to increment the depth
                             depth += 1;
@@ -338,14 +374,19 @@ impl<'de> Deserializer<'de> {
                             if c != b'"' {
                                 goto!(Fail);
                             } else {
-                                if self.parse_short_str_().is_err() {
+                                if let Ok(s) = self.parse_short_str_() {
+                                    current_key = s;
+                                    goto!(ObjectKey);
+                                } else {
                                     goto!(Fail);
                                 }
-                                goto!(ObjectKey);
                             }
                         }
                         b'}' => {
-                            goto!(ScopeEnd(ItemType::Object));
+                            current = Value::Object(objects.pop().unwrap());
+                            let l = objects.len();
+                            current_object = &mut objects[l - 1];
+                            goto!(ScopeEnd);
                         }
                         _ => {
                             goto!(Fail);
@@ -354,20 +395,24 @@ impl<'de> Deserializer<'de> {
                 }
 
                 ////////////////////////////// COMMON STATE /////////////////////////////
-                ScopeEnd(_item_type) => {
+                ScopeEnd => {
                     // write our tape location to the header scope
                     depth -= 1;
-                    /*
-                    pj.write_tape(pj.containing_scope_offset[depth], item_type);
-                    pj.annotate_previousloc(
-                        pj.containing_scope_offset[depth],
-                        pj.get_current_loc(),
-                    );
-                    */
                     // goto saved_state
                     if ret_address[depth] == b'a' {
+                        let mut we_got_to_do_this_for_ownership_meh = Value::Null;
+                        mem::swap(&mut current, &mut we_got_to_do_this_for_ownership_meh);
+                        &current_array.push(we_got_to_do_this_for_ownership_meh);
                         goto!(ArrayContinue);
                     } else if ret_address[depth] == b'o' {
+                        let mut we_got_to_do_this_for_ownership_meh = Value::Null;
+                        mem::swap(&mut current, &mut we_got_to_do_this_for_ownership_meh);
+                        current_key = keys.pop().unwrap();
+                        #[cfg(not(feature = "no-borrow"))]
+                        current_object.insert(current_key, we_got_to_do_this_for_ownership_meh);
+                        #[cfg(feature = "no-borrow")]
+                        current_object
+                            .insert(current_key.to_owned(), we_got_to_do_this_for_ownership_meh);
                         goto!(ObjectContinue);
                     } else {
                         goto!(StartContinue);
@@ -378,7 +423,10 @@ impl<'de> Deserializer<'de> {
                 ArrayBegin => {
                     update_char!();
                     if c == b']' {
-                        goto!(ScopeEnd(ItemType::Array));
+                        current = Value::Array(arrays.pop().unwrap());
+                        let l = arrays.len();
+                        current_array = &mut arrays[l - 1];
+                        goto!(ScopeEnd);
                     }
                     goto!(MainArraySwitch);
                 }
@@ -387,7 +435,9 @@ impl<'de> Deserializer<'de> {
                     // on paths that can accept a close square brace (post-, and at start)
                     match c {
                         b'"' => {
-                            if self.parse_str_().is_err() {
+                            if let Ok(s) = self.parse_str_() {
+                                &current_array.push(Value::from(s));
+                            } else {
                                 goto!(Fail);
                             }
                             goto!(ArrayContinue);
@@ -396,39 +446,44 @@ impl<'de> Deserializer<'de> {
                             if !is_valid_true_atom(&self.input[idx..]) {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::True);
+                            &current_array.push(Value::Bool(true));
                             goto!(ArrayContinue);
                         }
                         b'f' => {
                             if !is_valid_false_atom(&self.input[idx..]) {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::False);
+                            &current_array.push(Value::Bool(false));
                             goto!(ArrayContinue);
                         }
                         b'n' => {
                             if !is_valid_null_atom(&self.input[idx..]) {
                                 goto!(Fail);
                             }
-                            //pj.write_tape(0, ItemType::Null);
+                            &current_array.push(Value::Null);
                             goto!(ArrayContinue);
                         }
                         b'0'...b'9' => {
-                            if self.parse_number_(false).is_err() {
+                            if let Ok(n) = self.parse_number_(false) {
+                                &current_array.push(n);
+                                goto!(ArrayContinue);
+                            } else {
                                 goto!(Fail);
                             }
-                            goto!(ArrayContinue);
                         }
                         b'-' => {
-                            if self.parse_number_(true).is_err() {
+                            if let Ok(n) = self.parse_number_(true) {
+                                &current_array.push(n);
+                                goto!(ArrayContinue);
+                            } else {
                                 goto!(Fail);
                             }
-                            goto!(ArrayContinue);
                         }
                         b'{' => {
                             // we have not yet encountered ] so we need to come back for it
-                            //pj.containing_scope_offset[depth] = pj.get_current_loc();
-                            //pj.write_tape(0, ItemType::Object); //  here the compilers knows what c is so this gets optimized
+                            objects.push(Map::with_capacity(self.count_elements()));
+                            let l = objects.len();
+                            current_object = &mut objects[l - 1];
                             ret_address[depth] = b'a';
                             // we found an object inside an array, so we need to increment the depth
                             depth += 1;
@@ -440,8 +495,9 @@ impl<'de> Deserializer<'de> {
                         }
                         b'[' => {
                             // we have not yet encountered ] so we need to come back for it
-                            //pj.containing_scope_offset[depth] = pj.get_current_loc();
-                            //pj.write_tape(0, ItemType::Array); // here the compilers knows what c is so this gets optimized
+                            arrays.push(Vec::with_capacity(self.count_elements()));
+                            let l = arrays.len();
+                            current_array = &mut arrays[l - 1];
                             ret_address[depth] = b'a';
                             // we found an array inside an array, so we need to increment the depth
                             depth += 1;
@@ -463,7 +519,10 @@ impl<'de> Deserializer<'de> {
                             goto!(MainArraySwitch);
                         }
                         b']' => {
-                            goto!(ScopeEnd(ItemType::Array));
+                            current = Value::Array(arrays.pop().unwrap());
+                            let l = arrays.len();
+                            current_array = &mut arrays[l - 1];
+                            goto!(ScopeEnd);
                         }
                         _c => {
                             goto!(Fail);
@@ -476,26 +535,9 @@ impl<'de> Deserializer<'de> {
                     if depth != 0 {
                         return Err(self.error(ErrorType::InternalError));
                     }
-                    /*
-                    if pj.containing_scope_offset[depth] != 0 {
-                        return Err(ErrorType::InternalError);
-                    }
-                    pj.annotate_previousloc(
-                        pj.containing_scope_offset[depth],
-                        pj.get_current_loc(),
-                    );
-                    pj.write_tape(pj.containing_scope_offset[depth], ItemType::Root); // r is root
-                     */
-
-                    //pj.isvalid = true;
-                    return Ok(Value::Null);
+                    return Ok(current);
                 }
                 Fail => {
-                    /*
-                    dbg!(i);
-                    dbg!(idx);
-                    dbg!(c as char);
-                    */
                     return Err(self.error(ErrorType::InternalError));
                 }
             }
@@ -506,7 +548,9 @@ impl<'de> Deserializer<'de> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::to_tape;
+    use std::fs::File;
+    use std::io::Read;
+
     #[test]
     fn true_atom() {
         assert!(is_valid_true_atom(b"true    "));
@@ -533,13 +577,21 @@ mod test {
 
     #[test]
     fn apache_builds() {
-        use std::fs::File;
-        use std::io::{self, Read, Write};
         let mut vec = Vec::new();
         File::open("data/apache_builds.json")
             .unwrap()
             .read_to_end(&mut vec)
             .unwrap();
-        to_tape(&mut vec).unwrap();
+        to_value(&mut vec).unwrap();
+    }
+
+    #[test]
+    fn citm_catalog() {
+        let mut vec = Vec::new();
+        File::open("data/citm_catalog.json")
+            .unwrap()
+            .read_to_end(&mut vec)
+            .unwrap();
+        to_value(&mut vec).unwrap();
     }
 }
