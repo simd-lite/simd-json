@@ -4,18 +4,23 @@
 
 Rust port of extremely fast [simdjson](https://github.com/lemire/simdjson) JSON parser with [serde](serde.rs) compatibility.
 
+## readme (for real!)
 
-# readme (for real!)
+### CPU target
 
 For taking advantage of simdjson your system needs to be SIMD compatible. This means to compile with native cpu support and the given features. Look at [The cargo config in this repsoitory](.carg/config) to get an example.
 
+### jemalloc
+
+If you are writing perormance centric code, make sure to use jemalloc and not the system allocator (that has now become default in rust), it gives an very noticable boost imperformance.
 
 
-### Other interesting things
+
+## Other interesting things
 
 There are also bindings for simdjson available [here](https://github.com/SunDoge/simdjson-rust)
 
-# License
+## License
 
 simdjson-rs itself is licensed under either of
 
