@@ -394,7 +394,6 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn count_elements(&self) -> usize {
         let r = self.counts[self.idx];
-        dbg!(&r);
         r
         /*
         let mut idx = self.idx + 1;
