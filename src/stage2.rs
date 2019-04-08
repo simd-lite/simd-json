@@ -15,7 +15,7 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
         error = ((locval & mask4) ^ tv) as u32;
-        error |= is_not_structural_or_whitespace(loc[4]);
+        error |= is_not_structural_or_whitespace(*loc.get_unchecked(4));
     }
     error == 0
 }
@@ -36,7 +36,7 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
         // will mask the error on the y so we re-write it
         // it would be interesting what the consequecnes are
         error = ((locval ^ fv) & mask5) == 0;
-        error || is_not_structural_or_whitespace(loc[5]) == 1
+        error || is_not_structural_or_whitespace(*loc.get_unchecked(5)) == 1
     }
 }
 
@@ -50,7 +50,7 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
         error = ((locval & mask4) ^ tv) as u32;
-        error |= is_not_structural_or_whitespace(loc[4]);
+        error |= is_not_structural_or_whitespace(*loc.get_unchecked(4));
     }
     error == 0
 }
