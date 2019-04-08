@@ -7,7 +7,7 @@ Rust port of extremely fast [simdjson](https://github.com/lemire/simdjson) JSON 
 
 # readme (for real!)
 
-For taking advantage of simdjson your system needs to be SIMD compatible. This means to compile with native cpu support and the given features. Look at [The cargo config in this repsoitory](.carg/config) to get an example.
+For taking advantage of simdjson your system needs to be SIMD compatible. This means to compile with native cpu support and the given features. Look at [The cargo config in this repository](.cargo/config) to get an example.
 
 
 
