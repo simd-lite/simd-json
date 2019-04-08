@@ -234,6 +234,19 @@ where
     }
 }
 
+impl<'a, K, V> IntoIterator for &'a HashMap<K, V>
+where
+    K: Eq + Hash,
+{
+    type Item = (&'a K, &'a V);
+    type IntoIter = Iter<'a, K, V>;
+
+    #[inline]
+    fn into_iter(self) -> Iter<'a, K, V> {
+        self.iter()
+    }
+}
+
 // Taken from hashbrown
 impl<K, V> PartialEq for HashMap<K, V>
 where
