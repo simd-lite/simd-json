@@ -111,9 +111,18 @@ impl Value {
             _ => false,
         }
     }
+
     pub fn as_f64(&self) -> Option<f64> {
         match self {
             Value::F64(i) => Some(*i),
+            _ => None,
+        }
+    }
+
+    pub fn cast_f64(&self) -> Option<f64> {
+        match self {
+            Value::F64(i) => Some(*i),
+            Value::I64(i) => Some(*i as f64),
             _ => None,
         }
     }

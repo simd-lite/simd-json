@@ -119,6 +119,14 @@ impl<'a> Value<'a> {
         }
     }
 
+    pub fn cast_f64(&self) -> Option<f64> {
+        match self {
+            Value::F64(i) => Some(*i),
+            Value::I64(i) => Some(*i as f64),
+            _ => None,
+        }
+    }
+
     pub fn is_string(&self) -> bool {
         match self {
             Value::String(_m) => true,
