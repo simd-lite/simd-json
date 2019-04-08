@@ -262,8 +262,8 @@ impl<'de> Deserializer<'de> {
         let mut cnt = 0;
         let mut str_len = 0;
         for i in 1..structural_indexes.len() {
-            let idx = structural_indexes[i];
-            match input[idx as usize] {
+            let idx = unsafe { *structural_indexes.get_unchecked(i) };
+            match unsafe { input.get_unchecked(idx as usize) } {
                 b'[' | b'{' => {
                     depth.push((last_start, cnt));
                     last_start = i;
@@ -322,23 +322,29 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn skip(&mut self) {
         self.idx += 1;
-        self.iidx = self.structural_indexes[self.idx] as usize;
+        self.iidx = unsafe { *self.structural_indexes.get_unchecked(self.idx) as usize };
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn c(&self) -> u8 {
-        self.input[self.structural_indexes[self.idx] as usize]
+        unsafe {
+            *self
+                .input
+                .get_unchecked(*self.structural_indexes.get_unchecked(self.idx) as usize)
+        }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn next(&mut self) -> Result<u8> {
-        self.idx += 1;
-        if let Some(idx) = self.structural_indexes.get(self.idx) {
-            self.iidx = *idx as usize;
-            let r = self.input[self.iidx];
-            Ok(r)
-        } else {
-            Err(self.error(ErrorType::UnexpectedEnd))
+        unsafe {
+            self.idx += 1;
+            if let Some(idx) = self.structural_indexes.get(self.idx) {
+                self.iidx = *idx as usize;
+                let r = *self.input.get_unchecked(self.iidx);
+                Ok(r)
+            } else {
+                Err(self.error(ErrorType::Syntax))
+            }
         }
     }
 
@@ -346,16 +352,17 @@ impl<'de> Deserializer<'de> {
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn next_(&mut self) -> u8 {
-        self.idx += 1;
-        self.iidx = self.structural_indexes[self.idx] as usize;
-        self.input[self.iidx]
+        unsafe {
+            self.idx += 1;
+            self.iidx = *self.structural_indexes.get_unchecked(self.idx) as usize;
+            *self.input.get_unchecked(self.iidx)
+        }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn peek(&self) -> Result<u8> {
         if let Some(idx) = self.structural_indexes.get(self.idx + 1) {
-            let r = self.input[*idx as usize];
-            Ok(r)
+            unsafe { Ok(*self.input.get_unchecked(*idx as usize)) }
         } else {
             Err(self.error(ErrorType::UnexpectedEnd))
         }
@@ -396,10 +403,11 @@ impl<'de> Deserializer<'de> {
         }
         match self.next_() {
             b'"' => {
-                if let Some(next) = self.structural_indexes.get(self.idx + 1) {
-                    if *next as usize - self.iidx < 32 {
-                        return self.parse_short_str_().map(Value::from);
-                    }
+                // We can only have entered this by being in an object so we know there is
+                // something following as we made sure during checking for sizes.
+                let next = unsafe { self.structural_indexes.get_unchecked(self.idx + 1) };
+                if *next as usize - self.iidx < 32 {
+                    return self.parse_short_str_().map(Value::from);
                 }
                 self.parse_str_().map(Value::from)
             }
@@ -419,25 +427,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn count_elements(&self) -> usize {
-        self.counts[self.idx]
-        /*
-        let mut idx = self.idx + 1;
-        let mut depth = 0;
-        let mut count = 0;
-        loop {
-            match self.at(idx)? {
-                b'[' => depth += 1,
-                b']' if depth == 0 => return Some(count + 1),
-                b']' => depth -= 1,
-                b'{' => depth += 1,
-                b'}' if depth == 0 => return Some(count + 1),
-                b'}' => depth -= 1,
-                b',' if depth == 0 => count += 1,
-                _ => (),
-            }
-            idx += 1
-        }
-         */
+        unsafe { *self.counts.get_unchecked(self.idx) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -532,7 +522,7 @@ impl<'de> Deserializer<'de> {
     fn parse_short_str_(&mut self) -> Result<&'de str> {
         let mut padding = [0u8; 32];
         let idx = self.iidx + 1;
-        let src: &[u8] = &self.input[idx..];
+        let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
 
         //short strings are very common for IDs
         let v: __m256i = if src.len() >= 32 {
@@ -553,7 +543,10 @@ impl<'de> Deserializer<'de> {
         let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
         if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
             let quote_dist: u32 = trailingzeroes(quote_bits as u64) as u32;
-            let v = &self.input[idx..idx + quote_dist as usize] as *const [u8] as *const str;
+            let v = unsafe {
+                self.input.get_unchecked(idx..idx + quote_dist as usize) as *const [u8]
+                    as *const str
+            };
             self.str_offset = idx + quote_dist as usize;
 
             unsafe {
@@ -598,7 +591,7 @@ impl<'de> Deserializer<'de> {
                 )
             }
         };
-        let mut src: &[u8] = &self.input[idx..];
+        let mut src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
 
         loop {
             #[cfg(test1)]
@@ -654,14 +647,16 @@ impl<'de> Deserializer<'de> {
 
                 written += quote_dist as usize;
 
-                if needs_relocation {
-                    self.input[self.str_offset..self.str_offset + written as usize]
-                        .clone_from_slice(&self.strings[..written]);
-                }
-                let v = &self.input[self.str_offset..self.str_offset + written as usize]
-                    as *const [u8] as *const str;
-                self.str_offset += written as usize;
                 unsafe {
+                    if needs_relocation {
+                        self.input[self.str_offset..self.str_offset + written as usize]
+                            .clone_from_slice(&self.strings.get_unchecked(..written));
+                    }
+                    let v = self
+                        .input
+                        .get_unchecked(self.str_offset..self.str_offset + written as usize)
+                        as *const [u8] as *const str;
+                    self.str_offset += written as usize;
                     return Ok(&*v);
                 }
 
@@ -727,7 +722,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_null(&mut self) -> Result<()> {
-        let input = &self.input[self.iidx..];
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
@@ -748,7 +743,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_null_(&mut self) -> Result<()> {
-        let input = &self.input[self.iidx..];
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         if is_valid_null_atom(input) {
             Ok(())
         } else {
@@ -758,7 +753,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_true(&mut self) -> Result<bool> {
-        let input = &self.input[self.iidx..];
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
@@ -781,7 +776,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_true_(&mut self) -> Result<bool> {
-        let input = &self.input[self.iidx..];
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         if is_valid_true_atom(input) {
             Ok(true)
         } else {
@@ -791,7 +786,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_false(&mut self) -> Result<bool> {
-        let input = &self.input[self.iidx..];
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
@@ -814,7 +809,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_false_(&mut self) -> Result<bool> {
-        let input = &self.input[self.iidx..];
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         if is_valid_false_atom(input) {
             Ok(false)
         } else {
@@ -824,7 +819,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number(&mut self, minus: bool) -> Result<value! {}> {
-        let input = &self.input[self.iidx..];
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
@@ -839,7 +834,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number_(&mut self, minus: bool) -> Result<value! {}> {
-        let input = &self.input[self.iidx..];
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         self.parse_number_int(input, minus)
     }
 
