@@ -1,6 +1,8 @@
+mod serde;
 use core::borrow::Borrow;
 use core::hash::Hash;
 use hashbrown::HashMap as HashBrown;
+use std::default::Default;
 use std::iter::IntoIterator;
 use std::ops::Index;
 
@@ -15,6 +17,15 @@ where
     Map(HashBrown<K, V>),
     Vec(VecMap<K, V>),
     None,
+}
+
+impl<K, V> Default for HashMap<K, V>
+where
+    K: Eq + Hash,
+{
+    fn default() -> Self {
+        HashMap::Vec(VecMap::new())
+    }
 }
 
 impl<K, Q: ?Sized, V> Index<&Q> for HashMap<K, V>
@@ -220,6 +231,19 @@ where
             HashMap::Vec(m) => IntoIter::Vec(m.into_iter()),
             HashMap::None => unreachable!(),
         }
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a HashMap<K, V>
+where
+    K: Eq + Hash,
+{
+    type Item = (&'a K, &'a V);
+    type IntoIter = Iter<'a, K, V>;
+
+    #[inline]
+    fn into_iter(self) -> Iter<'a, K, V> {
+        self.iter()
     }
 }
 

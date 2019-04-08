@@ -1,5 +1,5 @@
 mod charutils;
-mod halfbrown;
+pub mod halfbrown;
 mod numberparse;
 mod parsedjson;
 mod portability;
@@ -1020,7 +1020,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
-        //assert_eq!(to_value(&mut d1), Ok(Value::Array(vec![])));
+        assert_eq!(to_value(&mut d1), Ok(Value::Array(vec![])));
         assert_eq!(v_simd, v_serde);
     }
 
@@ -1100,8 +1100,6 @@ mod tests {
     #[test]
     fn nested_list2() {
         let mut d = String::from(r#"[42, [23.0, "snot"], {"bad": "ger"}]"#);
-        let mut d1 = d.clone();
-        let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
