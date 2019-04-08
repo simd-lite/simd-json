@@ -29,17 +29,17 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match stry!(self.next()) {
             b'n' => {
-                stry!(self.parse_null_());
+                stry!(self.parse_null());
                 visitor.visit_unit()
             }
-            b't' => visitor.visit_bool(stry!(self.parse_true_())),
-            b'f' => visitor.visit_bool(stry!(self.parse_false_())),
-            b'-' => match stry!(self.parse_number_(true)) {
+            b't' => visitor.visit_bool(stry!(self.parse_true())),
+            b'f' => visitor.visit_bool(stry!(self.parse_false())),
+            b'-' => match stry!(self.parse_number(true)) {
                 Value::F64(n) => visitor.visit_f64(n),
                 Value::I64(n) => visitor.visit_i64(n),
                 _ => unreachable!(),
             },
-            b'0'...b'9' => match stry!(self.parse_number_(false)) {
+            b'0'...b'9' => match stry!(self.parse_number(false)) {
                 Value::F64(n) => visitor.visit_f64(n),
                 Value::I64(n) => visitor.visit_i64(n),
                 _ => unreachable!(),
@@ -79,8 +79,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            b't' => visitor.visit_bool(stry!(self.parse_true_())),
-            b'f' => visitor.visit_bool(stry!(self.parse_false_())),
+            b't' => visitor.visit_bool(stry!(self.parse_true())),
+            b'f' => visitor.visit_bool(stry!(self.parse_false())),
             _c => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
@@ -224,7 +224,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         if stry!(self.peek()) == b'n' {
             self.skip();
-            stry!(self.parse_null_());
+            stry!(self.parse_null());
             visitor.visit_unit()
         } else {
             visitor.visit_some(self)
@@ -240,7 +240,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         if stry!(self.next()) != b'n' {
             return Err(self.error(ErrorType::ExpectedNull));
         }
-        stry!(self.parse_null_());
+        stry!(self.parse_null());
         visitor.visit_unit()
     }
 
