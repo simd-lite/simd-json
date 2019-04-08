@@ -1,5 +1,5 @@
 mod charutils;
-mod halfbrown;
+pub mod halfbrown;
 mod numberparse;
 mod parsedjson;
 mod portability;
