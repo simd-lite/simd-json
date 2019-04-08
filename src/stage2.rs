@@ -1,5 +1,6 @@
 use crate::charutils::*;
 use crate::*;
+use std::ptr;
 //use crate::portability::*;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -80,7 +81,7 @@ enum State {
 }
 
 impl<'de> Deserializer<'de> {
-    pub unsafe fn unified_machine(&mut self) -> Result<value! {}> {
+    pub fn unified_machine(&mut self) -> Result<value! {}> {
         //        let mut i: usize = 0; // index of the structural character (0,1,2,3...)
         let mut idx: usize; // location of the structural character in the input (buf)
         let mut c: u8; // used to track the (structural) character we are looking at, updated
@@ -108,8 +109,8 @@ impl<'de> Deserializer<'de> {
         arrays.push(Vec::new());
         let mut current_key: &str = "---illegal json---";
         let mut current: Value = Value::Null;
-        let mut current_object = &mut objects[0];
-        let mut current_array = &mut arrays[0];
+        let mut current_object = unsafe { objects.get_unchecked_mut(0) };
+        let mut current_array = unsafe { arrays.get_unchecked_mut(0) };
 
         ////////////////////////////// START STATE /////////////////////////////
         ret_address[depth] = b's';
@@ -137,7 +138,7 @@ impl<'de> Deserializer<'de> {
                         b'{' => {
                             objects.push(Map::with_capacity(self.count_elements()));
                             let l = objects.len();
-                            current_object = &mut objects[l - 1];
+                            current_object = unsafe { objects.get_unchecked_mut(l - 1) };
                             keys.push(current_key);
                             ret_address[depth] = b's';
                             depth += 1;
@@ -149,7 +150,7 @@ impl<'de> Deserializer<'de> {
                         b'[' => {
                             arrays.push(Vec::with_capacity(self.count_elements()));
                             let l = arrays.len();
-                            current_array = &mut arrays[l - 1];
+                            current_array = unsafe { arrays.get_unchecked_mut(l - 1) };
                             ret_address[depth] = b's';
                             depth += 1;
                             if depth > depthcapacity {
@@ -171,7 +172,7 @@ impl<'de> Deserializer<'de> {
                             // this will almost never be called in practice
                             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
                             let ptr: *mut u8 = copy.as_mut_ptr();
-                            ptr.copy_from(self.input.as_ptr(), len);
+                            unsafe { ptr.copy_from(self.input.as_ptr(), len) };
                             if !is_valid_true_atom(&copy[idx..]) {
                                 goto!(Fail);
                             }
@@ -184,7 +185,7 @@ impl<'de> Deserializer<'de> {
                             // this will almost never be called in practice
                             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
                             let ptr: *mut u8 = copy.as_mut_ptr();
-                            ptr.copy_from(self.input.as_ptr(), len);
+                            unsafe { ptr.copy_from(self.input.as_ptr(), len) };
                             if !is_valid_false_atom(&copy[idx..]) {
                                 goto!(Fail);
                             }
@@ -197,7 +198,7 @@ impl<'de> Deserializer<'de> {
                             // this will almost never be called in practice
                             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
                             let ptr: *mut u8 = copy.as_mut_ptr();
-                            ptr.copy_from(self.input.as_ptr(), len);
+                            unsafe { ptr.copy_from(self.input.as_ptr(), len) };
                             if !is_valid_null_atom(&copy[idx..]) {
                                 goto!(Fail);
                             }
@@ -253,9 +254,13 @@ impl<'de> Deserializer<'de> {
                             }
                         }
                         b'}' => {
-                            current = Value::Object(objects.pop().unwrap());
-                            let l = objects.len();
-                            current_object = &mut objects[l - 1];
+                            unsafe {
+                                // This is 'pop_unchecked'
+                                objects.set_len(objects.len() - 1);
+                                let l = objects.len();
+                                current = Value::Object(ptr::read(objects.get_unchecked(l)));
+                                current_object = objects.get_unchecked_mut(l - 1);
+                            }
                             goto!(ScopeEnd);
                         }
                         _c => {
@@ -337,7 +342,7 @@ impl<'de> Deserializer<'de> {
                             // we have not yet encountered } so we need to come back for it
                             objects.push(Map::with_capacity(self.count_elements()));
                             let l = objects.len();
-                            current_object = &mut objects[l - 1];
+                            current_object = unsafe { objects.get_unchecked_mut(l - 1) };
                             keys.push(current_key);
                             ret_address[depth] = b'o';
                             // we found an object inside an object, so we need to increment the depth
@@ -351,7 +356,7 @@ impl<'de> Deserializer<'de> {
                             // we have not yet encountered } so we need to come back for it
                             arrays.push(Vec::with_capacity(self.count_elements()));
                             let l = arrays.len();
-                            current_array = &mut arrays[l - 1];
+                            current_array = unsafe { arrays.get_unchecked_mut(l - 1) };
                             keys.push(current_key);
                             ret_address[depth] = b'o';
                             // we found an array inside an object, so we need to increment the depth
@@ -383,9 +388,13 @@ impl<'de> Deserializer<'de> {
                             }
                         }
                         b'}' => {
-                            current = Value::Object(objects.pop().unwrap());
-                            let l = objects.len();
-                            current_object = &mut objects[l - 1];
+                            unsafe {
+                                // This is 'pop_unchecked'
+                                objects.set_len(objects.len() - 1);
+                                let l = objects.len();
+                                current = Value::Object(ptr::read(objects.get_unchecked(l)));
+                                current_object = objects.get_unchecked_mut(l - 1);
+                            }
                             goto!(ScopeEnd);
                         }
                         _ => {
@@ -423,9 +432,13 @@ impl<'de> Deserializer<'de> {
                 ArrayBegin => {
                     update_char!();
                     if c == b']' {
-                        current = Value::Array(arrays.pop().unwrap());
-                        let l = arrays.len();
-                        current_array = &mut arrays[l - 1];
+                        unsafe {
+                            // This is 'pop_unchecked'
+                            arrays.set_len(arrays.len() - 1);
+                            let l = arrays.len();
+                            current = Value::Array(ptr::read(arrays.get_unchecked(l)));
+                            current_array = arrays.get_unchecked_mut(l - 1);
+                        }
                         goto!(ScopeEnd);
                     }
                     goto!(MainArraySwitch);
@@ -483,7 +496,7 @@ impl<'de> Deserializer<'de> {
                             // we have not yet encountered ] so we need to come back for it
                             objects.push(Map::with_capacity(self.count_elements()));
                             let l = objects.len();
-                            current_object = &mut objects[l - 1];
+                            current_object = unsafe { objects.get_unchecked_mut(l - 1) };
                             ret_address[depth] = b'a';
                             // we found an object inside an array, so we need to increment the depth
                             depth += 1;
@@ -497,7 +510,7 @@ impl<'de> Deserializer<'de> {
                             // we have not yet encountered ] so we need to come back for it
                             arrays.push(Vec::with_capacity(self.count_elements()));
                             let l = arrays.len();
-                            current_array = &mut arrays[l - 1];
+                            current_array = unsafe { arrays.get_unchecked_mut(l - 1) };
                             ret_address[depth] = b'a';
                             // we found an array inside an array, so we need to increment the depth
                             depth += 1;
@@ -519,9 +532,13 @@ impl<'de> Deserializer<'de> {
                             goto!(MainArraySwitch);
                         }
                         b']' => {
-                            current = Value::Array(arrays.pop().unwrap());
-                            let l = arrays.len();
-                            current_array = &mut arrays[l - 1];
+                            unsafe {
+                                // This is 'pop_unchecked'
+                                arrays.set_len(arrays.len() - 1);
+                                let l = arrays.len();
+                                current = Value::Array(ptr::read(arrays.get_unchecked(l)));
+                                current_array = arrays.get_unchecked_mut(l - 1);
+                            }
                             goto!(ScopeEnd);
                         }
                         _c => {

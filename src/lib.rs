@@ -846,7 +846,7 @@ pub fn to_value<'de>(s: &'de mut [u8]) -> Result<value! {}> {
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn to_value_fsm<'de>(s: &'de mut [u8]) -> Result<value! {}> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
-    unsafe { deserializer.unified_machine() }
+    deserializer.unified_machine()
 }
 
 #[cfg(test)]
