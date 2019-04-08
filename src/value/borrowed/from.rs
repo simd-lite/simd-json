@@ -24,6 +24,14 @@ impl<'a> From<String> for Value<'a> {
     }
 }
 
+/********* atoms **********/
+impl<'a> From<bool> for Value<'a> {
+    fn from(b: bool) -> Self {
+        Value::Bool(b)
+    }
+}
+
+/********* i_ **********/
 impl<'a> From<i8> for Value<'a> {
     fn from(i: i8) -> Self {
         Value::I64(i as i64)
@@ -48,6 +56,31 @@ impl<'a> From<i64> for Value<'a> {
     }
 }
 
+impl<'a> From<&i8> for Value<'a> {
+    fn from(i: &i8) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
+impl<'a> From<&i16> for Value<'a> {
+    fn from(i: &i16) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
+impl<'a> From<&i32> for Value<'a> {
+    fn from(i: &i32) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
+impl<'a> From<&i64> for Value<'a> {
+    fn from(i: &i64) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
+/********* f_ **********/
 impl<'a> From<f32> for Value<'a> {
     fn from(f: f32) -> Self {
         Value::F64(f as f64)
@@ -60,8 +93,14 @@ impl<'a> From<f64> for Value<'a> {
     }
 }
 
-impl<'a> From<bool> for Value<'a> {
-    fn from(b: bool) -> Self {
-        Value::Bool(b)
+impl<'a> From<&f32> for Value<'a> {
+    fn from(f: &f32) -> Self {
+        Value::F64(*f as f64)
+    }
+}
+
+impl<'a> From<&f64> for Value<'a> {
+    fn from(f: &f64) -> Self {
+        Value::F64(*f as f64)
     }
 }

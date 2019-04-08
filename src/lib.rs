@@ -1,5 +1,7 @@
 mod charutils;
 pub mod halfbrown;
+#[macro_use]
+mod macros;
 mod numberparse;
 mod parsedjson;
 mod portability;
@@ -9,6 +11,8 @@ mod stage2;
 mod stringparse;
 mod utf8check;
 mod value;
+
+extern crate serde as serde_ext;
 
 use crate::portability::*;
 use crate::stage2::*;
@@ -886,10 +890,38 @@ pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
 }
 
 #[cfg(feature = "no-borrow")]
+use serde_ext::de::DeserializeOwned;
+#[cfg(feature = "no-borrow")]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.to_value()
+}
+
+use serde_ext::Serialize;
+pub fn to_value_s<T>(value: T) -> Result<Value<'a>>
+where
+    T: Serialize,
+{
+    value.serialize(crate::value::Serializer)
+}
+
+#[cfg(not(feature = "no-borrow"))]
+use serde_ext::de::Deserialize;
+#[cfg(not(feature = "no-borrow"))]
+pub fn from_value<'de, T>(value: Value<'de>) -> Result<T>
+where
+    T: Deserialize<'de>,
+{
+    T::deserialize(value)
+}
+
+#[cfg(feature = "no-borrow")]
+pub fn from_value<T>(value: Value) -> Result<T>
+where
+    T: DeserializeOwned,
+{
+    T::deserialize(value)
 }
 
 #[cfg(test)]
@@ -899,7 +931,7 @@ mod tests {
     use hashbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
-    use serde_json::{self, json};
+    use serde_json;
 
     #[test]
     fn count1() {
@@ -1556,8 +1588,11 @@ mod tests {
             Just(serde_json::Value::Null),
             any::<bool>().prop_map(serde_json::Value::Bool),
             //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), The float parsing of simd and serde are too different
-            any::<i64>().prop_map(|i| json!(i)),
-            ".*".prop_map(serde_json::Value::String),
+            any::<i64>().prop_map(|i| {
+                let i: i64 = json!(i);
+                i
+            }),
+            ".*".prop_map(serde_json::Value::from),
         ];
         leaf.prop_recursive(
             8,   // 8 levels deep

@@ -2,36 +2,6 @@ use crate::{MaybeBorrowedString, Value};
 use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
 
 #[cfg(not(feature = "no-borrow"))]
-impl<'a> Serialize for Value<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Value::Bool(b) => serializer.serialize_bool(*b),
-            Value::Null => serializer.serialize_unit(),
-            Value::F64(f) => serializer.serialize_f64(*f),
-            Value::I64(i) => serializer.serialize_i64(*i),
-            Value::String(MaybeBorrowedString::B(s)) => serializer.serialize_str(s),
-            Value::String(MaybeBorrowedString::O(s)) => serializer.serialize_str(&s),
-            Value::Array(v) => {
-                let mut seq = serializer.serialize_seq(Some(v.len()))?;
-                for e in v {
-                    seq.serialize_element(e)?;
-                }
-                seq.end()
-            }
-            Value::Object(m) => {
-                let mut map = serializer.serialize_map(Some(m.len()))?;
-                for (k, v) in m.iter() {
-                    map.serialize_entry(k, v)?;
-                }
-                map.end()
-            }
-        }
-    }
-}
-
 #[cfg(feature = "no-borrow")]
 impl Serialize for Value {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

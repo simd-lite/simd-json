@@ -1,6 +1,8 @@
 mod cmp;
+mod de;
 mod from;
 mod mbs;
+mod se;
 
 use crate::halfbrown::HashMap;
 use std::fmt;
