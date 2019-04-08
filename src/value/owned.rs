@@ -49,12 +49,6 @@ impl Value {
             _ => None,
         }
     }
-    pub fn is_null(&self) -> bool {
-        match self {
-            Value::Null => true,
-            _ => false,
-        }
-    }
 
     pub fn get_mut(&mut self, k: &str) -> Option<&mut Value> {
         match self {
@@ -86,7 +80,7 @@ impl Value {
 
     pub fn is_i64(&self) -> bool {
         match self {
-            Value::I64_(i) => true,
+            Value::I64(_i) => true,
             _ => false,
         }
     }
