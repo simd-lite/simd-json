@@ -25,7 +25,7 @@ mod de {
     use super::super::HashMap;
     use core::hash::Hash;
     use core::marker::PhantomData;
-    use serde::de::{Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
+    use serde::de::{Deserialize, Deserializer, MapAccess, Visitor};
     use std::fmt;
 
     mod size_hint {

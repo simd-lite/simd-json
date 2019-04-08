@@ -2,6 +2,7 @@ mod serde;
 use core::borrow::Borrow;
 use core::hash::Hash;
 use hashbrown::HashMap as HashBrown;
+use std::default::Default;
 use std::iter::IntoIterator;
 use std::ops::Index;
 
@@ -16,6 +17,15 @@ where
     Map(HashBrown<K, V>),
     Vec(VecMap<K, V>),
     None,
+}
+
+impl<K, V> Default for HashMap<K, V>
+where
+    K: Eq + Hash,
+{
+    fn default() -> Self {
+        HashMap::Vec(VecMap::new())
+    }
 }
 
 impl<K, Q: ?Sized, V> Index<&Q> for HashMap<K, V>
