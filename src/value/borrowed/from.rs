@@ -105,6 +105,55 @@ impl<'a> From<&i64> for Value<'a> {
     }
 }
 
+/********* u_ **********/
+impl<'a> From<u8> for Value<'a> {
+    fn from(i: u8) -> Self {
+        Value::I64(i as i64)
+    }
+}
+
+impl<'a> From<u16> for Value<'a> {
+    fn from(i: u16) -> Self {
+        Value::I64(i as i64)
+    }
+}
+
+impl<'a> From<u32> for Value<'a> {
+    fn from(i: u32) -> Self {
+        Value::I64(i as i64)
+    }
+}
+
+impl<'a> From<u64> for Value<'a> {
+    fn from(i: u64) -> Self {
+        Value::I64(i as i64)
+    }
+}
+
+impl<'a> From<&u8> for Value<'a> {
+    fn from(i: &u8) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
+impl<'a> From<&u16> for Value<'a> {
+    fn from(i: &u16) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
+impl<'a> From<&u32> for Value<'a> {
+    fn from(i: &u32) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
+impl<'a> From<&u64> for Value<'a> {
+    fn from(i: &u64) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
 /********* f_ **********/
 impl<'a> From<f32> for Value<'a> {
     #[inline]

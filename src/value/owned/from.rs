@@ -98,6 +98,55 @@ impl From<&i64> for Value {
     }
 }
 
+/********* u_ **********/
+impl From<u8> for Value {
+    fn from(i: u8) -> Self {
+        Value::I64(i as i64)
+    }
+}
+
+impl From<u16> for Value {
+    fn from(i: u16) -> Self {
+        Value::I64(i as i64)
+    }
+}
+
+impl From<u32> for Value {
+    fn from(i: u32) -> Self {
+        Value::I64(i as i64)
+    }
+}
+
+impl From<u64> for Value {
+    fn from(i: u64) -> Self {
+        Value::I64(i as i64)
+    }
+}
+
+impl From<&u8> for Value {
+    fn from(i: &u8) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
+impl From<&u16> for Value {
+    fn from(i: &u16) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
+impl From<&u32> for Value {
+    fn from(i: &u32) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
+impl From<&u64> for Value {
+    fn from(i: &u64) -> Self {
+        Value::I64(*i as i64)
+    }
+}
+
 /********* f_ **********/
 impl From<f32> for Value {
     fn from(f: f32) -> Self {
