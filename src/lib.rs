@@ -29,6 +29,7 @@ use std::mem;
 use std::str;
 
 pub use error::{Error, ErrorType};
+pub use halfbrown::HashMap;
 pub use value::*;
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
