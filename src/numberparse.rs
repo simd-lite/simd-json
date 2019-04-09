@@ -124,6 +124,10 @@ unsafe fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
     _mm_cvtm64_si64(basecmp) == 0
 }
  */
+pub enum Number {
+    F64(f64),
+    I64(i64),
+}
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> i32 {
@@ -158,7 +162,7 @@ impl<'de> Deserializer<'de> {
     /// Note: a redesign could avoid this function entirely.
     ///
     #[inline(never)]
-    fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<value! {}> {
+    fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<Number> {
         let mut negative: bool = false;
         if found_minus {
             p = &p[1..];
@@ -255,7 +259,7 @@ impl<'de> Deserializer<'de> {
         }
 
         if is_structural_or_whitespace(p[0]) != 0 {
-            Ok(Value::F64(if negative { -i } else { i }))
+            Ok(Number::F64(if negative { -i } else { i }))
         } else {
             Err(self.error(ErrorType::Parser))
         }
@@ -339,7 +343,7 @@ impl<'de> Deserializer<'de> {
     // define JSON_TEST_NUMBERS for unit testing
     //#[inline(always)]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<value! {}> {
+    pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
         if negative {
             buf = &buf[1..];
             /*
@@ -459,7 +463,7 @@ impl<'de> Deserializer<'de> {
             // We want 0.1e1 to be a float.
             //////////
             if i == 0 {
-                Value::F64(0.0)
+                Number::F64(0.0)
             } else {
                 if (exponent > 308) || (exponent < -308) {
                     // we refuse to parse this
@@ -468,7 +472,7 @@ impl<'de> Deserializer<'de> {
                 let mut d: f64 = i as f64;
                 d *= POWER_OF_TEN[(308 + exponent) as usize];
                 // d = negative ? -d : d;
-                Value::F64(d)
+                Number::F64(d)
             }
         } else {
             /* TODO: implement this
@@ -477,7 +481,7 @@ impl<'de> Deserializer<'de> {
                 return parse_large_integer(buf, pj, offset, found_minus);
             }
              */
-            Value::I64(i)
+            Number::I64(i)
         };
         if is_structural_or_whitespace(unsafe { *buf.get_unchecked(digitcount) }) != 0 {
             Ok(v)
