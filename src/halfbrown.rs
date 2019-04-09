@@ -4,7 +4,7 @@ use core::borrow::Borrow;
 use core::hash::Hash;
 use hashbrown::HashMap as HashBrown;
 use std::default::Default;
-use std::iter::IntoIterator;
+use std::iter::{FromIterator, IntoIterator};
 use std::ops::Index;
 
 //const VEC_LOWER_LIMIT: usize = 32;
@@ -253,6 +253,21 @@ where
     #[inline]
     fn into_iter(self) -> Iter<'a, K, V> {
         self.iter()
+    }
+}
+
+impl<K, V> FromIterator<(K, V)> for HashMap<K, V>
+where
+    K: Eq + Hash,
+{
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
+        let iter = iter.into_iter();
+        let mut map = Self::with_capacity(iter.size_hint().0);
+        iter.for_each(|(k, v)| {
+            map.insert(k, v);
+        });
+        map
     }
 }
 
