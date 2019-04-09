@@ -8,7 +8,7 @@
 //! #[macro_use] extern crate halfbrown;
 //!
 //! # fn main() {
-//! let map = halfbrown!{
+//! let map = hashmap!{
 //!     "a" => 1,
 //!     "b" => 2,
 //! };
@@ -20,7 +20,7 @@
 //! restrictions in regular `macro_rules!` macros.)
 //!
 //! Note that rust macros are flexible in which brackets you use for the invocation.
-//! You can use them as `halfbrown!{}` or `halfbrown![]` or `halfbrown!()`.
+//! You can use them as `hashmap!{}` or `hashmap![]` or `hashmap!()`.
 //!
 //! Generic container macros already exist elsewhere, so those are not provided
 //! here at the moment.
@@ -34,7 +34,7 @@
 /// #[macro_use] extern crate halfbrown;
 /// # fn main() {
 ///
-/// let map = halfbrown!{
+/// let map = hashmap!{
 ///     "a" => 1,
 ///     "b" => 2,
 /// };
@@ -43,14 +43,14 @@
 /// assert_eq!(map.get("c"), None);
 /// # }
 /// ```
-macro_rules! halfbrown {
+macro_rules! hashmap {
     (@single $($x:tt)*) => (());
-    (@count $($rest:expr),*) => (<[()]>::len(&[$(halfbrown!(@single $rest)),*]));
+    (@count $($rest:expr),*) => (<[()]>::len(&[$(hashmap!(@single $rest)),*]));
 
-    ($($key:expr => $value:expr,)+) => { halfbrown!($($key => $value),+) };
+    ($($key:expr => $value:expr,)+) => { hashmap!($($key => $value),+) };
     ($($key:expr => $value:expr),*) => {
         {
-            let _cap = halfbrown!(@count $($key),*);
+            let _cap = hashmap!(@count $($key),*);
             let mut _map = $crate::HashMap::with_capacity(_cap);
             $(
                 let _ = _map.insert($key, $value);
@@ -69,7 +69,7 @@ pub fn __id<T>(t: T) -> T {
 #[test]
 fn test_hashmap() {
     use crate::HashMap;
-    let names = halfbrown! {
+    let names = hashmap! {
         1 => "one",
         2 => "two",
     };
@@ -78,11 +78,11 @@ fn test_hashmap() {
     assert_eq!(names[&2], "two");
     assert_eq!(names.get(&3), None);
 
-    let empty: HashMap<i32, i32> = halfbrown! {};
+    let empty: HashMap<i32, i32> = hashmap! {};
     assert_eq!(empty.len(), 0);
 
-    let _nested_compiles = halfbrown! {
-        1 => halfbrown!{0 => 1 + 2,},
-        2 => halfbrown!{1 => 1,},
+    let _nested_compiles = hashmap! {
+        1 => hashmap!{0 => 1 + 2,},
+        2 => hashmap!{1 => 1,},
     };
 }
