@@ -237,31 +237,31 @@ macro_rules! json_internal {
     //////////////////////////////////////////////////////////////////////////
 
     (null) => {
-        $crate::Value::Null
+        $crate::value::owned::Value::Null
     };
 
     (true) => {
-        $crate::Value::Bool(true)
+        $crate::value::owned::Value::Bool(true)
     };
 
     (false) => {
-        $crate::Value::Bool(false)
+        $crate::value::owned::Value::Bool(false)
     };
 
     ([]) => {
-        $crate::Value::Array(json_internal_vec![])
+        $crate::value::owned::Value::Array(json_internal_vec![])
     };
 
     ([ $($tt:tt)+ ]) => {
-        $crate::Value::Array(json_internal!(@array [] $($tt)+))
+        $crate::value::owned::Value::Array(json_internal!(@array [] $($tt)+))
     };
 
     ({}) => {
-        $crate::Value::Object($crate::value::owned::Map::new())
+        $crate::value::owned::Value::Object($crate::value::owned::Map::new())
     };
 
     ({ $($tt:tt)+ }) => {
-        $crate::Value::Object({
+        $crate::value::owned::Value::Object({
             let mut object = $crate::value::owned::Map::new();
             json_internal!(@object object () ($($tt)+) ($($tt)+));
             object
