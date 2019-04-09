@@ -38,6 +38,7 @@ const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 lazy_static! {
     static ref MM256_SET1_EPI8_SLASH: __m256i = { unsafe { _mm256_set1_epi8(b'\\' as i8) } };
     static ref MM256_SET1_EPI8_QUOTE: __m256i = { unsafe { _mm256_set1_epi8(b'"' as i8) } };
+    static ref PAGE_SIZE: usize = { page_size::get() };
 }
 
 #[cfg(nightly)]
@@ -145,6 +146,13 @@ impl<'de> Deserializer<'de> {
         // We have to pick an initial size of the structural indexes.
         // 6 is a heuristic that seems to work well for the benchmark
         // data and limit re-allocation frequency.
+
+        let buf: usize = input.as_ptr() as *const () as usize;
+        if (buf + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING {
+            println!("we got to relocate");
+            return Err(Error::generic(ErrorType::InternalError));
+        }
+
         let structural_indexes = match unsafe { Deserializer::find_structural_bits(input) } {
             Ok(i) => i,
             Err(t) => {
@@ -686,6 +694,19 @@ mod tests {
         let simd = Deserializer::from_slice(&mut d).expect("");
         assert_eq!(simd.counts[1], 3);
         assert_eq!(simd.counts[4], 1);
+    }
+
+    #[test]
+    fn empty() {
+        let mut d = String::from("");
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+
+        let v_simd = from_slice::<Value>(&mut d);
+        let v_serde = serde_json::from_slice::<Value>(d);
+        assert_eq!(v_simd.is_err(), v_serde.is_err());
+        assert_eq!(to_value(&mut d1), Ok(Value::from(true)));
     }
 
     #[test]
