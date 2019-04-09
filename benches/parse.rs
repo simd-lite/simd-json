@@ -35,13 +35,22 @@ macro_rules! bench_file {
                     b.iter_batched(
                         || data.clone(),
                         |mut bytes| {
-                            simdjson::to_value(&mut bytes).unwrap();
+                            simdjson::to_borrowed_value(&mut bytes).unwrap();
                         },
                         BatchSize::SmallInput,
                     )
                 },
                 vec![vec],
             );
+            let b = b.with_function("simdjson-owned", |b, data| {
+                b.iter_batched(
+                    || data.clone(),
+                    |mut bytes| {
+                        simdjson::to_owned_value(&mut bytes).unwrap();
+                    },
+                    BatchSize::SmallInput,
+                )
+            });
             #[cfg(feature = "simdjson-rust")]
             let b = b.with_function("simdjson_cpp", move |b, data| {
                 b.iter_batched(

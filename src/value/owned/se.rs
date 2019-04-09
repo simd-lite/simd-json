@@ -1,7 +1,6 @@
-use super::Map;
-use super::Value;
-use crate::serde::to_value;
-use crate::{stry, Error, ErrorType, MaybeBorrowedString, Result};
+use super::serde::to_value;
+use super::{Map, MaybeBorrowedString, Value};
+use crate::{stry, Error, ErrorType, Result};
 use serde::ser::{self, Serialize};
 use serde_ext::ser::{SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait};
 

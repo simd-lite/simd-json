@@ -1,9 +1,11 @@
 mod de;
-use crate::value::Value;
+use crate::value::*;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use serde::Deserialize;
-use serde_ext::Serialize;
 use std::fmt;
+
+pub use borrowed::to_value as to_borrowed_value;
+pub use owned::to_value as to_owned_value;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
@@ -23,24 +25,6 @@ where
     let mut deserializer = stry!(Deserializer::from_slice(unsafe { s.as_bytes_mut() }));
 
     T::deserialize(&mut deserializer)
-}
-
-#[cfg(not(feature = "no-borrow"))]
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub fn to_value<'a, T>(value: T) -> Result<Value<'a>>
-where
-    T: Serialize,
-{
-    value.serialize(crate::value::Serializer::default())
-}
-
-#[cfg(feature = "no-borrow")]
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub fn to_value<T>(value: T) -> Result<Value>
-where
-    T: Serialize,
-{
-    value.serialize(crate::value::Serializer::default())
 }
 
 impl std::error::Error for Error {}

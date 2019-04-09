@@ -1,11 +1,7 @@
-#[cfg(not(feature = "no-borrow"))]
-mod borrowed;
+pub mod borrowed;
 mod de;
-#[cfg(feature = "no-borrow")]
-mod owned;
+pub mod owned;
 mod se;
 
-#[cfg(not(feature = "no-borrow"))]
-pub use crate::value::borrowed::*;
-#[cfg(feature = "no-borrow")]
-pub use crate::value::owned::*;
+pub use borrowed::to_value as to_borrowed_value;
+pub use owned::to_value as to_owned_value;

@@ -1,4 +1,5 @@
 use super::{MaybeBorrowedString, Value};
+use crate::numberparse::Number;
 
 impl From<&str> for MaybeBorrowedString {
     fn from(v: &str) -> Self {
@@ -9,6 +10,16 @@ impl From<&str> for MaybeBorrowedString {
 impl From<String> for MaybeBorrowedString {
     fn from(v: String) -> Self {
         MaybeBorrowedString::O(v)
+    }
+}
+
+impl From<Number> for Value {
+    #[inline]
+    fn from(n: Number) -> Self {
+        match n {
+            Number::F64(n) => Value::F64(n),
+            Number::I64(n) => Value::I64(n),
+        }
     }
 }
 

@@ -1,6 +1,7 @@
-use crate::{stry, Deserializer, Error, ErrorType, Result, Value};
-use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
-use serde::forward_to_deserialize_any;
+use crate::numberparse::Number;
+use crate::*;
+use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
+use serde_ext::forward_to_deserialize_any;
 
 impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
@@ -21,14 +22,12 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             b't' => visitor.visit_bool(stry!(self.parse_true())),
             b'f' => visitor.visit_bool(stry!(self.parse_false())),
             b'-' => match stry!(self.parse_number(true)) {
-                Value::F64(n) => visitor.visit_f64(n),
-                Value::I64(n) => visitor.visit_i64(n),
-                _ => unreachable!(),
+                Number::F64(n) => visitor.visit_f64(n),
+                Number::I64(n) => visitor.visit_i64(n),
             },
             b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Value::F64(n) => visitor.visit_f64(n),
-                Value::I64(n) => visitor.visit_i64(n),
-                _ => unreachable!(),
+                Number::F64(n) => visitor.visit_f64(n),
+                Number::I64(n) => visitor.visit_i64(n),
             },
             b'"' => {
                 if let Some(next) = self.structural_indexes.get(self.idx + 1) {

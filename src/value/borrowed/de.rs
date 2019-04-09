@@ -1,7 +1,10 @@
-use super::{MaybeBorrowedString, Value};
-use crate::{Error, Result};
-use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
-use serde::forward_to_deserialize_any;
+use super::{Map, MaybeBorrowedString, Value};
+use crate::Error;
+use serde_ext::de::{
+    self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor,
+};
+use serde_ext::forward_to_deserialize_any;
+use std::fmt;
 
 impl<'de> de::Deserializer<'de> for Value<'de> {
     type Error = Error;
@@ -9,7 +12,7 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
     // Look at the input data to decide what Serde data model type to
     // deserialize as. Not all data formats are able to support this operation.
     // Formats that support `deserialize_any` are known as self-describing.
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
@@ -43,7 +46,7 @@ struct Array<'de, 'a: 'de>(std::slice::Iter<'de, Value<'a>>);
 impl<'de, 'a> SeqAccess<'de> for Array<'a, 'de> {
     type Error = Error;
 
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: DeserializeSeed<'de>,
     {
@@ -65,7 +68,7 @@ struct Object<'de, 'a: 'de> {
 impl<'de, 'a> MapAccess<'de> for Object<'a, 'de> {
     type Error = Error;
 
-    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
     where
         K: DeserializeSeed<'de>,
     {
@@ -77,11 +80,246 @@ impl<'de, 'a> MapAccess<'de> for Object<'a, 'de> {
         }
     }
 
-    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
     where
         V: DeserializeSeed<'de>,
     {
         //TODO: This is ugly
         seed.deserialize(self.v.clone())
+    }
+}
+
+impl<'de> Deserialize<'de> for Value<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Value<'de>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(ValueVisitor)
+    }
+}
+
+struct ValueVisitor;
+
+impl<'de> Visitor<'de> for ValueVisitor {
+    type Value = Value<'de>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("an JSONesque value")
+    }
+
+    /****************** unit ******************/
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_unit<E>(self) -> Result<Self::Value, E> {
+        Ok(Value::Null)
+    }
+
+    /****************** bool ******************/
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
+        Ok(Value::Bool(value))
+    }
+
+    /****************** Option ******************/
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_none<E>(self) -> Result<Self::Value, E> {
+        Ok(Value::Null)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(self)
+    }
+
+    /****************** enum ******************/
+    /*
+    fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error> where
+        A: EnumAccess<'de>,
+    {
+    }
+     */
+
+    /****************** i64 ******************/
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_i8<E>(self, value: i8) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::I64(value as i64))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_i16<E>(self, value: i16) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::I64(value as i64))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_i32<E>(self, value: i32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::I64(value as i64))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::I64(value))
+    }
+
+    /****************** u64 ******************/
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_u8<E>(self, value: u8) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::I64(value as i64))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_u16<E>(self, value: u16) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::I64(value as i64))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_u32<E>(self, value: u32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::I64(value as i64))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        use std::i64;
+        if value <= i64::MAX as u64 {
+            Ok(Value::I64(value as i64))
+        } else {
+            Err(E::custom(format!("Integer out of range: {}", value)))
+        }
+    }
+
+    /****************** f64 ******************/
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_f32<E>(self, value: f32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::F64(value as f64))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::F64(value))
+    }
+
+    /****************** stringy stuff ******************/
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_char<E>(self, _value: char) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        unimplemented!()
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::from(value))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::String(MaybeBorrowedString::O(value.to_owned())))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::String(MaybeBorrowedString::O(value)))
+    }
+
+    /****************** byte stuff ******************/
+
+    /*
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_borrowed_bytes<E>(self, value: &'de [u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::String(value))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_str<E>(self, value: &[u8]) -> Result<Self::Value, E>
+    where
+    'a: 'de
+        E: de::Error,
+    {
+      Ok(Value::String(value))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_string<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+      Ok(Value::String(&value))
+    }
+     */
+    /****************** nexted stuff ******************/
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let size = map.size_hint().unwrap_or_default();
+
+        let mut m = Map::with_capacity(size);
+        while let Some(k) = map.next_key()? {
+            let v = map.next_value()?;
+            m.insert(k, v);
+        }
+        Ok(Value::Object(m))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let size = seq.size_hint().unwrap_or_default();
+
+        let mut v = Vec::with_capacity(size);
+        while let Some(e) = seq.next_element()? {
+            v.push(e);
+        }
+        Ok(Value::Array(v))
     }
 }

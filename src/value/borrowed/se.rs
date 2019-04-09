@@ -1,11 +1,7 @@
-use super::Map;
-use crate::serde::to_value;
-use crate::{stry, Error, ErrorType, MaybeBorrowedString, Result, Value};
+use super::{MaybeBorrowedString, Value};
+use crate::Error;
 use serde::ser::{self, Serialize};
 use serde_ext::ser::{SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait};
-use std::marker::PhantomData;
-
-type Impossible<T> = ser::Impossible<T, Error>;
 
 impl<'a> Serialize for Value<'a> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -36,6 +32,14 @@ impl<'a> Serialize for Value<'a> {
         }
     }
 }
+
+/*
+use super::{Map};
+use crate::{stry, ErrorType, Result};
+use std::marker::PhantomData;
+use super::serde::to_value;
+
+type Impossible<T> = ser::Impossible<T, Error>;
 
 pub struct Serializer<'a> {
     marker: PhantomData<&'a u8>,
@@ -188,7 +192,7 @@ impl<'a> serde::Serializer for Serializer<'a> {
         T: Serialize,
     {
         let mut values = Map::new();
-        values.insert(variant, stry!(to_value(&value)));
+        values.insert(variant, stry!(to_value(&mut value)));
         Ok(Value::Object(values))
     }
 
@@ -425,7 +429,7 @@ fn key_must_be_a_string() -> Error {
 }
 
 impl<'a> serde_ext::Serializer for MapKeySerializer<'a> {
-    type Ok = String;
+    type Ok = &'a str;
     type Error = Error;
 
     type SerializeSeq = Impossible<&'a str>;
@@ -674,3 +678,61 @@ impl<'a> serde::ser::SerializeStructVariant for SerializeStructVariant<'a> {
         Ok(Value::Object(object))
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::{Map, Value};
+    use serde_json;
+
+    #[test]
+    fn null() {
+        let v = Value::Null;
+        let s = serde_json::to_string(&v).expect("Failed to serialize");
+        assert_eq!(s, "null")
+    }
+
+    #[test]
+    fn bool_true() {
+        let v = Value::Bool(true);
+        let s = serde_json::to_string(&v).expect("Failed to serialize");
+        assert_eq!(s, "true")
+    }
+
+    #[test]
+    fn bool_false() {
+        let v = Value::Bool(false);
+        let s = serde_json::to_string(&v).expect("Failed to serialize");
+        assert_eq!(s, "false")
+    }
+
+    #[test]
+    fn float() {
+        let v = Value::F64(1.0);
+        let s = serde_json::to_string(&v).expect("Failed to serialize");
+        assert_eq!(s, "1.0")
+    }
+
+    #[test]
+    fn int() {
+        let v = Value::I64(42);
+        let s = serde_json::to_string(&v).expect("Failed to serialize");
+        assert_eq!(s, "42")
+    }
+
+    #[test]
+    fn arr() {
+        let v = Value::Array(vec![Value::I64(42), Value::I64(23)]);
+        let s = serde_json::to_string(&v).expect("Failed to serialize");
+        assert_eq!(s, "[42,23]")
+    }
+    #[test]
+    fn map() {
+        let mut m = Map::new();
+        m.insert("a".into(), Value::from(42));
+        m.insert("b".into(), Value::from(23));
+        let v = Value::Object(m);
+        let s = serde_json::to_string(&v).expect("Failed to serialize");
+        assert_eq!(s, r#"{"a":42,"b":23}"#)
+    }
+}
+*/

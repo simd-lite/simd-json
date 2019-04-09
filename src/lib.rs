@@ -17,6 +17,7 @@ extern crate serde as serde_ext;
 #[macro_use]
 extern crate lazy_static;
 
+use crate::numberparse::Number;
 use crate::portability::*;
 use crate::stage2::*;
 use crate::stringparse::*;
@@ -28,7 +29,7 @@ use std::mem;
 use std::str;
 
 pub use error::{Error, ErrorType};
-pub use value::{Map, MaybeBorrowedString, Value};
+pub use value::*;
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 // We only do this for the string parse function as it seems to slow down other frunctions
@@ -103,28 +104,6 @@ macro_rules! static_cast_i32 {
     ($v:expr) => {
         mem::transmute::<_, i32>($v)
     };
-}
-
-#[cfg(not(feature = "no-borrow"))]
-#[macro_export]
-macro_rules! value {
-    {} => {Value<'de>}
-}
-
-#[cfg(feature = "no-borrow")]
-#[macro_export]
-macro_rules! value {
-    {} => {Value}
-}
-
-#[cfg(not(feature = "no-borrow"))]
-macro_rules! map {
-    {} => {Map<'de>}
-}
-
-#[cfg(feature = "no-borrow")]
-macro_rules! map {
-    {} => {Map}
 }
 
 // FROM serde-json
@@ -302,151 +281,8 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn to_value_root(&mut self) -> Result<value! {}> {
-        if self.idx + 1 > self.structural_indexes.len() {
-            return Err(self.error(ErrorType::UnexpectedEnd));
-        }
-        match self.next_() {
-            b'"' => {
-                if let Some(next) = self.structural_indexes.get(self.idx + 1) {
-                    if *next as usize - self.iidx < 32 {
-                        return self.parse_short_str_().map(Value::from);
-                    }
-                }
-                self.parse_str_().map(Value::from)
-            }
-            b'n' => {
-                stry!(self.parse_null());
-                Ok(Value::Null)
-            }
-            b't' => self.parse_true().map(Value::Bool),
-            b'f' => self.parse_false().map(Value::Bool),
-            b'-' => self.parse_number(true),
-            b'0'...b'9' => self.parse_number(false),
-            b'[' => self.parse_array_().map(Value::Array),
-            b'{' => self.parse_map_().map(Value::Object),
-            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn to_value(&mut self) -> Result<value! {}> {
-        if self.idx + 1 > self.structural_indexes.len() {
-            return Err(self.error(ErrorType::UnexpectedEnd));
-        }
-        match self.next_() {
-            b'"' => {
-                // We can only have entered this by being in an object so we know there is
-                // something following as we made sure during checking for sizes.
-                let next = unsafe { self.structural_indexes.get_unchecked(self.idx + 1) };
-                if *next as usize - self.iidx < 32 {
-                    return self.parse_short_str_().map(Value::from);
-                }
-                self.parse_str_().map(Value::from)
-            }
-            b'n' => {
-                stry!(self.parse_null_());
-                Ok(Value::Null)
-            }
-            b't' => self.parse_true_().map(Value::Bool),
-            b'f' => self.parse_false_().map(Value::Bool),
-            b'-' => self.parse_number_(true),
-            b'0'...b'9' => self.parse_number_(false),
-            b'[' => self.parse_array_().map(Value::Array),
-            b'{' => self.parse_map_().map(Value::Object),
-            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn count_elements(&self) -> usize {
         unsafe { *self.counts.get_unchecked(self.idx) }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array_(&mut self) -> Result<Vec<value! {}>> {
-        // We short cut for empty arrays
-        if stry!(self.peek()) == b']' {
-            self.skip();
-            return Ok(Vec::new());
-        }
-
-        let mut res = Vec::with_capacity(self.count_elements());
-
-        // Since we checked if it's empty we know that we at least have one
-        // element so we eat this
-
-        res.push(stry!(self.to_value()));
-        loop {
-            // We now exect one of two things, a comma with a next
-            // element or a closing bracket
-            match stry!(self.peek()) {
-                b']' => {
-                    self.skip();
-                    break;
-                }
-                b',' => self.skip(),
-                _c => return Err(self.error(ErrorType::ExpectedArrayComma)),
-            }
-            res.push(stry!(self.to_value()));
-        }
-        // We found a closing bracket and ended our loop, we skip it
-        Ok(res)
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map_(&mut self) -> Result<map! {}> {
-        // We short cut for empty arrays
-
-        if stry!(self.peek()) == b'}' {
-            self.skip();
-            return Ok(Map::new());
-        }
-
-        let mut res = Map::with_capacity(self.count_elements());
-
-        // Since we checked if it's empty we know that we at least have one
-        // element so we eat this
-
-        if stry!(self.next()) != b'"' {
-            return Err(self.error(ErrorType::ExpectedString));
-        }
-
-        let key = stry!(self.parse_short_str_());
-
-        match stry!(self.next()) {
-            b':' => (),
-            _c => return Err(self.error(ErrorType::ExpectedMapColon)),
-        }
-        #[cfg(not(feature = "no-borrow"))]
-        res.insert_nocheck(key, stry!(self.to_value()));
-        #[cfg(feature = "no-borrow")]
-        res.insert_nocheck(key.to_owned(), stry!(self.to_value()));
-        loop {
-            // We now exect one of two things, a comma with a next
-            // element or a closing bracket
-            match stry!(self.peek()) {
-                b'}' => break,
-                b',' => self.skip(),
-                _c => return Err(self.error(ErrorType::ExpectedArrayComma)),
-            }
-            if stry!(self.next()) != b'"' {
-                return Err(self.error(ErrorType::ExpectedString));
-            }
-            let key = stry!(self.parse_short_str_());
-
-            match stry!(self.next()) {
-                b':' => (),
-                _c => return Err(self.error(ErrorType::ExpectedMapColon)),
-            }
-            #[cfg(not(feature = "no-borrow"))]
-            res.insert_nocheck(key, stry!(self.to_value()));
-            #[cfg(feature = "no-borrow")]
-            res.insert_nocheck(key.to_owned(), stry!(self.to_value()));
-        }
-        // We found a closing bracket and ended our loop, we skip it
-        self.skip();
-        Ok(res)
     }
 
     // We parse a string that's likely to be less then 32 characters and without any
@@ -751,7 +587,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number(&mut self, minus: bool) -> Result<value! {}> {
+    fn parse_number(&mut self, minus: bool) -> Result<Number> {
         let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {
@@ -766,7 +602,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_(&mut self, minus: bool) -> Result<value! {}> {
+    fn parse_number_(&mut self, minus: bool) -> Result<Number> {
         let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         self.parse_number_int(input, minus)
     }
@@ -774,11 +610,11 @@ impl<'de> Deserializer<'de> {
     fn parse_signed(&mut self) -> Result<i64> {
         match stry!(self.next()) {
             b'-' => match stry!(self.parse_number(true)) {
-                Value::I64(n) => Ok(n),
+                Number::I64(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
             b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Value::I64(n) => Ok(n),
+                Number::I64(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
             _ => Err(self.error(ErrorType::ExpectedSigned)),
@@ -787,7 +623,7 @@ impl<'de> Deserializer<'de> {
     fn parse_unsigned(&mut self) -> Result<u64> {
         match stry!(self.next()) {
             b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Value::I64(n) => Ok(n as u64),
+                Number::I64(n) => Ok(n as u64),
                 _ => Err(self.error(ErrorType::ExpectedUnsigned)),
             },
             _ => Err(self.error(ErrorType::ExpectedUnsigned)),
@@ -797,58 +633,22 @@ impl<'de> Deserializer<'de> {
     fn parse_double(&mut self) -> Result<f64> {
         match stry!(self.next()) {
             b'-' => match stry!(self.parse_number(true)) {
-                Value::F64(n) => Ok(n),
-                Value::I64(n) => Ok(n as f64),
-                _ => Err(self.error(ErrorType::ExpectedFloat)),
+                Number::F64(n) => Ok(n),
+                Number::I64(n) => Ok(n as f64),
             },
             b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Value::F64(n) => Ok(n),
-                Value::I64(n) => Ok(n as f64),
-                _ => Err(self.error(ErrorType::ExpectedFloat)),
+                Number::F64(n) => Ok(n),
+                Number::I64(n) => Ok(n as f64),
             },
             _ => Err(self.error(ErrorType::ExpectedFloat)),
         }
     }
 }
 
-#[cfg(not(feature = "no-borrow"))]
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
-    let mut deserializer = stry!(Deserializer::from_slice(s));
-    deserializer.to_value_root()
-}
-
-#[cfg(feature = "no-borrow")]
-use serde_ext::de::DeserializeOwned;
-#[cfg(feature = "no-borrow")]
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
-    let mut deserializer = stry!(Deserializer::from_slice(s));
-    deserializer.to_value()
-}
-
-#[cfg(not(feature = "no-borrow"))]
-use serde_ext::de::Deserialize;
-#[cfg(not(feature = "no-borrow"))]
-pub fn from_value<'de, T>(value: Value<'de>) -> Result<T>
-where
-    T: Deserialize<'de>,
-{
-    T::deserialize(value)
-}
-
-#[cfg(feature = "no-borrow")]
-pub fn from_value<T>(value: Value) -> Result<T>
-where
-    T: DeserializeOwned,
-{
-    T::deserialize(value)
-}
-
 #[cfg(test)]
 mod tests {
     use super::serde::from_slice;
-    use super::{to_value, Deserializer, Map, Value};
+    use super::{owned::to_value, owned::Map, owned::Value, Deserializer};
     use hashbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
