@@ -1,6 +1,3 @@
-use crate::{MaybeBorrowedString, Value};
-use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
-
 #[cfg(not(feature = "no-borrow"))]
 #[cfg(feature = "no-borrow")]
 impl Serialize for Value {

@@ -1,9 +1,12 @@
 mod cmp;
+mod de;
 mod from;
 mod mbs;
+mod se;
 
 use crate::halfbrown::HashMap;
 pub use mbs::*;
+pub use se::Serializer;
 use std::fmt;
 use std::ops::Index;
 

@@ -12,6 +12,8 @@ impl From<String> for MaybeBorrowedString {
     }
 }
 
+/********* str_ **********/
+
 impl From<&str> for Value {
     fn from(s: &str) -> Self {
         Value::String(MaybeBorrowedString::O(s.to_owned()))
@@ -21,6 +23,12 @@ impl From<&str> for Value {
 impl From<String> for Value {
     fn from(s: String) -> Self {
         Value::String(MaybeBorrowedString::O(s))
+    }
+}
+
+impl From<&String> for Value {
+    fn from(s: &String) -> Self {
+        Value::String(MaybeBorrowedString::O(s.to_owned()))
     }
 }
 

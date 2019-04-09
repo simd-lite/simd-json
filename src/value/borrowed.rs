@@ -10,6 +10,7 @@ use std::ops::Index;
 
 pub type Map<'a> = HashMap<&'a str, Value<'a>>;
 pub use mbs::*;
+pub use se::Serializer;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value<'a> {

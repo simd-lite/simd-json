@@ -1,20 +1,6 @@
 use crate::{stry, Deserializer, Error, ErrorType, Result, Value};
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
-use std::fmt;
-
-impl std::error::Error for Error {}
-
-impl serde::de::Error for Error {
-    fn custom<T: fmt::Display>(msg: T) -> Self {
-        Error {
-            structural: 0,
-            index: 0,
-            character: '💩', //this is the poop emoji
-            error: ErrorType::Serde(msg.to_string()),
-        }
-    }
-}
 
 impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;

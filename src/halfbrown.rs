@@ -198,6 +198,14 @@ pub enum IntoIter<K, V> {
     Map(hashbrown::hash_map::IntoIter<K, V>),
     Vec(std::vec::IntoIter<(K, V)>),
 }
+impl<K, V> IntoIter<K, V> {
+    pub fn len(&self) -> usize {
+        match self {
+            IntoIter::Map(i) => i.len(),
+            IntoIter::Vec(i) => i.len(),
+        }
+    }
+}
 
 impl<K, V> Iterator for IntoIter<K, V> {
     type Item = (K, V);

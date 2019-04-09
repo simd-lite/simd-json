@@ -3,7 +3,7 @@ use crate::{Error, Result};
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
 
-impl<'de, 'a> de::Deserializer<'de> for Value<'de> {
+impl<'de> de::Deserializer<'de> for Value<'de> {
     type Error = Error;
 
     // Look at the input data to decide what Serde data model type to
@@ -25,7 +25,7 @@ impl<'de, 'a> de::Deserializer<'de> for Value<'de> {
             Value::Array(a) => visitor.visit_seq(Array(a.iter())),
             Value::Object(o) => visitor.visit_map(Object {
                 i: o.iter(),
-                v: Value::Null,
+                v: &Value::Null,
             }),
         }
     }
@@ -36,7 +36,7 @@ impl<'de, 'a> de::Deserializer<'de> for Value<'de> {
     }
 }
 
-struct Array<'a, 'de>(std::slice::Iter<'de, Value<'a>>);
+struct Array<'de, 'a: 'de>(std::slice::Iter<'de, Value<'a>>);
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
@@ -48,15 +48,16 @@ impl<'de, 'a> SeqAccess<'de> for Array<'a, 'de> {
         T: DeserializeSeed<'de>,
     {
         if let Some(v) = self.0.next() {
-            seed.deserialize(*v).map(Some)
+            //TODO: This is ugly
+            seed.deserialize(v.clone()).map(Some)
         } else {
             Ok(None)
         }
     }
 }
-struct Object<'a, 'de> {
+struct Object<'de, 'a: 'de> {
     i: crate::halfbrown::Iter<'de, &'a str, Value<'a>>,
-    v: Value<'a>,
+    v: &'de Value<'a>,
 }
 
 // `MapAccess` is provided to the `Visitor` to give it the ability to iterate
@@ -69,8 +70,8 @@ impl<'de, 'a> MapAccess<'de> for Object<'a, 'de> {
         K: DeserializeSeed<'de>,
     {
         if let Some((k, v)) = self.i.next() {
-            self.v = *v;
-            seed.deserialize(Value::from(*v)).map(Some)
+            self.v = v;
+            seed.deserialize(Value::from(*k)).map(Some)
         } else {
             Ok(None)
         }
@@ -80,6 +81,7 @@ impl<'de, 'a> MapAccess<'de> for Object<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        seed.deserialize(self.v)
+        //TODO: This is ugly
+        seed.deserialize(self.v.clone())
     }
 }

@@ -2,6 +2,7 @@ mod charutils;
 pub mod halfbrown;
 #[macro_use]
 mod macros;
+mod error;
 mod numberparse;
 mod parsedjson;
 mod portability;
@@ -13,21 +14,20 @@ mod utf8check;
 mod value;
 
 extern crate serde as serde_ext;
+#[macro_use]
+extern crate lazy_static;
 
 use crate::portability::*;
 use crate::stage2::*;
 use crate::stringparse::*;
-//use hashbrown::HashMap;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 use std::mem;
-//use std::ops::{AddAssign, MulAssign, Neg};
-use std::fmt;
 use std::str;
-#[macro_use]
-extern crate lazy_static;
+
+pub use error::{Error, ErrorType};
 pub use value::{Map, MaybeBorrowedString, Value};
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
@@ -141,60 +141,6 @@ macro_rules! stry {
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, PartialEq)]
-pub enum ErrorType {
-    BadKeyType,
-    EarlyEnd,
-    ExpectedArray,
-    ExpectedArrayComma,
-    ExpectedBoolean,
-    ExpectedString,
-    ExpectedSigned,
-    ExpectedFloat,
-    ExpectedUnsigned,
-    ExpectedEnum,
-    ExpectedInteger,
-    ExpectedNumber,
-    ExpectedMap,
-    ExpectedMapColon,
-    ExpectedMapComma,
-    ExpectedMapEnd,
-    ExpectedNull,
-    InvalidNumber,
-    InvalidExponent,
-    InternalError,
-    InvalidEscape,
-    InvalidUTF8,
-    InvalidUnicodeEscape,
-    InvlaidUnicodeCodepoint,
-    NoStructure,
-    Parser,
-    Serde(String),
-    Syntax,
-    TrailingCharacters,
-    UnexpectedCharacter,
-    UnexpectedEnd,
-    UnterminatedString,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Error {
-    structural: usize,
-    index: usize,
-    character: char,
-    error: ErrorType,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{:?} at chracter {} ('{}')",
-            self.error, self.index, self.character
-        )
-    }
-}
-
 pub struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
     // the beginning as data is parsed.
@@ -209,12 +155,7 @@ pub struct Deserializer<'de> {
 
 impl<'de> Deserializer<'de> {
     fn error(&self, error: ErrorType) -> Error {
-        Error {
-            structural: self.idx,
-            index: self.iidx,
-            character: self.c() as char,
-            error,
-        }
+        Error::new(self.idx, self.iidx, self.c() as char, error)
     }
     // By convention, `Deserializer` constructors are named like `from_xyz`.
     // That way basic use cases are satisfied by something like
@@ -227,12 +168,7 @@ impl<'de> Deserializer<'de> {
         let structural_indexes = match unsafe { Deserializer::find_structural_bits(input) } {
             Ok(i) => i,
             Err(t) => {
-                return Err(Error {
-                    structural: 0,
-                    index: 0,
-                    character: '💩', //this is the poop emoji
-                    error: t,
-                });
+                return Err(Error::generic(t));
             }
         };
         let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
@@ -278,12 +214,9 @@ impl<'de> Deserializer<'de> {
                     if i != last_start + 1 {
                         cnt += 1;
                     }
-                    let (a_last_start, a_cnt) = stry!(depth.pop().ok_or_else(|| (Error {
-                        structural: 0,
-                        index: 0,
-                        character: '💩', //this is the poop emoji
-                        error: ErrorType::Syntax
-                    })));
+                    let (a_last_start, a_cnt) = stry!(depth
+                        .pop()
+                        .ok_or_else(|| (Error::generic(ErrorType::Syntax))));
                     counts[last_start] = cnt;
                     last_start = a_last_start;
                     arrays.push(cnt);
@@ -294,12 +227,8 @@ impl<'de> Deserializer<'de> {
                     if i != last_start + 1 {
                         cnt += 1;
                     }
-                    let (a_last_start, a_cnt) = stry!(depth.pop().ok_or_else(|| (Error {
-                        structural: 0,
-                        index: 0,
-                        character: '💩', //this is the poop emoji
-                        error: ErrorType::Syntax
-                    })));
+                    let (a_last_start, a_cnt) =
+                        stry!(depth.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
                     counts[last_start] = cnt;
                     last_start = a_last_start;
                     maps.push(cnt);
@@ -896,14 +825,6 @@ use serde_ext::de::DeserializeOwned;
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.to_value()
-}
-
-use serde_ext::Serialize;
-pub fn to_value_s<T>(value: T) -> Result<Value<'a>>
-where
-    T: Serialize,
-{
-    value.serialize(crate::value::Serializer)
 }
 
 #[cfg(not(feature = "no-borrow"))]
@@ -1585,14 +1506,11 @@ mod tests {
 
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
-            Just(serde_json::Value::Null),
-            any::<bool>().prop_map(serde_json::Value::Bool),
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
             //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), The float parsing of simd and serde are too different
-            any::<i64>().prop_map(|i| {
-                let i: i64 = json!(i);
-                i
-            }),
-            ".*".prop_map(serde_json::Value::from),
+            any::<i64>().prop_map(|i| json!(i)),
+            ".*".prop_map(Value::from),
         ];
         leaf.prop_recursive(
             8,   // 8 levels deep
