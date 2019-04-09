@@ -1,7 +1,7 @@
 use super::{MaybeBorrowedString, Value};
-use crate::Error;
-use serde::ser::{self, Serialize};
-use serde_ext::ser::{SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait};
+use serde_ext::ser::{
+    self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
+};
 
 impl<'a> Serialize for Value<'a> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>

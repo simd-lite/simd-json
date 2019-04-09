@@ -11,7 +11,7 @@ mod stage1;
 mod stage2;
 mod stringparse;
 mod utf8check;
-mod value;
+pub mod value;
 
 extern crate serde as serde_ext;
 #[macro_use]
