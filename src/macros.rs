@@ -257,12 +257,12 @@ macro_rules! json_internal {
     };
 
     ({}) => {
-        $crate::Value::Object($crate::Map::new())
+        $crate::Value::Object($crate::value::owned::Map::new())
     };
 
     ({ $($tt:tt)+ }) => {
         $crate::Value::Object({
-            let mut object = $crate::Map::new();
+            let mut object = $crate::value::owned::Map::new();
             json_internal!(@object object () ($($tt)+) ($($tt)+));
             object
         })
