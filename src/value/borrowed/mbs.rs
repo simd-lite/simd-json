@@ -1,3 +1,4 @@
+use serde::ser;
 use std::borrow::Borrow;
 use std::fmt;
 use std::ops::Deref;
@@ -41,6 +42,18 @@ impl<'a> fmt::Debug for MaybeBorrowedString<'a> {
         match self {
             MaybeBorrowedString::B(s) => write!(f, "{:?}", s),
             MaybeBorrowedString::O(s) => write!(f, "{:?}", s),
+        }
+    }
+}
+
+impl<'a> ser::Serialize for MaybeBorrowedString<'a> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        match self {
+            MaybeBorrowedString::O(s) => serializer.serialize_str(&s),
+            MaybeBorrowedString::B(s) => serializer.serialize_str(s),
         }
     }
 }
