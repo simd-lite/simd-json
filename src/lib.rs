@@ -38,6 +38,7 @@ const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 lazy_static! {
     static ref MM256_SET1_EPI8_SLASH: __m256i = { unsafe { _mm256_set1_epi8(b'\\' as i8) } };
     static ref MM256_SET1_EPI8_QUOTE: __m256i = { unsafe { _mm256_set1_epi8(b'"' as i8) } };
+    static ref PAGE_SIZE: usize = { page_size::get() };
 }
 
 #[cfg(nightly)]
@@ -125,6 +126,7 @@ pub struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
     // the beginning as data is parsed.
     input: &'de mut [u8],
+    //data: Vec<u8>,
     strings: Vec<u8>,
     structural_indexes: Vec<u32>,
     idx: usize,
@@ -145,12 +147,35 @@ impl<'de> Deserializer<'de> {
         // We have to pick an initial size of the structural indexes.
         // 6 is a heuristic that seems to work well for the benchmark
         // data and limit re-allocation frequency.
+
+        /*
+        let len = input.len();
+        let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
+        unsafe { data.set_len(len + 1) };
+        data.as_mut_slice()[0..len].clone_from_slice(input);
+        data[len] = 0;
+        unsafe { data.set_len(len) };
+
+        let buf_start: usize = input.as_ptr() as *const () as usize;
+        let data = if (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING {
+            println!("we got to relocate");
+            unsafe { v.set_len(len + SIMDJSON_PADDING) };
+            //let buf: &mut [u8] = v.as_mut_slice();
+        } else {
+            unsafe {
+                let v = Vec::from_raw_parts(input.as_mut_ptr(), input.len(), input.len());
+                mem::forget(&v);
+                v
+            }
+        };
+         */
         let structural_indexes = match unsafe { Deserializer::find_structural_bits(input) } {
             Ok(i) => i,
             Err(t) => {
                 return Err(Error::generic(t));
             }
         };
+
         let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
 
         let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
@@ -162,6 +187,7 @@ impl<'de> Deserializer<'de> {
             counts,
             structural_indexes,
             input,
+            //data,
             idx: 0,
             strings: v,
             str_offset: 0,
@@ -649,7 +675,9 @@ impl<'de> Deserializer<'de> {
 #[cfg(test)]
 mod tests {
     use super::serde::from_slice;
-    use super::{owned::to_value, owned::Map, owned::Value, Deserializer};
+    use super::{
+        owned::to_value, owned::Map, owned::Value, to_borrowed_value, to_owned_value, Deserializer,
+    };
     use hashbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
@@ -686,6 +714,16 @@ mod tests {
         let simd = Deserializer::from_slice(&mut d).expect("");
         assert_eq!(simd.counts[1], 3);
         assert_eq!(simd.counts[4], 1);
+    }
+
+    #[test]
+    fn empty() {
+        let mut d = String::from("");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_simd = from_slice::<Value>(&mut d);
+        let v_serde = serde_json::from_slice::<Value>(d);
+        assert!(v_simd.is_err());
+        assert!(v_serde.is_err());
     }
 
     #[test]
@@ -1336,16 +1374,50 @@ mod tests {
             fork: true,
             .. ProptestConfig::default()
         })]
+
         #[test]
         fn json_test(d in arb_json()) {
             if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
-                let mut d = d.clone();
-                let d = unsafe{ d.as_bytes_mut()};
-                let v_simd: serde_json::Value = from_slice(d).expect("");
-                assert_eq!(v_simd, v_serde)
+                let mut d1 = d.clone();
+                let d1 = unsafe{ d1.as_bytes_mut()};
+                let mut d2 = d.clone();
+                let d2 = unsafe{ d2.as_bytes_mut()};
+                let mut d3 = d.clone();
+                let d3 = unsafe{ d3.as_bytes_mut()};
+                let v_simd: serde_json::Value = from_slice(d1).expect("");
+                assert_eq!(v_simd, v_serde);
+                let v_simd = to_borrowed_value(d2);
+                assert!(v_simd.is_ok());
+                let v_simd = to_borrowed_value(d3);
+                assert!(v_simd.is_ok());
             }
 
         }
+
     }
 
+    fn arb_junk() -> BoxedStrategy<Vec<u8>> {
+        prop::collection::vec(any::<u8>(), 0..(1024 * 8)).boxed()
+    }
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            // Setting both fork and timeout is redundant since timeout implies
+            // fork, but both are shown for clarity.
+            fork: true,
+            .. ProptestConfig::default()
+        })]
+        #[test]
+        fn junk(d in arb_junk()) {
+            let mut d1 = d.clone();
+            //let d1 = unsafe{ d1.as_bytes_mut()};
+            let mut d2 = d.clone();
+            //let d2 = unsafe{ d2.as_bytes_mut()};
+            let mut d3 = d.clone();
+            //let d3 = unsafe{ d3.as_bytes_mut()};
+            let _ = from_slice::<serde_json::Value>(&mut d1);
+            let _ = to_borrowed_value(&mut d2);
+            let _ = to_owned_value(&mut d3);
+
+        }
+    }
 }

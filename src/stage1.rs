@@ -473,9 +473,9 @@ impl<'de> Deserializer<'de> {
         flatten_bits(&mut structural_indexes, idx as u32, structurals);
 
         // a valid JSON file cannot have zero structural indexes - we should have
-        // found something
-        if structural_indexes.len() == 0 {
-            return Err(ErrorType::NoStructure);
+        // found something (note that we compare to 1 as we always add the root!)
+        if structural_indexes.len() == 1 {
+            return Err(ErrorType::EOF);
         }
         if structural_indexes.last() > Some(&(len as u32)) {
             return Err(ErrorType::InternalError);

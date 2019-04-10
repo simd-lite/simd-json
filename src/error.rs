@@ -29,6 +29,7 @@ pub enum ErrorType {
     KeyMustBeAString,
     NoStructure,
     Parser,
+    EOF,
     Serde(String),
     Syntax,
     TrailingCharacters,
