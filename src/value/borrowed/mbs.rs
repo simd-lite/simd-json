@@ -13,7 +13,7 @@ pub enum MaybeBorrowedString<'a> {
 impl<'a> Clone for MaybeBorrowedString<'a> {
     fn clone(&self) -> Self {
         match self {
-            MaybeBorrowedString::B(s) => MaybeBorrowedString::O(s.to_owned()),
+            MaybeBorrowedString::B(s) => MaybeBorrowedString::O(s.to_string()),
             MaybeBorrowedString::O(s) => MaybeBorrowedString::O(s.clone()),
         }
     }
