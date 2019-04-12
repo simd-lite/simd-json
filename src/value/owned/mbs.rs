@@ -18,6 +18,15 @@ impl Borrow<str> for MaybeBorrowedString {
     }
 }
 
+impl Borrow<String> for MaybeBorrowedString {
+    #[inline]
+    fn borrow(&self) -> &String {
+        match self {
+            MaybeBorrowedString::O(s) => &s,
+        }
+    }
+}
+
 impl Deref for MaybeBorrowedString {
     type Target = str;
     #[inline]
