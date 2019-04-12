@@ -59,7 +59,7 @@ impl<'de, 'a> SeqAccess<'de> for Array<'a, 'de> {
     }
 }
 struct Object<'de, 'a: 'de> {
-    i: crate::halfbrown::Iter<'de, &'a str, Value<'a>>,
+    i: crate::halfbrown::Iter<'de, MaybeBorrowedString<'a>, Value<'a>>,
     v: &'de Value<'a>,
 }
 
@@ -74,7 +74,7 @@ impl<'de, 'a> MapAccess<'de> for Object<'a, 'de> {
     {
         if let Some((k, v)) = self.i.next() {
             self.v = v;
-            seed.deserialize(Value::from(*k)).map(Some)
+            seed.deserialize(Value::String(k.clone())).map(Some)
         } else {
             Ok(None)
         }
@@ -302,9 +302,9 @@ impl<'de> Visitor<'de> for ValueVisitor {
         let size = map.size_hint().unwrap_or_default();
 
         let mut m = Map::with_capacity(size);
-        while let Some(k) = map.next_key()? {
+        while let Some(k) = map.next_key::<&str>()? {
             let v = map.next_value()?;
-            m.insert(k, v);
+            m.insert(k.into(), v);
         }
         Ok(Value::Object(m))
     }
@@ -321,5 +321,47 @@ impl<'de> Visitor<'de> for ValueVisitor {
             v.push(e);
         }
         Ok(Value::Array(v))
+    }
+}
+
+impl<'de> Deserialize<'de> for MaybeBorrowedString<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<MaybeBorrowedString<'de>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(MaybeBorrowedStringVisitor)
+    }
+}
+
+struct MaybeBorrowedStringVisitor;
+
+impl<'de> Visitor<'de> for MaybeBorrowedStringVisitor {
+    type Value = MaybeBorrowedString<'de>;
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a String value")
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(value.into())
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(value.to_owned().into())
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(value.into())
     }
 }

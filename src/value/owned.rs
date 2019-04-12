@@ -11,7 +11,7 @@ pub use mbs::*;
 use std::fmt;
 use std::ops::Index;
 
-pub type Map = HashMap<String, Value>;
+pub type Map = HashMap<MaybeBorrowedString, Value>;
 
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
@@ -294,7 +294,7 @@ impl<'de> Deserializer<'de> {
             b':' => (),
             _c => return Err(self.error(ErrorType::ExpectedMapColon)),
         }
-        res.insert_nocheck(key.to_owned(), stry!(self.to_value_owned()));
+        res.insert_nocheck(key.into(), stry!(self.to_value_owned()));
         loop {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
@@ -312,7 +312,7 @@ impl<'de> Deserializer<'de> {
                 b':' => (),
                 _c => return Err(self.error(ErrorType::ExpectedMapColon)),
             }
-            res.insert_nocheck(key.to_owned(), stry!(self.to_value_owned()));
+            res.insert_nocheck(key.into(), stry!(self.to_value_owned()));
         }
         // We found a closing bracket and ended our loop, we skip it
         self.skip();

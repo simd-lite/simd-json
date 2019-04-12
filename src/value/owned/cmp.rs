@@ -27,6 +27,7 @@ impl PartialEq for MaybeBorrowedString {
     }
 }
 
+impl Eq for MaybeBorrowedString {}
 impl PartialEq<str> for MaybeBorrowedString {
     fn eq(&self, other: &str) -> bool {
         match self {

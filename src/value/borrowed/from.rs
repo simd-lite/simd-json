@@ -40,6 +40,13 @@ impl<'a> From<String> for Value<'a> {
     }
 }
 
+impl<'a> From<MaybeBorrowedString<'a>> for Value<'a> {
+    #[inline]
+    fn from(s: MaybeBorrowedString<'a>) -> Self {
+        Value::String(s)
+    }
+}
+
 /********* atoms **********/
 impl<'a> From<bool> for Value<'a> {
     #[inline]

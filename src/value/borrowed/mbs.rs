@@ -1,6 +1,7 @@
 use serde::ser;
 use std::borrow::Borrow;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 #[derive(Clone)]
@@ -55,5 +56,12 @@ impl<'a> ser::Serialize for MaybeBorrowedString<'a> {
             MaybeBorrowedString::O(s) => serializer.serialize_str(&s),
             MaybeBorrowedString::B(s) => serializer.serialize_str(s),
         }
+    }
+}
+
+impl<'a> Hash for MaybeBorrowedString<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let s: &str = self.borrow();
+        s.hash(state)
     }
 }

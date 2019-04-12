@@ -1,6 +1,7 @@
 use serde::ser;
 use std::borrow::Borrow;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 #[derive(Clone)]
@@ -9,6 +10,7 @@ pub enum MaybeBorrowedString {
 }
 
 impl Borrow<str> for MaybeBorrowedString {
+    #[inline]
     fn borrow(&self) -> &str {
         match self {
             MaybeBorrowedString::O(s) => &s,
@@ -18,6 +20,7 @@ impl Borrow<str> for MaybeBorrowedString {
 
 impl Deref for MaybeBorrowedString {
     type Target = str;
+    #[inline]
     fn deref(&self) -> &str {
         match self {
             MaybeBorrowedString::O(s) => &s,
@@ -49,5 +52,13 @@ impl ser::Serialize for MaybeBorrowedString {
         match self {
             MaybeBorrowedString::O(s) => serializer.serialize_str(&s),
         }
+    }
+}
+
+impl Hash for MaybeBorrowedString {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let s: &str = self.borrow();
+        s.hash(state)
     }
 }

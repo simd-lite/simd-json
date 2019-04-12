@@ -9,7 +9,7 @@ use crate::halfbrown::HashMap;
 use crate::{stry, Deserializer, ErrorType, Result};
 use std::fmt;
 use std::ops::Index;
-pub type Map<'a> = HashMap<&'a str, Value<'a>>;
+pub type Map<'a> = HashMap<MaybeBorrowedString<'a>, Value<'a>>;
 pub use mbs::*;
 //pub use se::Serializer;
 
@@ -295,7 +295,7 @@ impl<'de> Deserializer<'de> {
             b':' => (),
             _c => return Err(self.error(ErrorType::ExpectedMapColon)),
         }
-        res.insert_nocheck(key, stry!(self.to_value_borrowed()));
+        res.insert_nocheck(key.into(), stry!(self.to_value_borrowed()));
         loop {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
@@ -313,7 +313,7 @@ impl<'de> Deserializer<'de> {
                 b':' => (),
                 _c => return Err(self.error(ErrorType::ExpectedMapColon)),
             }
-            res.insert_nocheck(key, stry!(self.to_value_borrowed()));
+            res.insert_nocheck(key.into(), stry!(self.to_value_borrowed()));
         }
         // We found a closing bracket and ended our loop, we skip it
         self.skip();

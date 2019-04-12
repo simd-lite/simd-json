@@ -161,7 +161,7 @@ impl<'de> MapAccess<'de> for MapDeserializer {
             Some((key, value)) => {
                 self.value = Some(value);
                 let key_de = MapKeyDeserializer {
-                    key: Cow::Owned(key),
+                    key: Cow::Owned(key.to_string()),
                 };
                 seed.deserialize(key_de).map(Some)
             }
@@ -397,7 +397,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     type Value = Value;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an JSONesque value")
+        formatter.write_str("a JSONesque value")
     }
 
     /****************** unit ******************/
@@ -614,5 +614,47 @@ impl<'de> Visitor<'de> for ValueVisitor {
             v.push(e);
         }
         Ok(Value::Array(v))
+    }
+}
+
+impl<'de> Deserialize<'de> for MaybeBorrowedString {
+    fn deserialize<D>(deserializer: D) -> Result<MaybeBorrowedString, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(MaybeBorrowedStringVisitor)
+    }
+}
+
+struct MaybeBorrowedStringVisitor;
+
+impl<'de> Visitor<'de> for MaybeBorrowedStringVisitor {
+    type Value = MaybeBorrowedString;
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a String value")
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(value.into())
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(value.into())
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(value.into())
     }
 }

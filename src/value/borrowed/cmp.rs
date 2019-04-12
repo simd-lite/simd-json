@@ -1,4 +1,5 @@
 use super::{MaybeBorrowedString, Value};
+use std::borrow::Borrow;
 use std::cmp::{Ordering, PartialOrd};
 
 impl<'a> PartialOrd for MaybeBorrowedString<'a> {
@@ -18,18 +19,13 @@ impl<'a> PartialOrd for MaybeBorrowedString<'a> {
 
 impl<'a> PartialEq for MaybeBorrowedString<'a> {
     fn eq(&self, other: &Self) -> bool {
-        let self_s = match self {
-            MaybeBorrowedString::B(s) => s,
-            MaybeBorrowedString::O(s) => s.as_str(),
-        };
-        let other_s = match other {
-            MaybeBorrowedString::B(s) => s,
-            MaybeBorrowedString::O(s) => s.as_str(),
-        };
-
-        self_s == other_s
+        let a: &str = self.borrow();
+        let b: &str = other.borrow();
+        a == b
     }
 }
+
+impl<'a> Eq for MaybeBorrowedString<'a> {}
 
 impl<'a> PartialEq<str> for MaybeBorrowedString<'a> {
     fn eq(&self, other: &str) -> bool {
