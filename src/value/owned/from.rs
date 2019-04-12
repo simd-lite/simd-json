@@ -66,6 +66,8 @@ impl From<crate::value::borrowed::MaybeBorrowedString<'_>> for MaybeBorrowedStri
         MaybeBorrowedString::O(s.to_string())
     }
 }
+
+/********* atoms **********/
 impl From<bool> for Value {
     fn from(b: bool) -> Self {
         Value::Bool(b)
