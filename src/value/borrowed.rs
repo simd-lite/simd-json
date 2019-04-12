@@ -22,7 +22,6 @@ pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
 pub enum Value<'a> {
     Null,
     Bool(bool),
-    //Number(Number),
     F64(f64),
     I64(i64),
     String(MaybeBorrowedString<'a>),
