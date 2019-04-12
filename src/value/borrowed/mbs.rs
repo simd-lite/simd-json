@@ -4,10 +4,19 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
-#[derive(Clone)]
+//#[derive(Clone)]
 pub enum MaybeBorrowedString<'a> {
     B(&'a str),
     O(String),
+}
+
+impl<'a> Clone for MaybeBorrowedString<'a> {
+    fn clone(&self) -> Self {
+        match self {
+            MaybeBorrowedString::B(s) => MaybeBorrowedString::O(s.to_owned()),
+            MaybeBorrowedString::O(s) => MaybeBorrowedString::O(s.clone()),
+        }
+    }
 }
 
 impl<'a> Borrow<str> for MaybeBorrowedString<'a> {
