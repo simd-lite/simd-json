@@ -1,11 +1,10 @@
-use std::fs::File;
-use std::io::Read;
-use std::iter;
-
 #[cfg(feature = "perf")]
 fn bench(name: &str) {
     use perfcnt::linux::{HardwareEventType, PerfCounterBuilderLinux};
     use perfcnt::{AbstractPerfCounter, PerfCounter};
+    use std::fs::File;
+    use std::io::Read;
+    use std::iter;
 
     fn pc(event_type: HardwareEventType) -> PerfCounter {
         PerfCounterBuilderLinux::from_hardware_event(event_type)
