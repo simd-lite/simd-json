@@ -47,6 +47,9 @@ jobs:
       - run:
           name: Run all tests
           command: cargo test --all
+      - run:
+          name: Run cycle benchmarks
+          command: make perf
 
 workflows:
   version: 2
