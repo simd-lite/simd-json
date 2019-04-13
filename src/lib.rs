@@ -335,11 +335,13 @@ impl<'de> Deserializer<'de> {
         //short strings are very common for IDs
         let v: __m256i = if src.len() >= 32 {
             // This is safe since we ensure src is at least 32 wide
-            unsafe { _mm256_loadu_si256(src[..32].as_ptr() as *const __m256i) }
+            unsafe { _mm256_loadu_si256(src.get_unchecked(..32).as_ptr() as *const __m256i) }
         } else {
-            padding[..src.len()].clone_from_slice(&src);
+            padding
+                .get_unchecked_mut(..src.len())
+                .clone_from_slice(&src);
             // This is safe since we ensure src is at least 32 wide
-            unsafe { _mm256_loadu_si256(padding[..32].as_ptr() as *const __m256i) }
+            unsafe { _mm256_loadu_si256(padding.get_unchecked(..32).as_ptr() as *const __m256i) }
         };
         let bs_bits: u32 = unsafe {
             static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
@@ -407,7 +409,7 @@ impl<'de> Deserializer<'de> {
                 // This is safe since we ensure src is at least 32 wide
                 unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) }
             } else {
-                padding[..src.len() - src_i].clone_from_slice(&src[src_i..]);
+                padding[..src.len() - src_i].clone_from_slice(src.get_unchecked(src_i..));
                 // This is safe since we ensure src is at least 32 wide
                 unsafe { _mm256_loadu_si256(padding.as_ptr() as *const __m256i) }
             };
@@ -466,17 +468,15 @@ impl<'de> Deserializer<'de> {
                     // move src/dst up to the start; they will be further adjusted
                     // within the unicode codepoint handling code.
                     src_i += bs_dist as usize;
-                    //src = &src[src_i + bs_dist as usize..];
                     //read += bs_dist as usize;
                     dst = &mut dst[bs_dist as usize..];
                     written += bs_dist as usize;
-                    let (o, s) = handle_unicode_codepoint(&src[src_i..], dst);
+                    let (o, s) = handle_unicode_codepoint(src.get_unchecked_mut(src_i..), dst);
                     if o == 0 {
                         return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
                     };
                     // We moved o steps forword at the destiation and 6 on the source
                     src_i += s;
-                    //src = &src[s..];
                     //read += s;
                     dst = &mut dst[o..];
                     written += o;
@@ -496,7 +496,6 @@ impl<'de> Deserializer<'de> {
                     }
                     dst[bs_dist as usize] = escape_result;
                     src_i += bs_dist as usize + 2;
-                    //src = &src[bs_dist as usize + 2..];
                     //read += bs_dist as usize + 2;
                     dst = &mut dst[bs_dist as usize + 1..];
                     written += bs_dist as usize + 1;
@@ -505,7 +504,6 @@ impl<'de> Deserializer<'de> {
                 // they are the same. Since they can't co-occur, it means we encountered
                 // neither.
                 src_i += 32;
-                //src = &src[32..];
                 //read += 32;
                 dst = &mut dst[32..];
                 written += 32;
