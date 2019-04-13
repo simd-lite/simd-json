@@ -48,6 +48,9 @@ jobs:
           name: Run all tests
           command: cargo test --all
       - run:
+          name: Install nightly
+          command: rustup install nightly
+      - run:
           name: Run cycle benchmarks
           command: make perf
 
