@@ -6,7 +6,7 @@ mod se;
 pub mod serde;
 
 use crate::halfbrown::HashMap;
-use crate::{stry, Deserializer, ErrorType, Result};
+use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 pub use mbs::*;
 use std::fmt;
 use std::ops::Index;
@@ -192,10 +192,9 @@ impl<'de> Deserializer<'de> {
         }
         match self.next_() {
             b'"' => {
-                if let Some(next) = self.structural_indexes.get(self.idx + 1) {
-                    if *next as usize - self.iidx < 32 {
-                        return self.parse_short_str_().map(Value::from);
-                    }
+                let next = unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) as usize };
+                if next - self.iidx < 32 {
+                    return self.parse_short_str_().map(Value::from);
                 }
                 self.parse_str_().map(Value::from)
             }
@@ -207,8 +206,8 @@ impl<'de> Deserializer<'de> {
             b'f' => self.parse_false().map(Value::Bool),
             b'-' => self.parse_number(true).map(Value::from),
             b'0'...b'9' => self.parse_number(false).map(Value::from),
-            b'[' => self.parse_array_owned_().map(Value::Array),
-            b'{' => self.parse_map_owned_().map(Value::Object),
+            b'[' => self.parse_array_owned(),
+            b'{' => self.parse_map_owned(),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
         }
     }
@@ -223,10 +222,8 @@ impl<'de> Deserializer<'de> {
         }
         match self.next_() {
             b'"' => {
-                // We can only have entered this by being in an object so we know there is
-                // something following as we made sure during checking for sizes.
-                let next = unsafe { self.structural_indexes.get_unchecked(self.idx + 1) };
-                if *next as usize - self.iidx < 32 {
+                let next = unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) as usize };
+                if next - self.iidx < 32 {
                     return self.parse_short_str_().map(Value::from);
                 }
                 self.parse_str_().map(Value::from)
@@ -239,18 +236,18 @@ impl<'de> Deserializer<'de> {
             b'f' => self.parse_false_().map(Value::Bool),
             b'-' => self.parse_number(true).map(Value::from),
             b'0'...b'9' => self.parse_number(false).map(Value::from),
-            b'[' => self.parse_array_owned_().map(Value::Array),
-            b'{' => self.parse_map_owned_().map(Value::Object),
+            b'[' => self.parse_array_owned(),
+            b'{' => self.parse_map_owned(),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array_owned_(&mut self) -> Result<Vec<Value>> {
+    fn parse_array_owned(&mut self) -> Result<Value> {
         // We short cut for empty arrays
-        if self.peek_() == b']' {
+        if unlikely!(self.peek_() == b']') {
             self.skip();
-            return Ok(Vec::new());
+            return Ok(Value::Array(Vec::new()));
         }
 
         let mut res = Vec::with_capacity(self.count_elements());
@@ -263,26 +260,24 @@ impl<'de> Deserializer<'de> {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
             match self.peek_() {
-                b']' => {
-                    self.skip();
-                    break;
-                }
+                b']' => break,
                 b',' => self.skip(),
                 _c => return Err(self.error(ErrorType::ExpectedArrayComma)),
             }
             res.push(stry!(self.to_value_owned()));
         }
+        self.skip();
         // We found a closing bracket and ended our loop, we skip it
-        Ok(res)
+        Ok(Value::Array(res))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map_owned_(&mut self) -> Result<Map> {
+    fn parse_map_owned(&mut self) -> Result<Value> {
         // We short cut for empty arrays
 
-        if self.peek_() == b'}' {
+        if unlikely!(self.peek_() == b'}') {
             self.skip();
-            return Ok(Map::new());
+            return Ok(Value::Object(Map::new()));
         }
 
         let mut res = Map::with_capacity(self.count_elements());
@@ -290,15 +285,14 @@ impl<'de> Deserializer<'de> {
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
 
-        if stry!(self.next()) != b'"' {
+        if unlikely!(self.next_() != b'"') {
             return Err(self.error(ErrorType::ExpectedString));
         }
 
         let key = stry!(self.parse_short_str_());
 
-        match stry!(self.next()) {
-            b':' => (),
-            _c => return Err(self.error(ErrorType::ExpectedMapColon)),
+        if unlikely!(self.next_() != b':') {
+            return Err(self.error(ErrorType::ExpectedMapColon));
         }
         res.insert_nocheck(key.into(), stry!(self.to_value_owned()));
         loop {
@@ -309,19 +303,18 @@ impl<'de> Deserializer<'de> {
                 b',' => self.skip(),
                 _c => return Err(self.error(ErrorType::ExpectedArrayComma)),
             }
-            if stry!(self.next()) != b'"' {
+            if unlikely!(self.next_() != b'"') {
                 return Err(self.error(ErrorType::ExpectedString));
             }
             let key = stry!(self.parse_short_str_());
 
-            match stry!(self.next()) {
-                b':' => (),
-                _c => return Err(self.error(ErrorType::ExpectedMapColon)),
+            if unlikely!(self.next_() != b':') {
+                return Err(self.error(ErrorType::ExpectedMapColon));
             }
             res.insert_nocheck(key.into(), stry!(self.to_value_owned()));
         }
         // We found a closing bracket and ended our loop, we skip it
         self.skip();
-        Ok(res)
+        Ok(Value::Object(res))
     }
 }

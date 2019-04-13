@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "hints", feature(core_intrinsics))]
+
 mod charutils;
 pub mod halfbrown;
 #[macro_use]
@@ -41,15 +43,15 @@ lazy_static! {
     static ref PAGE_SIZE: usize = { page_size::get() };
 }
 
-#[cfg(nightly)]
+#[cfg(feature = "hints")]
 #[macro_export]
 macro_rules! likely {
     ($e:expr) => {
-        std::intrinsics::likely($e)
+        unsafe { std::intrinsics::likely($e) }
     };
 }
 
-#[cfg(not(nightly))]
+#[cfg(not(feature = "hints"))]
 #[macro_export]
 macro_rules! likely {
     ($e:expr) => {
@@ -57,15 +59,15 @@ macro_rules! likely {
     };
 }
 
-#[cfg(nightly)]
+#[cfg(feature = "hints")]
 #[macro_export]
 macro_rules! unlikely {
-    ($e:expr) => {
-        std::intrinsics::unlikely($e)
-    };
+    ($e:expr) => {{
+        unsafe { std::intrinsics::unlikely($e) }
+    }};
 }
 
-#[cfg(not(nightly))]
+#[cfg(not(feature = "hints"))]
 #[macro_export]
 macro_rules! unlikely {
     ($e:expr) => {

@@ -35,6 +35,7 @@ default = ["swar-number-parsing"]
 swar-number-parsing = []
 no-inline = []
 bench-serde = []
+hints = [] # requires nightly
 perf = ["perfcnt"]
 
 
