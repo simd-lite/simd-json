@@ -18,8 +18,8 @@ struct SimdInput {
 fn fill_input(ptr: &[u8]) -> SimdInput {
     unsafe {
         SimdInput {
-            lo: _mm256_loadu_si256(ptr[0..32].as_ptr() as *const __m256i),
-            hi: _mm256_loadu_si256(ptr[32..64].as_ptr() as *const __m256i),
+            lo: _mm256_loadu_si256(ptr.as_ptr() as *const __m256i),
+            hi: _mm256_loadu_si256(ptr.as_ptr().add(32) as *const __m256i),
         }
     }
 }
@@ -88,15 +88,14 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
 // sequences of backslashes in an obvious way.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
-    // TODO: const?
-    let even_bits: u64 = 0x5555555555555555;
-    // TODO: const?
-    let odd_bits: u64 = !even_bits;
+    const EVEN_BITS: u64 = 0x5555555555555555;
+    const ODD_BITS: u64 = !EVEN_BITS;
+
     let bs_bits: u64 = cmp_mask_against_input(&input, unsafe { _mm256_set1_epi8(b'\\' as i8) });
     let start_edges: u64 = bs_bits & !(bs_bits << 1);
     // flip lowest if we have an odd-length run at the end of the prior
     // iteration
-    let even_start_mask: u64 = even_bits ^ *prev_iter_ends_odd_backslash;
+    let even_start_mask: u64 = EVEN_BITS ^ *prev_iter_ends_odd_backslash;
     let even_starts: u64 = start_edges & even_start_mask;
     let odd_starts: u64 = start_edges & !even_start_mask;
     let even_carries: u64 = bs_bits.wrapping_add(even_starts);
@@ -113,8 +112,8 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
     *prev_iter_ends_odd_backslash = if iter_ends_odd_backslash { 0x1 } else { 0x0 };
     let even_carry_ends: u64 = even_carries & !bs_bits;
     let odd_carry_ends: u64 = odd_carries & !bs_bits;
-    let even_start_odd_end: u64 = even_carry_ends & odd_bits;
-    let odd_start_even_end: u64 = odd_carry_ends & even_bits;
+    let even_start_odd_end: u64 = even_carry_ends & ODD_BITS;
+    let odd_start_even_end: u64 = odd_carry_ends & EVEN_BITS;
     let odd_ends: u64 = even_start_odd_end | odd_start_even_end;
     return odd_ends;
 }
@@ -297,7 +296,7 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
 
             let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
             let v: __m256i = _mm256_add_epi32(idx_64_v, v);
-            _mm256_storeu_si256(base[l..].as_mut_ptr() as *mut __m256i, v);
+            _mm256_storeu_si256(base.as_mut_ptr().add(l) as *mut __m256i, v);
         }
         l += 8;
     }
@@ -352,6 +351,8 @@ impl<'de> Deserializer<'de> {
     #[inline(never)]
     pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
+        // 6 is a heuristic number to estimate it turns out a rate of 1/6 structural caracters lears
+        // almost never to relocations.
         let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
@@ -390,7 +391,7 @@ impl<'de> Deserializer<'de> {
               __builtin_prefetch(buf + idx + 128);
             #endif
              */
-            let input: SimdInput = fill_input(&input[idx as usize..]);
+            let input: SimdInput = fill_input(input.get_unchecked(idx as usize..));
             check_utf8(&input, &mut has_error, &mut previous);
             // detect odd sequences of backslashes
             let odd_ends: u64 =
@@ -432,7 +433,7 @@ impl<'de> Deserializer<'de> {
             let mut tmpbuf: [u8; 64] = [0x20; 64];
             tmpbuf
                 .as_mut_ptr()
-                .copy_from(input.as_ptr().offset(idx as isize), len as usize - idx);
+                .copy_from(input.as_ptr().add(idx), len as usize - idx);
             let input: SimdInput = fill_input(&tmpbuf);
 
             check_utf8(&input, &mut has_error, &mut previous);
