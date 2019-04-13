@@ -337,11 +337,13 @@ impl<'de> Deserializer<'de> {
             // This is safe since we ensure src is at least 32 wide
             unsafe { _mm256_loadu_si256(src.get_unchecked(..32).as_ptr() as *const __m256i) }
         } else {
-            padding
-                .get_unchecked_mut(..src.len())
-                .clone_from_slice(&src);
-            // This is safe since we ensure src is at least 32 wide
-            unsafe { _mm256_loadu_si256(padding.get_unchecked(..32).as_ptr() as *const __m256i) }
+            unsafe {
+                padding
+                    .get_unchecked_mut(..src.len())
+                    .clone_from_slice(&src);
+                // This is safe since we ensure src is at least 32 wide
+                _mm256_loadu_si256(padding.get_unchecked(..32).as_ptr() as *const __m256i)
+            }
         };
         let bs_bits: u32 = unsafe {
             static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
@@ -401,7 +403,7 @@ impl<'de> Deserializer<'de> {
                 )
             }
         };
-        let mut src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
+        let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
         let mut src_i: usize = 0;
 
         loop {
@@ -409,9 +411,13 @@ impl<'de> Deserializer<'de> {
                 // This is safe since we ensure src is at least 32 wide
                 unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) }
             } else {
-                padding[..src.len() - src_i].clone_from_slice(src.get_unchecked(src_i..));
-                // This is safe since we ensure src is at least 32 wide
-                unsafe { _mm256_loadu_si256(padding.as_ptr() as *const __m256i) }
+                unsafe {
+                    padding
+                        .get_unchecked_mut(..src.len() - src_i)
+                        .clone_from_slice(src.get_unchecked(src_i..));
+                    // This is safe since we ensure src is at least 32 wide
+                    _mm256_loadu_si256(padding.as_ptr() as *const __m256i)
+                }
             };
 
             unsafe { _mm256_storeu_si256(dst.as_mut_ptr() as *mut __m256i, v) };
@@ -471,7 +477,8 @@ impl<'de> Deserializer<'de> {
                     //read += bs_dist as usize;
                     dst = &mut dst[bs_dist as usize..];
                     written += bs_dist as usize;
-                    let (o, s) = handle_unicode_codepoint(src.get_unchecked_mut(src_i..), dst);
+                    let (o, s) =
+                        handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, dst);
                     if o == 0 {
                         return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
                     };
