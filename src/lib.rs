@@ -468,10 +468,10 @@ impl<'de> Deserializer<'de> {
                     // within the unicode codepoint handling code.
                     src_i += bs_dist as usize;
                     dst_i += bs_dist as usize;
-                    let (o, s) = handle_unicode_codepoint(
-                        unsafe { src.get_unchecked(src_i..) },
-                        &mut dst[dst_i..],
-                    );
+                    let (o, s) =
+                        handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, unsafe {
+                            dst.get_unchecked_mut(dst_i..)
+                        });
                     if o == 0 {
                         return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
                     };
@@ -483,11 +483,14 @@ impl<'de> Deserializer<'de> {
                     // write bs_dist+1 characters to output
                     // note this may reach beyond the part of the buffer we've actually
                     // seen. I think this is ok
-                    let escape_result: u8 = ESCAPE_MAP[escape_char as usize];
+                    let escape_result: u8 =
+                        unsafe { *ESCAPE_MAP.get_unchecked(escape_char as usize) };
                     if escape_result == 0 {
                         return Err(self.error(ErrorType::InvalidEscape));
                     }
-                    dst[dst_i + bs_dist as usize] = escape_result;
+                    unsafe {
+                        *dst.get_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
+                    }
                     src_i += bs_dist as usize + 2;
                     dst_i += bs_dist as usize + 1;
                 }
