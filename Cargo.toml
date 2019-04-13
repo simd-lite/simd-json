@@ -14,12 +14,14 @@ page_size = "0.4"
 # Thisn should be  a dev dependecy but we can't make it optional then
 simdjson-rust = { git = "https://github.com/SunDoge/simdjson-rust", optional = true }
 jemallocator = { version = "*", optional = true }
+perfcnt = { version = "*", optional = true }
 
 [dev-dependencies]
 proptest = "0.9.2"
 serde_derive = "*"
 serde_bytes = "*"
 criterion = "0.2"
+#criterion = { path = "../criterion.rs" }
 core_affinity = "*"
 
 
@@ -33,3 +35,8 @@ default = ["swar-number-parsing"]
 swar-number-parsing = []
 no-inline = []
 bench-serde = []
+perf = ["perfcnt"]
+
+
+[[example]]
+name = "perf"
