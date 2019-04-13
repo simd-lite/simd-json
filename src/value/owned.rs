@@ -184,8 +184,11 @@ impl Default for Value {
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn to_value_owned_root(&mut self) -> Result<Value> {
-        if self.idx + 1 > self.structural_indexes.len() {
-            return Err(self.error(ErrorType::UnexpectedEnd));
+        #[cfg(feature = "paranoid")]
+        {
+            if self.idx + 1 > self.structural_indexes.len() {
+                return Err(self.error(ErrorType::UnexpectedEnd));
+            }
         }
         match self.next_() {
             b'"' => {
@@ -212,8 +215,11 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn to_value_owned(&mut self) -> Result<Value> {
-        if self.idx + 1 > self.structural_indexes.len() {
-            return Err(self.error(ErrorType::UnexpectedEnd));
+        #[cfg(feature = "paranoid")]
+        {
+            if self.idx + 1 > self.structural_indexes.len() {
+                return Err(self.error(ErrorType::UnexpectedEnd));
+            }
         }
         match self.next_() {
             b'"' => {
@@ -242,7 +248,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_array_owned_(&mut self) -> Result<Vec<Value>> {
         // We short cut for empty arrays
-        if stry!(self.peek()) == b']' {
+        if self.peek_() == b']' {
             self.skip();
             return Ok(Vec::new());
         }
@@ -256,7 +262,7 @@ impl<'de> Deserializer<'de> {
         loop {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
-            match stry!(self.peek()) {
+            match self.peek_() {
                 b']' => {
                     self.skip();
                     break;
@@ -274,7 +280,7 @@ impl<'de> Deserializer<'de> {
     fn parse_map_owned_(&mut self) -> Result<Map> {
         // We short cut for empty arrays
 
-        if stry!(self.peek()) == b'}' {
+        if self.peek_() == b'}' {
             self.skip();
             return Ok(Map::new());
         }
@@ -298,7 +304,7 @@ impl<'de> Deserializer<'de> {
         loop {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
-            match stry!(self.peek()) {
+            match self.peek_() {
                 b'}' => break,
                 b',' => self.skip(),
                 _c => return Err(self.error(ErrorType::ExpectedArrayComma)),

@@ -184,8 +184,11 @@ impl<'a> Default for Value<'a> {
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn to_value_borrowed_root(&mut self) -> Result<Value<'de>> {
-        if self.idx + 1 > self.structural_indexes.len() {
-            return Err(self.error(ErrorType::UnexpectedEnd));
+        #[cfg(feature = "paranoid")]
+        {
+            if self.idx + 1 > self.structural_indexes.len() {
+                return Err(self.error(ErrorType::UnexpectedEnd));
+            }
         }
         match self.next_() {
             b'"' => {
@@ -196,14 +199,14 @@ impl<'de> Deserializer<'de> {
                 }
                 self.parse_str_().map(Value::from)
             }
+            b'-' => self.parse_number(true).map(Value::from),
+            b'0'...b'9' => self.parse_number(false).map(Value::from),
             b'n' => {
                 stry!(self.parse_null());
                 Ok(Value::Null)
             }
             b't' => self.parse_true().map(Value::Bool),
             b'f' => self.parse_false().map(Value::Bool),
-            b'-' => self.parse_number(true).map(Value::from),
-            b'0'...b'9' => self.parse_number(false).map(Value::from),
             b'[' => self.parse_array_borrowed_().map(Value::Array),
             b'{' => self.parse_map_borrowed_().map(Value::Object),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
@@ -212,8 +215,11 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn to_value_borrowed(&mut self) -> Result<Value<'de>> {
-        if self.idx + 1 > self.structural_indexes.len() {
-            return Err(self.error(ErrorType::UnexpectedEnd));
+        #[cfg(feature = "paranoid")]
+        {
+            if self.idx + 1 > self.structural_indexes.len() {
+                return Err(self.error(ErrorType::UnexpectedEnd));
+            }
         }
         match self.next_() {
             b'"' => {
@@ -225,14 +231,14 @@ impl<'de> Deserializer<'de> {
                 }
                 self.parse_str_().map(Value::from)
             }
+            b'-' => self.parse_number_(true).map(Value::from),
+            b'0'...b'9' => self.parse_number_(false).map(Value::from),
             b'n' => {
                 stry!(self.parse_null_());
                 Ok(Value::Null)
             }
             b't' => self.parse_true_().map(Value::Bool),
             b'f' => self.parse_false_().map(Value::Bool),
-            b'-' => self.parse_number_(true).map(Value::from),
-            b'0'...b'9' => self.parse_number_(false).map(Value::from),
             b'[' => self.parse_array_borrowed_().map(Value::Array),
             b'{' => self.parse_map_borrowed_().map(Value::Object),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
@@ -242,7 +248,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_array_borrowed_(&mut self) -> Result<Vec<Value<'de>>> {
         // We short cut for empty arrays
-        if stry!(self.peek()) == b']' {
+        if self.peek_() == b']' {
             self.skip();
             return Ok(Vec::new());
         }
@@ -256,7 +262,7 @@ impl<'de> Deserializer<'de> {
         loop {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
-            match stry!(self.peek()) {
+            match self.peek_() {
                 b']' => {
                     self.skip();
                     break;
@@ -274,7 +280,7 @@ impl<'de> Deserializer<'de> {
     fn parse_map_borrowed_(&mut self) -> Result<Map<'de>> {
         // We short cut for empty arrays
 
-        if stry!(self.peek()) == b'}' {
+        if self.peek_() == b'}' {
             self.skip();
             return Ok(Map::new());
         }
@@ -298,7 +304,7 @@ impl<'de> Deserializer<'de> {
         loop {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
-            match stry!(self.peek()) {
+            match self.peek_() {
                 b'}' => break,
                 b',' => self.skip(),
                 _c => return Err(self.error(ErrorType::ExpectedArrayComma)),

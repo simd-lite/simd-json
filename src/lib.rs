@@ -202,8 +202,8 @@ impl<'de> Deserializer<'de> {
             counts.set_len(structural_indexes.len());
         };
         let mut depth = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-        let mut arrays = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-        let mut maps = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+                                                                          //let mut arrays = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+                                                                          //let mut maps = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
         let mut last_start = 1;
         let mut cnt = 0;
         let mut str_len = 0;
@@ -225,7 +225,7 @@ impl<'de> Deserializer<'de> {
                         .ok_or_else(|| (Error::generic(ErrorType::Syntax))));
                     counts[last_start] = cnt;
                     last_start = a_last_start;
-                    arrays.push(cnt);
+                    //arrays.push(cnt);
                     cnt = a_cnt;
                 }
                 b'}' => {
@@ -237,7 +237,7 @@ impl<'de> Deserializer<'de> {
                         stry!(depth.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
                     counts[last_start] = cnt;
                     last_start = a_last_start;
-                    maps.push(cnt);
+                    //maps.push(cnt);
                     cnt = a_cnt;
                 }
                 b',' => cnt += 1,
@@ -255,6 +255,10 @@ impl<'de> Deserializer<'de> {
                 _ => (),
             }
         }
+        if !depth.is_empty() {
+            return Err(Error::generic(ErrorType::Syntax));
+        }
+
         Ok((counts, str_len as usize))
     }
 
@@ -304,6 +308,14 @@ impl<'de> Deserializer<'de> {
             unsafe { Ok(*self.input.get_unchecked(*idx as usize)) }
         } else {
             Err(self.error(ErrorType::UnexpectedEnd))
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn peek_(&self) -> u8 {
+        unsafe {
+            let iidx = *self.structural_indexes.get_unchecked(self.idx + 1) as usize;
+            *self.input.get_unchecked(iidx)
         }
     }
 
@@ -388,34 +400,19 @@ impl<'de> Deserializer<'de> {
             }
         };
         let mut src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
+        let mut src_i: usize = 0;
 
         loop {
-            #[cfg(test1)]
-            unsafe {
-                println!("=== begin loop ===");
-                dbg!(written);
-                dbg!(String::from_utf8_unchecked(self.input.to_vec()));
-                dbg!(String::from_utf8_unchecked(src.to_vec()));
-                //                dbg!(String::from_utf8_unchecked(
-                //                    &self.strings[self.sidx..written as usize].to_vec()
-                //                ));
-            }
-            let v: __m256i = if src.len() >= 32 {
+            let v: __m256i = if src.len() - src_i >= 32 {
                 // This is safe since we ensure src is at least 32 wide
-                unsafe { _mm256_loadu_si256(src[..32].as_ptr() as *const __m256i) }
+                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) }
             } else {
-                padding[..src.len()].clone_from_slice(&src);
+                padding[..src.len() - src_i].clone_from_slice(&src[src_i..]);
                 // This is safe since we ensure src is at least 32 wide
-                unsafe { _mm256_loadu_si256(padding[..32].as_ptr() as *const __m256i) }
+                unsafe { _mm256_loadu_si256(padding.as_ptr() as *const __m256i) }
             };
 
-            unsafe { _mm256_storeu_si256(dst[..32].as_mut_ptr() as *mut __m256i, v) };
-
-            #[cfg(test1)]
-            unsafe {
-                dbg!(&src);
-                dbg!(&dst);
-            }
+            unsafe { _mm256_storeu_si256(dst.as_mut_ptr() as *mut __m256i, v) };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
@@ -445,7 +442,8 @@ impl<'de> Deserializer<'de> {
 
                 unsafe {
                     if needs_relocation {
-                        self.input[self.str_offset..self.str_offset + written as usize]
+                        self.input
+                            .get_unchecked_mut(self.str_offset..self.str_offset + written as usize)
                             .clone_from_slice(&self.strings.get_unchecked(..written));
                     }
                     let v = self
@@ -462,26 +460,23 @@ impl<'de> Deserializer<'de> {
             if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
                 // find out where the backspace is
                 let bs_dist: u32 = trailingzeroes(bs_bits as u64);
-                #[cfg(test1)]
-                unsafe {
-                    dbg!(String::from_utf8_unchecked(src.to_vec()));
-                    dbg!(bs_dist);
-                }
-                let escape_char: u8 = src[bs_dist as usize + 1];
+                let escape_char: u8 = unsafe { *src.get_unchecked(src_i + bs_dist as usize + 1) };
                 // we encountered backslash first. Handle backslash
                 if escape_char == b'u' {
                     // move src/dst up to the start; they will be further adjusted
                     // within the unicode codepoint handling code.
-                    src = &src[bs_dist as usize..];
+                    src_i += bs_dist as usize;
+                    //src = &src[src_i + bs_dist as usize..];
                     //read += bs_dist as usize;
                     dst = &mut dst[bs_dist as usize..];
                     written += bs_dist as usize;
-                    let (o, s) = handle_unicode_codepoint(src, dst);
+                    let (o, s) = handle_unicode_codepoint(&src[src_i..], dst);
                     if o == 0 {
                         return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
                     };
                     // We moved o steps forword at the destiation and 6 on the source
-                    src = &src[s..];
+                    src_i += s;
+                    //src = &src[s..];
                     //read += s;
                     dst = &mut dst[o..];
                     written += o;
@@ -500,7 +495,8 @@ impl<'de> Deserializer<'de> {
                         return Err(self.error(ErrorType::InvalidEscape));
                     }
                     dst[bs_dist as usize] = escape_result;
-                    src = &src[bs_dist as usize + 2..];
+                    src_i += bs_dist as usize + 2;
+                    //src = &src[bs_dist as usize + 2..];
                     //read += bs_dist as usize + 2;
                     dst = &mut dst[bs_dist as usize + 1..];
                     written += bs_dist as usize + 1;
@@ -508,7 +504,8 @@ impl<'de> Deserializer<'de> {
             } else {
                 // they are the same. Since they can't co-occur, it means we encountered
                 // neither.
-                src = &src[32..];
+                src_i += 32;
+                //src = &src[32..];
                 //read += 32;
                 dst = &mut dst[32..];
                 written += 32;

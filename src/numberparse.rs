@@ -102,7 +102,7 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // http://0x80.pl/articles/swar-digits-validate.html
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
-    let val: u64 = unsafe { *(chars[0..8].as_ptr() as *const u64) };
+    let val: u64 = unsafe { *(chars.as_ptr() as *const u64) };
 
     //    let val: __m64 = *(chars as *const __m64);
     // a branchy method might be faster:
@@ -345,7 +345,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
         if negative {
-            buf = &buf[1..];
+            buf = unsafe { buf.get_unchecked(1..) };
             /*
             // We don't need that as the next batch checks:
             // if it's 0 (if branch)
@@ -359,7 +359,7 @@ impl<'de> Deserializer<'de> {
         //let startdigits: *const u8 = p;
         let mut digitcount = 0;
         let mut i: i64;
-        if buf[0] == b'0' {
+        if unsafe { *buf.get_unchecked(0) } == b'0' {
             // 0 cannot be followed by an integer
             digitcount += 1;
             if is_not_structural_or_whitespace_or_exponent_or_decimal(unsafe {
@@ -369,11 +369,11 @@ impl<'de> Deserializer<'de> {
             }
             i = 0;
         } else {
-            if !is_integer(buf[0]) {
+            if !is_integer(unsafe { *buf.get_unchecked(0) }) {
                 // must start with an integer
                 return Err(self.error(ErrorType::InvalidNumber));
             }
-            let mut digit: u8 = buf[0] - b'0';
+            let mut digit: u8 = unsafe { buf.get_unchecked(0) } - b'0';
             i = digit as i64;
             digitcount += 1;
             // the is_made_of_eight_digits_fast routine is unlikely to help here because
