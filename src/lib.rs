@@ -375,12 +375,6 @@ impl<'de> Deserializer<'de> {
         let idx = self.iidx + 1;
         let mut padding = [0u8; 32];
         //let mut read: usize = 0;
-        let mut written: usize = 0;
-        #[cfg(test1)]
-        {
-            dbg!(idx);
-            dbg!(end);
-        }
 
         let needs_relocation = idx - self.str_offset <= 32;
         // we include the terminal '"' so we know where to end
@@ -392,7 +386,7 @@ impl<'de> Deserializer<'de> {
         // back tot he input.
         // We can't always do that as if we're less then 32 characters
         // behind we'll overwrite important parts of the input.
-        let mut dst: &mut [u8] = if needs_relocation {
+        let dst: &mut [u8] = if needs_relocation {
             &mut self.strings
         } else {
             let ptr = self.input.as_mut_ptr();
@@ -405,6 +399,7 @@ impl<'de> Deserializer<'de> {
         };
         let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
         let mut src_i: usize = 0;
+        let mut dst_i: usize = 0;
 
         loop {
             let v: __m256i = if src.len() - src_i >= 32 {
@@ -420,7 +415,7 @@ impl<'de> Deserializer<'de> {
                 }
             };
 
-            unsafe { _mm256_storeu_si256(dst.as_mut_ptr() as *mut __m256i, v) };
+            unsafe { _mm256_storeu_si256(dst.as_mut_ptr().add(dst_i) as *mut __m256i, v) };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
@@ -444,21 +439,19 @@ impl<'de> Deserializer<'de> {
                 ////////////////////////
 
                 // we advance the point, accounting for the fact that we have a NULl termination
-                //pj.current_string_buf_loc = dst + quote_dist + 1;
 
-                written += quote_dist as usize;
-
+                dst_i += quote_dist as usize;
                 unsafe {
                     if needs_relocation {
                         self.input
-                            .get_unchecked_mut(self.str_offset..self.str_offset + written as usize)
-                            .clone_from_slice(&self.strings.get_unchecked(..written));
+                            .get_unchecked_mut(self.str_offset..self.str_offset + dst_i as usize)
+                            .clone_from_slice(&self.strings.get_unchecked(..dst_i));
                     }
                     let v = self
                         .input
-                        .get_unchecked(self.str_offset..self.str_offset + written as usize)
+                        .get_unchecked(self.str_offset..self.str_offset + dst_i as usize)
                         as *const [u8] as *const str;
-                    self.str_offset += written as usize;
+                    self.str_offset += dst_i as usize;
                     return Ok(&*v);
                 }
 
@@ -474,19 +467,17 @@ impl<'de> Deserializer<'de> {
                     // move src/dst up to the start; they will be further adjusted
                     // within the unicode codepoint handling code.
                     src_i += bs_dist as usize;
-                    //read += bs_dist as usize;
-                    dst = &mut dst[bs_dist as usize..];
-                    written += bs_dist as usize;
-                    let (o, s) =
-                        handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, dst);
+                    dst_i += bs_dist as usize;
+                    let (o, s) = handle_unicode_codepoint(
+                        unsafe { src.get_unchecked(src_i..) },
+                        &mut dst[dst_i..],
+                    );
                     if o == 0 {
                         return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
                     };
                     // We moved o steps forword at the destiation and 6 on the source
                     src_i += s;
-                    //read += s;
-                    dst = &mut dst[o..];
-                    written += o;
+                    dst_i += o;
                 } else {
                     // simple 1:1 conversion. Will eat bs_dist+2 characters in input and
                     // write bs_dist+1 characters to output
@@ -494,26 +485,17 @@ impl<'de> Deserializer<'de> {
                     // seen. I think this is ok
                     let escape_result: u8 = ESCAPE_MAP[escape_char as usize];
                     if escape_result == 0 {
-                        /*
-                        #ifdef JSON_TEST_STRINGS // for unit testing
-                        foundBadString(buf + offset);
-                        #endif // JSON_TEST_STRINGS
-                        */
                         return Err(self.error(ErrorType::InvalidEscape));
                     }
-                    dst[bs_dist as usize] = escape_result;
+                    dst[dst_i + bs_dist as usize] = escape_result;
                     src_i += bs_dist as usize + 2;
-                    //read += bs_dist as usize + 2;
-                    dst = &mut dst[bs_dist as usize + 1..];
-                    written += bs_dist as usize + 1;
+                    dst_i += bs_dist as usize + 1;
                 }
             } else {
                 // they are the same. Since they can't co-occur, it means we encountered
                 // neither.
                 src_i += 32;
-                //read += 32;
-                dst = &mut dst[32..];
-                written += 32;
+                dst_i += 32;
             }
         }
     }
