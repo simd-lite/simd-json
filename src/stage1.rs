@@ -53,10 +53,10 @@ unsafe fn check_utf8(
 /// a straightforward comparison of a mask against input. 5 uops; would be
 /// cheaper in AVX512.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-fn cmp_mask_against_input(input: &SimdInput, mask: __m256i) -> u64 {
+fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
     unsafe {
+        let mask: __m256i = _mm256_set1_epi8(m as i8);
         let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.lo, mask);
-        // TODO: c++ uses static cast, here what are the implications?
         let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
         let cmp_res_1: __m256i = _mm256_cmpeq_epi8(input.hi, mask);
         let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
@@ -91,7 +91,7 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
     const EVEN_BITS: u64 = 0x5555555555555555;
     const ODD_BITS: u64 = !EVEN_BITS;
 
-    let bs_bits: u64 = cmp_mask_against_input(&input, unsafe { _mm256_set1_epi8(b'\\' as i8) });
+    let bs_bits: u64 = cmp_mask_against_input(&input, b'\\');
     let start_edges: u64 = bs_bits & !(bs_bits << 1);
     // flip lowest if we have an odd-length run at the end of the prior
     // iteration
@@ -119,14 +119,13 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
 }
 
 // return both the quote mask (which is a half-open mask that covers the first
-// quote
-// in an unescaped quote pair and everything in the quote pair) and the quote
-// bits, which are the simple
-// unescaped quoted bits. We also update the prev_iter_inside_quote value to
-// tell the next iteration
+// quote in an unescaped quote pair and everything in the quote pair) and the
+// quote bits, which are the simple unescaped quoted bits.
+//
+// We also update the prev_iter_inside_quote value to tell the next iteration
 // whether we finished the final iteration inside a quote pair; if so, this
-// inverts our behavior of
-// whether we're inside quotes for the next iteration.
+// inverts our behavior of whether we're inside quotes for the next iteration.
+//
 // Note that we don't do any error checking to see if we have backslash
 // sequences outside quotes; these
 // backslash sequences (of any length) will be detected elsewhere.
@@ -138,12 +137,12 @@ unsafe fn find_quote_mask_and_bits(
     quote_bits: &mut u64,
     error_mask: &mut u64,
 ) -> u64 {
-    *quote_bits = cmp_mask_against_input(&input, _mm256_set1_epi8(b'"' as i8));
+    *quote_bits = cmp_mask_against_input(&input, b'"');
     *quote_bits = *quote_bits & !odd_ends;
     // remove from the valid quoted region the unescapted characters.
     #[allow(overflowing_literals)]
     let mut quote_mask: u64 = _mm_cvtsi128_si64(_mm_clmulepi64_si128(
-        _mm_set_epi64x(0, *quote_bits as i64),
+        _mm_set_epi64x(0, static_cast_i64!(*quote_bits)),
         _mm_set1_epi8(0xFF),
         0,
     )) as u64;
@@ -348,7 +347,7 @@ fn finalize_structurals(
 /*never_inline*/
 //#[inline(never)]
 impl<'de> Deserializer<'de> {
-    #[inline(never)]
+    //#[inline(never)]
     pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
         // 6 is a heuristic number to estimate it turns out a rate of 1/6 structural caracters lears
@@ -366,12 +365,13 @@ impl<'de> Deserializer<'de> {
         // either 0 or 1, but a 64-bit value
         let mut prev_iter_ends_odd_backslash: u64 = 0;
         // does the previous iteration end inside a double-quote pair?
-        let mut prev_iter_inside_quote: u64 = 0; // either all zeros or all ones
-                                                 // does the previous iteration end on something that is a predecessor of a
-                                                 // pseudo-structural character - i.e. whitespace or a structural character
-                                                 // effectively the very first char is considered to follow "whitespace" for
-                                                 // the
-                                                 // purposes of pseudo-structural character detection so we initialize to 1
+        let mut prev_iter_inside_quote: u64 = 0;
+        // either all zeros or all ones
+        // does the previous iteration end on something that is a predecessor of a
+        // pseudo-structural character - i.e. whitespace or a structural character
+        // effectively the very first char is considered to follow "whitespace" for
+        // the
+        // purposes of pseudo-structural character detection so we initialize to 1
         let mut prev_iter_ends_pseudo_pred: u64 = 1;
 
         // structurals are persistent state across loop as we flatten them on the
@@ -470,6 +470,10 @@ impl<'de> Deserializer<'de> {
             );
             idx += 64;
         }
+        // This test isn't in upstream, for some reason the error mask is et for then.
+        if prev_iter_inside_quote != 0 {
+            return Err(ErrorType::Syntax);
+        }
         // finally, flatten out the remaining structurals from the last iteration
         flatten_bits(&mut structural_indexes, idx as u32, structurals);
 
@@ -478,14 +482,15 @@ impl<'de> Deserializer<'de> {
         if structural_indexes.len() == 1 {
             return Err(ErrorType::EOF);
         }
+
         if structural_indexes.last() > Some(&(len as u32)) {
             return Err(ErrorType::InternalError);
         }
 
-        // make it safe to dereference one beyond this array
         if error_mask != 0 {
             return Err(ErrorType::Syntax);
         }
+
         if _mm256_testz_si256(has_error, has_error) != 0 {
             Ok(structural_indexes)
         } else {

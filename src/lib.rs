@@ -1403,7 +1403,7 @@ mod tests {
             .. ProptestConfig::default()
         })]
 
-        //#[test]
+        #[test]
         fn prop_json(d in arb_json()) {
             if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
                 let mut d1 = d.clone();
@@ -1434,7 +1434,7 @@ mod tests {
             fork: true,
             .. ProptestConfig::default()
         })]
-        //#[test]
+        #[test]
         fn prop_junk(d in arb_junk()) {
             let mut d1 = d.clone();
             let mut d2 = d.clone();
@@ -1455,7 +1455,7 @@ mod tests {
             .. ProptestConfig::default()
         })]
 
-        //#[test]
+        #[test]
         fn prop_string(d in "\\PC*") {
             let mut d1 = d.clone();
             let mut d1 = unsafe{ d1.as_bytes_mut()};
