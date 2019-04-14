@@ -1,4 +1,4 @@
-use super::{Map, Value};
+use crate::value::borrowed::{Map, Value};
 use crate::Error;
 use serde_ext::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor,

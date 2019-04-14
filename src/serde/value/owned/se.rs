@@ -1,5 +1,5 @@
-use super::serde::to_value;
-use super::{Map, Value};
+use super::to_value;
+use crate::value::owned::{Map, Value};
 use crate::{stry, Error, ErrorType, Result};
 use serde::ser::{self, Serialize};
 use serde_ext::ser::{SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait};

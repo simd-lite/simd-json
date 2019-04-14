@@ -1,4 +1,4 @@
-use super::Value;
+use crate::value::borrowed::Value;
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
 };

@@ -1,8 +1,5 @@
 mod cmp;
-mod de;
 mod from;
-mod se;
-pub mod serde;
 
 use crate::halfbrown::HashMap;
 use crate::{stry, unlikely, Deserializer, ErrorType, Result};

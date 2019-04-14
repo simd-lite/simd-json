@@ -1,5 +1,5 @@
 mod se {
-    use super::super::HashMap;
+    use crate::halfbrown::HashMap;
     use core::hash::Hash;
     use serde::ser::{Serialize, SerializeMap, Serializer};
 
@@ -22,7 +22,7 @@ mod se {
 }
 
 mod de {
-    use super::super::HashMap;
+    use crate::halfbrown::HashMap;
     use core::hash::Hash;
     use core::marker::PhantomData;
     use serde::de::{Deserialize, Deserializer, MapAccess, Visitor};

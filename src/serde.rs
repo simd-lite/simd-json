@@ -1,11 +1,11 @@
 mod de;
-use crate::value::*;
+mod halfbrown;
+mod value;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use serde::Deserialize;
 use std::fmt;
 
-pub use borrowed::to_value as to_borrowed_value;
-pub use owned::to_value as to_owned_value;
+pub use value::*;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
