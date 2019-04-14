@@ -50,9 +50,10 @@ jobs:
       - run:
           name: Install nightly
           command: rustup install nightly
-      - run:
-          name: Run cycle benchmarks
-          command: sudo make perf
+      # Disabled for now since clircleci isn't reliable when it comes to providing machine imags able to run perf
+      # - run:
+      #    name: Run cycle benchmarks
+      #     command: make perf
 
 workflows:
   version: 2
