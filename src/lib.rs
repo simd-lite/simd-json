@@ -154,11 +154,8 @@ impl<'de> Deserializer<'de> {
 
         let buf_start: usize = input.as_ptr() as *const () as usize;
 
-        dbg!(buf_start);
-        dbg!(*PAGE_SIZE);
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
             if (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING {
-                println!("we got to relocate");
                 let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
                 unsafe { data.set_len(len + 1) };
                 data.as_mut_slice()[0..len].clone_from_slice(input);
@@ -166,7 +163,6 @@ impl<'de> Deserializer<'de> {
                 unsafe { data.set_len(len) };
                 unsafe { Deserializer::find_structural_bits(&data) }
             } else {
-                println!("we didn't have to relocate");
                 unsafe { Deserializer::find_structural_bits(input) }
             };
         let structural_indexes = match s1_result {
@@ -400,10 +396,7 @@ impl<'de> Deserializer<'de> {
         let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
         let mut src_i: usize = 0;
         let mut dst_i: usize = 0;
-        dbg!(&self.structural_indexes);
         loop {
-            dbg!(src_i);
-            dbg!(src.len());
             let v: __m256i = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 32 wide
                 unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) }
