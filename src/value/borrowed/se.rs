@@ -1,7 +1,8 @@
-use super::{MaybeBorrowedString, Value};
+use super::Value;
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
 };
+use std::borrow::Cow;
 
 impl<'a> Serialize for Value<'a> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -13,8 +14,8 @@ impl<'a> Serialize for Value<'a> {
             Value::Null => serializer.serialize_unit(),
             Value::F64(f) => serializer.serialize_f64(*f),
             Value::I64(i) => serializer.serialize_i64(*i),
-            Value::String(MaybeBorrowedString::B(s)) => serializer.serialize_str(s),
-            Value::String(MaybeBorrowedString::O(s)) => serializer.serialize_str(&s),
+            Value::String(Cow::Borrowed(s)) => serializer.serialize_str(s),
+            Value::String(Cow::Owned(s)) => serializer.serialize_str(&s),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
                 for e in v {

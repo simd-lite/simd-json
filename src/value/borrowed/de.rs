@@ -1,9 +1,10 @@
-use super::{Map, MaybeBorrowedString, Value};
+use super::{Map, Value};
 use crate::Error;
 use serde_ext::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor,
 };
 use serde_ext::forward_to_deserialize_any;
+use std::borrow::Cow;
 use std::fmt;
 
 impl<'de> de::Deserializer<'de> for Value<'de> {
@@ -22,8 +23,8 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
             Value::I64(n) => visitor.visit_i64(n),
             Value::F64(n) => visitor.visit_f64(n),
             Value::String(s) => match s {
-                MaybeBorrowedString::B(s) => visitor.visit_borrowed_str(s),
-                MaybeBorrowedString::O(s) => visitor.visit_string(s),
+                Cow::Borrowed(s) => visitor.visit_borrowed_str(s),
+                Cow::Owned(s) => visitor.visit_string(s),
             },
             Value::Array(a) => visitor.visit_seq(Array(a.iter())),
             Value::Object(o) => visitor.visit_map(Object {
@@ -59,7 +60,7 @@ impl<'de, 'a> SeqAccess<'de> for Array<'a, 'de> {
     }
 }
 struct Object<'de, 'a: 'de> {
-    i: crate::halfbrown::Iter<'de, MaybeBorrowedString<'a>, Value<'a>>,
+    i: crate::halfbrown::Iter<'de, Cow<'a, str>, Value<'a>>,
     v: &'de Value<'a>,
 }
 
@@ -253,7 +254,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::String(MaybeBorrowedString::O(value.to_owned())))
+        Ok(Value::String(value.to_owned().into()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -261,7 +262,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::String(MaybeBorrowedString::O(value)))
+        Ok(Value::String(value.into()))
     }
 
     /****************** byte stuff ******************/
@@ -321,47 +322,5 @@ impl<'de> Visitor<'de> for ValueVisitor {
             v.push(e);
         }
         Ok(Value::Array(v))
-    }
-}
-
-impl<'de> Deserialize<'de> for MaybeBorrowedString<'de> {
-    fn deserialize<D>(deserializer: D) -> Result<MaybeBorrowedString<'de>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_any(MaybeBorrowedStringVisitor)
-    }
-}
-
-struct MaybeBorrowedStringVisitor;
-
-impl<'de> Visitor<'de> for MaybeBorrowedStringVisitor {
-    type Value = MaybeBorrowedString<'de>;
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a String value")
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(value.into())
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(value.to_owned().into())
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(value.into())
     }
 }

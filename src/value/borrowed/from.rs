@@ -1,20 +1,6 @@
-use super::{MaybeBorrowedString, Value};
+use super::Value;
 use crate::numberparse::Number;
 use crate::OwnedValue;
-
-impl<'a> From<&'a str> for MaybeBorrowedString<'a> {
-    #[inline]
-    fn from(v: &'a str) -> Self {
-        MaybeBorrowedString::B(v)
-    }
-}
-
-impl<'a> From<String> for MaybeBorrowedString<'a> {
-    #[inline]
-    fn from(v: String) -> Self {
-        MaybeBorrowedString::O(v)
-    }
-}
 
 impl<'a> From<Number> for Value<'a> {
     #[inline]
@@ -48,21 +34,14 @@ impl<'a> From<OwnedValue> for Value<'a> {
 impl<'a> From<&'a str> for Value<'a> {
     #[inline]
     fn from(s: &'a str) -> Self {
-        Value::String(MaybeBorrowedString::B(s))
+        Value::String(s.into())
     }
 }
 
 impl<'a> From<String> for Value<'a> {
     #[inline]
     fn from(s: String) -> Self {
-        Value::String(MaybeBorrowedString::O(s))
-    }
-}
-
-impl<'a> From<MaybeBorrowedString<'a>> for Value<'a> {
-    #[inline]
-    fn from(s: MaybeBorrowedString<'a>) -> Self {
-        Value::String(s)
+        Value::String(s.into())
     }
 }
 
