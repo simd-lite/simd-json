@@ -150,28 +150,26 @@ impl<'de> Deserializer<'de> {
         // 6 is a heuristic that seems to work well for the benchmark
         // data and limit re-allocation frequency.
 
-        /*
         let len = input.len();
-        let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
-        unsafe { data.set_len(len + 1) };
-        data.as_mut_slice()[0..len].clone_from_slice(input);
-        data[len] = 0;
-        unsafe { data.set_len(len) };
 
         let buf_start: usize = input.as_ptr() as *const () as usize;
-        let data = if (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING {
-            println!("we got to relocate");
-            unsafe { v.set_len(len + SIMDJSON_PADDING) };
-            //let buf: &mut [u8] = v.as_mut_slice();
-        } else {
-            unsafe {
-                let v = Vec::from_raw_parts(input.as_mut_ptr(), input.len(), input.len());
-                mem::forget(&v);
-                v
-            }
-        };
-         */
-        let structural_indexes = match unsafe { Deserializer::find_structural_bits(input) } {
+
+        dbg!(buf_start);
+        dbg!(*PAGE_SIZE);
+        let s1_result: std::result::Result<Vec<u32>, ErrorType> =
+            if (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING {
+                println!("we got to relocate");
+                let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
+                unsafe { data.set_len(len + 1) };
+                data.as_mut_slice()[0..len].clone_from_slice(input);
+                data[len] = 0;
+                unsafe { data.set_len(len) };
+                unsafe { Deserializer::find_structural_bits(&data) }
+            } else {
+                println!("we didn't have to relocate");
+                unsafe { Deserializer::find_structural_bits(input) }
+            };
+        let structural_indexes = match s1_result {
             Ok(i) => i,
             Err(t) => {
                 return Err(Error::generic(t));
@@ -402,9 +400,11 @@ impl<'de> Deserializer<'de> {
         let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
         let mut src_i: usize = 0;
         let mut dst_i: usize = 0;
-
+        dbg!(&self.structural_indexes);
         loop {
-            let v: __m256i = if src.len() - src_i >= 32 {
+            dbg!(src_i);
+            dbg!(src.len());
+            let v: __m256i = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 32 wide
                 unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) }
             } else {
@@ -823,6 +823,45 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(to_value(&mut d1), Ok(Value::from("snot")));
         assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn lonely_quote() {
+        let mut d = String::from(r#"""#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
+        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
+        assert!(v_simd);
+        assert!(v_serde);
+    }
+
+    #[test]
+    fn lonely_quote1() {
+        let mut d = String::from(r#"["]"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
+        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
+        assert!(v_simd);
+        assert!(v_serde);
+    }
+    #[test]
+    fn lonely_quote2() {
+        let mut d = String::from(r#"[1, "]"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
+        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
+        assert!(v_simd);
+        assert!(v_serde);
+    }
+
+    #[test]
+    fn lonely_quote3() {
+        let mut d = String::from(r#"{": 1}"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
+        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
+        assert!(v_simd);
+        assert!(v_serde);
     }
 
     #[test]
@@ -1364,8 +1403,8 @@ mod tests {
             .. ProptestConfig::default()
         })]
 
-        #[test]
-        fn json_test(d in arb_json()) {
+        //#[test]
+        fn prop_json(d in arb_json()) {
             if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
                 let mut d1 = d.clone();
                 let d1 = unsafe{ d1.as_bytes_mut()};
@@ -1395,14 +1434,35 @@ mod tests {
             fork: true,
             .. ProptestConfig::default()
         })]
-        #[test]
-        fn junk(d in arb_junk()) {
+        //#[test]
+        fn prop_junk(d in arb_junk()) {
             let mut d1 = d.clone();
-            //let d1 = unsafe{ d1.as_bytes_mut()};
             let mut d2 = d.clone();
-            //let d2 = unsafe{ d2.as_bytes_mut()};
             let mut d3 = d.clone();
-            //let d3 = unsafe{ d3.as_bytes_mut()};
+
+            let _ = from_slice::<serde_json::Value>(&mut d1);
+            let _ = to_borrowed_value(&mut d2);
+            let _ = to_owned_value(&mut d3);
+
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            // Setting both fork and timeout is redundant since timeout implies
+            // fork, but both are shown for clarity.
+            fork: true,
+            .. ProptestConfig::default()
+        })]
+
+        //#[test]
+        fn prop_string(d in "\\PC*") {
+            let mut d1 = d.clone();
+            let mut d1 = unsafe{ d1.as_bytes_mut()};
+            let mut d2 = d.clone();
+            let mut d2 = unsafe{ d2.as_bytes_mut()};
+            let mut d3 = d.clone();
+            let mut d3 = unsafe{ d3.as_bytes_mut()};
             let _ = from_slice::<serde_json::Value>(&mut d1);
             let _ = to_borrowed_value(&mut d2);
             let _ = to_owned_value(&mut d3);

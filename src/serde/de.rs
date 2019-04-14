@@ -30,11 +30,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 Number::I64(n) => visitor.visit_i64(n),
             },
             b'"' => {
-                if let Some(next) = self.structural_indexes.get(self.idx + 1) {
-                    if *next as usize - self.iidx < 32 {
-                        return visitor.visit_borrowed_str(stry!(self.parse_short_str_()));
-                    }
-                }
+                // We don't do the short string optimisation as serde requires
+                // additional checks
                 visitor.visit_borrowed_str(stry!(self.parse_str_()))
             }
 
