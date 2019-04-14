@@ -52,7 +52,7 @@ jobs:
           command: rustup install nightly
       - run:
           name: Run cycle benchmarks
-          command: make perf
+          command: sudo make perf
 
 workflows:
   version: 2
