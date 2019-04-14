@@ -31,7 +31,7 @@ fn bench(name: &str) {
     let mut cycles_avg: u64 = 0;
     let mut cycles_top: u64 = 0;
     let mut instructions_avg: u64 = 0;
-    let mut instructions_top: u64 = 0;
+    //let mut instructions_top: u64 = 0;
     let mut cache_misses_avg: u64 = 0;
     let mut cache_references_avg: u64 = 0;
     let mut branch_instructions_avg: u64 = 0;
