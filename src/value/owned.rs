@@ -1,17 +1,15 @@
 mod cmp;
 mod de;
 mod from;
-mod mbs;
 mod se;
 pub mod serde;
 
 use crate::halfbrown::HashMap;
 use crate::{stry, unlikely, Deserializer, ErrorType, Result};
-pub use mbs::*;
 use std::fmt;
 use std::ops::Index;
 
-pub type Map = HashMap<MaybeBorrowedString, Value>;
+pub type Map = HashMap<String, Value>;
 
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
@@ -24,7 +22,7 @@ pub enum Value {
     Bool(bool),
     I64(i64),
     F64(f64),
-    String(MaybeBorrowedString),
+    String(String),
     Array(Vec<Value>),
     Object(Map),
 }

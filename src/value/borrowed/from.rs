@@ -65,11 +65,6 @@ impl<'a> From<MaybeBorrowedString<'a>> for Value<'a> {
         Value::String(s)
     }
 }
-impl<'a> From<crate::value::owned::MaybeBorrowedString> for MaybeBorrowedString<'a> {
-    fn from(s: crate::value::owned::MaybeBorrowedString) -> Self {
-        MaybeBorrowedString::O(s.to_string())
-    }
-}
 
 /********* atoms **********/
 impl<'a> From<bool> for Value<'a> {

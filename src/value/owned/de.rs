@@ -1,4 +1,4 @@
-use super::{Map, MaybeBorrowedString, Value};
+use super::{Map, Value};
 use crate::{stry, Error};
 use serde::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Unexpected, Visitor,
@@ -23,7 +23,7 @@ impl<'de> de::Deserializer<'de> for Value {
             Value::Bool(b) => visitor.visit_bool(b),
             Value::I64(n) => visitor.visit_i64(n),
             Value::F64(n) => visitor.visit_f64(n),
-            Value::String(MaybeBorrowedString::O(s)) => visitor.visit_string(s),
+            Value::String(s) => visitor.visit_string(s),
             Value::Array(a) => visit_array(a, visitor),
             Value::Object(o) => visit_object(o, visitor),
         }
@@ -546,7 +546,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::String(MaybeBorrowedString::O(value.to_owned())))
+        Ok(Value::String(value.to_owned()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -554,7 +554,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::String(MaybeBorrowedString::O(value)))
+        Ok(Value::String(value))
     }
 
     /****************** byte stuff ******************/
@@ -614,47 +614,5 @@ impl<'de> Visitor<'de> for ValueVisitor {
             v.push(e);
         }
         Ok(Value::Array(v))
-    }
-}
-
-impl<'de> Deserialize<'de> for MaybeBorrowedString {
-    fn deserialize<D>(deserializer: D) -> Result<MaybeBorrowedString, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_any(MaybeBorrowedStringVisitor)
-    }
-}
-
-struct MaybeBorrowedStringVisitor;
-
-impl<'de> Visitor<'de> for MaybeBorrowedStringVisitor {
-    type Value = MaybeBorrowedString;
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a String value")
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(value.into())
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(value.into())
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(value.into())
     }
 }

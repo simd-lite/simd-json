@@ -1,5 +1,5 @@
 use super::serde::to_value;
-use super::{Map, MaybeBorrowedString, Value};
+use super::{Map, Value};
 use crate::{stry, Error, ErrorType, Result};
 use serde::ser::{self, Serialize};
 use serde_ext::ser::{SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait};
@@ -16,7 +16,7 @@ impl Serialize for Value {
             Value::Null => serializer.serialize_unit(),
             Value::F64(f) => serializer.serialize_f64(*f),
             Value::I64(i) => serializer.serialize_i64(*i),
-            Value::String(MaybeBorrowedString::O(s)) => serializer.serialize_str(&s),
+            Value::String(s) => serializer.serialize_str(&s),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
                 for e in v {

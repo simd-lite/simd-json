@@ -1,17 +1,6 @@
-use super::{MaybeBorrowedString, Value};
+use super::Value;
 use crate::numberparse::Number;
 use crate::BorrowedValue;
-impl From<&str> for MaybeBorrowedString {
-    fn from(v: &str) -> Self {
-        MaybeBorrowedString::O(v.to_owned())
-    }
-}
-
-impl From<String> for MaybeBorrowedString {
-    fn from(v: String) -> Self {
-        MaybeBorrowedString::O(v)
-    }
-}
 
 impl From<Number> for Value {
     #[inline]
@@ -34,9 +23,11 @@ impl From<crate::BorrowedValue<'_>> for Value {
             BorrowedValue::Array(a) => {
                 Value::Array(a.into_iter().map(|v| v.into()).collect::<Vec<Value>>())
             }
-            BorrowedValue::Object(m) => {
-                Value::Object(m.into_iter().map(|(k, v)| (k.into(), v.into())).collect())
-            }
+            BorrowedValue::Object(m) => Value::Object(
+                m.into_iter()
+                    .map(|(k, v)| (k.to_string(), v.into()))
+                    .collect(),
+            ),
         }
     }
 }
@@ -45,25 +36,19 @@ impl From<crate::BorrowedValue<'_>> for Value {
 
 impl From<&str> for Value {
     fn from(s: &str) -> Self {
-        Value::String(MaybeBorrowedString::O(s.to_owned()))
+        Value::String(s.to_owned())
     }
 }
 
 impl From<String> for Value {
     fn from(s: String) -> Self {
-        Value::String(MaybeBorrowedString::O(s))
+        Value::String(s)
     }
 }
 
 impl From<&String> for Value {
     fn from(s: &String) -> Self {
-        Value::String(MaybeBorrowedString::O(s.to_owned()))
-    }
-}
-
-impl From<crate::value::borrowed::MaybeBorrowedString<'_>> for MaybeBorrowedString {
-    fn from(s: crate::value::borrowed::MaybeBorrowedString) -> Self {
-        MaybeBorrowedString::O(s.to_string())
+        Value::String(s.to_owned())
     }
 }
 
