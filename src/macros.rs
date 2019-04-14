@@ -24,7 +24,7 @@
 /// map with non-string keys, the `json!` macro will panic.
 ///
 /// ```edition2018
-/// # use serde_json::json;
+/// # use simdjson::json;
 /// #
 /// let code = 200;
 /// let features = vec!["serde", "json"];
@@ -41,7 +41,7 @@
 /// Trailing commas are allowed inside both arrays and objects.
 ///
 /// ```edition2018
-/// # use serde_json::json;
+/// # use simdjson::json;
 /// #
 /// let value = json!([
 ///     "notice",
@@ -50,6 +50,33 @@
 ///     "comma -->",
 /// ]);
 /// ```
+///
+/// It works for both Borrowed and owned values when used with `.into()`
+/// ```edition2018
+/// # use simdjson::{json, OwnedValue, BorrowedValue};
+/// #
+/// let owned_value: OwnedValue = json!({
+///     "code": 200,
+///     "success": true,
+///     "payload": {
+///         "features": [
+///             "serde",
+///             "json"
+///         ]
+///     }
+/// });
+///
+/// let borrowed_value: BorrowedValue = json!({
+///     "code": 200,
+///     "success": true,
+///     "payload": {
+///         "features": [
+///             "serde",
+///             "json"
+///         ]
+///     }
+/// }).into();
+/// ````
 #[macro_export(local_inner_macros)]
 macro_rules! json {
     // Hide distracting implementation details from the generated rustdoc.
