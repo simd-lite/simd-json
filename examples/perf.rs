@@ -74,14 +74,15 @@ fn bench(name: &str) {
     branch_instructions_avg /= rounds;
 
     println!(
-        "{:14} {:10} {:10} {:10} {:10} {:10} {:10.3}",
+        "{:14} {:10} {:10} {:10} {:10} {:10} {:10.3} {:10.3}",
         name,
         cycles_avg,
         instructions_avg,
         branch_instructions_avg,
         cache_misses_avg,
         cache_references_avg,
-        ((cycles_top as f64) / bytes as f64)
+        ((cycles_top as f64) / bytes as f64),
+        ((cycles_avg as f64) / bytes as f64)
     );
     /*
         println!(
@@ -106,12 +107,12 @@ fn bench(_name: &str) {
 
 fn main() {
     println!(
-        "{:^14} {:^10} {:^21} {:^21}",
-        " ", "", "Instructions", "Cache."
+        "{:^14} {:^10} {:^21} {:^21} {:^21}",
+        " ", "", "Instructions", "Cache.", "Cycle/byte"
     );
     println!(
-        "{:^14} {:^10} {:^10} {:^10} {:^10} {:^10} {:^10}",
-        "Name", "Cycles", "Normal.", "Branch", "Misses", "References", "Cycle/byte"
+        "{:^14} {:^10} {:^10} {:^10} {:^10} {:^10} {:^10} {:^10}",
+        "Name", "Cycles", "Normal.", "Branch", "Misses", "References", "Best", "Avg"
     );
     bench("apache_builds");
     bench("canada");
