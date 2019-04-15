@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Heinz N. Gies <heinz@licenser.net>"]
 edition = "2018"
 exclude = [ "data/*" ]
+license = "Apache 2.0/MIT"
+description = "High performance JSON parser based on a port of simdjson"
+repository = "https://github.com/Licenser/simdjson-rs"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
