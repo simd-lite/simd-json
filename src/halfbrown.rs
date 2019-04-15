@@ -1,3 +1,19 @@
+//! Halfbrown is a hashmap implementation that provides
+//! high performance for both small and large maps by
+//! dymaically switching between different backend.
+//!
+//! The basic idea is that hash maps are expensive to
+//! insert and lookup for small numbers of entries
+//! but effective for lager numbers.
+//!
+//! So for smaller maps, we picked 64 entries as a rule
+//! of thumb, we simply store data in a list of tuples.
+//! Looking those up and iterating over them is still
+//! faster then hasing strings on every lookup.
+//!
+//! Once we pass the 64 entires we transition the
+//! backend to a HashBrown hashmap.
+
 mod macros;
 use core::borrow::Borrow;
 use core::hash::Hash;

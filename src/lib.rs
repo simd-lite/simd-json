@@ -1,33 +1,70 @@
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
-/// simdjson-rs is a rust port of the simejson c++ library. It follows
-/// most of the design closely with a few exceptions to make it better
-/// fit into the rust ecosystem.
-///
-/// Note: by default rustc will compile for compatibility not performance
-/// to take advantage of the simd part of simd json you have to use a native
-/// cpu target on a avx2 ca-able host system. Anexample how to di this
-/// can be found in thr `.cargo` directory of this project.
-///
-/// ## goals
-///
-/// the goal of the rust port of simdjson is not to create a one to
-/// one copy but to integrate the principles into a library that plays
-/// well with the eustmecosystem. As such we provide both compatibility
-/// with serde as well as parsing to a dom to manipulate data.
-///
-/// ## performance
-///
-/// As a rule of thumb this library tries to get as close as posible
-/// to the performance of the c++ implementation as possible but some
-/// of the design decisions - such as parsimg to a dom or instead of a
-/// tape way ergonomics over performance. In other places Rust makes
-/// it harder to achive the same level of performance.
-/// 
-/// ## safety
-/// 
-/// this library uses unsafe all over the place, and while it leverages
-/// quite a few test cases along with property based testing pleae uses
-/// it with caution.
+//! simdjson-rs is a rust port of the simejson c++ library. It follows
+//! most of the design closely with a few exceptions to make it better
+//! fit into the rust ecosystem.
+//!
+//! Note: by default rustc will compile for compatibility not performance
+//! to take advantage of the simd part of simd json you have to use a native
+//! cpu target on a avx2 ca-able host system. Anexample how to di this
+//! can be found in thr `.cargo` directory of this project.
+//!
+//! ## Goals
+//!
+//! the goal of the rust port of simdjson is not to create a one to
+//! one copy but to integrate the principles into a library that plays
+//! well with the eustmecosystem. As such we provide both compatibility
+//! with serde as well as parsing to a dom to manipulate data.
+//!
+//! ## Performance
+//!
+//! As a rule of thumb this library tries to get as close as posible
+//! to the performance of the c++ implementation as possible but some
+//! of the design decisions - such as parsimg to a dom or instead of a
+//! tape way ergonomics over performance. In other places Rust makes
+//! it harder to achive the same level of performance.
+//!
+//! ## Safety
+//!
+//! this library uses unsafe all over the place, and while it leverages
+//! quite a few test cases along with property based testing pleae uses
+//! it with caution.
+//!
+//!
+//! ## Usage
+//!
+//! simdjson-rs offers two main entry points for usage:
+//!
+//! ### Values API
+//!
+//! The values API is a set of optimized DOM objects that alow to parsedjson
+//! JSON data that has no known or a variable structure. simdjson-rs has
+//! two versions of this:
+//!
+//! **Borrowed Values**
+//!
+//! ```
+//! use simdjson;
+//! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
+//! let v = simdjson::to_borrowed_value(&mut d).unwrap();
+//! ```
+//!
+//! **Owned Values**
+//!
+//! ```
+//! use simdjson;
+//! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
+//! let v = simdjson::to_owned_value(&mut d).unwrap();
+//! ```
+//!
+//! ### Serde Comaptible API
+//!
+//! ```
+//! use simdjson;
+//! use serde_json::Value;
+//!
+//! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
+//! let v: Value = simdjson::serde::from_slice(&mut d).unwrap();
+//! ```
 
 mod charutils;
 pub mod halfbrown;
@@ -71,7 +108,6 @@ lazy_static! {
     static ref MM256_SET1_EPI8_QUOTE: __m256i = { unsafe { _mm256_set1_epi8(b'"' as i8) } };
     static ref PAGE_SIZE: usize = { page_size::get() };
 }
-
 
 pub type Result<T> = std::result::Result<T, Error>;
 
