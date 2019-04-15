@@ -43,27 +43,27 @@
 //! **Borrowed Values**
 //!
 //! ```
-//! use simdjson;
+//! use simd_json;
 //! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
-//! let v = simdjson::to_borrowed_value(&mut d).unwrap();
+//! let v = simd_json::to_borrowed_value(&mut d).unwrap();
 //! ```
 //!
 //! **Owned Values**
 //!
 //! ```
-//! use simdjson;
+//! use simd_json;
 //! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
-//! let v = simdjson::to_owned_value(&mut d).unwrap();
+//! let v = simd_json::to_owned_value(&mut d).unwrap();
 //! ```
 //!
 //! ### Serde Comaptible API
 //!
 //! ```
-//! use simdjson;
+//! use simd_json;
 //! use serde_json::Value;
 //!
 //! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
-//! let v: Value = simdjson::serde::from_slice(&mut d).unwrap();
+//! let v: Value = simd_json::serde::from_slice(&mut d).unwrap();
 //! ```
 
 mod charutils;

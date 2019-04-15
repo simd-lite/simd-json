@@ -2,7 +2,7 @@
 /// Construct a `simdjson::Value` from a JSON literal.
 ///
 /// ```edition2018
-/// # use simdjson::json;
+/// # use simd_json::json;
 /// #
 /// let value = json!({
 ///     "code": 200,
@@ -24,7 +24,7 @@
 /// map with non-string keys, the `json!` macro will panic.
 ///
 /// ```edition2018
-/// # use simdjson::json;
+/// # use simd_json::json;
 /// #
 /// let code = 200;
 /// let features = vec!["serde", "json"];
@@ -41,7 +41,7 @@
 /// Trailing commas are allowed inside both arrays and objects.
 ///
 /// ```edition2018
-/// # use simdjson::json;
+/// # use simd_json::json;
 /// #
 /// let value = json!([
 ///     "notice",
@@ -53,7 +53,7 @@
 ///
 /// It works for both Borrowed and owned values when used with `.into()`
 /// ```edition2018
-/// # use simdjson::{json, OwnedValue, BorrowedValue};
+/// # use simd_json::{json, OwnedValue, BorrowedValue};
 /// #
 /// let owned_value: OwnedValue = json!({
 ///     "code": 200,
