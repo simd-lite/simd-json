@@ -3,6 +3,7 @@ name = "simdjson"
 version = "0.1.0"
 authors = ["Heinz N. Gies <heinz@licenser.net>"]
 edition = "2018"
+exclude = [ "data/*" ]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
