@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/Licenser/simdjson-rs/tree/master.svg?style=svg)](https://circleci.com/gh/Licenser/simdjson-rs/tree/master)[![Build status](https://ci.appveyor.com/api/projects/status/0kf0v6hj5v2gite9?svg=true)](https://ci.appveyor.com/project/Licenser/simdjson-rs) [![Latest Version]][crates.io]
+# SIMDJson Rust &emsp; [![CircleCI](https://circleci.com/gh/Licenser/simdjson-rs/tree/master.svg?style=svg)](https://circleci.com/gh/Licenser/simdjson-rs/tree/master)[![Build status](https://ci.appveyor.com/api/projects/status/0kf0v6hj5v2gite9?svg=true)](https://ci.appveyor.com/project/Licenser/simdjson-rs) [![Latest Version]][crates.io]
 
 # simdjson-rs
 
