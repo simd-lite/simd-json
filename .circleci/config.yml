@@ -47,9 +47,9 @@ jobs:
       - run:
           name: Run all tests
           command: cargo test --all
-      - run:
-          name: Install nightly
-          command: rustup install nightly
+      #- run:
+      #    name: Install nightly
+      #    command: rustup install nightly
       # Disabled for now since clircleci isn't reliable when it comes to providing machine imags able to run perf
       # - run:
       #    name: Run cycle benchmarks
