@@ -318,3 +318,83 @@ macro_rules! json_internal_vec {
 macro_rules! json_unexpected {
     () => {};
 }
+
+#[cfg(feature = "hints")]
+#[macro_export]
+macro_rules! likely {
+    ($e:expr) => {
+        unsafe { std::intrinsics::likely($e) }
+    };
+}
+
+#[cfg(feature = "hints")]
+#[macro_export]
+macro_rules! unlikely {
+    ($e:expr) => {{
+        unsafe { std::intrinsics::unlikely($e) }
+    }};
+}
+
+#[cfg(not(feature = "hints"))]
+#[macro_export]
+macro_rules! likely {
+    ($e:expr) => {
+        $e
+    };
+}
+
+#[cfg(not(feature = "hints"))]
+#[macro_export]
+macro_rules! unlikely {
+    ($e:expr) => {
+        $e
+    };
+}
+
+#[macro_export]
+macro_rules! static_cast_i8 {
+    ($v:expr) => {
+        mem::transmute::<_, i8>($v)
+    };
+}
+
+#[macro_export]
+macro_rules! static_cast_u32 {
+    ($v:expr) => {
+        mem::transmute::<_, u32>($v)
+    };
+}
+
+#[macro_export]
+macro_rules! static_cast_i64 {
+    ($v:expr) => {
+        mem::transmute::<_, i64>($v)
+    };
+}
+
+#[macro_export]
+macro_rules! static_cast_u64 {
+    ($v:expr) => {
+        mem::transmute::<_, u64>($v)
+    };
+}
+
+#[macro_export]
+macro_rules! static_cast_i32 {
+    ($v:expr) => {
+        mem::transmute::<_, i32>($v)
+    };
+}
+
+// FROM serde-json
+// We only use our own error type; no need for From conversions provided by the
+// standard library's try! macro. This reduces lines of LLVM IR by 4%.
+#[macro_export]
+macro_rules! stry {
+    ($e:expr) => {
+        match $e {
+            ::std::result::Result::Ok(val) => val,
+            ::std::result::Result::Err(err) => return ::std::result::Result::Err(err),
+        }
+    };
+}

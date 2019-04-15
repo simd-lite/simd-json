@@ -1,3 +1,5 @@
+///A dom object that references the raw input data to avoid allocations
+// it tradecs having lifetimes for a gain in performance.
 mod cmp;
 mod from;
 
@@ -8,6 +10,10 @@ use std::fmt;
 use std::ops::Index;
 pub type Map<'a> = HashMap<Cow<'a, str>, Value<'a>>;
 
+/// Parses a slice of butes into a Value dom. This function will
+/// rewrite the slice to de-escape strings.
+/// As we reference parts of the input slice the resulting dom
+/// has the dame lifetime as the slice it was created from.
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.to_value_borrowed_root()

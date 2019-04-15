@@ -1,3 +1,5 @@
+/// A lifetime less DOM implementation. It uses strings to make te
+/// structure fully owned, avoiding lifetimes at the cost of performance.
 mod cmp;
 mod from;
 
@@ -8,6 +10,11 @@ use std::ops::Index;
 
 pub type Map = HashMap<String, Value>;
 
+/// Parses a slice of bytes into a Value dom. This function will
+/// rewrite the slice to de-escape strings.
+/// We do not keep any references to the raw data but re-allocate
+/// owned memory whereever required thus returning a value without
+/// a lifetime.
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.to_value_owned_root()

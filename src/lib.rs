@@ -1,4 +1,33 @@
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
+/// simdjson-rs is a rust port of the simejson c++ library. It follows
+/// most of the design closely with a few exceptions to make it better
+/// fit into the rust ecosystem.
+///
+/// Note: by default rustc will compile for compatibility not performance
+/// to take advantage of the simd part of simd json you have to use a native
+/// cpu target on a avx2 ca-able host system. Anexample how to di this
+/// can be found in thr `.cargo` directory of this project.
+///
+/// ## goals
+///
+/// the goal of the rust port of simdjson is not to create a one to
+/// one copy but to integrate the principles into a library that plays
+/// well with the eustmecosystem. As such we provide both compatibility
+/// with serde as well as parsing to a dom to manipulate data.
+///
+/// ## performance
+///
+/// As a rule of thumb this library tries to get as close as posible
+/// to the performance of the c++ implementation as possible but some
+/// of the design decisions - such as parsimg to a dom or instead of a
+/// tape way ergonomics over performance. In other places Rust makes
+/// it harder to achive the same level of performance.
+/// 
+/// ## safety
+/// 
+/// this library uses unsafe all over the place, and while it leverages
+/// quite a few test cases along with property based testing pleae uses
+/// it with caution.
 
 mod charutils;
 pub mod halfbrown;
@@ -43,85 +72,7 @@ lazy_static! {
     static ref PAGE_SIZE: usize = { page_size::get() };
 }
 
-#[cfg(feature = "hints")]
-#[macro_export]
-macro_rules! likely {
-    ($e:expr) => {
-        unsafe { std::intrinsics::likely($e) }
-    };
-}
 
-#[cfg(feature = "hints")]
-#[macro_export]
-macro_rules! unlikely {
-    ($e:expr) => {{
-        unsafe { std::intrinsics::unlikely($e) }
-    }};
-}
-
-#[cfg(not(feature = "hints"))]
-#[macro_export]
-macro_rules! likely {
-    ($e:expr) => {
-        $e
-    };
-}
-
-#[cfg(not(feature = "hints"))]
-#[macro_export]
-macro_rules! unlikely {
-    ($e:expr) => {
-        $e
-    };
-}
-
-#[macro_export]
-macro_rules! static_cast_i8 {
-    ($v:expr) => {
-        mem::transmute::<_, i8>($v)
-    };
-}
-
-#[macro_export]
-macro_rules! static_cast_u32 {
-    ($v:expr) => {
-        mem::transmute::<_, u32>($v)
-    };
-}
-
-#[macro_export]
-macro_rules! static_cast_i64 {
-    ($v:expr) => {
-        mem::transmute::<_, i64>($v)
-    };
-}
-
-#[macro_export]
-macro_rules! static_cast_u64 {
-    ($v:expr) => {
-        mem::transmute::<_, u64>($v)
-    };
-}
-
-#[macro_export]
-macro_rules! static_cast_i32 {
-    ($v:expr) => {
-        mem::transmute::<_, i32>($v)
-    };
-}
-
-// FROM serde-json
-// We only use our own error type; no need for From conversions provided by the
-// standard library's try! macro. This reduces lines of LLVM IR by 4%.
-#[macro_export]
-macro_rules! stry {
-    ($e:expr) => {
-        match $e {
-            ::std::result::Result::Ok(val) => val,
-            ::std::result::Result::Err(err) => return ::std::result::Result::Err(err),
-        }
-    };
-}
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub struct Deserializer<'de> {
