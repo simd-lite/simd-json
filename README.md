@@ -1,8 +1,16 @@
-# SIMDJson Rust &emsp; [![CircleCI](https://circleci.com/gh/Licenser/simdjson-rs/tree/master.svg?style=svg)](https://circleci.com/gh/Licenser/simdjson-rs/tree/master)[![Build status](https://ci.appveyor.com/api/projects/status/0kf0v6hj5v2gite9?svg=true)](https://ci.appveyor.com/project/Licenser/simdjson-rs) [![Latest Version]][crates.io]
+# SIMD Json for Rust &emsp; [![Build Status]][circleci.com] [![Windows Build Status]][appveyor.com] [![Latest Version]][crates.io]
 
-# simdjson-rs
+[Build Status]: https://circleci.com/gh/Licenser/simdjson-rs/tree/master.svg?style=svg
+[circleci.com]: https://circleci.com/gh/Licenser/simdjson-rs/tree/master
+[Windows Build Status]: https://ci.appveyor.com/api/projects/status/0kf0v6hj5v2gite9?svg=true
+[appveyor.com]: https://ci.appveyor.com/project/Licenser/simdjson-rs
+[Latest Version]: https://img.shields.io/crates/v/simd-json.svg
+[crates.io]: https://crates.io/crates/simd-json
 
-Rust port of extremely fast [simdjson](https://github.com/lemire/simdjson) JSON parser with [serde](serde.rs) compatibility.
+**Rust port of extremely fast [simdjson](https://github.com/lemire/simdjson) JSON parser with [serde](serde.rs) compatibility.
+**
+
+---
 
 ## readme (for real!)
 
