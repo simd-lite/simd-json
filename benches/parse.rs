@@ -11,9 +11,9 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 use criterion::{BatchSize, Criterion, ParameterizedBenchmark, Throughput};
 #[cfg(feature = "bench-serder")]
 use serde_json;
-use simdjson;
-#[cfg(feature = "simdjson-rust")]
-use simdjson_rust::build_parsed_json;
+use simd_json;
+#[cfg(feature = "simd_json-rust")]
+use simd_json_rust::build_parsed_json;
 use std::fs::File;
 use std::io::Read;
 
@@ -30,29 +30,29 @@ macro_rules! bench_file {
                 .unwrap();
 
             let b = ParameterizedBenchmark::new(
-                "simdjson",
+                "simd_json",
                 |b, data| {
                     b.iter_batched(
                         || data.clone(),
                         |mut bytes| {
-                            simdjson::to_borrowed_value(&mut bytes).unwrap();
+                            simd_json::to_borrowed_value(&mut bytes).unwrap();
                         },
                         BatchSize::SmallInput,
                     )
                 },
                 vec![vec],
             );
-            let b = b.with_function("simdjson-owned", |b, data| {
+            let b = b.with_function("simd_json-owned", |b, data| {
                 b.iter_batched(
                     || data.clone(),
                     |mut bytes| {
-                        simdjson::to_owned_value(&mut bytes).unwrap();
+                        simd_json::to_owned_value(&mut bytes).unwrap();
                     },
                     BatchSize::SmallInput,
                 )
             });
-            #[cfg(feature = "simdjson-rust")]
-            let b = b.with_function("simdjson_cpp", move |b, data| {
+            #[cfg(feature = "simd_json-rust")]
+            let b = b.with_function("simd_json_cpp", move |b, data| {
                 b.iter_batched(
                     || String::from_utf8(data.to_vec()).unwrap(),
                     |bytes| {
