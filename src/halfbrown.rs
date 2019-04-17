@@ -15,12 +15,14 @@
 //! backend to a HashBrown hashmap.
 
 mod macros;
+mod vecmap;
 use core::borrow::Borrow;
 use core::hash::Hash;
 use hashbrown::HashMap as HashBrown;
 use std::default::Default;
 use std::iter::{FromIterator, IntoIterator};
 use std::ops::Index;
+use vecmap::VecMap;
 
 //const VEC_LOWER_LIMIT: usize = 32;
 const VEC_LIMIT_UPPER: usize = 64;
@@ -39,6 +41,7 @@ impl<K, V> Default for HashMap<K, V>
 where
     K: Eq + Hash,
 {
+    #[inline]
     fn default() -> Self {
         HashMap::Vec(VecMap::new())
     }
@@ -76,6 +79,67 @@ where
     }
 
     #[inline]
+    pub fn capacity(&self) -> usize {
+        match self {
+            HashMap::Map(m) => m.capacity(),
+            HashMap::Vec(m) => m.capacity(),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub fn keys(&self) -> Keys<'_, K, V> {
+        Keys { inner: self.iter() }
+    }
+
+    #[inline]
+    pub fn values(&self) -> Values<'_, K, V> {
+        Values { inner: self.iter() }
+    }
+    #[inline]
+    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
+        ValuesMut {
+            inner: self.iter_mut(),
+        }
+    }
+
+    #[inline]
+    pub fn iter(&self) -> Iter<'_, K, V> {
+        match self {
+            HashMap::Map(m) => Iter::Map(m.iter()),
+            HashMap::Vec(m) => Iter::Vec(m.iter()),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub fn iter_mut(&mut self) -> IterMut<'_, K, V> {
+        match self {
+            HashMap::Map(m) => IterMut::Map(m.iter_mut()),
+            HashMap::Vec(m) => IterMut::Vec(m.iter_mut()),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        match self {
+            HashMap::Map(m) => m.len(),
+            HashMap::Vec(m) => m.len(),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        match self {
+            HashMap::Map(m) => m.is_empty(),
+            HashMap::Vec(m) => m.is_empty(),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    #[inline]
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
         match self {
             HashMap::Map(m) => m.insert(k, v),
@@ -100,6 +164,19 @@ where
     }
 
     #[inline]
+    pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        match self {
+            HashMap::Map(m) => m.remove(k),
+            HashMap::Vec(m) => m.remove(k),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    #[inline]
     pub fn clear(&mut self) {
         match self {
             HashMap::Map(m) => m.clear(),
@@ -114,15 +191,6 @@ where
                 m.insert(k, v);
             }
             HashMap::Vec(m) => m.insert_nocheck(k, v),
-            HashMap::None => unreachable!(),
-        }
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        match self {
-            HashMap::Map(m) => m.len(),
-            HashMap::Vec(v) => v.len(),
             HashMap::None => unreachable!(),
         }
     }
@@ -149,15 +217,6 @@ where
         match self {
             HashMap::Map(m) => m.get_mut(k),
             HashMap::Vec(m) => m.get_mut(k),
-            HashMap::None => unreachable!(),
-        }
-    }
-
-    #[inline]
-    pub fn iter(&self) -> Iter<'_, K, V> {
-        match self {
-            HashMap::Map(m) => Iter::Map(m.iter()),
-            HashMap::Vec(m) => Iter::Vec(m.iter()),
             HashMap::None => unreachable!(),
         }
     }
@@ -302,94 +361,81 @@ where
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct VecMap<K, V> {
-    v: Vec<(K, V)>,
+//#[derive(Clone)]
+pub enum IterMut<'a, K, V> {
+    Map(hashbrown::hash_map::IterMut<'a, K, V>),
+    Vec(std::slice::IterMut<'a, (K, V)>),
 }
 
-impl<K, V> VecMap<K, V>
-where
-    K: Eq,
-{
-    #[inline]
-    fn new() -> Self {
-        Self { v: Vec::new() }
-    }
+impl<'a, K, V> Iterator for IterMut<'a, K, V> {
+    type Item = (&'a K, &'a mut V);
 
     #[inline]
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            v: Vec::with_capacity(capacity),
+    fn next(&mut self) -> Option<(&'a K, &'a mut V)> {
+        match self {
+            IterMut::Map(m) => m.next(),
+            IterMut::Vec(m) => m.next().map(|(k, v)| (k as &K, v)),
         }
     }
-
     #[inline]
-    pub fn insert(&mut self, k: K, mut v: V) -> Option<V> {
-        for (ak, av) in self.v.iter_mut() {
-            if k == *ak {
-                std::mem::swap(av, &mut v);
-                return Some(v);
-            }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            IterMut::Map(m) => m.size_hint(),
+            IterMut::Vec(m) => m.size_hint(),
         }
-        self.v.push((k, v));
-        None
-    }
-
-    #[inline]
-    pub fn insert_nocheck(&mut self, k: K, v: V) {
-        self.v.push((k, v));
-    }
-
-    #[inline]
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq,
-    {
-        for (ak, v) in &self.v {
-            if k == ak.borrow() {
-                return Some(&v);
-            }
-        }
-        None
-    }
-
-    #[inline]
-    pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq,
-    {
-        for (ak, v) in &mut self.v {
-            if k.eq((*ak).borrow()) {
-                return Some(v);
-            }
-        }
-        None
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.v.len()
-    }
-    #[inline]
-    pub fn clear(&mut self) {
-        self.v.clear()
-    }
-
-    #[inline]
-    pub fn iter(&self) -> std::slice::Iter<'_, (K, V)> {
-        self.v.iter()
     }
 }
 
-impl<K, V> IntoIterator for VecMap<K, V> {
-    type Item = (K, V);
-    type IntoIter = std::vec::IntoIter<(K, V)>;
+//#[derive(Clone)]
+pub struct Keys<'a, K, V> {
+    inner: Iter<'a, K, V>,
+}
+
+impl<'a, K, V> Iterator for Keys<'a, K, V> {
+    type Item = &'a K;
 
     #[inline]
-    fn into_iter(self) -> std::vec::IntoIter<(K, V)> {
-        self.v.into_iter()
+    fn next(&mut self) -> Option<(&'a K)> {
+        self.inner.next().map(|(k, _)| k)
+    }
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+//#[derive(Clone)]
+pub struct Values<'a, K, V> {
+    inner: Iter<'a, K, V>,
+}
+impl<'a, K, V> Iterator for Values<'a, K, V> {
+    type Item = &'a V;
+
+    #[inline]
+    fn next(&mut self) -> Option<(&'a V)> {
+        self.inner.next().map(|(_, v)| v)
+    }
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+//#[derive(Clone)]
+pub struct ValuesMut<'a, K, V> {
+    inner: IterMut<'a, K, V>,
+}
+
+impl<'a, K, V> Iterator for ValuesMut<'a, K, V> {
+    type Item = &'a mut V;
+
+    #[inline]
+    fn next(&mut self) -> Option<(&'a mut V)> {
+        self.inner.next().map(|(_, v)| v)
+    }
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
     }
 }
 
@@ -415,4 +461,20 @@ mod tests {
         v.insert("hello".to_owned(), 42);
         assert_eq!(v["hello"], 42);
     }
+
+    #[test]
+    fn add_remove() {
+        let mut v = HashMap::new();
+        v.insert(1, 1);
+        v.insert(2, 2);
+        v.insert(3, 3);
+        assert_eq!(v.get(&1), Some(&1));
+        assert_eq!(v.get(&2), Some(&2));
+        assert_eq!(v.get(&3), Some(&3));
+        v.remove(&2);
+        assert_eq!(v.get(&1), Some(&1));
+        assert_eq!(v.get(&2), None);
+        assert_eq!(v.get(&3), Some(&3));
+    }
+
 }
