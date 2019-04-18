@@ -3,7 +3,7 @@
 mod cmp;
 mod from;
 
-use crate::halfbrown::HashMap;
+use halfbrown::HashMap;
 use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use std::borrow::Cow;
 use std::fmt;

@@ -7,7 +7,6 @@
 /// directly to structs this is th4 place to go.
 
 mod de;
-mod halfbrown;
 mod value;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use serde::Deserialize;

@@ -67,7 +67,6 @@
 //! ```
 
 mod charutils;
-pub mod halfbrown;
 #[macro_use]
 mod macros;
 mod error;
@@ -97,7 +96,6 @@ use std::mem;
 use std::str;
 
 pub use error::{Error, ErrorType};
-pub use halfbrown::HashMap;
 pub use value::*;
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
@@ -647,7 +645,7 @@ mod tests {
     use super::{
         owned::to_value, owned::Map, owned::Value, to_borrowed_value, to_owned_value, Deserializer,
     };
-    use hashbrown::HashMap;
+    use halfbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
     use serde_json;

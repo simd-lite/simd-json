@@ -60,7 +60,7 @@ impl<'de, 'a> SeqAccess<'de> for Array<'a, 'de> {
     }
 }
 struct Object<'de, 'a: 'de> {
-    i: crate::halfbrown::Iter<'de, Cow<'a, str>, Value<'a>>,
+    i: halfbrown::Iter<'de, Cow<'a, str>, Value<'a>>,
     v: &'de Value<'a>,
 }
 

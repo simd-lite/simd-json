@@ -1,6 +1,6 @@
 [package]
 name = "simd-json"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Heinz N. Gies <heinz@licenser.net>"]
 edition = "2018"
 exclude = [ "data/*" ]
@@ -11,7 +11,8 @@ repository = "https://github.com/Licenser/simdjson-rs"
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1" }
-hashbrown = { version = "0.2", features = ["serde"] }
+#hashbrown = { version = "0.2", features = ["serde"] }
+halfbrown = { version = "0.1", features = ["serde"] }
 lazy_static = "1"
 page_size = "0.4"
 
