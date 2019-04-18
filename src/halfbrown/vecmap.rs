@@ -76,6 +76,21 @@ where
     }
 
     #[inline]
+    pub fn drain(&mut self) -> std::vec::Drain<(K, V)> {
+        self.v.drain(..)
+    }
+
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        self.v.reserve(additional)
+    }
+
+    #[inline]
+    pub fn shrink_to_fit(&mut self) {
+        self.v.shrink_to_fit()
+    }
+
+    #[inline]
     pub fn insert_nocheck(&mut self, k: K, v: V) {
         self.v.push((k, v));
     }
@@ -92,6 +107,20 @@ where
             }
         }
         None
+    }
+
+    #[inline]
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Eq,
+    {
+        for (ak, _v) in &self.v {
+            if k == ak.borrow() {
+                return true;
+            }
+        }
+        false
     }
 
     #[inline]

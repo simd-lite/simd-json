@@ -13,6 +13,10 @@
 //!
 //! Once we pass the 64 entires we transition the
 //! backend to a HashBrown hashmap.
+//!
+//! Note: Most of the documentation is taken from
+//! rusts hashmap.rs and should be considered under
+//! their copyright.
 
 mod macros;
 mod vecmap;
@@ -64,11 +68,33 @@ impl<K, V> HashMap<K, V>
 where
     K: Eq + Hash,
 {
+    /// Creates an empty `HashMap`.
+    ///
+    /// The hash map is initially created with a capacity of 0, so it will not allocate until it
+    /// is first inserted into.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_hson::HashMap;
+    /// let mut map: HashMap<&str, i32> = HashMap::new();
+    /// ```
     #[inline]
     pub fn new() -> Self {
         HashMap::Vec(VecMap::new())
     }
 
+    /// Creates an empty `HashMap` with the specified capacity.
+    ///
+    /// The hash map will be able to hold at least `capacity` elements without
+    /// reallocating. If `capacity` is 0, the hash map will not allocate.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    /// let mut map: HashMap<&str, i32> = HashMap::with_capacity(10);
+    /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         if capacity > VEC_LIMIT_UPPER {
@@ -77,7 +103,24 @@ where
             HashMap::Vec(VecMap::with_capacity(capacity))
         }
     }
+}
 
+impl<K, V> HashMap<K, V>
+where
+    K: Eq + Hash,
+{
+    /// Returns the number of elements the map can hold without reallocating.
+    ///
+    /// This number is a lower bound; the `HashMap<K, V>` might be able to hold
+    /// more, but is guaranteed to be able to hold at least this many.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    /// let map: HashMap<i32, i32> = HashMap::with_capacity(100);
+    /// assert!(map.capacity() >= 100);
+    /// ```
     #[inline]
     pub fn capacity(&self) -> usize {
         match self {
@@ -87,23 +130,93 @@ where
         }
     }
 
-    #[inline]
+    /// An iterator visiting all keys in arbitrary order.
+    /// The iterator element type is `&'a K`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map = HashMap::new();
+    /// map.insert("a", 1);
+    /// map.insert("b", 2);
+    /// map.insert("c", 3);
+    ///
+    /// for key in map.keys() {
+    ///     println!("{}", key);
+    /// }
+    /// ```
     pub fn keys(&self) -> Keys<'_, K, V> {
         Keys { inner: self.iter() }
     }
 
-    #[inline]
+    /// An iterator visiting all values in arbitrary order.
+    /// The iterator element type is `&'a V`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map = HashMap::new();
+    /// map.insert("a", 1);
+    /// map.insert("b", 2);
+    /// map.insert("c", 3);
+    ///
+    /// for val in map.values() {
+    ///     println!("{}", val);
+    /// }
+    /// ```
     pub fn values(&self) -> Values<'_, K, V> {
         Values { inner: self.iter() }
     }
-    #[inline]
+
+    /// An iterator visiting all values mutably in arbitrary order.
+    /// The iterator element type is `&'a mut V`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map = HashMap::new();
+    ///
+    /// map.insert("a", 1);
+    /// map.insert("b", 2);
+    /// map.insert("c", 3);
+    ///
+    /// for val in map.values_mut() {
+    ///     *val = *val + 10;
+    /// }
+    ///
+    /// for val in map.values() {
+    ///     println!("{}", val);
+    /// }
+    /// ```
     pub fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
         ValuesMut {
             inner: self.iter_mut(),
         }
     }
 
-    #[inline]
+    /// An iterator visiting all key-value pairs in arbitrary order.
+    /// The iterator element type is `(&'a K, &'a V)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map = HashMap::new();
+    /// map.insert("a", 1);
+    /// map.insert("b", 2);
+    /// map.insert("c", 3);
+    ///
+    /// for (key, val) in map.iter() {
+    ///     println!("key: {} val: {}", key, val);
+    /// }
+    /// ```
     pub fn iter(&self) -> Iter<'_, K, V> {
         match self {
             HashMap::Map(m) => Iter::Map(m.iter()),
@@ -112,7 +225,29 @@ where
         }
     }
 
-    #[inline]
+    /// An iterator visiting all key-value pairs in arbitrary order,
+    /// with mutable references to the values.
+    /// The iterator element type is `(&'a K, &'a mut V)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map = HashMap::new();
+    /// map.insert("a", 1);
+    /// map.insert("b", 2);
+    /// map.insert("c", 3);
+    ///
+    /// // Update all values
+    /// for (_, val) in map.iter_mut() {
+    ///     *val *= 2;
+    /// }
+    ///
+    /// for (key, val) in &map {
+    ///     println!("key: {} val: {}", key, val);
+    /// }
+    /// ```
     pub fn iter_mut(&mut self) -> IterMut<'_, K, V> {
         match self {
             HashMap::Map(m) => IterMut::Map(m.iter_mut()),
@@ -121,6 +256,18 @@ where
         }
     }
 
+    /// Returns the number of elements in the map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut a = HashMap::new();
+    /// assert_eq!(a.len(), 0);
+    /// a.insert(1, "a");
+    /// assert_eq!(a.len(), 1);
+    /// ```
     #[inline]
     pub fn len(&self) -> usize {
         match self {
@@ -130,6 +277,18 @@ where
         }
     }
 
+    /// Returns `true` if the map contains no elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut a = HashMap::new();
+    /// assert!(a.is_empty());
+    /// a.insert(1, "a");
+    /// assert!(!a.is_empty());
+    /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
         match self {
@@ -139,6 +298,291 @@ where
         }
     }
 
+    /// Clears the map, returning all key-value pairs as an iterator. Keeps the
+    /// allocated memory for reuse.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut a = HashMap::new();
+    /// a.insert(1, "a");
+    /// a.insert(2, "b");
+    ///
+    /// for (k, v) in a.drain().take(1) {
+    ///     assert!(k == 1 || k == 2);
+    ///     assert!(v == "a" || v == "b");
+    /// }
+    ///
+    /// assert!(a.is_empty());
+    /// ```
+    #[inline]
+    pub fn drain(&mut self) -> Drain<K, V> {
+        match self {
+            HashMap::Map(m) => Drain::Map(m.drain()),
+            HashMap::Vec(m) => Drain::Vec(m.drain()),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    /// Clears the map, removing all key-value pairs. Keeps the allocated memory
+    /// for reuse.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut a = HashMap::new();
+    /// a.insert(1, "a");
+    /// a.clear();
+    /// assert!(a.is_empty());
+    /// ```
+    #[inline]
+    pub fn clear(&mut self) {
+        match self {
+            HashMap::Map(m) => m.clear(),
+            HashMap::Vec(m) => m.clear(),
+            HashMap::None => unreachable!(),
+        }
+    }
+}
+
+impl<K, V> HashMap<K, V>
+where
+    K: Eq + Hash,
+    // Hasher
+{
+    /// Reserves capacity for at least `additional` more elements to be inserted
+    /// in the `HashMap`. The collection may reserve more space to avoid
+    /// frequent reallocations.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new allocation size overflows [`usize`].
+    ///
+    /// [`usize`]: ../../std/primitive.usize.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    /// let mut map: HashMap<&str, i32> = HashMap::new();
+    /// map.reserve(10);
+    /// ```
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        match self {
+            HashMap::Map(m) => m.reserve(additional),
+            HashMap::Vec(m) => m.reserve(additional),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    /*
+    /// Tries to reserve capacity for at least `additional` more elements to be inserted
+    /// in the given `HashMap<K,V>`. The collection may reserve more space to avoid
+    /// frequent reallocations.
+    ///
+    /// # Errors
+    ///
+    /// If the capacity overflows, or the allocator reports a failure, then an error
+    /// is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #![feature(try_reserve)]
+    /// use simd_json::HashMap;
+    /// let mut map: HashMap<&str, isize> = HashMap::new();
+    /// map.try_reserve(10).expect("why is the test harness OOMing on 10 bytes?");
+    /// ```
+    #[unstable(feature = "try_reserve", reason = "new API", issue = "48043")]
+    pub fn try_reserve(&mut self, additional: usize) -> Result<(), CollectionAllocErr> {
+        match self {
+            HashMap::Map(m) => m.try_reserve(additional),
+            HashMap::Vec(m) => m.try_reserve(additional),
+            HashMap::None => unreachable!(),
+        }
+    }
+     */
+
+    /// Shrinks the capacity of the map as much as possible. It will drop
+    /// down as much as possible while maintaining the internal rules
+    /// and possibly leaving some space in accordance with the resize policy.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map: HashMap<i32, i32> = HashMap::with_capacity(100);
+    /// map.insert(1, 2);
+    /// map.insert(3, 4);
+    /// assert!(map.capacity() >= 100);
+    /// map.shrink_to_fit();
+    /// assert!(map.capacity() >= 2);
+    /// ```
+    pub fn shrink_to_fit(&mut self) {
+        match self {
+            HashMap::Map(m) => m.shrink_to_fit(),
+            HashMap::Vec(m) => m.shrink_to_fit(),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    /* TODO
+    /// Gets the given key's corresponding entry in the map for in-place manipulation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut letters = HashMap::new();
+    ///
+    /// for ch in "a short treatise on fungi".chars() {
+    ///     let counter = letters.entry(ch).or_insert(0);
+    ///     *counter += 1;
+    /// }
+    ///
+    /// assert_eq!(letters[&'s'], 2);
+    /// assert_eq!(letters[&'t'], 3);
+    /// assert_eq!(letters[&'u'], 1);
+    /// assert_eq!(letters.get(&'y'), None);
+    /// ```
+    pub fn entry(&mut self, key: K) -> Entry<K, V> {
+        match self {
+            HashMap::Map(m) => m.entry(k),
+            HashMap::Vec(m) => m.entry(v),
+            HashMap::None => unreachable!(),
+        }
+    }
+    */
+
+    /// Returns a reference to the value corresponding to the key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`Hash`] and [`Eq`] on the borrowed form *must* match those for
+    /// the key type.
+    ///
+    /// [`Eq`]: ../../std/cmp/trait.Eq.html
+    /// [`Hash`]: ../../std/hash/trait.Hash.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map = HashMap::new();
+    /// map.insert(1, "a");
+    /// assert_eq!(map.get(&1), Some(&"a"));
+    /// assert_eq!(map.get(&2), None);
+    /// `    #[inline]
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        match self {
+            HashMap::Map(m) => m.get(k),
+            HashMap::Vec(m) => m.get(k),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    /// Returns `true` if the map contains a value for the specified key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`Hash`] and [`Eq`] on the borrowed form *must* match those for
+    /// the key type.
+    ///
+    /// [`Eq`]: ../../std/cmp/trait.Eq.html
+    /// [`Hash`]: ../../std/hash/trait.Hash.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map = HashMap::new();
+    /// map.insert(1, "a");
+    /// assert_eq!(map.contains_key(&1), true);
+    /// assert_eq!(map.contains_key(&2), false);
+    /// ```
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        match self {
+            HashMap::Map(m) => m.contains_key(k),
+            HashMap::Vec(m) => m.contains_key(k),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    /// Returns a mutable reference to the value corresponding to the key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`Hash`] and [`Eq`] on the borrowed form *must* match those for
+    /// the key type.
+    ///
+    /// [`Eq`]: ../../std/cmp/trait.Eq.html
+    /// [`Hash`]: ../../std/hash/trait.Hash.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map = HashMap::new();
+    /// map.insert(1, "a");
+    /// if let Some(x) = map.get_mut(&1) {
+    ///     *x = "b";
+    /// }
+    /// assert_eq!(map[&1], "b");
+    /// ```
+
+    #[inline]
+    pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        match self {
+            HashMap::Map(m) => m.get_mut(k),
+            HashMap::Vec(m) => m.get_mut(k),
+            HashMap::None => unreachable!(),
+        }
+    }
+
+    /// Inserts a key-value pair into the map.
+    ///
+    /// If the map did not have this key present, [`None`] is returned.
+    ///
+    /// If the map did have this key present, the value is updated, and the old
+    /// value is returned. The key is not updated, though; this matters for
+    /// types that can be `==` without being identical. See the [module-level
+    /// documentation] for more.
+    ///
+    /// [`None`]: ../../std/option/enum.Option.html#variant.None
+    /// [module-level documentation]: index.html#insert-and-complex-keys
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map = HashMap::new();
+    /// assert_eq!(map.insert(37, "a"), None);
+    /// assert_eq!(map.is_empty(), false);
+    ///
+    /// map.insert(37, "b");
+    /// assert_eq!(map.insert(37, "c"), Some("b"));
+    /// assert_eq!(map[&37], "c");
+    /// ```
     #[inline]
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
         match self {
@@ -163,6 +607,26 @@ where
         }
     }
 
+    /// Removes a key from the map, returning the value at the key if the key
+    /// was previously in the map.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`Hash`] and [`Eq`] on the borrowed form *must* match those for
+    /// the key type.
+    ///
+    /// [`Eq`]: ../../std/cmp/trait.Eq.html
+    /// [`Hash`]: ../../std/hash/trait.Hash.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use simd_json::HashMap;
+    ///
+    /// let mut map = HashMap::new();
+    /// map.insert(1, "a");
+    /// assert_eq!(map.remove(&1), Some("a"));
+    /// assert_eq!(map.remove(&1), None);
+    /// ```
     #[inline]
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
     where
@@ -177,46 +641,12 @@ where
     }
 
     #[inline]
-    pub fn clear(&mut self) {
-        match self {
-            HashMap::Map(m) => m.clear(),
-            HashMap::Vec(m) => m.clear(),
-            HashMap::None => unreachable!(),
-        }
-    }
-    #[inline]
     pub fn insert_nocheck(&mut self, k: K, v: V) {
         match self {
             HashMap::Map(m) => {
                 m.insert(k, v);
             }
             HashMap::Vec(m) => m.insert_nocheck(k, v),
-            HashMap::None => unreachable!(),
-        }
-    }
-
-    #[inline]
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq,
-    {
-        match self {
-            HashMap::Map(m) => m.get(k),
-            HashMap::Vec(m) => m.get(k),
-            HashMap::None => unreachable!(),
-        }
-    }
-
-    #[inline]
-    pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq,
-    {
-        match self {
-            HashMap::Map(m) => m.get_mut(k),
-            HashMap::Vec(m) => m.get_mut(k),
             HashMap::None => unreachable!(),
         }
     }
@@ -439,6 +869,28 @@ impl<'a, K, V> Iterator for ValuesMut<'a, K, V> {
     }
 }
 
+pub enum Drain<'a, K, V> {
+    Map(hashbrown::hash_map::Drain<'a, K, V>),
+    Vec(std::vec::Drain<'a, (K, V)>),
+}
+
+impl<'a, K, V> Iterator for Drain<'a, K, V> {
+    type Item = (K, V);
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Drain::Map(m) => m.next(),
+            Drain::Vec(m) => m.next(),
+        }
+    }
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Drain::Map(m) => m.size_hint(),
+            Drain::Vec(m) => m.size_hint(),
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
