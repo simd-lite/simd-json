@@ -1,17 +1,18 @@
+use colored::*;
 use perfcnt::linux::{HardwareEventType, PerfCounterBuilderLinux};
 use perfcnt::{AbstractPerfCounter, PerfCounter};
-use serde;
-use serde_derive;
-use serde_json;
+use serde::{Deserialize, Serialize};
+use std::env;
+use std::io::BufReader;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 struct Stats {
     best: Stat,
     total: Stat,
     iters: u64,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 struct Stat {
     cycles: u64,
     instructions: u64,
@@ -89,7 +90,7 @@ impl Stats {
         let branch_instructions = self.total.branch_instructions / self.iters;
 
         println!(
-            "{:14} {:10} {:10} {:10} {:10} {:10} {:10.3} {:10.3}",
+            "{:20} {:10} {:10} {:10} {:10} {:10} {:10.3} {:10.3}",
             name,
             cycles,
             instructions,
@@ -100,11 +101,58 @@ impl Stats {
             ((cycles as f64) / bytes as f64)
         );
     }
+    pub fn print_diff(&self, baseline: &Stats, name: &str, _bytes: usize) {
+        let cycles = self.total.cycles / self.iters;
+        let instructions = self.total.instructions / self.iters;
+        let cache_misses = self.total.cache_misses / self.iters;
+        let cache_references = self.total.cache_references / self.iters;
+        let branch_instructions = self.total.branch_instructions / self.iters;
+        let cycles_b = baseline.total.cycles / baseline.iters;
+        let instructions_b = baseline.total.instructions / baseline.iters;
+        let cache_misses_b = baseline.total.cache_misses / baseline.iters;
+        let cache_references_b = baseline.total.cache_references / baseline.iters;
+        let branch_instructions_b = baseline.total.branch_instructions / baseline.iters;
+
+        fn d(d: f64) -> String {
+            if d > 0.0 {
+                format!("{:9.3}%", d).red().to_string()
+            } else {
+                format!("{:9.3}%", d).green().to_string()
+            }
+        }
+
+        /*
+        println!(
+            "{:20} {:10} {:10} {:10} {:10} {:10} {:10.3} {:10.3}",
+            format!("{}(+/-)", name),
+            cycles_b,
+            instructions_b,
+            branch_instructions_b,
+            cache_misses_b,
+            cache_references_b,
+            ((baseline.best.cycles as f64) / bytes as f64),
+            ((cycles_b as f64) / bytes as f64)
+        );
+        */
+
+        println!(
+            //"{:20} {:>10} {:>10} {:>10} {:>10} {:>10} {:10.3} {:10.3}",
+            "{:20} {:>10} {:>10} {:>10} {:>10} {:>10}",
+            format!("{}(+/-)", name),
+            d((1.0 - cycles_b as f64 / cycles as f64) * 100.0),
+            d((1.0 - instructions_b as f64 / instructions as f64) * 100.0),
+            d((1.0 - branch_instructions_b as f64 / branch_instructions as f64) * 100.0),
+            d((1.0 - cache_misses_b as f64 / cache_misses as f64) * 100.0),
+            d((1.0 - cache_references_b as f64 / cache_references as f64) * 100.0),
+            // ((self.best.cycles as f64) / bytes as f64),
+            // ((cycles as f64) / bytes as f64)
+        );
+    }
 }
 
 #[cfg(feature = "perf")]
-fn bench(name: &str) {
-    use std::fs::File;
+fn bench(name: &str, baseline: bool) {
+    use std::fs::{self, File};
     use std::io::Read;
     use std::iter;
 
@@ -138,37 +186,55 @@ fn bench(name: &str) {
         // do our accounting
     }
     stats.print(name, bytes);
-    //    println!();
-    //    println!("============[{:^16}]============", name);
+    if baseline {
+        let _ = fs::create_dir(".baseline");
+        fs::write(
+            format!(".baseline/{}.json", name),
+            serde_json::to_vec(&stats).expect("Failed to serialize"),
+        )
+        .expect("Unable to write file");
+    } else {
+        let file = File::open(format!(".baseline/{}.json", name)).expect("Could not open baseline");
+        let reader = BufReader::new(file);
+        let baseline: Stats = serde_json::from_reader(reader).expect("Failed to read baseline");
+        stats.print_diff(&baseline, name, bytes);
+    }
 }
 
 #[cfg(not(feature = "perf"))]
-fn bench(_name: &str) {
+fn bench(_name: &str, baseline: bool) {
     println!("Perf requires linux to run and the perf feature to be enabled")
 }
 
 fn main() {
+    let mut opts = getopts::Options::new();
+    opts.optflag("b", "baseline", "create baseline");
+    let args: Vec<String> = env::args().collect();
+    let matches = opts.parse(&args[1..]).unwrap();
+
     println!(
-        "{:^14} {:^10} {:^21} {:^21} {:^21}",
+        "{:^20} {:^10} {:^21} {:^21} {:^21}",
         " ", "", "Instructions", "Cache.", "Cycle/byte"
     );
     println!(
-        "{:^14} {:^10} {:^10} {:^10} {:^10} {:^10} {:^10} {:^10}",
+        "{:^20} {:^10} {:^10} {:^10} {:^10} {:^10} {:^10} {:^10}",
         "Name", "Cycles", "Normal.", "Branch", "Misses", "References", "Best", "Avg"
     );
-    bench("apache_builds");
-    bench("canada");
-    bench("citm_catalog");
-    bench("github_events");
-    bench("gsoc-2018");
-    bench("instruments");
-    bench("log");
-    bench("marine_ik");
-    bench("mesh");
-    bench("mesh.pretty");
-    bench("numbers");
-    bench("random");
-    bench("twitter");
-    bench("twitterescaped");
-    bench("update-center");
+
+    let baseline = matches.opt_present("b");
+    bench("apache_builds", baseline);
+    bench("canada", baseline);
+    bench("citm_catalog", baseline);
+    bench("github_events", baseline);
+    bench("gsoc-2018", baseline);
+    bench("instruments", baseline);
+    bench("log", baseline);
+    bench("marine_ik", baseline);
+    bench("mesh", baseline);
+    bench("mesh.pretty", baseline);
+    bench("numbers", baseline);
+    bench("random", baseline);
+    bench("twitter", baseline);
+    bench("twitterescaped", baseline);
+    bench("update-center", baseline);
 }
