@@ -102,8 +102,6 @@ const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 // We only do this for the string parse function as it seems to slow down other frunctions
 // odd...
 lazy_static! {
-    static ref MM256_SET1_EPI8_SLASH: __m256i = { unsafe { _mm256_set1_epi8(b'\\' as i8) } };
-    static ref MM256_SET1_EPI8_QUOTE: __m256i = { unsafe { _mm256_set1_epi8(b'"' as i8) } };
     static ref PAGE_SIZE: usize = { page_size::get() };
 }
 
@@ -329,10 +327,10 @@ impl<'de> Deserializer<'de> {
         let bs_bits: u32 = unsafe {
             static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                 v,
-                *MM256_SET1_EPI8_SLASH
+                _mm256_set1_epi8(b'\\' as i8)
             )))
         };
-        let quote_mask = unsafe { _mm256_cmpeq_epi8(v, *MM256_SET1_EPI8_QUOTE) };
+        let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
         let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
         if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
             let quote_dist: u32 = trailingzeroes(quote_bits as u64) as u32;
@@ -402,10 +400,10 @@ impl<'de> Deserializer<'de> {
             let bs_bits: u32 = unsafe {
                 static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                     v,
-                    *MM256_SET1_EPI8_SLASH
+                    _mm256_set1_epi8(b'\\' as i8)
                 )))
             };
-            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, *MM256_SET1_EPI8_QUOTE) };
+            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
             let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
