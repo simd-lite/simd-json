@@ -208,7 +208,7 @@ mod int {
 
 #[cfg(not(feature = "perf"))]
 mod int {
-    pub fn bench(_name: &str, baseline: bool) {
+    pub fn bench(_name: &str, _baseline: bool) {
         println!("Perf requires linux to run and the perf feature to be enabled")
     }
 }
