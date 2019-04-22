@@ -1,19 +1,112 @@
+use perfcnt::linux::{HardwareEventType, PerfCounterBuilderLinux};
+use perfcnt::{AbstractPerfCounter, PerfCounter};
+use serde;
+use serde_derive;
+use serde_json;
+
+#[derive(Default)]
+struct Stats {
+    best: Stat,
+    total: Stat,
+    iters: u64,
+}
+
+#[derive(Default)]
+struct Stat {
+    cycles: u64,
+    instructions: u64,
+    cache_misses: u64,
+    cache_references: u64,
+    branch_instructions: u64,
+}
+
+struct Counter {
+    cycles: PerfCounter,
+    instructions: PerfCounter,
+    cache_misses: PerfCounter,
+    cache_references: PerfCounter,
+    branch_instructions: PerfCounter,
+}
+
+impl Stats {
+    pub fn start(&self) -> Counter {
+        fn pc(event_type: HardwareEventType) -> PerfCounter {
+            PerfCounterBuilderLinux::from_hardware_event(event_type)
+                .for_pid(0)
+                .exclude_kernel()
+                .exclude_idle()
+                .finish()
+                .unwrap()
+        }
+        Counter {
+            cycles: pc(HardwareEventType::CPUCycles),
+            instructions: pc(HardwareEventType::Instructions),
+            cache_misses: pc(HardwareEventType::CacheMisses),
+            cache_references: pc(HardwareEventType::CacheReferences),
+            branch_instructions: pc(HardwareEventType::BranchInstructions),
+        }
+    }
+
+    pub fn stop(&mut self, mut counter: Counter) {
+        counter.cycles.stop().unwrap();
+        counter.instructions.stop().unwrap();
+        counter.cache_misses.stop().unwrap();
+        counter.cache_references.stop().unwrap();
+        counter.branch_instructions.stop().unwrap();
+        self.iters += 1;
+        let cycles = counter.cycles.read().unwrap();
+        let instructions = counter.instructions.read().unwrap();
+        let cache_misses = counter.cache_misses.read().unwrap();
+        let cache_references = counter.cache_references.read().unwrap();
+        let branch_instructions = counter.branch_instructions.read().unwrap();
+        self.total.cycles += cycles;
+        self.total.instructions += instructions;
+        self.total.cache_misses += cache_misses;
+        self.total.cache_references += cache_references;
+        self.total.branch_instructions += branch_instructions;
+        if self.best.cycles > cycles || self.best.cycles == 0 {
+            self.best.cycles = cycles
+        };
+        if self.best.instructions > instructions || self.best.instructions == 0 {
+            self.best.instructions = instructions
+        };
+        if self.best.cache_misses > cache_misses || self.best.cache_misses == 0 {
+            self.best.cache_misses = cache_misses
+        };
+        if self.best.cache_references > cache_references || self.best.cache_references == 0 {
+            self.best.cache_references = cache_references
+        };
+        if self.best.branch_instructions > branch_instructions || self.best.branch_instructions == 0
+        {
+            self.best.branch_instructions = branch_instructions
+        };
+    }
+    pub fn print(&self, name: &str, bytes: usize) {
+        let cycles = self.total.cycles / self.iters;
+        let instructions = self.total.instructions / self.iters;
+        let cache_misses = self.total.cache_misses / self.iters;
+        let cache_references = self.total.cache_references / self.iters;
+        let branch_instructions = self.total.branch_instructions / self.iters;
+
+        println!(
+            "{:14} {:10} {:10} {:10} {:10} {:10} {:10.3} {:10.3}",
+            name,
+            cycles,
+            instructions,
+            branch_instructions,
+            cache_misses,
+            cache_references,
+            ((self.best.cycles as f64) / bytes as f64),
+            ((cycles as f64) / bytes as f64)
+        );
+    }
+}
+
 #[cfg(feature = "perf")]
 fn bench(name: &str) {
-    use perfcnt::linux::{HardwareEventType, PerfCounterBuilderLinux};
-    use perfcnt::{AbstractPerfCounter, PerfCounter};
     use std::fs::File;
     use std::io::Read;
     use std::iter;
-
-    fn pc(event_type: HardwareEventType) -> PerfCounter {
-        PerfCounterBuilderLinux::from_hardware_event(event_type)
-            .for_pid(0)
-            .exclude_kernel()
-            .exclude_idle()
-            .finish()
-            .unwrap()
-    }
 
     let mut vec = Vec::new();
     let mut f = String::from("data/");
@@ -23,68 +116,30 @@ fn bench(name: &str) {
     let bytes = vec.len();
     let rounds: u64 = 1000;
     let warmup: u64 = 200;
-    let mut data_entries: Vec<Vec<u8>> = iter::repeat(vec).take((rounds + warmup) as usize).collect();
+    let mut data_entries: Vec<Vec<u8>> =
+        iter::repeat(vec).take((rounds + warmup) as usize).collect();
     // Run some warmup;
 
     for mut bytes in &mut data_entries[..warmup as usize] {
         simd_json::to_borrowed_value(&mut bytes).unwrap();
     }
-    let mut cycles_avg: u64 = 0;
-    let mut cycles_top: u64 = 0;
-    let mut instructions_avg: u64 = 0;
-    //let mut instructions_top: u64 = 0;
-    let mut cache_misses_avg: u64 = 0;
-    let mut cache_references_avg: u64 = 0;
-    let mut branch_instructions_avg: u64 = 0;
+    let mut stats = Stats::default();
     for mut bytes in &mut data_entries[warmup as usize..] {
         // Set up counters
-        let mut cr = pc(HardwareEventType::CacheReferences);
-        let mut cm = pc(HardwareEventType::CacheMisses);
-        let mut inst = pc(HardwareEventType::Instructions);
-        let mut bi = pc(HardwareEventType::BranchInstructions);
-        let mut cc = pc(HardwareEventType::CPUCycles);
+        let pc = stats.start();
 
         // run the measurement
         let r = simd_json::to_borrowed_value(&mut bytes);
         // Stop counters
-        cr.stop().unwrap();
-        cm.stop().unwrap();
-        cc.stop().unwrap();
-        inst.stop().unwrap();
-        bi.stop().unwrap();
+        stats.stop(pc);
         // we make sure that dropping doesn't happen untill we are done with our counting.
         // better safe then sorry.
         assert!(r.is_ok());
         // do our accounting
-        let c = cc.read().unwrap();
-        if c < cycles_top || cycles_top == 0 {
-            cycles_top = c;
-        }
-        cycles_avg += c;
-        instructions_avg += inst.read().unwrap();
-        branch_instructions_avg += bi.read().unwrap();
-        cache_references_avg += cr.read().unwrap();
-        cache_misses_avg += cm.read().unwrap();
     }
+    stats.print(name, bytes);
     //    println!();
     //    println!("============[{:^16}]============", name);
-    cycles_avg /= rounds;
-    cache_references_avg /= rounds;
-    cache_misses_avg /= rounds;
-    instructions_avg /= rounds;
-    branch_instructions_avg /= rounds;
-
-    println!(
-        "{:14} {:10} {:10} {:10} {:10} {:10} {:10.3} {:10.3}",
-        name,
-        cycles_avg,
-        instructions_avg,
-        branch_instructions_avg,
-        cache_misses_avg,
-        cache_references_avg,
-        ((cycles_top as f64) / bytes as f64),
-        ((cycles_avg as f64) / bytes as f64)
-    );
 }
 
 #[cfg(not(feature = "perf"))]
