@@ -26,7 +26,7 @@ fn bench(name: &str) {
     // Run some warmup;
 
     for mut bytes in &mut data_entries[..20] {
-        simdjson::to_borrowed_value(&mut bytes).unwrap();
+        simd_json::to_borrowed_value(&mut bytes).unwrap();
     }
     let mut cycles_avg: u64 = 0;
     let mut cycles_top: u64 = 0;
@@ -44,7 +44,7 @@ fn bench(name: &str) {
         let mut cc = pc(HardwareEventType::CPUCycles);
 
         // run the measurement
-        let r = simdjson::to_borrowed_value(&mut bytes);
+        let r = simd_json::to_borrowed_value(&mut bytes);
         // Stop counters
         cr.stop().unwrap();
         cm.stop().unwrap();
