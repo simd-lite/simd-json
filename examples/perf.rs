@@ -21,11 +21,12 @@ fn bench(name: &str) {
     f.push_str(".json");
     File::open(f).unwrap().read_to_end(&mut vec).unwrap();
     let bytes = vec.len();
-    let rounds: u64 = 100;
-    let mut data_entries: Vec<Vec<u8>> = iter::repeat(vec).take(rounds as usize + 20).collect();
+    let rounds: u64 = 1000;
+    let warmup: u64 = 200;
+    let mut data_entries: Vec<Vec<u8>> = iter::repeat(vec).take((rounds + warmup) as usize).collect();
     // Run some warmup;
 
-    for mut bytes in &mut data_entries[..20] {
+    for mut bytes in &mut data_entries[..warmup as usize] {
         simd_json::to_borrowed_value(&mut bytes).unwrap();
     }
     let mut cycles_avg: u64 = 0;
@@ -35,7 +36,7 @@ fn bench(name: &str) {
     let mut cache_misses_avg: u64 = 0;
     let mut cache_references_avg: u64 = 0;
     let mut branch_instructions_avg: u64 = 0;
-    for mut bytes in &mut data_entries[20..] {
+    for mut bytes in &mut data_entries[warmup as usize..] {
         // Set up counters
         let mut cr = pc(HardwareEventType::CacheReferences);
         let mut cm = pc(HardwareEventType::CacheMisses);
@@ -84,20 +85,6 @@ fn bench(name: &str) {
         ((cycles_top as f64) / bytes as f64),
         ((cycles_avg as f64) / bytes as f64)
     );
-    /*
-        println!(
-            "  => Cycles:             {:15} ({:.3}/byte)",
-            ,
-            ((best_cycles as f64) / bytes as f64)
-        );
-        "{:15} {:15} {:15} {:15} {:15}",
-
-        println!("  => Instructions:       {:15}", instructions / 100);
-        println!("  => BranchInstructions: {:15}", branch_instructions / 100);
-        println!("  => CacheMisses:        {:15}", cache_misses / 100);
-        println!("  => CacheReferences:    {:15}", cache_references / 100);
-        println!("==========================================");
-    */
 }
 
 #[cfg(not(feature = "perf"))]
