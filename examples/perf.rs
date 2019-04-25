@@ -86,6 +86,19 @@ mod int {
                 self.best.branch_instructions = branch_instructions
             };
         }
+        pub fn print_best(&self, name: &str, bytes: usize) {
+            println!(
+                "{:20} {:10} {:10} {:10} {:10} {:10} {:10.3} {:10.3}",
+                name,
+                self.best.cycles,
+                self.best.instructions,
+                self.best.branch_instructions,
+                self.best.cache_misses,
+                self.best.cache_references,
+                ((self.best.cycles as f64) / bytes as f64),
+                ((self.best.cycles as f64) / bytes as f64)
+            );
+        }
         pub fn print(&self, name: &str, bytes: usize) {
             let cycles = self.total.cycles / self.iters;
             let instructions = self.total.instructions / self.iters;
@@ -204,6 +217,111 @@ mod int {
             stats.print_diff(&baseline, name, bytes);
         }
     }
+    fn loop_data() -> Vec<u8> {
+        vec![1; 10_000_000]
+    }
+
+    pub fn for_loop() {
+        let mut stats = Stats::default();
+        let mut r: u64 = 0;
+
+        for _ in 1..20 {
+            r = 0;
+            let data = loop_data();
+            for n in data {
+                r += (n * 2) as u64;
+            }
+        }
+        for _ in 1..100 {
+            r = 0;
+            let data = loop_data();
+            let pc = stats.start();
+            for n in data {
+                r += (n * 2) as u64;
+            }
+            stats.stop(pc);
+        }
+        assert_eq!(r, 20_000_000);
+        stats.print_best("for loop", 10_000_000);
+    }
+
+    pub fn for_loop_as_slice() {
+        let data = loop_data();
+        let mut stats = Stats::default();
+
+        let mut r: u64 = 0;
+        for _ in 1..20 {
+            r = 0;
+            let data = loop_data();
+            for n in &data {
+                r += (*n * 2) as u64;
+            }
+        }
+
+        for _ in 1..100 {
+            r = 0;
+            let data = loop_data();
+            let pc = stats.start();
+            for n in &data {
+                r += (*n * 2) as u64;
+            }
+            stats.stop(pc);
+        }
+        assert_eq!(r, 20_000_000);
+        stats.print_best("for loop sliced", 10_000_000);
+    }
+
+    pub fn iter_loop() {
+        let data = loop_data();
+        let mut stats = Stats::default();
+
+        let mut r: u64 = 0;
+        let mut r: u64 = 0;
+        for _ in 1..20 {
+            let data = loop_data();
+            r = data.iter().map(|n| (n * 2) as u64).sum();
+        }
+        for _ in 1..100 {
+            r = 0;
+            let data = loop_data();
+            let pc = stats.start();
+            r = data.iter().map(|n| (n * 2) as u64).sum();
+            stats.stop(pc);
+        }
+        assert_eq!(r, 20_000_000);
+        stats.print_best("iter loop", 10_000_000);
+    }
+    pub fn while_loop() {
+        let data = loop_data();
+        let mut stats = Stats::default();
+
+        let mut r: u64 = 0;
+        let mut r: u64 = 0;
+        for _ in 1..20 {
+            r = 0;
+            let data = loop_data();
+            let l = data.len();
+            let mut i = 0;
+            while i < l {
+                unsafe { r += (*data.get_unchecked(i) * 2) as u64 };
+                i += 1;
+            }
+        }
+        for _ in 1..100 {
+            r = 0;
+            let data = loop_data();
+            let pc = stats.start();
+            let l = data.len();
+            let mut i = 0;
+            while i < l {
+                unsafe { r += (*data.get_unchecked(i) * 2) as u64 };
+                i += 1;
+            }
+            stats.stop(pc);
+        }
+        assert_eq!(r, 20_000_000);
+        stats.print_best("while loop", 10_000_000);
+    }
 }
 
 #[cfg(not(feature = "perf"))]
@@ -228,6 +346,10 @@ fn main() {
         "Name", "Cycles", "Normal.", "Branch", "Misses", "References", "Best", "Avg"
     );
 
+    int::for_loop();
+    int::for_loop_as_slice();
+    int::iter_loop();
+    int::while_loop();
     let baseline = matches.opt_present("b");
     int::bench("apache_builds", baseline);
     int::bench("canada", baseline);
