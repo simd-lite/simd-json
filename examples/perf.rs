@@ -246,7 +246,6 @@ mod int {
     }
 
     pub fn for_loop_as_slice() {
-        let data = loop_data();
         let mut stats = Stats::default();
 
         let mut r: u64 = 0;
@@ -272,17 +271,14 @@ mod int {
     }
 
     pub fn iter_loop() {
-        let data = loop_data();
         let mut stats = Stats::default();
 
-        let mut r: u64 = 0;
         let mut r: u64 = 0;
         for _ in 1..20 {
             let data = loop_data();
             r = data.iter().map(|n| (n * 2) as u64).sum();
         }
         for _ in 1..100 {
-            r = 0;
             let data = loop_data();
             let pc = stats.start();
             r = data.iter().map(|n| (n * 2) as u64).sum();
@@ -292,10 +288,8 @@ mod int {
         stats.print_best("iter loop", 10_000_000);
     }
     pub fn while_loop() {
-        let data = loop_data();
         let mut stats = Stats::default();
 
-        let mut r: u64 = 0;
         let mut r: u64 = 0;
         for _ in 1..20 {
             r = 0;
@@ -322,6 +316,32 @@ mod int {
         assert_eq!(r, 20_000_000);
         stats.print_best("while loop", 10_000_000);
     }
+
+    pub fn while_iter() {
+        let mut stats = Stats::default();
+
+        let mut r: u64 = 0;
+        for _ in 1..20 {
+            r = 0;
+            let data = loop_data();
+            let mut i = data.iter();
+            while let Some(n) = i.next() {
+                r += (*n * 2) as u64;
+            }
+        }
+        for _ in 1..100 {
+            r = 0;
+            let data = loop_data();
+            let pc = stats.start();
+            let mut i = data.iter();
+            while let Some(n) = i.next() {
+                r += (*n * 2) as u64;
+            }
+            stats.stop(pc);
+        }
+        assert_eq!(r, 20_000_000);
+        stats.print_best("while iter loop", 10_000_000);
+    }
 }
 
 #[cfg(not(feature = "perf"))]
@@ -329,6 +349,11 @@ mod int {
     pub fn bench(_name: &str, _baseline: bool) {
         println!("Perf requires linux to run and the perf feature to be enabled")
     }
+    pub fn for_loop() {}
+    pub fn for_loop_as_slice() {}
+    pub fn iter_loop() {}
+    pub fn while_loop() {}
+    pub fn while_iter() {}
 }
 
 fn main() {
@@ -350,6 +375,7 @@ fn main() {
     int::for_loop_as_slice();
     int::iter_loop();
     int::while_loop();
+    int::while_iter();
     let baseline = matches.opt_present("b");
     int::bench("apache_builds", baseline);
     int::bench("canada", baseline);
