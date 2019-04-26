@@ -140,11 +140,15 @@ impl<'de> Deserializer<'de> {
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
             if (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING {
                 let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
-                unsafe { data.set_len(len + 1) };
-                data.as_mut_slice()[0..len].clone_from_slice(input);
-                data[len] = 0;
-                unsafe { data.set_len(len) };
-                unsafe { Deserializer::find_structural_bits(&data) }
+                unsafe {
+                    data.set_len(len + 1);
+                    data.as_mut_slice()
+                        .get_unchecked_mut(0..len)
+                        .clone_from_slice(input);
+                    *(data.get_unchecked_mut(len)) = 0;
+                    data.set_len(len);
+                    Deserializer::find_structural_bits(&data)
+                }
             } else {
                 unsafe { Deserializer::find_structural_bits(input) }
             };

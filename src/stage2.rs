@@ -7,14 +7,16 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
     let mut error: u32;
     unsafe {
-        let tv: u64 = *(b"true   ".as_ptr() as *const u64);
-        let mask4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
+        //let tv: u64 = *(b"true    ".as_ptr() as *const u64);
+        // this is the same:
+        const TV: u64 = 0x20_20_20_20_65_75_72_74;
+        const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
 
         // TODO: does this has the same effect as:
         //   std::memcpy(&locval, loc, sizeof(uint64_t));
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
-        error = ((locval & mask4) ^ tv) as u32;
+        error = ((locval & MASK4) ^ TV) as u32;
         error |= is_not_structural_or_whitespace(*loc.get_unchecked(4));
     }
     error == 0
@@ -25,8 +27,11 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
     // TODO: this is ugly and probably copies data every time
     unsafe {
         let error;
-        let fv: u64 = *(b"false   ".as_ptr() as *const u64);
-        let mask5: u64 = 0x000000ffffffffff;
+        //let fv: u64 = *(b"false   ".as_ptr() as *const u64);
+        // this is the same:
+
+        const FV: u64 = 0x20_20_20_65_73_6c_61_66;
+        const MASK5: u64 = 0x00_00_00_ff_ff_ff_ff_ff;
 
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
@@ -35,7 +40,7 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
         // but that failes on falsy as the u32 conversion
         // will mask the error on the y so we re-write it
         // it would be interesting what the consequecnes are
-        error = ((locval ^ fv) & mask5) == 0;
+        error = ((locval ^ FV) & MASK5) == 0;
         error || is_not_structural_or_whitespace(*loc.get_unchecked(5)) == 1
     }
 }
@@ -45,11 +50,13 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
     let mut error: u32;
     unsafe {
-        let tv: u64 = *(b"null   ".as_ptr() as *const u64);
-        let mask4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
+        //let nv: u64 = *(b"null   ".as_ptr() as *const u64);
+        // this is the same:
+        const NV: u64 = 0x00_00_00_00_6c_6c_75_6e;
+        const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
-        error = ((locval & mask4) ^ tv) as u32;
+        error = ((locval & MASK4) ^ NV) as u32;
         error |= is_not_structural_or_whitespace(*loc.get_unchecked(4));
     }
     error == 0
