@@ -159,7 +159,10 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
+        //let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
+        let (counts, str_len) = Deserializer::validate(input, &structural_indexes)?;
+        //assert_eq!(counts, counts2);
+        //assert_eq!(str_len, str_len2);
 
         let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
         unsafe {
@@ -220,7 +223,6 @@ impl<'de> Deserializer<'de> {
                         stry!(depth.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
                     counts[last_start] = cnt;
                     last_start = a_last_start;
-                    //maps.push(cnt);
                     cnt = a_cnt;
                 }
                 b',' => cnt += 1,
@@ -865,6 +867,21 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
         assert_eq!(to_value(&mut d1), Ok(Value::Array(vec![])));
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn double_array() {
+        let mut d = String::from(r#"[[]]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![Value::Array(vec![])]))
+        );
         assert_eq!(v_simd, v_serde);
     }
 
