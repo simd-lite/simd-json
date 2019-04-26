@@ -265,7 +265,6 @@ impl<'de> Deserializer<'de> {
     fn parse_map_borrowed(&mut self) -> Result<Value<'de>> {
         // We short cut for empty arrays
         let es = self.count_elements();
-        dbg!(es);
         if unlikely!(es == 0) {
             self.skip();
             return Ok(Value::Object(Map::new()));
