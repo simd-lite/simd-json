@@ -254,6 +254,12 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn skip_n(&mut self, n: usize) {
+        self.idx += n;
+        self.iidx = unsafe { *self.structural_indexes.get_unchecked(self.idx) as usize };
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn c(&self) -> u8 {
         unsafe {
             *self

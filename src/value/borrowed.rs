@@ -279,8 +279,7 @@ impl<'de> Deserializer<'de> {
             let key = stry!(self.parse_short_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
-            self.skip();
-            self.skip();
+            self.skip_n(2);
             res.insert_nocheck(key.into(), stry!(self.to_value_borrowed()));
             self.skip();
         }
