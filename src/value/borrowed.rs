@@ -3,8 +3,8 @@
 mod cmp;
 mod from;
 
-use halfbrown::HashMap;
 use crate::{stry, unlikely, Deserializer, ErrorType, Result};
+use halfbrown::HashMap;
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::Index;
@@ -247,79 +247,44 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_array_borrowed(&mut self) -> Result<Value<'de>> {
-        // We short cut for empty arrays
-        if unlikely!(self.peek_() == b']') {
+        let es = self.count_elements();
+        if unlikely!(es == 0) {
             self.skip();
             return Ok(Value::Array(Vec::new()));
         }
+        let mut res = Vec::with_capacity(es);
 
-        let mut res = Vec::with_capacity(self.count_elements());
-
-        // Since we checked if it's empty we know that we at least have one
-        // element so we eat this
-
-        res.push(stry!(self.to_value_borrowed()));
-        loop {
-            // We now exect one of two things, a comma with a next
-            // element or a closing bracket
-            match self.peek_() {
-                b']' => break,
-                b',' => self.skip(),
-                _c => return Err(self.error(ErrorType::ExpectedArrayComma)),
-            }
+        for _i in 0..es {
             res.push(stry!(self.to_value_borrowed()));
+            self.skip();
         }
-        self.skip();
-        // We found a closing bracket and ended our loop, we skip it
         Ok(Value::Array(res))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_map_borrowed(&mut self) -> Result<Value<'de>> {
         // We short cut for empty arrays
-
-        if unlikely!(self.peek_() == b'}') {
+        let es = self.count_elements();
+        dbg!(es);
+        if unlikely!(es == 0) {
             self.skip();
             return Ok(Value::Object(Map::new()));
         }
 
-        let mut res = Map::with_capacity(self.count_elements());
+        let mut res = Map::with_capacity(es);
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
 
-        if self.next_() != b'"' {
-            return Err(self.error(ErrorType::ExpectedString));
-        }
-
-        let key = stry!(self.parse_short_str_());
-
-        match self.next_() {
-            b':' => (),
-            _c => return Err(self.error(ErrorType::ExpectedMapColon)),
-        }
-        res.insert_nocheck(key.into(), stry!(self.to_value_borrowed()));
-        loop {
-            // We now exect one of two things, a comma with a next
-            // element or a closing bracket
-            match self.peek_() {
-                b'}' => break,
-                b',' => self.skip(),
-                _c => return Err(self.error(ErrorType::ExpectedArrayComma)),
-            }
-            if unlikely!(self.next_() != b'"') {
-                return Err(self.error(ErrorType::ExpectedString));
-            }
-
+        for _ in 0..es {
             let key = stry!(self.parse_short_str_());
-
-            if unlikely!(self.next_() != b':') {
-                return Err(self.error(ErrorType::ExpectedMapColon));
-            }
+            // We have to call parse short str twice since parse_short_str
+            // does not move the cursor forward
+            self.skip();
+            self.skip();
             res.insert_nocheck(key.into(), stry!(self.to_value_borrowed()));
+            self.skip();
         }
-        // We found a closing bracket and ended our loop, we skip it
-        self.skip();
         Ok(Value::Object(res))
     }
 }

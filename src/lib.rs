@@ -688,6 +688,15 @@ mod tests {
     }
 
     #[test]
+    fn count5() {
+        let mut d = String::from("[[],null,null]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        assert_eq!(simd.counts[1], 3);
+        assert_eq!(simd.counts[2], 0);
+    }
+
+    #[test]
     fn empty() {
         let mut d = String::from("");
         let mut d = unsafe { d.as_bytes_mut() };
@@ -881,6 +890,25 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![])]))
+        );
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn null_null_array() {
+        let mut d = String::from(r#"[[],null,null]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![
+                Value::Array(vec![]),
+                Value::Null,
+                Value::Null,
+            ]))
         );
         assert_eq!(v_simd, v_serde);
     }
@@ -1409,12 +1437,13 @@ mod tests {
                 let d2 = unsafe{ d2.as_bytes_mut()};
                 let mut d3 = d.clone();
                 let d3 = unsafe{ d3.as_bytes_mut()};
-                let v_simd: serde_json::Value = from_slice(d1).expect("");
-                assert_eq!(v_simd, v_serde);
-                let v_simd = to_borrowed_value(d2);
-                assert!(v_simd.is_ok());
-                let v_simd = to_borrowed_value(d3);
-                assert!(v_simd.is_ok());
+                let v_simd_serde: serde_json::Value = from_slice(d1).expect("");
+                assert_eq!(v_simd_serde, v_serde);
+                let v_simd_owned = to_owned_value(d2);
+                assert!(v_simd_owned.is_ok());
+                let v_simd_borrowed = to_borrowed_value(d3);
+                dbg!(&v_simd_borrowed);
+                assert!(v_simd_borrowed.is_ok());
             }
 
         }

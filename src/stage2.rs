@@ -108,7 +108,6 @@ impl<'de> Deserializer<'de> {
                     .ok_or_else(|| (Error::generic(ErrorType::Syntax)))? as usize;
 
                 i += 1;
-                dbg!(idx);
                 c = unsafe { *input.get_unchecked(idx) };
             };
         }
@@ -118,7 +117,6 @@ impl<'de> Deserializer<'de> {
         let mut state = State::Start;
         macro_rules! goto {
             ($state:expr) => {{
-                dbg!($state);
                 state = $state;
                 continue;
             }};
@@ -272,9 +270,6 @@ impl<'de> Deserializer<'de> {
 
                 ////////////////////////////// COMMON STATE /////////////////////////////
                 ScopeEnd => {
-                    dbg!(&depth);
-                    dbg!(i);
-                    dbg!(last_start);
                     if i != last_start + 1 {
                         cnt += 1;
                     }
