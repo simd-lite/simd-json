@@ -118,7 +118,9 @@ mod int {
             let branch_instructions_b = baseline.total.branch_instructions / baseline.iters;
 
             fn d(d: f64) -> String {
-                if d > 0.0 {
+                if d < 1.0 && d > -1.0 {
+                    format!("{:9.3}%", d).yellow().to_string()
+                } else if d >= 1.0 {
                     format!("{:9.3}%", d).red().to_string()
                 } else {
                     format!("{:9.3}%", d).green().to_string()
