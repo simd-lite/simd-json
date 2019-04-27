@@ -181,6 +181,7 @@ impl<'de> Deserializer<'de> {
         })
     }
 
+    /*
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn compute_size(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
         let mut counts = Vec::with_capacity(structural_indexes.len());
@@ -246,6 +247,7 @@ impl<'de> Deserializer<'de> {
 
         Ok((counts, str_len as usize))
     }
+    */
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn skip(&mut self) {
