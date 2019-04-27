@@ -1,5 +1,5 @@
 use crate::value::owned::{Map, Value};
-use crate::Error;
+use crate::{stry, Error};
 use serde::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Unexpected, Visitor,
 };
@@ -42,7 +42,7 @@ where
 {
     let len = array.len();
     let mut deserializer = SeqDeserializer::new(array);
-    let seq = visitor.visit_seq(&mut deserializer)?;
+    let seq = stry!(visitor.visit_seq(&mut deserializer));
     let remaining = deserializer.iter.len();
     if remaining == 0 {
         Ok(seq)
@@ -60,7 +60,7 @@ where
 {
     let len = object.len();
     let mut deserializer = MapDeserializer::new(object);
-    let map = visitor.visit_map(&mut deserializer)?;
+    let map = stry!(visitor.visit_map(&mut deserializer));
     let remaining = deserializer.iter.len();
     if remaining == 0 {
         Ok(map)
@@ -95,7 +95,7 @@ impl<'de> serde::Deserializer<'de> for SeqDeserializer {
         if len == 0 {
             visitor.visit_unit()
         } else {
-            let ret = visitor.visit_seq(&mut self)?;
+            let ret = stry!(visitor.visit_seq(&mut self));
             let remaining = self.iter.len();
             if remaining == 0 {
                 Ok(ret)

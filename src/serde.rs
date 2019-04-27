@@ -7,7 +7,7 @@
 /// directly to structs this is th4 place to go.
 mod de;
 mod value;
-use crate::{Deserializer, Error, ErrorType, Result};
+use crate::{stry, Deserializer, Error, ErrorType, Result};
 use serde::Deserialize;
 use std::fmt;
 
@@ -20,7 +20,7 @@ pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = Deserializer::from_slice(s)?;
+    let mut deserializer = stry!(Deserializer::from_slice(s));
 
     T::deserialize(&mut deserializer)
 }
@@ -32,7 +32,7 @@ pub fn from_str<'a, T>(s: &'a mut str) -> Result<T>
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = Deserializer::from_slice(unsafe { s.as_bytes_mut() })?;
+    let mut deserializer = stry!(Deserializer::from_slice(unsafe { s.as_bytes_mut() }));
 
     T::deserialize(&mut deserializer)
 }

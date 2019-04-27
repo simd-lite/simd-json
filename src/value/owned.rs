@@ -3,8 +3,8 @@
 mod cmp;
 mod from;
 
-use crate::{unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
+use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use std::fmt;
 use std::ops::Index;
 
@@ -16,7 +16,7 @@ pub type Map = HashMap<String, Value>;
 /// owned memory whereever required thus returning a value without
 /// a lifetime.
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
-    let mut deserializer = Deserializer::from_slice(s)?;
+    let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.to_value_owned_root()
 }
 
@@ -201,7 +201,7 @@ impl<'de> Deserializer<'de> {
                 self.parse_str_().map(Value::from)
             }
             b'n' => {
-                self.parse_null()?;
+                stry!(self.parse_null());
                 Ok(Value::Null)
             }
             b't' => self.parse_true().map(Value::Bool),
@@ -231,7 +231,7 @@ impl<'de> Deserializer<'de> {
                 self.parse_str_().map(Value::from)
             }
             b'n' => {
-                self.parse_null_()?;
+                stry!(self.parse_null_());
                 Ok(Value::Null)
             }
             b't' => self.parse_true_().map(Value::Bool),
@@ -257,7 +257,7 @@ impl<'de> Deserializer<'de> {
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
 
-        res.push(self.to_value_owned()?);
+        res.push(stry!(self.to_value_owned()));
         loop {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
@@ -266,7 +266,7 @@ impl<'de> Deserializer<'de> {
                 b',' => self.skip(),
                 _c => return Err(self.error(ErrorType::ExpectedArrayComma)),
             }
-            res.push(self.to_value_owned()?);
+            res.push(stry!(self.to_value_owned()));
         }
         self.skip();
         // We found a closing bracket and ended our loop, we skip it
@@ -291,12 +291,12 @@ impl<'de> Deserializer<'de> {
             return Err(self.error(ErrorType::ExpectedString));
         }
 
-        let key = self.parse_short_str_()?;
+        let key = stry!(self.parse_short_str_());
 
         if unlikely!(self.next_() != b':') {
             return Err(self.error(ErrorType::ExpectedMapColon));
         }
-        res.insert_nocheck(key.into(), self.to_value_owned()?);
+        res.insert_nocheck(key.into(), stry!(self.to_value_owned()));
         loop {
             // We now exect one of two things, a comma with a next
             // element or a closing bracket
@@ -308,12 +308,12 @@ impl<'de> Deserializer<'de> {
             if unlikely!(self.next_() != b'"') {
                 return Err(self.error(ErrorType::ExpectedString));
             }
-            let key = self.parse_short_str_()?;
+            let key = stry!(self.parse_short_str_());
 
             if unlikely!(self.next_() != b':') {
                 return Err(self.error(ErrorType::ExpectedMapColon));
             }
-            res.insert_nocheck(key.into(), self.to_value_owned()?);
+            res.insert_nocheck(key.into(), stry!(self.to_value_owned()));
         }
         // We found a closing bracket and ended our loop, we skip it
         self.skip();

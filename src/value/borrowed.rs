@@ -3,7 +3,7 @@
 mod cmp;
 mod from;
 
-use crate::{unlikely, Deserializer, ErrorType, Result};
+use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
 use std::borrow::Cow;
 use std::fmt;
@@ -15,7 +15,7 @@ pub type Map<'a> = HashMap<Cow<'a, str>, Value<'a>>;
 /// As we reference parts of the input slice the resulting dom
 /// has the dame lifetime as the slice it was created from.
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
-    let mut deserializer = Deserializer::from_slice(s)?;
+    let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.to_value_borrowed_root()
 }
 
@@ -201,7 +201,7 @@ impl<'de> Deserializer<'de> {
             b'-' => self.parse_number(true).map(Value::from),
             b'0'...b'9' => self.parse_number(false).map(Value::from),
             b'n' => {
-                self.parse_null()?;
+                stry!(self.parse_null());
                 Ok(Value::Null)
             }
             b't' => self.parse_true().map(Value::Bool),
@@ -232,7 +232,7 @@ impl<'de> Deserializer<'de> {
             b'-' => self.parse_number_(true).map(Value::from),
             b'0'...b'9' => self.parse_number_(false).map(Value::from),
             b'n' => {
-                self.parse_null_()?;
+                stry!(self.parse_null_());
                 Ok(Value::Null)
             }
             b't' => self.parse_true_().map(Value::Bool),
@@ -253,7 +253,7 @@ impl<'de> Deserializer<'de> {
         let mut res = Vec::with_capacity(es);
 
         for _i in 0..es {
-            res.push(self.to_value_borrowed()?);
+            res.push(stry!(self.to_value_borrowed()));
             self.skip();
         }
         Ok(Value::Array(res))
@@ -274,11 +274,11 @@ impl<'de> Deserializer<'de> {
         // element so we eat this
 
         for _ in 0..es {
-            let key = self.parse_short_str_()?;
+            let key = stry!(self.parse_short_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
             self.skip_n(2);
-            res.insert_nocheck(key.into(), self.to_value_borrowed()?);
+            res.insert_nocheck(key.into(), stry!(self.to_value_borrowed()));
             self.skip();
         }
         Ok(Value::Object(res))
