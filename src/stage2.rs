@@ -149,7 +149,7 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
-                            counts[i] = d;
+                            unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(StartContinue);
                         }
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
@@ -183,7 +183,7 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
-                            counts[i] = d;
+                            unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(ObjectKey);
                         }
                         b'}' => {
@@ -212,7 +212,7 @@ impl<'de> Deserializer<'de> {
                                 str_len = d;
                             }
 
-                            counts[i] = d;
+                            unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(ObjectContinue);
                         }
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
@@ -255,7 +255,7 @@ impl<'de> Deserializer<'de> {
                                     str_len = d;
                                 }
 
-                                counts[i] = d;
+                                unsafe { *counts.get_unchecked_mut(i) = d };
                                 goto!(ObjectKey);
                             }
                         }
@@ -275,7 +275,11 @@ impl<'de> Deserializer<'de> {
                     }
                     let (a_state, a_last_start, a_cnt) =
                         stry!(depth.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
-                    counts[last_start] = cnt;
+
+                    unsafe {
+                        *counts.get_unchecked_mut(last_start) = cnt;
+                    }
+
                     last_start = a_last_start;
                     cnt = a_cnt;
 
@@ -310,7 +314,7 @@ impl<'de> Deserializer<'de> {
                                 str_len = d;
                             }
 
-                            counts[i] = d;
+                            unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(ArrayContinue);
                         }
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
