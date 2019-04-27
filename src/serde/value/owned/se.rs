@@ -1,6 +1,6 @@
 use super::to_value;
 use crate::value::owned::{Map, Value};
-use crate::{stry, Error, ErrorType, Result};
+use crate::{Error, ErrorType, Result};
 use serde::ser::{self, Serialize};
 use serde_ext::ser::{SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait};
 
@@ -178,7 +178,7 @@ impl serde::Serializer for Serializer {
         T: Serialize,
     {
         let mut values = Map::new();
-        values.insert(variant.into(), stry!(to_value(&value)));
+        values.insert(variant.into(), to_value(&value)?);
         Ok(Value::Object(values))
     }
 
@@ -283,7 +283,7 @@ impl serde::ser::SerializeSeq for SerializeVec {
     where
         T: Serialize,
     {
-        self.vec.push(stry!(to_value(&value)));
+        self.vec.push(to_value(&value)?);
         Ok(())
     }
 
@@ -332,7 +332,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     where
         T: Serialize,
     {
-        self.vec.push(stry!(to_value(&value)));
+        self.vec.push(to_value(&value)?);
         Ok(())
     }
 
@@ -357,7 +357,7 @@ impl serde::ser::SerializeMap for SerializeMap {
             SerializeMap::Map {
                 ref mut next_key, ..
             } => {
-                *next_key = Some(stry!(key.serialize(MapKeySerializer {})));
+                *next_key = Some(key.serialize(MapKeySerializer {})?);
                 Ok(())
             }
             #[cfg(feature = "arbitrary_precision")]
@@ -380,7 +380,7 @@ impl serde::ser::SerializeMap for SerializeMap {
                 // Panic because this indicates a bug in the program rather than an
                 // expected failure.
                 let key = key.expect("serialize_value called before serialize_key");
-                map.insert(key.into(), stry!(to_value(&value)));
+                map.insert(key.into(), to_value(&value)?);
                 Ok(())
             }
             #[cfg(feature = "arbitrary_precision")]
@@ -596,7 +596,7 @@ impl serde::ser::SerializeStruct for SerializeMap {
     {
         match *self {
             SerializeMap::Map { .. } => {
-                stry!(serde::ser::SerializeMap::serialize_key(self, key));
+                serde::ser::SerializeMap::serialize_key(self, key)?;
                 serde::ser::SerializeMap::serialize_value(self, value)
             }
             #[cfg(feature = "arbitrary_precision")]
@@ -643,7 +643,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     where
         T: Serialize,
     {
-        self.map.insert(key.into(), stry!(to_value(&value)));
+        self.map.insert(key.into(), to_value(&value)?);
         Ok(())
     }
 

@@ -615,11 +615,11 @@ impl<'de> Deserializer<'de> {
 
     fn parse_signed(&mut self) -> Result<i64> {
         match self.next_() {
-            b'-' => match stry!(self.parse_number(true)) {
+            b'-' => match self.parse_number(true)? {
                 Number::I64(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
-            b'0'...b'9' => match stry!(self.parse_number(false)) {
+            b'0'...b'9' => match self.parse_number(false)? {
                 Number::I64(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
@@ -628,7 +628,7 @@ impl<'de> Deserializer<'de> {
     }
     fn parse_unsigned(&mut self) -> Result<u64> {
         match self.next_() {
-            b'0'...b'9' => match stry!(self.parse_number(false)) {
+            b'0'...b'9' => match self.parse_number(false)? {
                 Number::I64(n) => Ok(n as u64),
                 _ => Err(self.error(ErrorType::ExpectedUnsigned)),
             },
@@ -638,11 +638,11 @@ impl<'de> Deserializer<'de> {
 
     fn parse_double(&mut self) -> Result<f64> {
         match self.next_() {
-            b'-' => match stry!(self.parse_number(true)) {
+            b'-' => match self.parse_number(true)? {
                 Number::F64(n) => Ok(n),
                 Number::I64(n) => Ok(n as f64),
             },
-            b'0'...b'9' => match stry!(self.parse_number(false)) {
+            b'0'...b'9' => match self.parse_number(false)? {
                 Number::F64(n) => Ok(n),
                 Number::I64(n) => Ok(n as f64),
             },
