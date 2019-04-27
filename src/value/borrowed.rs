@@ -193,8 +193,7 @@ impl<'de> Deserializer<'de> {
         }
         match self.next_() {
             b'"' => {
-                let next = unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) as usize };
-                if next - self.iidx < 32 {
+                if self.count_elements() < 32 {
                     return self.parse_short_str_().map(Value::from);
                 }
                 self.parse_str_().map(Value::from)
@@ -224,9 +223,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             b'"' => {
                 // We can only have entered this by being in an object so we know there is
-                // something following as we made sure during checking for sizes.
-                let next = unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) as usize };
-                if next - self.iidx < 32 {
+                // something following as we made sure during checking for sizes.;
+                if self.count_elements() < 32 {
                     return self.parse_short_str_().map(Value::from);
                 }
                 self.parse_str_().map(Value::from)
