@@ -88,7 +88,12 @@ impl<'de> Deserializer<'de> {
         unsafe {
             counts.set_len(structural_indexes.len());
         };
-        let mut depth = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+        let mut stack = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+        let mut depth = 0;
+        unsafe {
+            stack.set_len(structural_indexes.len() / 2);
+        }
+
         let mut last_start = 1;
         let mut cnt = 0;
         let mut str_len = 0;
@@ -128,13 +133,19 @@ impl<'de> Deserializer<'de> {
                 Start => {
                     match c {
                         b'{' => {
-                            depth.push((state, last_start, cnt));
+                            unsafe {
+                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
+                            }
+                            depth += 1;
                             last_start = i;
                             cnt = 0;
                             goto!(ObjectBegin);
                         }
                         b'[' => {
-                            depth.push((state, last_start, cnt));
+                            unsafe {
+                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
+                            }
+                            depth += 1;
                             last_start = i;
                             cnt = 0;
                             goto!(ArrayBegin);
@@ -220,13 +231,19 @@ impl<'de> Deserializer<'de> {
                         }
 
                         b'{' => {
-                            depth.push((state, last_start, cnt));
+                            unsafe {
+                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
+                            }
+                            depth += 1;
                             last_start = i;
                             cnt = 0;
                             goto!(ObjectBegin);
                         }
                         b'[' => {
-                            depth.push((state, last_start, cnt));
+                            unsafe {
+                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
+                            }
+                            depth += 1;
                             last_start = i;
                             cnt = 0;
                             goto!(ArrayBegin);
@@ -273,17 +290,22 @@ impl<'de> Deserializer<'de> {
                     if i != last_start + 1 {
                         cnt += 1;
                     }
-                    let (a_state, a_last_start, a_cnt) =
-                        stry!(depth.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
-
+                    if depth == 0 {
+                        return Err(Error::generic(ErrorType::Syntax));
+                    }
+                    depth -= 1;
                     unsafe {
                         *counts.get_unchecked_mut(last_start) = cnt;
                     }
 
-                    last_start = a_last_start;
-                    cnt = a_cnt;
+                    let (a_state, a_last_start, a_cnt) = unsafe { stack.get_unchecked(depth) };
+                    //                    let (a_state, a_last_start, a_cnt) = unsafe {  };
+                    //stry!(stack.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
 
-                    match a_state {
+                    last_start = *a_last_start;
+                    cnt = *a_cnt;
+
+                    match &a_state {
                         ObjectKey => goto!(ObjectContinue),
                         MainArraySwitch => goto!(ArrayContinue),
                         Start => goto!(StartContinue),
@@ -321,13 +343,19 @@ impl<'de> Deserializer<'de> {
                             goto!(ArrayContinue);
                         }
                         b'{' => {
-                            depth.push((state, last_start, cnt));
+                            unsafe {
+                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
+                            }
+                            depth += 1;
                             last_start = i;
                             cnt = 0;
                             goto!(ObjectBegin);
                         }
                         b'[' => {
-                            depth.push((state, last_start, cnt));
+                            unsafe {
+                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
+                            }
+                            depth += 1;
                             last_start = i;
                             cnt = 0;
                             goto!(ArrayBegin);
