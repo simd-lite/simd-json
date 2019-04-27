@@ -84,13 +84,13 @@ enum State {
 
 impl<'de> Deserializer<'de> {
     pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
+        // since we are open clos e we know worst case this is 2x the size
         let mut counts = Vec::with_capacity(structural_indexes.len());
+        let mut stack = Vec::with_capacity(structural_indexes.len() / 2);
+        let mut depth = 0;
+
         unsafe {
             counts.set_len(structural_indexes.len());
-        };
-        let mut stack = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-        let mut depth = 0;
-        unsafe {
             stack.set_len(structural_indexes.len() / 2);
         }
 
@@ -98,7 +98,6 @@ impl<'de> Deserializer<'de> {
         let mut cnt = 0;
         let mut str_len = 0;
 
-        //        let mut i: usize = 0; // index of the structural character (0,1,2,3...)
         let mut idx: usize; // location of the structural character in the input (buf)
         let mut c: u8; // used to track the (structural) character we are looking at, updated
                        // by UPDATE_CHAR macro
@@ -229,7 +228,6 @@ impl<'de> Deserializer<'de> {
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
                             goto!(ObjectContinue);
                         }
-
                         b'{' => {
                             unsafe {
                                 *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
@@ -262,17 +260,6 @@ impl<'de> Deserializer<'de> {
                             if c != b'"' {
                                 goto!(Fail);
                             } else {
-                                let d = if let Some(next) = si.peek() {
-                                    (**next as usize) - idx
-                                } else {
-                                    // If we're the last element we count to the end
-                                    input.len() - idx
-                                };
-                                if d > str_len {
-                                    str_len = d;
-                                }
-
-                                unsafe { *counts.get_unchecked_mut(i) = d };
                                 goto!(ObjectKey);
                             }
                         }
