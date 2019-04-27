@@ -138,7 +138,7 @@ impl<'de> Deserializer<'de> {
                             }
                             depth += 1;
                             last_start = i;
-                            cnt = 0;
+                            cnt = 1;
                             goto!(ObjectBegin);
                         }
                         b'[' => {
@@ -147,7 +147,7 @@ impl<'de> Deserializer<'de> {
                             }
                             depth += 1;
                             last_start = i;
-                            cnt = 0;
+                            cnt = 1;
                             goto!(ArrayBegin);
                         }
                         b'"' => {
@@ -198,6 +198,7 @@ impl<'de> Deserializer<'de> {
                             goto!(ObjectKey);
                         }
                         b'}' => {
+                            cnt = 0;
                             goto!(ScopeEnd);
                         }
                         _c => {
@@ -236,7 +237,7 @@ impl<'de> Deserializer<'de> {
                             }
                             depth += 1;
                             last_start = i;
-                            cnt = 0;
+                            cnt = 1;
                             goto!(ObjectBegin);
                         }
                         b'[' => {
@@ -245,7 +246,7 @@ impl<'de> Deserializer<'de> {
                             }
                             depth += 1;
                             last_start = i;
-                            cnt = 0;
+                            cnt = 1;
                             goto!(ArrayBegin);
                         }
                         _c => {
@@ -287,9 +288,6 @@ impl<'de> Deserializer<'de> {
 
                 ////////////////////////////// COMMON STATE /////////////////////////////
                 ScopeEnd => {
-                    if i != last_start + 1 {
-                        cnt += 1;
-                    }
                     if depth == 0 {
                         return Err(Error::generic(ErrorType::Syntax));
                     }
@@ -317,6 +315,7 @@ impl<'de> Deserializer<'de> {
                 ArrayBegin => {
                     update_char!();
                     if c == b']' {
+                        cnt = 0;
                         goto!(ScopeEnd);
                     }
                     goto!(MainArraySwitch);
@@ -348,7 +347,7 @@ impl<'de> Deserializer<'de> {
                             }
                             depth += 1;
                             last_start = i;
-                            cnt = 0;
+                            cnt = 1;
                             goto!(ObjectBegin);
                         }
                         b'[' => {
@@ -357,7 +356,7 @@ impl<'de> Deserializer<'de> {
                             }
                             depth += 1;
                             last_start = i;
-                            cnt = 0;
+                            cnt = 1;
                             goto!(ArrayBegin);
                         }
                         _c => {
