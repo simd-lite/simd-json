@@ -152,11 +152,14 @@ impl<'de> Deserializer<'de> {
                             unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(StartContinue);
                         }
-                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
-                            goto!(StartContinue);
+                        //b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+                        //goto!(StartContinue);
+                        //}
+                        b',' | b'}' | b']' | b':' => {
+                            goto!(Fail);
                         }
                         _ => {
-                            goto!(Fail);
+                            goto!(StartContinue);
                         }
                     }
                 }
@@ -215,10 +218,9 @@ impl<'de> Deserializer<'de> {
                             unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(ObjectContinue);
                         }
-                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
-                            goto!(ObjectContinue);
-                        }
-
+                        //b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+                        //goto!(ObjectContinue);
+                        //}
                         b'{' => {
                             depth.push((state, last_start, cnt));
                             last_start = i;
@@ -231,8 +233,11 @@ impl<'de> Deserializer<'de> {
                             cnt = 0;
                             goto!(ArrayBegin);
                         }
-                        _c => {
+                        b',' | b'}' | b']' | b':' => {
                             goto!(Fail);
+                        }
+                        _c => {
+                            goto!(ObjectContinue);
                         }
                     }
                 }
@@ -317,9 +322,9 @@ impl<'de> Deserializer<'de> {
                             unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(ArrayContinue);
                         }
-                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
-                            goto!(ArrayContinue);
-                        }
+                        //b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+                        //goto!(ArrayContinue);
+                        //}
                         b'{' => {
                             depth.push((state, last_start, cnt));
                             last_start = i;
@@ -332,8 +337,11 @@ impl<'de> Deserializer<'de> {
                             cnt = 0;
                             goto!(ArrayBegin);
                         }
-                        _c => {
+                        b',' | b'}' | b']' | b':' => {
                             goto!(Fail);
+                        }
+                        _c => {
+                            goto!(ArrayContinue);
                         }
                     }
                 }
