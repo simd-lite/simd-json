@@ -102,9 +102,7 @@ impl<'de> Deserializer<'de> {
         let mut si = structural_indexes.iter().skip(1).peekable();
         macro_rules! update_char {
             () => {
-                idx = *si
-                    .next()
-                    .ok_or_else(|| (Error::generic(ErrorType::Syntax)))? as usize;
+                idx = stry!(*si.next().ok_or_else(|| (Error::generic(ErrorType::Syntax)))) as usize;
 
                 i += 1;
                 c = unsafe { *input.get_unchecked(idx) };
