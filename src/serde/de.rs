@@ -205,6 +205,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let (c, idx, _len) = stry!(self.peek());
+        dbg!(c as char);
         if c == b'n' {
             self.skip();
             stry!(self.parse_null(idx));
