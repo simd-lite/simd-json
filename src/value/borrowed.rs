@@ -185,12 +185,6 @@ impl<'a> Default for Value<'a> {
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn to_value_borrowed_root(&mut self) -> Result<Value<'de>> {
-        #[cfg(feature = "paranoid")]
-        {
-            if self.idx + 1 > self.structural_indexes.len() {
-                return Err(self.error(ErrorType::UnexpectedEnd));
-            }
-        }
         match self.next_() {
             b'"' => {
                 if self.count_elements() < 32 {
@@ -214,12 +208,6 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn to_value_borrowed(&mut self) -> Result<Value<'de>> {
-        #[cfg(feature = "paranoid")]
-        {
-            if self.idx + 1 > self.structural_indexes.len() {
-                return Err(self.error(ErrorType::UnexpectedEnd));
-            }
-        }
         match self.next_() {
             b'"' => {
                 // We can only have entered this by being in an object so we know there is

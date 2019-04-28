@@ -121,6 +121,7 @@ pub struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(&self, error: ErrorType) -> Error {
         Error::new(self.idx, self.iidx, self.c() as char, error)
     }
@@ -173,7 +174,6 @@ impl<'de> Deserializer<'de> {
             counts,
             structural_indexes,
             input,
-            //data,
             idx: 0,
             strings: v,
             str_offset: 0,
@@ -181,78 +181,9 @@ impl<'de> Deserializer<'de> {
         })
     }
 
-    /*
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn compute_size(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
-        let mut counts = Vec::with_capacity(structural_indexes.len());
-        unsafe {
-            counts.set_len(structural_indexes.len());
-        };
-        let mut depth = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-                                                                          //let mut arrays = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-                                                                          //let mut maps = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-        let mut last_start = 1;
-        let mut cnt = 0;
-        let mut str_len = 0;
-        for i in 1..structural_indexes.len() {
-            let idx = unsafe { *structural_indexes.get_unchecked(i) };
-            match unsafe { input.get_unchecked(idx as usize) } {
-                b'[' | b'{' => {
-                    depth.push((last_start, cnt));
-                    last_start = i;
-                    cnt = 0;
-                }
-                b']' => {
-                    // if we had any elements we have to add 1 for the last element
-                    if i != last_start + 1 {
-                        cnt += 1;
-                    }
-                    let (a_last_start, a_cnt) = stry!(depth
-                        .pop()
-                        .ok_or_else(|| (Error::generic(ErrorType::Syntax))));
-                    counts[last_start] = cnt;
-                    last_start = a_last_start;
-                    //arrays.push(cnt);
-                    cnt = a_cnt;
-                }
-                b'}' => {
-                    // if we had any elements we have to add 1 for the last element
-                    if i != last_start + 1 {
-                        cnt += 1;
-                    }
-                    let (a_last_start, a_cnt) =
-                        stry!(depth.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
-                    counts[last_start] = cnt;
-                    last_start = a_last_start;
-                    cnt = a_cnt;
-                }
-                b',' => cnt += 1,
-                b'"' => {
-                    let d = if let Some(next) = structural_indexes.get(i + 1) {
-                        next - idx
-                    } else {
-                        // If we're the last element we count to the end
-                        input.len() as u32 - idx
-                    };
-                    if d > str_len {
-                        str_len = d;
-                    }
-                }
-                _ => (),
-            }
-        }
-        if !depth.is_empty() {
-            return Err(Error::generic(ErrorType::Syntax));
-        }
-
-        Ok((counts, str_len as usize))
-    }
-    */
-
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn skip(&mut self) {
-        self.idx += 1;
-        self.iidx = unsafe { *self.structural_indexes.get_unchecked(self.idx) as usize };
+        self.skip_n(1);
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -626,6 +557,7 @@ impl<'de> Deserializer<'de> {
             _ => Err(self.error(ErrorType::ExpectedSigned)),
         }
     }
+
     fn parse_unsigned(&mut self) -> Result<u64> {
         match self.next_() {
             b'0'...b'9' => match stry!(self.parse_number(false)) {
