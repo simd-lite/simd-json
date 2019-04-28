@@ -183,12 +183,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn skip(&mut self) {
-        self.skip_n(1);
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn skip_n(&mut self, n: usize) {
-        self.idx += n;
+        self.idx += 1;
         self.iidx = unsafe { *self.structural_indexes.get_unchecked(self.idx) as usize };
     }
 
@@ -1079,7 +1074,7 @@ mod tests {
     }
 
     #[test]
-    fn map() {
+    fn map0() {
         let mut d = String::from(r#"{"snot": "badger"}"#);
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };

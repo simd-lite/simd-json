@@ -251,6 +251,7 @@ impl<'de> Deserializer<'de> {
     fn parse_map_borrowed(&mut self) -> Result<Value<'de>> {
         // We short cut for empty arrays
         let es = self.count_elements();
+
         if unlikely!(es == 0) {
             self.skip();
             return Ok(Value::Object(Map::new()));
@@ -262,10 +263,11 @@ impl<'de> Deserializer<'de> {
         // element so we eat this
 
         for _ in 0..es {
+            self.skip();
             let key = stry!(self.parse_short_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
-            self.skip_n(2);
+            self.skip();
             res.insert_nocheck(key.into(), stry!(self.to_value_borrowed()));
             self.skip();
         }
