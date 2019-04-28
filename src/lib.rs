@@ -231,14 +231,6 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn peek_(&self) -> u8 {
-        unsafe {
-            let iidx = *self.structural_indexes.get_unchecked(self.idx + 1) as usize;
-            *self.input.get_unchecked(iidx)
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn count_elements(&self) -> usize {
         unsafe { *self.counts.get_unchecked(self.idx) }
     }
