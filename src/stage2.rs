@@ -65,15 +65,10 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
 
 #[derive(Debug)]
 enum State {
-    //StartContinue,
-    ObjectBegin,
     ObjectKey,
-    //ObjectContinue,
     ScopeEnd,
 
     MainArraySwitch,
-    //ArrayContinue,
-    //Succeed,
     Fail,
 }
 #[derive(Debug)]
@@ -193,6 +188,34 @@ impl<'de> Deserializer<'de> {
             }};
         }
 
+        macro_rules! object_begin {
+            () => {{
+                update_char!();
+                match c {
+                    b'"' => {
+                        let d = if let Some(next) = si.peek() {
+                            (**next as usize) - idx
+                        } else {
+                            // If we're the last element we count to the end
+                            input.len() - idx
+                        };
+                        if d > str_len {
+                            str_len = d;
+                        }
+                        unsafe { *counts.get_unchecked_mut(i) = d };
+                        goto!(ObjectKey);
+                    }
+                    b'}' => {
+                        cnt = 0;
+                        goto!(ScopeEnd);
+                    }
+                    _c => {
+                        goto!(Fail);
+                    }
+                }
+            }};
+        }
+
         // State start, we pull this outside of the
         // loop to reduce the number of requried checks
         update_char!();
@@ -204,7 +227,30 @@ impl<'de> Deserializer<'de> {
                 depth += 1;
                 last_start = i;
                 cnt = 1;
-                state = State::ObjectBegin;
+
+                update_char!();
+                match c {
+                    b'"' => {
+                        let d = if let Some(next) = si.peek() {
+                            (**next as usize) - idx
+                        } else {
+                            // If we're the last element we count to the end
+                            input.len() - idx
+                        };
+                        if d > str_len {
+                            str_len = d;
+                        }
+                        unsafe { *counts.get_unchecked_mut(i) = d };
+                        state = State::ObjectKey;
+                    }
+                    b'}' => {
+                        cnt = 0;
+                        state = State::ScopeEnd;
+                    }
+                    _c => {
+                        state = State::Fail;
+                    }
+                }
             }
             b'[' => {
                 unsafe {
@@ -255,31 +301,6 @@ impl<'de> Deserializer<'de> {
             use State::*;
             match state {
                 ////////////////////////////// OBJECT STATES /////////////////////////////
-                ObjectBegin => {
-                    update_char!();
-                    match c {
-                        b'"' => {
-                            let d = if let Some(next) = si.peek() {
-                                (**next as usize) - idx
-                            } else {
-                                // If we're the last element we count to the end
-                                input.len() - idx
-                            };
-                            if d > str_len {
-                                str_len = d;
-                            }
-                            unsafe { *counts.get_unchecked_mut(i) = d };
-                            goto!(ObjectKey);
-                        }
-                        b'}' => {
-                            cnt = 0;
-                            goto!(ScopeEnd);
-                        }
-                        _c => {
-                            goto!(Fail);
-                        }
-                    }
-                }
                 ObjectKey => {
                     update_char!();
                     if unlikely!(c != b':') {
@@ -312,7 +333,7 @@ impl<'de> Deserializer<'de> {
                             depth += 1;
                             last_start = i;
                             cnt = 1;
-                            goto!(ObjectBegin);
+                            object_begin!();
                         }
                         b'[' => {
                             unsafe {
@@ -389,7 +410,7 @@ impl<'de> Deserializer<'de> {
                             depth += 1;
                             last_start = i;
                             cnt = 1;
-                            goto!(ObjectBegin);
+                            object_begin!();
                         }
                         b'[' => {
                             unsafe {
