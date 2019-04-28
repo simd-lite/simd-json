@@ -272,6 +272,7 @@ impl<'de> Deserializer<'de> {
 
         for _ in 0..es {
             let (c, idx, _len) = self.next_();
+            dbg!(c as char);
             let key = stry!(self.parse_short_str_(idx));
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
