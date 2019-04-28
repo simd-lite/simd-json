@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::charutils::*;
-use crate::{Deserializer, Error, ErrorType, Index, Result};
+use crate::{Deserializer, Error, ErrorType, Result};
 //use crate::portability::*;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -83,8 +83,11 @@ enum State {
 }
 
 impl<'de> Deserializer<'de> {
-    pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<Index>, usize)> {
-        let mut res: Vec<Index> = Vec::with_capacity(structural_indexes.len());
+    pub fn validate(
+        input: &[u8],
+        structural_indexes: &[u32],
+    ) -> Result<(Vec<(u8, usize, usize)>, usize)> {
+        let mut res = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
         unsafe {
             res.set_len(structural_indexes.len());
@@ -94,7 +97,7 @@ impl<'de> Deserializer<'de> {
 
         let mut depth = 0;
         let mut last_start = 1;
-        let mut cnt: u32 = 0;
+        let mut cnt = 0;
         let mut str_len = 0;
 
         //        let mut i: usize = 0; // index of the structural character (0,1,2,3...)
@@ -160,7 +163,7 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d as u32) };
+                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
                             goto!(StartContinue);
                         }
                         b'0'...b'9' => {
@@ -199,7 +202,7 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d as u32) };
+                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
                             goto!(ObjectKey);
                         }
                         b'}' => {
@@ -230,7 +233,7 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d as u32) };
+                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
                             goto!(ObjectContinue);
                         }
                         b'0'...b'9' => {
@@ -283,7 +286,7 @@ impl<'de> Deserializer<'de> {
                                     str_len = d;
                                 }
 
-                                unsafe { *res.get_unchecked_mut(i) = (c, idx, d as u32) };
+                                unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
                                 goto!(ObjectKey);
                             }
                         }
@@ -343,7 +346,7 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d as u32) };
+                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
                             goto!(ArrayContinue);
                         }
                         b'0'...b'9' => {

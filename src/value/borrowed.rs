@@ -244,12 +244,12 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array_borrowed(&mut self, es: u32) -> Result<Value<'de>> {
+    fn parse_array_borrowed(&mut self, es: usize) -> Result<Value<'de>> {
         if unlikely!(es == 0) {
             self.skip();
             return Ok(Value::Array(Vec::new()));
         }
-        let mut res = Vec::with_capacity(es as usize);
+        let mut res = Vec::with_capacity(es);
 
         for _i in 0..es {
             res.push(stry!(self.to_value_borrowed()));
@@ -259,13 +259,13 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map_borrowed(&mut self, es: u32) -> Result<Value<'de>> {
+    fn parse_map_borrowed(&mut self, es: usize) -> Result<Value<'de>> {
         if unlikely!(es == 0) {
             self.skip();
             return Ok(Value::Object(Map::new()));
         }
 
-        let mut res = Map::with_capacity(es as usize);
+        let mut res = Map::with_capacity(es);
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this

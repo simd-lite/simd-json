@@ -98,8 +98,6 @@ use std::str;
 pub use error::{Error, ErrorType};
 pub use value::*;
 
-type Index = (u8, usize, u32);
-
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 // We only do this for the string parse function as it seems to slow down other frunctions
 // odd...
@@ -115,7 +113,7 @@ pub struct Deserializer<'de> {
     input: &'de mut [u8],
     //data: Vec<u8>,
     strings: Vec<u8>,
-    structural_indexes: Vec<Index>,
+    structural_indexes: Vec<(u8, usize, usize)>,
     idx: usize,
     //counts: Vec<(char, usize, usize)>,
     str_offset: usize,
@@ -265,7 +263,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next(&mut self) -> Result<Index> {
+    fn next(&mut self) -> Result<(u8, usize, usize)> {
         self.idx += 1;
         if let Some(r) = self.structural_indexes.get(self.idx) {
             Ok(*r)
@@ -275,14 +273,14 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn current(&mut self) -> Index {
+    fn current(&mut self) -> (u8, usize, usize) {
         unsafe { *self.structural_indexes.get_unchecked(self.idx) }
     }
 
     // pull out the check so we don't need to
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next_(&mut self) -> Index {
+    fn next_(&mut self) -> (u8, usize, usize) {
         unsafe {
             self.idx += 1;
             *self.structural_indexes.get_unchecked(self.idx)
@@ -290,7 +288,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn peek(&self) -> Result<Index> {
+    fn peek(&self) -> Result<(u8, usize, usize)> {
         if let Some(r) = self.structural_indexes.get(self.idx + 1) {
             Ok(*r)
         } else {
@@ -299,7 +297,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn peek_(&self) -> Index {
+    fn peek_(&self) -> (u8, usize, usize) {
         unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) }
     }
 
