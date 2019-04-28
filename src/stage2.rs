@@ -72,7 +72,8 @@ enum State {
     ObjectKey,
     ObjectContinue,
 
-    //ScopeEnd,
+    ScopeEnd,
+
     ArrayBegin,
     MainArraySwitch,
     ArrayContinue,
@@ -84,24 +85,27 @@ enum State {
 impl<'de> Deserializer<'de> {
     pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
         let mut counts = Vec::with_capacity(structural_indexes.len());
-        let mut stack = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
         unsafe {
             counts.set_len(structural_indexes.len());
+        };
+        let mut stack = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+        let mut depth = 0;
+        unsafe {
             stack.set_len(structural_indexes.len() / 2);
         }
-        let mut depth = 0;
+
         let mut last_start = 1;
         let mut cnt = 0;
         let mut str_len = 0;
 
+        //        let mut i: usize = 0; // index of the structural character (0,1,2,3...)
         let mut idx: usize; // location of the structural character in the input (buf)
         let mut c: u8; // used to track the (structural) character we are looking at, updated
+                       // by UPDATE_CHAR macro
         let mut i = 0;
 
-        let mut si = structural_indexes.iter().skip(1).peekable();
-
         // this macro reads the next structural character, updating idx, i and c.
-        // by UPDATE_CHAR macro
+        let mut si = structural_indexes.iter().skip(1).peekable();
         macro_rules! update_char {
             () => {
                 idx = *si
@@ -120,30 +124,6 @@ impl<'de> Deserializer<'de> {
             ($state:expr) => {{
                 state = $state;
                 continue;
-            }};
-        }
-
-        macro_rules! scope_end {
-            () => {{
-                if depth == 0 {
-                    return Err(Error::generic(ErrorType::Syntax));
-                }
-                depth -= 1;
-                unsafe {
-                    *counts.get_unchecked_mut(last_start) = cnt;
-                }
-
-                let (a_state, a_last_start, a_cnt) = unsafe { stack.get_unchecked(depth) };
-
-                last_start = *a_last_start;
-                cnt = *a_cnt;
-
-                match &a_state {
-                    ObjectKey => goto!(ObjectContinue),
-                    MainArraySwitch => goto!(ArrayContinue),
-                    Start => goto!(StartContinue),
-                    _ => goto!(Fail),
-                };
             }};
         }
 
@@ -219,8 +199,7 @@ impl<'de> Deserializer<'de> {
                         }
                         b'}' => {
                             cnt = 0;
-                            scope_end!();
-                            //goto!(ScopeEnd);
+                            goto!(ScopeEnd);
                         }
                         _c => {
                             goto!(Fail);
@@ -251,6 +230,7 @@ impl<'de> Deserializer<'de> {
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
                             goto!(ObjectContinue);
                         }
+
                         b'{' => {
                             unsafe {
                                 *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
@@ -298,8 +278,7 @@ impl<'de> Deserializer<'de> {
                             }
                         }
                         b'}' => {
-                            scope_end!();
-                            //                            goto!(ScopeEnd);
+                            goto!(ScopeEnd);
                         }
                         _ => {
                             goto!(Fail);
@@ -308,7 +287,6 @@ impl<'de> Deserializer<'de> {
                 }
 
                 ////////////////////////////// COMMON STATE /////////////////////////////
-                /*
                 ScopeEnd => {
                     if depth == 0 {
                         return Err(Error::generic(ErrorType::Syntax));
@@ -319,6 +297,8 @@ impl<'de> Deserializer<'de> {
                     }
 
                     let (a_state, a_last_start, a_cnt) = unsafe { stack.get_unchecked(depth) };
+                    //                    let (a_state, a_last_start, a_cnt) = unsafe {  };
+                    //stry!(stack.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
 
                     last_start = *a_last_start;
                     cnt = *a_cnt;
@@ -330,14 +310,13 @@ impl<'de> Deserializer<'de> {
                         _ => goto!(Fail),
                     };
                 }
-                */
+
                 ////////////////////////////// ARRAY STATES /////////////////////////////
                 ArrayBegin => {
                     update_char!();
                     if c == b']' {
                         cnt = 0;
-                        scope_end!();
-                        //                        goto!(ScopeEnd);
+                        goto!(ScopeEnd);
                     }
                     goto!(MainArraySwitch);
                 }
@@ -394,8 +373,7 @@ impl<'de> Deserializer<'de> {
                             goto!(MainArraySwitch);
                         }
                         b']' => {
-                            scope_end!();
-                            //goto!(ScopeEnd);
+                            goto!(ScopeEnd);
                         }
                         _c => {
                             goto!(Fail);
