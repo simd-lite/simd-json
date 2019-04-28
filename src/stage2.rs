@@ -221,6 +221,8 @@ impl<'de> Deserializer<'de> {
                     if c != b':' {
                         goto!(Fail);
                     }
+                    // TODO we shouldn't need this
+                    unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                     update_char!();
                     match c {
                         b'"' => {
@@ -236,14 +238,11 @@ impl<'de> Deserializer<'de> {
                             unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
                             goto!(ObjectContinue);
                         }
-                        b'0'...b'9' => {
-                            unsafe { *res.get_unchecked_mut(i) = (b'0', idx, 0) };
-                            goto!(ObjectContinue);
-                        }
-                        b't' | b'f' | b'n' | b'-' => {
+                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
                             unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             goto!(ObjectContinue);
                         }
+
                         b'{' => {
                             unsafe {
                                 *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
@@ -271,6 +270,8 @@ impl<'de> Deserializer<'de> {
                     update_char!();
                     match c {
                         b',' => {
+                            // TODO we shouldn't need this
+                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             cnt += 1;
                             update_char!();
                             if c != b'"' {
@@ -291,6 +292,8 @@ impl<'de> Deserializer<'de> {
                             }
                         }
                         b'}' => {
+                            // TODO we shouldn't need this
+                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             goto!(ScopeEnd(b'{'));
                         }
                         _ => {
@@ -327,6 +330,8 @@ impl<'de> Deserializer<'de> {
                 ArrayBegin => {
                     update_char!();
                     if c == b']' {
+                        // TODO we shouldn't need this
+                        unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                         cnt = 0;
                         goto!(ScopeEnd(b'['));
                     }
@@ -349,11 +354,7 @@ impl<'de> Deserializer<'de> {
                             unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
                             goto!(ArrayContinue);
                         }
-                        b'0'...b'9' => {
-                            unsafe { *res.get_unchecked_mut(i) = (b'0', idx, 0) };
-                            goto!(ArrayContinue);
-                        }
-                        b't' | b'f' | b'n' | b'-' => {
+                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
                             unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             goto!(ArrayContinue);
                         }
@@ -385,10 +386,14 @@ impl<'de> Deserializer<'de> {
                     match c {
                         b',' => {
                             cnt += 1;
+                            // TODO we shouldn't need this
+                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             update_char!();
                             goto!(MainArraySwitch);
                         }
                         b']' => {
+                            // TODO we shouldn't need this
+                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             goto!(ScopeEnd(b'['));
                         }
                         _c => {
