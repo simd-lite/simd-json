@@ -77,6 +77,12 @@ enum State {
     //Succeed,
     Fail,
 }
+#[derive(Debug)]
+enum StackState {
+    Start,
+    Object,
+    Array,
+}
 
 impl<'de> Deserializer<'de> {
     pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
@@ -183,7 +189,7 @@ impl<'de> Deserializer<'de> {
         match c {
             b'{' => {
                 unsafe {
-                    *stack.get_unchecked_mut(depth) = (b's', last_start, cnt);
+                    *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
                 }
                 depth += 1;
                 last_start = i;
@@ -192,7 +198,7 @@ impl<'de> Deserializer<'de> {
             }
             b'[' => {
                 unsafe {
-                    *stack.get_unchecked_mut(depth) = (b's', last_start, cnt);
+                    *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
                 }
                 depth += 1;
                 last_start = i;
@@ -283,7 +289,8 @@ impl<'de> Deserializer<'de> {
                         }
                         b'{' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) = (b'o', last_start, cnt);
+                                *stack.get_unchecked_mut(depth) =
+                                    (StackState::Object, last_start, cnt);
                             }
                             depth += 1;
                             last_start = i;
@@ -292,7 +299,8 @@ impl<'de> Deserializer<'de> {
                         }
                         b'[' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) = (b'o', last_start, cnt);
+                                *stack.get_unchecked_mut(depth) =
+                                    (StackState::Object, last_start, cnt);
                             }
                             depth += 1;
                             last_start = i;
@@ -322,16 +330,15 @@ impl<'de> Deserializer<'de> {
                     cnt = *a_cnt;
 
                     match &a_state {
-                        b'o' => object_continue!(),
-                        b'a' => array_continue!(),
-                        b's' => {
+                        StackState::Object => object_continue!(),
+                        StackState::Array => array_continue!(),
+                        StackState::Start => {
                             if si.next().is_none() {
                                 return Ok((counts, str_len as usize));
                             } else {
                                 goto!(Fail);
                             }
                         }
-                        _ => goto!(Fail),
                     };
                 }
 
@@ -367,7 +374,8 @@ impl<'de> Deserializer<'de> {
                         }
                         b'{' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) = (b'a', last_start, cnt);
+                                *stack.get_unchecked_mut(depth) =
+                                    (StackState::Array, last_start, cnt);
                             }
                             depth += 1;
                             last_start = i;
@@ -376,7 +384,8 @@ impl<'de> Deserializer<'de> {
                         }
                         b'[' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) = (b'a', last_start, cnt);
+                                *stack.get_unchecked_mut(depth) =
+                                    (StackState::Array, last_start, cnt);
                             }
                             depth += 1;
                             last_start = i;
