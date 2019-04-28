@@ -361,6 +361,19 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     where
         T: DeserializeSeed<'de>,
     {
+        if self.len == 0 {
+            self.de.skip();
+            Ok(None)
+        } else {
+            if !self.first {
+                self.de.skip();
+            } else {
+                self.first = false;
+            }
+            self.len -= 1;
+            seed.deserialize(&mut *self.de).map(|e| Some(e))
+        }
+        /*
         let peek = match stry!(self.de.peek()) {
             (b']', _idx, _len) => {
                 self.de.skip();
@@ -380,6 +393,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
             (b']', idx, _len) => Err(self.de.error(idx, ErrorType::ExpectedArrayComma)),
             _ => Ok(Some(stry!(seed.deserialize(&mut *self.de)))),
         }
+        */
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn size_hint(&self) -> Option<usize> {
@@ -397,6 +411,17 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         K: DeserializeSeed<'de>,
     {
+        if self.len == 0 {
+            if self.first {
+                self.de.skip();
+            }
+            Ok(None)
+        } else {
+            self.len -= 1;
+            self.first = false;
+            seed.deserialize(&mut *self.de).map(Some)
+        }
+        /*
         let peek = match stry!(self.de.peek()) {
             (b'}', _idx, _len) => {
                 self.de.skip();
@@ -421,6 +446,7 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
             (b'}', idx, _len) => Err(self.de.error(idx, ErrorType::ExpectedMapComma)),
             (_, idx, _len) => Err(self.de.error(idx, ErrorType::ExpectedString)),
         }
+        */
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -428,11 +454,17 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        let (c, idx, _len) = stry!(self.de.next());
-        if c != b':' {
-            return Err(self.de.error(idx, ErrorType::ExpectedMapColon));
-        }
-        seed.deserialize(&mut *self.de)
+        //let (c, idx, _len) = stry!(self.de.next());
+        //if c != b':' {
+        //return Err(self.de.error(idx, ErrorType::ExpectedMapColon));
+        //}
+        // Skip the ':'
+        self.de.skip();
+        // read the value
+        let r = seed.deserialize(&mut *self.de);
+        // skip the ','or '}'
+        self.de.skip();
+        r
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
