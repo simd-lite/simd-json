@@ -67,9 +67,7 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
 enum State {
     ObjectKey,
     ScopeEnd,
-
     MainArraySwitch,
-    Fail,
 }
 #[derive(Debug)]
 enum StackState {
@@ -137,7 +135,7 @@ impl<'de> Deserializer<'de> {
                         goto!(ScopeEnd);
                     }
                     _c => {
-                        goto!(Fail);
+                        fail!();
                     }
                 }
             }};
@@ -151,7 +149,7 @@ impl<'de> Deserializer<'de> {
                         cnt += 1;
                         update_char!();
                         if c != b'"' {
-                            goto!(Fail);
+                            fail!();
                         } else {
                             let d = if let Some(next) = si.peek() {
                                 (**next as usize) - idx
@@ -171,7 +169,7 @@ impl<'de> Deserializer<'de> {
                         goto!(ScopeEnd);
                     }
                     _ => {
-                        goto!(Fail);
+                        fail!();
                     }
                 }
             }};
@@ -210,12 +208,17 @@ impl<'de> Deserializer<'de> {
                         goto!(ScopeEnd);
                     }
                     _c => {
-                        goto!(Fail);
+                        fail!();
                     }
                 }
             }};
         }
 
+        macro_rules! fail {
+            () => {
+                return Err(Error::generic(ErrorType::InternalError));
+            };
+        }
         // State start, we pull this outside of the
         // loop to reduce the number of requried checks
         update_char!();
@@ -248,7 +251,7 @@ impl<'de> Deserializer<'de> {
                         state = State::ScopeEnd;
                     }
                     _c => {
-                        state = State::Fail;
+                        fail!();
                     }
                 }
             }
@@ -282,18 +285,18 @@ impl<'de> Deserializer<'de> {
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
-                    state = State::Fail;
+                    fail!();
                 }
             }
             b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
-                    state = State::Fail;
+                    fail!();
                 }
             }
             _ => {
-                state = State::Fail;
+                fail!();
             }
         }
 
@@ -304,7 +307,7 @@ impl<'de> Deserializer<'de> {
                 ObjectKey => {
                     update_char!();
                     if unlikely!(c != b':') {
-                        goto!(Fail);
+                        fail!();
                     }
                     update_char!();
                     match c {
@@ -346,7 +349,7 @@ impl<'de> Deserializer<'de> {
                             array_begin!();
                         }
                         _c => {
-                            goto!(Fail);
+                            fail!();
                         }
                     }
                 }
@@ -374,7 +377,7 @@ impl<'de> Deserializer<'de> {
                             if si.next().is_none() {
                                 return Ok((counts, str_len as usize));
                             } else {
-                                goto!(Fail);
+                                fail!();
                             }
                         }
                     };
@@ -423,13 +426,9 @@ impl<'de> Deserializer<'de> {
                             array_begin!();
                         }
                         _c => {
-                            goto!(Fail);
+                            fail!();
                         }
                     }
-                }
-                ////////////////////////////// FINAL STATES /////////////////////////////
-                Fail => {
-                    return Err(Error::generic(ErrorType::InternalError));
                 }
             }
         }
