@@ -72,7 +72,7 @@ enum State {
     ObjectKey,
     ObjectContinue,
 
-    ScopeEnd(u8),
+    ScopeEnd,
 
     ArrayBegin,
     MainArraySwitch,
@@ -83,20 +83,17 @@ enum State {
 }
 
 impl<'de> Deserializer<'de> {
-    pub fn validate(
-        input: &[u8],
-        structural_indexes: &[u32],
-    ) -> Result<(Vec<(u8, usize, usize)>, usize)> {
-        let mut res = Vec::with_capacity(structural_indexes.len());
-        let mut stack = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-        dbg!(&structural_indexes);
+    pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
+        let mut counts = Vec::with_capacity(structural_indexes.len());
         unsafe {
-            res.set_len(structural_indexes.len());
-            *res.get_unchecked_mut(0) = (b'r', 0, 0);
+            counts.set_len(structural_indexes.len());
+        };
+        let mut stack = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+        let mut depth = 0;
+        unsafe {
             stack.set_len(structural_indexes.len() / 2);
         }
 
-        let mut depth = 0;
         let mut last_start = 1;
         let mut cnt = 0;
         let mut str_len = 0;
@@ -108,26 +105,23 @@ impl<'de> Deserializer<'de> {
         let mut i = 0;
 
         // this macro reads the next structural character, updating idx, i and c.
-        let mut si = structural_indexes.iter().peekable();
-        si.next();
-        let mut state = State::Start;
-
+        let mut si = structural_indexes.iter().skip(1).peekable();
         macro_rules! update_char {
             () => {
                 idx = *si
                     .next()
                     .ok_or_else(|| (Error::generic(ErrorType::Syntax)))? as usize;
+
                 i += 1;
                 c = unsafe { *input.get_unchecked(idx) };
-                dbg!(c as char);
             };
         }
 
         update_char!();
 
+        let mut state = State::Start;
         macro_rules! goto {
             ($state:expr) => {{
-                dbg!($state);
                 state = $state;
                 continue;
             }};
@@ -166,11 +160,10 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
+                            unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(StartContinue);
                         }
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             goto!(StartContinue);
                         }
                         _ => {
@@ -201,13 +194,12 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
+                            unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(ObjectKey);
                         }
                         b'}' => {
                             cnt = 0;
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
-                            goto!(ScopeEnd(b'{'));
+                            goto!(ScopeEnd);
                         }
                         _c => {
                             goto!(Fail);
@@ -216,12 +208,9 @@ impl<'de> Deserializer<'de> {
                 }
                 ObjectKey => {
                     update_char!();
-
                     if c != b':' {
                         goto!(Fail);
                     }
-                    // TODO we shouldn't need this
-                    unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                     update_char!();
                     match c {
                         b'"' => {
@@ -234,11 +223,11 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
+
+                            unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(ObjectContinue);
                         }
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             goto!(ObjectContinue);
                         }
 
@@ -269,8 +258,6 @@ impl<'de> Deserializer<'de> {
                     update_char!();
                     match c {
                         b',' => {
-                            // TODO we shouldn't need this
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             cnt += 1;
                             update_char!();
                             if c != b'"' {
@@ -286,14 +273,12 @@ impl<'de> Deserializer<'de> {
                                     str_len = d;
                                 }
 
-                                unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
+                                unsafe { *counts.get_unchecked_mut(i) = d };
                                 goto!(ObjectKey);
                             }
                         }
                         b'}' => {
-                            // TODO we shouldn't need this
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
-                            goto!(ScopeEnd(b'{'));
+                            goto!(ScopeEnd);
                         }
                         _ => {
                             goto!(Fail);
@@ -302,17 +287,17 @@ impl<'de> Deserializer<'de> {
                 }
 
                 ////////////////////////////// COMMON STATE /////////////////////////////
-                ScopeEnd(what) => {
+                ScopeEnd => {
                     if depth == 0 {
                         return Err(Error::generic(ErrorType::Syntax));
                     }
                     depth -= 1;
                     unsafe {
-                        dbg!((last_start, what as char, idx, cnt));
-                        *res.get_unchecked_mut(last_start) = (what, 0, cnt);
+                        *counts.get_unchecked_mut(last_start) = cnt;
                     }
+
                     let (a_state, a_last_start, a_cnt) = unsafe { stack.get_unchecked(depth) };
-                    // let (a_state, a_last_start, a_cnt) = unsafe {  };
+                    //                    let (a_state, a_last_start, a_cnt) = unsafe {  };
                     //stry!(stack.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
 
                     last_start = *a_last_start;
@@ -330,10 +315,8 @@ impl<'de> Deserializer<'de> {
                 ArrayBegin => {
                     update_char!();
                     if c == b']' {
-                        // TODO we shouldn't need this
-                        unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                         cnt = 0;
-                        goto!(ScopeEnd(b'['));
+                        goto!(ScopeEnd);
                     }
                     goto!(MainArraySwitch);
                 }
@@ -351,11 +334,11 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
+
+                            unsafe { *counts.get_unchecked_mut(i) = d };
                             goto!(ArrayContinue);
                         }
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             goto!(ArrayContinue);
                         }
                         b'{' => {
@@ -386,15 +369,11 @@ impl<'de> Deserializer<'de> {
                     match c {
                         b',' => {
                             cnt += 1;
-                            // TODO we shouldn't need this
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             update_char!();
                             goto!(MainArraySwitch);
                         }
                         b']' => {
-                            // TODO we shouldn't need this
-                            unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
-                            goto!(ScopeEnd(b'['));
+                            goto!(ScopeEnd);
                         }
                         _c => {
                             goto!(Fail);
@@ -403,11 +382,7 @@ impl<'de> Deserializer<'de> {
                 }
                 ////////////////////////////// FINAL STATES /////////////////////////////
                 Succeed => {
-                    dbg!(res
-                        .iter()
-                        .map(|(c, i, o)| (*c as char, *i, *o))
-                        .collect::<Vec<(char, usize, usize)>>());
-                    return Ok((res, str_len as usize));
+                    return Ok((counts, str_len as usize));
                 }
                 Fail => {
                     return Err(Error::generic(ErrorType::InternalError));

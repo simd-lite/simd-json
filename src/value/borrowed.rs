@@ -192,23 +192,23 @@ impl<'de> Deserializer<'de> {
             }
         }
         match self.next_() {
-            (b'"', idx, len) => {
-                if len < 32 {
-                    return self.parse_short_str_(idx).map(Value::from);
+            b'"' => {
+                if self.count_elements() < 32 {
+                    return self.parse_short_str_().map(Value::from);
                 }
-                self.parse_str_(idx).map(Value::from)
+                self.parse_str_().map(Value::from)
             }
-            (b'-', idx, _len) => self.parse_number(idx, true).map(Value::from),
-            (b'0'...b'9', idx, _len) => self.parse_number(idx, false).map(Value::from),
-            (b'n', idx, _len) => {
-                stry!(self.parse_null(idx));
+            b'-' => self.parse_number(true).map(Value::from),
+            b'0'...b'9' => self.parse_number(false).map(Value::from),
+            b'n' => {
+                stry!(self.parse_null());
                 Ok(Value::Null)
             }
-            (b't', idx, _len) => self.parse_true(idx).map(Value::Bool),
-            (b'f', idx, _len) => self.parse_false(idx).map(Value::Bool),
-            (b'[', _idx, len) => self.parse_array_borrowed(len),
-            (b'{', _idx, len) => self.parse_map_borrowed(len),
-            (_c, idx, _len) => Err(self.error(idx, ErrorType::UnexpectedCharacter)),
+            b't' => self.parse_true().map(Value::Bool),
+            b'f' => self.parse_false().map(Value::Bool),
+            b'[' => self.parse_array_borrowed(),
+            b'{' => self.parse_map_borrowed(),
+            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
         }
     }
 
@@ -221,30 +221,31 @@ impl<'de> Deserializer<'de> {
             }
         }
         match self.next_() {
-            (b'"', idx, len) => {
+            b'"' => {
                 // We can only have entered this by being in an object so we know there is
                 // something following as we made sure during checking for sizes.;
-                if len < 32 {
-                    return self.parse_short_str_(idx).map(Value::from);
+                if self.count_elements() < 32 {
+                    return self.parse_short_str_().map(Value::from);
                 }
-                self.parse_str_(idx).map(Value::from)
+                self.parse_str_().map(Value::from)
             }
-            (b'-', idx, _len) => self.parse_number_(idx, true).map(Value::from),
-            (b'0'...b'9', idx, _len) => self.parse_number_(idx, false).map(Value::from),
-            (b'n', idx, _len) => {
-                stry!(self.parse_null_(idx));
+            b'-' => self.parse_number_(true).map(Value::from),
+            b'0'...b'9' => self.parse_number_(false).map(Value::from),
+            b'n' => {
+                stry!(self.parse_null_());
                 Ok(Value::Null)
             }
-            (b't', idx, _len) => self.parse_true_(idx).map(Value::Bool),
-            (b'f', idx, _len) => self.parse_false_(idx).map(Value::Bool),
-            (b'[', _idx, len) => self.parse_array_borrowed(len),
-            (b'{', _idx, len) => self.parse_map_borrowed(len),
-            (_c, idx, _len) => Err(self.error(idx, ErrorType::UnexpectedCharacter)),
+            b't' => self.parse_true_().map(Value::Bool),
+            b'f' => self.parse_false_().map(Value::Bool),
+            b'[' => self.parse_array_borrowed(),
+            b'{' => self.parse_map_borrowed(),
+            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array_borrowed(&mut self, es: usize) -> Result<Value<'de>> {
+    fn parse_array_borrowed(&mut self) -> Result<Value<'de>> {
+        let es = self.count_elements();
         if unlikely!(es == 0) {
             self.skip();
             return Ok(Value::Array(Vec::new()));
@@ -259,7 +260,9 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map_borrowed(&mut self, es: usize) -> Result<Value<'de>> {
+    fn parse_map_borrowed(&mut self) -> Result<Value<'de>> {
+        // We short cut for empty arrays
+        let es = self.count_elements();
         if unlikely!(es == 0) {
             self.skip();
             return Ok(Value::Object(Map::new()));
@@ -271,15 +274,12 @@ impl<'de> Deserializer<'de> {
         // element so we eat this
 
         for _ in 0..es {
-            let (c, idx, _len) = self.next_();
-            dbg!(c as char);
-            let key = stry!(self.parse_short_str_(idx));
+            let key = stry!(self.parse_short_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
-            self.skip();
+            self.skip_n(2);
             res.insert_nocheck(key.into(), stry!(self.to_value_borrowed()));
             self.skip();
-            //let (_, a_idx, _len) = self.next_();
         }
         Ok(Value::Object(res))
     }

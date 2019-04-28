@@ -1,6 +1,6 @@
 use super::Value;
 use crate::numberparse::Number;
-//use crate::OwnedValue;
+use crate::OwnedValue;
 
 impl<'a> From<Number> for Value<'a> {
     #[inline]
@@ -12,7 +12,6 @@ impl<'a> From<Number> for Value<'a> {
     }
 }
 
-/*
 impl<'a> From<OwnedValue> for Value<'a> {
     fn from(b: OwnedValue) -> Self {
         match b {
@@ -30,7 +29,6 @@ impl<'a> From<OwnedValue> for Value<'a> {
         }
     }
 }
- */
 
 /********* str_ **********/
 impl<'a> From<&'a str> for Value<'a> {

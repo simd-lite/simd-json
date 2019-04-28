@@ -162,7 +162,7 @@ impl<'de> Deserializer<'de> {
     /// Note: a redesign could avoid this function entirely.
     ///
     #[inline(never)]
-    fn parse_float(&self, idx: usize, mut p: &[u8], found_minus: bool) -> Result<Number> {
+    fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<Number> {
         let mut negative: bool = false;
         if found_minus {
             p = &p[1..];
@@ -195,7 +195,7 @@ impl<'de> Deserializer<'de> {
                 fraction += digit as u64;
             //i = i + digit as f64 * fractionalweight;
             } else {
-                return Err(self.error(idx, ErrorType::Parser));
+                return Err(self.error(ErrorType::Parser));
             }
             while is_integer(p[0]) {
                 let digit: u8 = p[0] - b'0';
@@ -219,7 +219,7 @@ impl<'de> Deserializer<'de> {
                 p = &p[1..];
             }
             if !is_integer(p[0]) {
-                return Err(self.error(idx, ErrorType::Parser));
+                return Err(self.error(ErrorType::Parser));
             }
             let mut digit: u8 = p[0] - b'0';
             let mut expnumber: i64 = digit as i64; // exponential part
@@ -241,7 +241,7 @@ impl<'de> Deserializer<'de> {
             }
             if is_integer(p[0]) {
                 // we refuse to parse this
-                return Err(self.error(idx, ErrorType::Parser));
+                return Err(self.error(ErrorType::Parser));
             }
             let exponent: i32 = if negexp {
                 -expnumber as i32
@@ -250,18 +250,18 @@ impl<'de> Deserializer<'de> {
             };
             if (exponent > 308) || (exponent < -308) {
                 // we refuse to parse this
-                return Err(self.error(idx, ErrorType::Parser));
+                return Err(self.error(ErrorType::Parser));
             }
             i *= POWER_OF_TEN[(308 + exponent) as usize];
         }
         if is_not_structural_or_whitespace(p[0]) != 0 {
-            return Err(self.error(idx, ErrorType::Parser));
+            return Err(self.error(ErrorType::Parser));
         }
 
         if is_structural_or_whitespace(p[0]) != 0 {
             Ok(Number::F64(if negative { -i } else { i }))
         } else {
-            Err(self.error(idx, ErrorType::Parser))
+            Err(self.error(ErrorType::Parser))
         }
     }
 
@@ -343,7 +343,7 @@ impl<'de> Deserializer<'de> {
     // define JSON_TEST_NUMBERS for unit testing
     //#[inline(always)]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_number_int(&self, idx: usize, mut buf: &[u8], negative: bool) -> Result<Number> {
+    pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
         if negative {
             buf = unsafe { buf.get_unchecked(1..) };
             /*
@@ -365,13 +365,13 @@ impl<'de> Deserializer<'de> {
             if is_not_structural_or_whitespace_or_exponent_or_decimal(unsafe {
                 *buf.get_unchecked(digitcount)
             }) {
-                return Err(self.error(idx, ErrorType::InvalidNumber));
+                return Err(self.error(ErrorType::InvalidNumber));
             }
             i = 0;
         } else {
             if !is_integer(unsafe { *buf.get_unchecked(0) }) {
                 // must start with an integer
-                return Err(self.error(idx, ErrorType::InvalidNumber));
+                return Err(self.error(ErrorType::InvalidNumber));
             }
             let mut digit: u8 = unsafe { buf.get_unchecked(0) } - b'0';
             i = digit as i64;
@@ -394,7 +394,7 @@ impl<'de> Deserializer<'de> {
                 digitcount += 1;
                 i = i * 10 + digit as i64;
             } else {
-                return Err(self.error(idx, ErrorType::InvalidNumber));
+                return Err(self.error(ErrorType::InvalidNumber));
             }
             // this helps if we have lots of decimals!
             // this turns out to be frequent enough.
@@ -428,7 +428,7 @@ impl<'de> Deserializer<'de> {
                 digitcount += 1;
             }
             if !is_integer(unsafe { *buf.get_unchecked(digitcount) }) {
-                return Err(self.error(idx, ErrorType::InvalidNumber));
+                return Err(self.error(ErrorType::InvalidNumber));
             }
             let mut digit: u8 = unsafe { *buf.get_unchecked(digitcount) } - b'0';
             expnumber = digit as i64;
@@ -447,7 +447,7 @@ impl<'de> Deserializer<'de> {
             }
             if is_integer(unsafe { *buf.get_unchecked(digitcount) }) {
                 // we refuse to parse this
-                return Err(self.error(idx, ErrorType::InvalidNumber));
+                return Err(self.error(ErrorType::InvalidNumber));
             }
             exponent += if negexp { -expnumber } else { expnumber };
         }
@@ -457,7 +457,7 @@ impl<'de> Deserializer<'de> {
                 // this is uncommon!!!
                 // this is almost never going to get called!!!
                 // we start anew, going slowly!!!
-                return self.parse_float(idx, buf, negative);
+                return self.parse_float(buf, negative);
             }
             ///////////
             // We want 0.1e1 to be a float.
@@ -467,7 +467,7 @@ impl<'de> Deserializer<'de> {
             } else {
                 if (exponent > 308) || (exponent < -308) {
                     // we refuse to parse this
-                    return Err(self.error(idx, ErrorType::InvalidExponent));
+                    return Err(self.error(ErrorType::InvalidExponent));
                 }
                 let mut d: f64 = i as f64;
                 d *= POWER_OF_TEN[(308 + exponent) as usize];
@@ -486,7 +486,7 @@ impl<'de> Deserializer<'de> {
         if is_structural_or_whitespace(unsafe { *buf.get_unchecked(digitcount) }) != 0 {
             Ok(v)
         } else {
-            Err(self.error(idx, ErrorType::InvalidNumber))
+            Err(self.error(ErrorType::InvalidNumber))
         }
     }
 }

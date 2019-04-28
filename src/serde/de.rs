@@ -15,29 +15,29 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            (b'n', idx, _) => {
-                stry!(self.parse_null(idx));
+            b'n' => {
+                stry!(self.parse_null());
                 visitor.visit_unit()
             }
-            (b't', idx, _len) => visitor.visit_bool(stry!(self.parse_true(idx))),
-            (b'f', idx, _len) => visitor.visit_bool(stry!(self.parse_false(idx))),
-            (b'-', idx, _len) => match stry!(self.parse_number(idx, true)) {
+            b't' => visitor.visit_bool(stry!(self.parse_true())),
+            b'f' => visitor.visit_bool(stry!(self.parse_false())),
+            b'-' => match stry!(self.parse_number(true)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
             },
-            (b'0'...b'9', idx, _len) => match stry!(self.parse_number(idx, false)) {
+            b'0'...b'9' => match stry!(self.parse_number(false)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
             },
-            (b'"', idx, _len) => {
+            b'"' => {
                 // We don't do the short string optimisation as serde requires
                 // additional checks
-                visitor.visit_borrowed_str(stry!(self.parse_str_(idx)))
+                visitor.visit_borrowed_str(stry!(self.parse_str_()))
             }
 
-            (b'[', _idx, len) => visitor.visit_seq(CommaSeparated::new(&mut self, len)),
-            (b'{', _idx, len) => visitor.visit_map(CommaSeparated::new(&mut self, len)),
-            (_c, idx, _len) => Err(self.error(idx, ErrorType::UnexpectedCharacter)),
+            b'[' => visitor.visit_seq(CommaSeparated::new(&mut self)),
+            b'{' => visitor.visit_map(CommaSeparated::new(&mut self)),
+            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
         }
     }
 
@@ -61,9 +61,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            (b't', idx, _) => visitor.visit_bool(stry!(self.parse_true(idx))),
-            (b'f', idx, _) => visitor.visit_bool(stry!(self.parse_false(idx))),
-            (_c, idx, _) => Err(self.error(idx, ErrorType::ExpectedBoolean)),
+            b't' => visitor.visit_bool(stry!(self.parse_true())),
+            b'f' => visitor.visit_bool(stry!(self.parse_false())),
+            _c => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
 
@@ -74,15 +74,15 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let (c, idx, len) = stry!(self.next());
-        if c != b'"' {
-            return Err(self.error(idx, ErrorType::ExpectedString));
+        if stry!(self.next()) != b'"' {
+            return Err(self.error(ErrorType::ExpectedString));
         }
-
-        if len < 32 {
-            return visitor.visit_borrowed_str(stry!(self.parse_short_str_(idx)));
+        if let Some(next) = self.structural_indexes.get(self.idx + 1) {
+            if *next as usize - self.iidx < 32 {
+                return visitor.visit_borrowed_str(stry!(self.parse_short_str_()));
+            }
         }
-        visitor.visit_borrowed_str(stry!(self.parse_str_(idx)))
+        visitor.visit_borrowed_str(stry!(self.parse_str_()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -90,15 +90,15 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let (c, idx, len) = stry!(self.next());
-        if c != b'"' {
-            return Err(self.error(idx, ErrorType::ExpectedString));
+        if stry!(self.next()) != b'"' {
+            return Err(self.error(ErrorType::ExpectedString));
         }
-        if len < 32 {
-            return visitor.visit_str(stry!(self.parse_short_str_(idx)));
+        if let Some(next) = self.structural_indexes.get(self.idx + 1) {
+            if *next as usize - self.iidx < 32 {
+                return visitor.visit_str(stry!(self.parse_short_str_()));
+            }
         }
-
-        visitor.visit_str(stry!(self.parse_str_(idx)))
+        visitor.visit_str(stry!(self.parse_str_()))
     }
 
     // The `parse_signed` function is generic over the integer type `T` so here
@@ -204,12 +204,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let (c, idx, _len) = stry!(self.peek());
-        dbg!(c as char);
-        if c == b'n' {
+        if stry!(self.peek()) == b'n' {
             self.skip();
-            stry!(self.parse_null(idx));
-            //self.skip();
+            stry!(self.parse_null());
             visitor.visit_unit()
         } else {
             visitor.visit_some(self)
@@ -222,11 +219,10 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let (c, idx, _len) = stry!(self.next());
-        if c != b'n' {
-            return Err(self.error(idx, ErrorType::ExpectedNull));
+        if stry!(self.next()) != b'n' {
+            return Err(self.error(ErrorType::ExpectedNull));
         }
-        stry!(self.parse_null(idx));
+        stry!(self.parse_null());
         visitor.visit_unit()
     }
 
@@ -238,13 +234,12 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let (c, idx, len) = stry!(self.next());
         // Parse the opening bracket of the sequence.
-        if c == b'[' {
+        if stry!(self.next()) == b'[' {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_seq(CommaSeparated::new(&mut self, len))
+            visitor.visit_seq(CommaSeparated::new(&mut self))
         } else {
-            Err(self.error(idx, ErrorType::ExpectedArray))
+            Err(self.error(ErrorType::ExpectedArray))
         }
     }
 
@@ -302,13 +297,12 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let (c, idx, len) = stry!(self.next());
         // Parse the opening bracket of the sequence.
-        if c == b'{' {
+        if stry!(self.next()) == b'{' {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_map(CommaSeparated::new(&mut self, len))
+            visitor.visit_map(CommaSeparated::new(&mut self))
         } else {
-            Err(self.error(idx, ErrorType::ExpectedMap))
+            Err(self.error(ErrorType::ExpectedMap))
         }
     }
 
@@ -337,18 +331,13 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 // element.
 struct CommaSeparated<'a, 'de: 'a> {
     de: &'a mut Deserializer<'de>,
-    len: usize,
     first: bool,
 }
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn new(de: &'a mut Deserializer<'de>, len: usize) -> Self {
-        CommaSeparated {
-            first: true,
-            de,
-            len,
-        }
+    fn new(de: &'a mut Deserializer<'de>) -> Self {
+        CommaSeparated { first: true, de }
     }
 }
 
@@ -363,28 +352,28 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
         T: DeserializeSeed<'de>,
     {
         let peek = match stry!(self.de.peek()) {
-            (b']', _idx, _len) => {
+            b']' => {
                 self.de.skip();
                 return Ok(None);
             }
-            (b',', _idx, _len) if !self.first => stry!(self.de.next()),
+            b',' if !self.first => stry!(self.de.next()),
             b => {
                 if self.first {
                     self.first = false;
                     b
                 } else {
-                    return Err(self.de.error(b.1, ErrorType::ExpectedArrayComma));
+                    return Err(self.de.error(ErrorType::ExpectedArrayComma));
                 }
             }
         };
         match peek {
-            (b']', idx, _len) => Err(self.de.error(idx, ErrorType::ExpectedArrayComma)),
+            b']' => Err(self.de.error(ErrorType::ExpectedArrayComma)),
             _ => Ok(Some(stry!(seed.deserialize(&mut *self.de)))),
         }
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn size_hint(&self) -> Option<usize> {
-        Some(self.len)
+        Some(self.de.count_elements())
     }
 }
 
@@ -399,11 +388,11 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         K: DeserializeSeed<'de>,
     {
         let peek = match stry!(self.de.peek()) {
-            (b'}', _idx, _len) => {
+            b'}' => {
                 self.de.skip();
                 return Ok(None);
             }
-            (b',', _idx, _len) if !self.first => {
+            b',' if !self.first => {
                 self.de.skip();
                 stry!(self.de.peek())
             }
@@ -412,15 +401,15 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
                     self.first = false;
                     b
                 } else {
-                    return Err(self.de.error(b.1, ErrorType::ExpectedMapComma));
+                    return Err(self.de.error(ErrorType::ExpectedArrayComma));
                 }
             }
         };
 
         match peek {
-            (b'"', _idx, _len) => seed.deserialize(&mut *self.de).map(Some),
-            (b'}', idx, _len) => Err(self.de.error(idx, ErrorType::ExpectedMapComma)),
-            (_, idx, _len) => Err(self.de.error(idx, ErrorType::ExpectedString)),
+            b'"' => seed.deserialize(&mut *self.de).map(Some),
+            b'}' => Err(self.de.error(ErrorType::ExpectedArrayComma)), //Err(self.de.peek_error(ErrorCode::TrailingComma)),
+            _ => Err(self.de.error(ErrorType::ExpectedString)), // TODO: Err(self.de.peek_error(ErrorCode::KeyMustBeAString)),
         }
     }
 
@@ -429,15 +418,15 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        let (c, idx, _len) = stry!(self.de.next());
+        let c = stry!(self.de.next());
         if c != b':' {
-            return Err(self.de.error(idx, ErrorType::ExpectedMapColon));
+            return Err(self.de.error(ErrorType::ExpectedMapColon));
         }
         seed.deserialize(&mut *self.de)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn size_hint(&self) -> Option<usize> {
-        Some(self.len)
+        Some(self.de.count_elements())
     }
 }
