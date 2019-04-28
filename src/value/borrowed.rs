@@ -241,7 +241,7 @@ impl<'de> Deserializer<'de> {
         let mut res = Vec::with_capacity(es);
 
         for _i in 0..es {
-            res.push(self.to_value_borrowed()?);
+            res.push(stry!(self.to_value_borrowed()));
             self.skip();
         }
         Ok(Value::Array(res))
@@ -264,11 +264,11 @@ impl<'de> Deserializer<'de> {
 
         for _ in 0..es {
             self.skip();
-            let key = self.parse_short_str_()?;
+            let key = stry!(self.parse_short_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
             self.skip();
-            res.insert_nocheck(key.into(), self.to_value_borrowed()?);
+            res.insert_nocheck(key.into(), stry!(self.to_value_borrowed()));
             self.skip();
         }
         Ok(Value::Object(res))
