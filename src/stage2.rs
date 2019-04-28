@@ -166,7 +166,11 @@ impl<'de> Deserializer<'de> {
                             unsafe { *res.get_unchecked_mut(i) = (c, idx, d) };
                             goto!(StartContinue);
                         }
-                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+                        b'0'...b'9' => {
+                            unsafe { *res.get_unchecked_mut(i) = (b'0', idx, 0) };
+                            goto!(StartContinue);
+                        }
+                        b't' | b'f' | b'n' | b'-' => {
                             unsafe { *res.get_unchecked_mut(i) = (c, idx, 0) };
                             goto!(StartContinue);
                         }
