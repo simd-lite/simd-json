@@ -183,7 +183,7 @@ impl<'de> Deserializer<'de> {
         match c {
             b'{' => {
                 unsafe {
-                    *stack.get_unchecked_mut(depth) = (State::ObjectBegin, last_start, cnt);
+                    *stack.get_unchecked_mut(depth) = (b's', last_start, cnt);
                 }
                 depth += 1;
                 last_start = i;
@@ -192,7 +192,7 @@ impl<'de> Deserializer<'de> {
             }
             b'[' => {
                 unsafe {
-                    *stack.get_unchecked_mut(depth) = (State::ArrayBegin, last_start, cnt);
+                    *stack.get_unchecked_mut(depth) = (b's', last_start, cnt);
                 }
                 depth += 1;
                 last_start = i;
@@ -283,7 +283,7 @@ impl<'de> Deserializer<'de> {
                         }
                         b'{' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
+                                *stack.get_unchecked_mut(depth) = (b'o', last_start, cnt);
                             }
                             depth += 1;
                             last_start = i;
@@ -292,7 +292,7 @@ impl<'de> Deserializer<'de> {
                         }
                         b'[' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
+                                *stack.get_unchecked_mut(depth) = (b'o', last_start, cnt);
                             }
                             depth += 1;
                             last_start = i;
@@ -322,9 +322,9 @@ impl<'de> Deserializer<'de> {
                     cnt = *a_cnt;
 
                     match &a_state {
-                        ObjectKey => object_continue!(),
-                        MainArraySwitch => array_continue!(),
-                        _ if depth == 0 => {
+                        b'o' => object_continue!(),
+                        b'a' => array_continue!(),
+                        b's' => {
                             if si.next().is_none() {
                                 return Ok((counts, str_len as usize));
                             } else {
@@ -367,7 +367,7 @@ impl<'de> Deserializer<'de> {
                         }
                         b'{' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
+                                *stack.get_unchecked_mut(depth) = (b'a', last_start, cnt);
                             }
                             depth += 1;
                             last_start = i;
@@ -376,7 +376,7 @@ impl<'de> Deserializer<'de> {
                         }
                         b'[' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
+                                *stack.get_unchecked_mut(depth) = (b'a', last_start, cnt);
                             }
                             depth += 1;
                             last_start = i;
