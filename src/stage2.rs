@@ -89,7 +89,6 @@ impl<'de> Deserializer<'de> {
     ) -> Result<(Vec<(u8, usize, usize)>, usize)> {
         let mut res = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-        dbg!(&structural_indexes);
         unsafe {
             res.set_len(structural_indexes.len());
             *res.get_unchecked_mut(0) = (b'r', 0, 0);
@@ -119,7 +118,6 @@ impl<'de> Deserializer<'de> {
                     .ok_or_else(|| (Error::generic(ErrorType::Syntax)))? as usize;
                 i += 1;
                 c = unsafe { *input.get_unchecked(idx) };
-                dbg!(c as char);
             };
         }
 
@@ -127,7 +125,6 @@ impl<'de> Deserializer<'de> {
 
         macro_rules! goto {
             ($state:expr) => {{
-                dbg!($state);
                 state = $state;
                 continue;
             }};
@@ -308,7 +305,6 @@ impl<'de> Deserializer<'de> {
                     }
                     depth -= 1;
                     unsafe {
-                        dbg!((last_start, what as char, idx, cnt));
                         *res.get_unchecked_mut(last_start) = (what, 0, cnt);
                     }
                     let (a_state, a_last_start, a_cnt) = unsafe { stack.get_unchecked(depth) };
@@ -403,10 +399,6 @@ impl<'de> Deserializer<'de> {
                 }
                 ////////////////////////////// FINAL STATES /////////////////////////////
                 Succeed => {
-                    dbg!(res
-                        .iter()
-                        .map(|(c, i, o)| (*c as char, *i, *o))
-                        .collect::<Vec<(char, usize, usize)>>());
                     return Ok((res, str_len as usize));
                 }
                 Fail => {

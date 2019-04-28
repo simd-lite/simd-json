@@ -661,7 +661,6 @@ mod tests {
         let mut d = String::from("[1]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        dbg!(&simd.structural_indexes);
         assert_eq!(simd.structural_indexes[1].2, 1);
     }
 
@@ -1471,7 +1470,6 @@ mod tests {
                 //let v_simd_owned = to_owned_value(d2);
                 //assert!(v_simd_owned.is_ok());
                 let v_simd_borrowed = to_borrowed_value(d3);
-                dbg!(&v_simd_borrowed);
                 assert!(v_simd_borrowed.is_ok());
             }
 
