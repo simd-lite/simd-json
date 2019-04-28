@@ -65,20 +65,17 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
 
 #[derive(Debug)]
 enum State {
-    Start,
     StartContinue,
 
     ObjectBegin,
     ObjectKey,
-    ObjectContinue,
-
+    //ObjectContinue,
     ScopeEnd,
 
     ArrayBegin,
     MainArraySwitch,
-    ArrayContinue,
-
-    Succeed,
+    //ArrayContinue,
+    //Succeed,
     Fail,
 }
 
@@ -119,7 +116,7 @@ impl<'de> Deserializer<'de> {
 
         update_char!();
 
-        let mut state = State::Start;
+        let mut state;
         macro_rules! goto {
             ($state:expr) => {{
                 state = $state;
@@ -127,30 +124,35 @@ impl<'de> Deserializer<'de> {
             }};
         }
 
-        loop {
-            use State::*;
-            match state {
-                Start => {
-                    match c {
-                        b'{' => {
-                            unsafe {
-                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
-                            }
-                            depth += 1;
-                            last_start = i;
-                            cnt = 1;
-                            goto!(ObjectBegin);
-                        }
-                        b'[' => {
-                            unsafe {
-                                *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
-                            }
-                            depth += 1;
-                            last_start = i;
-                            cnt = 1;
-                            goto!(ArrayBegin);
-                        }
-                        b'"' => {
+        macro_rules! array_continue {
+            () => {{
+                update_char!();
+                match c {
+                    b',' => {
+                        cnt += 1;
+                        update_char!();
+                        goto!(MainArraySwitch);
+                    }
+                    b']' => {
+                        goto!(ScopeEnd);
+                    }
+                    _c => {
+                        goto!(Fail);
+                    }
+                }
+            }};
+        }
+
+        macro_rules! object_continue {
+            () => {{
+                update_char!();
+                match c {
+                    b',' => {
+                        cnt += 1;
+                        update_char!();
+                        if c != b'"' {
+                            goto!(Fail);
+                        } else {
                             let d = if let Some(next) = si.peek() {
                                 (**next as usize) - idx
                             } else {
@@ -160,21 +162,70 @@ impl<'de> Deserializer<'de> {
                             if d > str_len {
                                 str_len = d;
                             }
+
                             unsafe { *counts.get_unchecked_mut(i) = d };
-                            goto!(StartContinue);
-                        }
-                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
-                            goto!(StartContinue);
-                        }
-                        _ => {
-                            goto!(Fail);
+                            goto!(ObjectKey);
                         }
                     }
+                    b'}' => {
+                        goto!(ScopeEnd);
+                    }
+                    _ => {
+                        goto!(Fail);
+                    }
                 }
+            }};
+        }
+
+        // State start, we pull this outside of the
+        // loop to reduce the number of requried checks
+        match c {
+            b'{' => {
+                unsafe {
+                    *stack.get_unchecked_mut(depth) = (State::ObjectBegin, last_start, cnt);
+                }
+                depth += 1;
+                last_start = i;
+                cnt = 1;
+                state = State::ObjectBegin;
+            }
+            b'[' => {
+                unsafe {
+                    *stack.get_unchecked_mut(depth) = (State::ArrayBegin, last_start, cnt);
+                }
+                depth += 1;
+                last_start = i;
+                cnt = 1;
+                state = State::ArrayBegin;
+            }
+            b'"' => {
+                let d = if let Some(next) = si.peek() {
+                    (**next as usize) - idx
+                } else {
+                    // If we're the last element we count to the end
+                    input.len() - idx
+                };
+                if d > str_len {
+                    str_len = d;
+                }
+                unsafe { *counts.get_unchecked_mut(i) = d };
+                state = State::StartContinue;
+            }
+            b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+                state = State::StartContinue;
+            }
+            _ => {
+                state = State::Fail;
+            }
+        }
+
+        loop {
+            use State::*;
+            match state {
                 StartContinue => {
                     // the string might not be NULL terminated.
                     if si.next().is_none() {
-                        goto!(Succeed);
+                        return Ok((counts, str_len as usize));
                     } else {
                         goto!(Fail);
                     }
@@ -225,10 +276,10 @@ impl<'de> Deserializer<'de> {
                             }
 
                             unsafe { *counts.get_unchecked_mut(i) = d };
-                            goto!(ObjectContinue);
+                            object_continue!();
                         }
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
-                            goto!(ObjectContinue);
+                            object_continue!();
                         }
 
                         b'{' => {
@@ -254,38 +305,6 @@ impl<'de> Deserializer<'de> {
                         }
                     }
                 }
-                ObjectContinue => {
-                    update_char!();
-                    match c {
-                        b',' => {
-                            cnt += 1;
-                            update_char!();
-                            if c != b'"' {
-                                goto!(Fail);
-                            } else {
-                                let d = if let Some(next) = si.peek() {
-                                    (**next as usize) - idx
-                                } else {
-                                    // If we're the last element we count to the end
-                                    input.len() - idx
-                                };
-                                if d > str_len {
-                                    str_len = d;
-                                }
-
-                                unsafe { *counts.get_unchecked_mut(i) = d };
-                                goto!(ObjectKey);
-                            }
-                        }
-                        b'}' => {
-                            goto!(ScopeEnd);
-                        }
-                        _ => {
-                            goto!(Fail);
-                        }
-                    }
-                }
-
                 ////////////////////////////// COMMON STATE /////////////////////////////
                 ScopeEnd => {
                     if depth == 0 {
@@ -304,8 +323,8 @@ impl<'de> Deserializer<'de> {
                     cnt = *a_cnt;
 
                     match &a_state {
-                        ObjectKey => goto!(ObjectContinue),
-                        MainArraySwitch => goto!(ArrayContinue),
+                        ObjectKey => object_continue!(),
+                        MainArraySwitch => array_continue!(),
                         Start => goto!(StartContinue),
                         _ => goto!(Fail),
                     };
@@ -336,10 +355,10 @@ impl<'de> Deserializer<'de> {
                             }
 
                             unsafe { *counts.get_unchecked_mut(i) = d };
-                            goto!(ArrayContinue);
+                            array_continue!();
                         }
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
-                            goto!(ArrayContinue);
+                            array_continue!();
                         }
                         b'{' => {
                             unsafe {
@@ -364,26 +383,7 @@ impl<'de> Deserializer<'de> {
                         }
                     }
                 }
-                ArrayContinue => {
-                    update_char!();
-                    match c {
-                        b',' => {
-                            cnt += 1;
-                            update_char!();
-                            goto!(MainArraySwitch);
-                        }
-                        b']' => {
-                            goto!(ScopeEnd);
-                        }
-                        _c => {
-                            goto!(Fail);
-                        }
-                    }
-                }
                 ////////////////////////////// FINAL STATES /////////////////////////////
-                Succeed => {
-                    return Ok((counts, str_len as usize));
-                }
                 Fail => {
                     return Err(Error::generic(ErrorType::InternalError));
                 }
