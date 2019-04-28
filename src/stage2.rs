@@ -71,7 +71,6 @@ enum State {
     //ObjectContinue,
     ScopeEnd,
 
-    ArrayBegin,
     MainArraySwitch,
     //ArrayContinue,
     //Succeed,
@@ -183,6 +182,17 @@ impl<'de> Deserializer<'de> {
             }};
         }
 
+        macro_rules! array_begin {
+            () => {{
+                update_char!();
+                if c == b']' {
+                    cnt = 0;
+                    goto!(ScopeEnd);
+                }
+                goto!(MainArraySwitch);
+            }};
+        }
+
         // State start, we pull this outside of the
         // loop to reduce the number of requried checks
         update_char!();
@@ -203,7 +213,14 @@ impl<'de> Deserializer<'de> {
                 depth += 1;
                 last_start = i;
                 cnt = 1;
-                state = State::ArrayBegin;
+
+                update_char!();
+                if c == b']' {
+                    cnt = 0;
+                    state = State::ScopeEnd;
+                } else {
+                    state = State::MainArraySwitch
+                }
             }
             b'"' => {
                 let d = if let Some(next) = si.peek() {
@@ -305,7 +322,7 @@ impl<'de> Deserializer<'de> {
                             depth += 1;
                             last_start = i;
                             cnt = 1;
-                            goto!(ArrayBegin);
+                            array_begin!();
                         }
                         _c => {
                             goto!(Fail);
@@ -343,14 +360,6 @@ impl<'de> Deserializer<'de> {
                 }
 
                 ////////////////////////////// ARRAY STATES /////////////////////////////
-                ArrayBegin => {
-                    update_char!();
-                    if c == b']' {
-                        cnt = 0;
-                        goto!(ScopeEnd);
-                    }
-                    goto!(MainArraySwitch);
-                }
                 MainArraySwitch => {
                     // we call update char on all paths in, so we can peek at c on the
                     // on paths that can accept a close square brace (post-, and at start)
@@ -390,7 +399,7 @@ impl<'de> Deserializer<'de> {
                             depth += 1;
                             last_start = i;
                             cnt = 1;
-                            goto!(ArrayBegin);
+                            array_begin!();
                         }
                         _c => {
                             goto!(Fail);
