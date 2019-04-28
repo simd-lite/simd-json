@@ -65,8 +65,7 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
 
 #[derive(Debug)]
 enum State {
-    StartContinue,
-
+    //StartContinue,
     ObjectBegin,
     ObjectKey,
     //ObjectContinue,
@@ -114,8 +113,6 @@ impl<'de> Deserializer<'de> {
             };
         }
 
-        update_char!();
-
         let mut state;
         macro_rules! goto {
             ($state:expr) => {{
@@ -124,6 +121,9 @@ impl<'de> Deserializer<'de> {
             }};
         }
 
+        // The continue cases are the most frequently called onces it's
+        // worth pulling them out into a macro (aka inlining them)
+        // Since we don't have a 'gogo' in rust.
         macro_rules! array_continue {
             () => {{
                 update_char!();
@@ -179,6 +179,7 @@ impl<'de> Deserializer<'de> {
 
         // State start, we pull this outside of the
         // loop to reduce the number of requried checks
+        update_char!();
         match c {
             b'{' => {
                 unsafe {
@@ -209,10 +210,18 @@ impl<'de> Deserializer<'de> {
                     str_len = d;
                 }
                 unsafe { *counts.get_unchecked_mut(i) = d };
-                state = State::StartContinue;
+                if si.next().is_none() {
+                    return Ok((counts, str_len as usize));
+                } else {
+                    state = State::Fail;
+                }
             }
             b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
-                state = State::StartContinue;
+                if si.next().is_none() {
+                    return Ok((counts, str_len as usize));
+                } else {
+                    state = State::Fail;
+                }
             }
             _ => {
                 state = State::Fail;
@@ -222,15 +231,6 @@ impl<'de> Deserializer<'de> {
         loop {
             use State::*;
             match state {
-                StartContinue => {
-                    // the string might not be NULL terminated.
-                    if si.next().is_none() {
-                        return Ok((counts, str_len as usize));
-                    } else {
-                        goto!(Fail);
-                    }
-                }
-
                 ////////////////////////////// OBJECT STATES /////////////////////////////
                 ObjectBegin => {
                     update_char!();
@@ -259,7 +259,7 @@ impl<'de> Deserializer<'de> {
                 }
                 ObjectKey => {
                     update_char!();
-                    if c != b':' {
+                    if unlikely!(c != b':') {
                         goto!(Fail);
                     }
                     update_char!();
@@ -281,7 +281,6 @@ impl<'de> Deserializer<'de> {
                         b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
                             object_continue!();
                         }
-
                         b'{' => {
                             unsafe {
                                 *stack.get_unchecked_mut(depth) = (state, last_start, cnt);
@@ -325,7 +324,13 @@ impl<'de> Deserializer<'de> {
                     match &a_state {
                         ObjectKey => object_continue!(),
                         MainArraySwitch => array_continue!(),
-                        Start => goto!(StartContinue),
+                        _ if depth == 0 => {
+                            if si.next().is_none() {
+                                return Ok((counts, str_len as usize));
+                            } else {
+                                goto!(Fail);
+                            }
+                        }
                         _ => goto!(Fail),
                     };
                 }
