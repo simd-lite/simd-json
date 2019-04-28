@@ -336,13 +336,13 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 // element.
 struct CommaSeparated<'a, 'de: 'a> {
     de: &'a mut Deserializer<'de>,
-    len: usize,
+    len: u32,
     first: bool,
 }
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn new(de: &'a mut Deserializer<'de>, len: usize) -> Self {
+    fn new(de: &'a mut Deserializer<'de>, len: u32) -> Self {
         CommaSeparated {
             first: true,
             de,
@@ -397,7 +397,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn size_hint(&self) -> Option<usize> {
-        Some(self.len)
+        Some(self.len as usize)
     }
 }
 
@@ -469,6 +469,6 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn size_hint(&self) -> Option<usize> {
-        Some(self.len)
+        Some(self.len as usize)
     }
 }
