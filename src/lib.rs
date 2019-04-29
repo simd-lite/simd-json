@@ -1371,6 +1371,7 @@ mod tests {
                 let v_simd_borrowed = to_borrowed_value(d3);
                 dbg!(&v_simd_borrowed);
                 assert!(v_simd_borrowed.is_ok());
+                assert_eq!(v_simd_owned.unwrap(), super::OwnedValue::from(v_simd_borrowed.unwrap()));
             }
 
         }
