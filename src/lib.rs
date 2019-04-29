@@ -121,6 +121,7 @@ pub struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(&self, error: ErrorType) -> Error {
         Error::new(self.idx, self.iidx, self.c() as char, error)
     }
@@ -140,11 +141,15 @@ impl<'de> Deserializer<'de> {
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
             if (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING {
                 let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
-                unsafe { data.set_len(len + 1) };
-                data.as_mut_slice()[0..len].clone_from_slice(input);
-                data[len] = 0;
-                unsafe { data.set_len(len) };
-                unsafe { Deserializer::find_structural_bits(&data) }
+                unsafe {
+                    data.set_len(len + 1);
+                    data.as_mut_slice()
+                        .get_unchecked_mut(0..len)
+                        .clone_from_slice(input);
+                    *(data.get_unchecked_mut(len)) = 0;
+                    data.set_len(len);
+                    Deserializer::find_structural_bits(&data)
+                }
             } else {
                 unsafe { Deserializer::find_structural_bits(input) }
             };
@@ -155,7 +160,10 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
+        //let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
+        let (counts, str_len) = Deserializer::validate(input, &structural_indexes)?;
+        //assert_eq!(counts, counts2);
+        //assert_eq!(str_len, str_len2);
 
         let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
         unsafe {
@@ -166,79 +174,11 @@ impl<'de> Deserializer<'de> {
             counts,
             structural_indexes,
             input,
-            //data,
             idx: 0,
             strings: v,
             str_offset: 0,
             iidx: 0,
         })
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn compute_size(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
-        let mut counts = Vec::with_capacity(structural_indexes.len());
-        unsafe {
-            counts.set_len(structural_indexes.len());
-        };
-        let mut depth = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-                                                                          //let mut arrays = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-                                                                          //let mut maps = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-        let mut last_start = 1;
-        let mut cnt = 0;
-        let mut str_len = 0;
-        for i in 1..structural_indexes.len() {
-            let idx = unsafe { *structural_indexes.get_unchecked(i) };
-            match unsafe { input.get_unchecked(idx as usize) } {
-                b'[' | b'{' => {
-                    depth.push((last_start, cnt));
-                    last_start = i;
-                    cnt = 0;
-                }
-                b']' => {
-                    // if we had any elements we have to add 1 for the last element
-                    if i != last_start + 1 {
-                        cnt += 1;
-                    }
-                    let (a_last_start, a_cnt) = stry!(depth
-                        .pop()
-                        .ok_or_else(|| (Error::generic(ErrorType::Syntax))));
-                    counts[last_start] = cnt;
-                    last_start = a_last_start;
-                    //arrays.push(cnt);
-                    cnt = a_cnt;
-                }
-                b'}' => {
-                    // if we had any elements we have to add 1 for the last element
-                    if i != last_start + 1 {
-                        cnt += 1;
-                    }
-                    let (a_last_start, a_cnt) =
-                        stry!(depth.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
-                    counts[last_start] = cnt;
-                    last_start = a_last_start;
-                    //maps.push(cnt);
-                    cnt = a_cnt;
-                }
-                b',' => cnt += 1,
-                b'"' => {
-                    let d = if let Some(next) = structural_indexes.get(i + 1) {
-                        next - idx
-                    } else {
-                        // If we're the last element we count to the end
-                        input.len() as u32 - idx
-                    };
-                    if d > str_len {
-                        str_len = d;
-                    }
-                }
-                _ => (),
-            }
-        }
-        if !depth.is_empty() {
-            return Err(Error::generic(ErrorType::Syntax));
-        }
-
-        Ok((counts, str_len as usize))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -287,14 +227,6 @@ impl<'de> Deserializer<'de> {
             unsafe { Ok(*self.input.get_unchecked(*idx as usize)) }
         } else {
             Err(self.error(ErrorType::UnexpectedEnd))
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn peek_(&self) -> u8 {
-        unsafe {
-            let iidx = *self.structural_indexes.get_unchecked(self.idx + 1) as usize;
-            *self.input.get_unchecked(iidx)
         }
     }
 
@@ -612,6 +544,7 @@ impl<'de> Deserializer<'de> {
             _ => Err(self.error(ErrorType::ExpectedSigned)),
         }
     }
+
     fn parse_unsigned(&mut self) -> Result<u64> {
         match self.next_() {
             b'0'...b'9' => match stry!(self.parse_number(false)) {
@@ -679,6 +612,15 @@ mod tests {
         let simd = Deserializer::from_slice(&mut d).expect("");
         assert_eq!(simd.counts[1], 3);
         assert_eq!(simd.counts[4], 1);
+    }
+
+    #[test]
+    fn count5() {
+        let mut d = String::from("[[],null,null]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        assert_eq!(simd.counts[1], 3);
+        assert_eq!(simd.counts[2], 0);
     }
 
     #[test]
@@ -861,6 +803,40 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
         assert_eq!(to_value(&mut d1), Ok(Value::Array(vec![])));
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn double_array() {
+        let mut d = String::from(r#"[[]]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![Value::Array(vec![])]))
+        );
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn null_null_array() {
+        let mut d = String::from(r#"[[],null,null]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![
+                Value::Array(vec![]),
+                Value::Null,
+                Value::Null,
+            ]))
+        );
         assert_eq!(v_simd, v_serde);
     }
 
@@ -1090,7 +1066,7 @@ mod tests {
     }
 
     #[test]
-    fn map() {
+    fn map0() {
         let mut d = String::from(r#"{"snot": "badger"}"#);
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
@@ -1388,12 +1364,14 @@ mod tests {
                 let d2 = unsafe{ d2.as_bytes_mut()};
                 let mut d3 = d.clone();
                 let d3 = unsafe{ d3.as_bytes_mut()};
-                let v_simd: serde_json::Value = from_slice(d1).expect("");
-                assert_eq!(v_simd, v_serde);
-                let v_simd = to_borrowed_value(d2);
-                assert!(v_simd.is_ok());
-                let v_simd = to_borrowed_value(d3);
-                assert!(v_simd.is_ok());
+                let v_simd_serde: serde_json::Value = from_slice(d1).expect("");
+                assert_eq!(v_simd_serde, v_serde);
+                let v_simd_owned = to_owned_value(d2);
+                assert!(v_simd_owned.is_ok());
+                let v_simd_borrowed = to_borrowed_value(d3);
+                dbg!(&v_simd_borrowed);
+                assert!(v_simd_borrowed.is_ok());
+                assert_eq!(v_simd_owned.unwrap(), super::OwnedValue::from(v_simd_borrowed.unwrap()));
             }
 
         }

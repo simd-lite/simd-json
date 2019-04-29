@@ -5,7 +5,6 @@
 ///
 /// However if have to use serde for other readons or are psrsing
 /// directly to structs this is th4 place to go.
-
 mod de;
 mod value;
 use crate::{stry, Deserializer, Error, ErrorType, Result};

@@ -332,12 +332,17 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 struct CommaSeparated<'a, 'de: 'a> {
     de: &'a mut Deserializer<'de>,
     first: bool,
+    len: usize,
 }
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn new(de: &'a mut Deserializer<'de>) -> Self {
-        CommaSeparated { first: true, de }
+        CommaSeparated {
+            first: true,
+            len: de.count_elements(),
+            de,
+        }
     }
 }
 
@@ -351,29 +356,22 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
     where
         T: DeserializeSeed<'de>,
     {
-        let peek = match stry!(self.de.peek()) {
-            b']' => {
+        if self.len == 0 {
+            self.de.skip();
+            Ok(None)
+        } else {
+            if !self.first {
                 self.de.skip();
-                return Ok(None);
+            } else {
+                self.first = false;
             }
-            b',' if !self.first => stry!(self.de.next()),
-            b => {
-                if self.first {
-                    self.first = false;
-                    b
-                } else {
-                    return Err(self.de.error(ErrorType::ExpectedArrayComma));
-                }
-            }
-        };
-        match peek {
-            b']' => Err(self.de.error(ErrorType::ExpectedArrayComma)),
-            _ => Ok(Some(stry!(seed.deserialize(&mut *self.de)))),
+            self.len -= 1;
+            seed.deserialize(&mut *self.de).map(|e| Some(e))
         }
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn size_hint(&self) -> Option<usize> {
-        Some(self.de.count_elements())
+        Some(self.len)
     }
 }
 
@@ -387,29 +385,15 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         K: DeserializeSeed<'de>,
     {
-        let peek = match stry!(self.de.peek()) {
-            b'}' => {
+        if self.len == 0 {
+            if self.first {
                 self.de.skip();
-                return Ok(None);
             }
-            b',' if !self.first => {
-                self.de.skip();
-                stry!(self.de.peek())
-            }
-            b => {
-                if self.first {
-                    self.first = false;
-                    b
-                } else {
-                    return Err(self.de.error(ErrorType::ExpectedArrayComma));
-                }
-            }
-        };
-
-        match peek {
-            b'"' => seed.deserialize(&mut *self.de).map(Some),
-            b'}' => Err(self.de.error(ErrorType::ExpectedArrayComma)), //Err(self.de.peek_error(ErrorCode::TrailingComma)),
-            _ => Err(self.de.error(ErrorType::ExpectedString)), // TODO: Err(self.de.peek_error(ErrorCode::KeyMustBeAString)),
+            Ok(None)
+        } else {
+            self.len -= 1;
+            self.first = false;
+            seed.deserialize(&mut *self.de).map(Some)
         }
     }
 
@@ -418,15 +402,16 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        let c = stry!(self.de.next());
-        if c != b':' {
-            return Err(self.de.error(ErrorType::ExpectedMapColon));
-        }
-        seed.deserialize(&mut *self.de)
+        // Skip the ':'
+        self.de.skip();
+        // read the value
+        let r = seed.deserialize(&mut *self.de);
+        self.de.skip();
+        r
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn size_hint(&self) -> Option<usize> {
-        Some(self.de.count_elements())
+        Some(self.len)
     }
 }
