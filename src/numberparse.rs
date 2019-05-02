@@ -374,10 +374,12 @@ impl<'de> Deserializer<'de> {
             digitcount += 1;
             // the is_made_of_eight_digits_fast routine is unlikely to help here because
             // we rarely see large integer parts like 123456789
-            while is_integer(unsafe { *buf.get_unchecked(digitcount) }) {
-                digit = unsafe { *buf.get_unchecked(digitcount) } - b'0';
+            let mut d = unsafe { *buf.get_unchecked(digitcount) };
+            while is_integer(d) {
+                digit = d - b'0';
                 i = 10 * i + digit as i64; // might overflow
                 digitcount += 1;
+                d = unsafe { *buf.get_unchecked(digitcount) };
             }
         }
 
@@ -385,8 +387,9 @@ impl<'de> Deserializer<'de> {
         if b'.' == unsafe { *buf.get_unchecked(digitcount) } {
             digitcount += 1;
             let firstafterperiod = digitcount;
-            if is_integer(unsafe { *buf.get_unchecked(digitcount) }) {
-                let digit: u8 = unsafe { *buf.get_unchecked(digitcount) } - b'0';
+            let mut d = unsafe { *buf.get_unchecked(digitcount) };
+            if is_integer(d) {
+                let digit: u8 = d - b'0';
                 digitcount += 1;
                 i = i * 10 + digit as i64;
             } else {
@@ -407,11 +410,12 @@ impl<'de> Deserializer<'de> {
                     // exponent -= 8;
                 }
             }
-
-            while is_integer(unsafe { *buf.get_unchecked(digitcount) }) {
-                let digit: u8 = unsafe { *buf.get_unchecked(digitcount) } - b'0';
+            d = unsafe { *buf.get_unchecked(digitcount) };
+            while is_integer(d) {
+                let digit: u8 = d - b'0';
                 digitcount += 1;
                 i = i * 10 + digit as i64; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
+                d = unsafe { *buf.get_unchecked(digitcount) };
             }
             exponent = firstafterperiod as i64 - digitcount as i64;
         }
@@ -420,10 +424,11 @@ impl<'de> Deserializer<'de> {
         if (b'e' == c) || (b'E' == c) {
             digitcount += 1;
             let mut negexp: bool = false;
-            if b'-' == unsafe { *buf.get_unchecked(digitcount) } {
+            let d = unsafe { *buf.get_unchecked(digitcount) };
+            if b'-' == d {
                 negexp = true;
                 digitcount += 1;
-            } else if b'+' == unsafe { *buf.get_unchecked(digitcount) } {
+            } else if b'+' == d {
                 digitcount += 1;
             }
             if !is_integer(unsafe { *buf.get_unchecked(digitcount) }) {
