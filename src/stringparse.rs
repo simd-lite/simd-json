@@ -36,7 +36,7 @@ pub fn handle_unicode_codepoint(mut src_ptr: &[u8], dst_ptr: &mut [u8]) -> (usiz
     // Multilingual Plane.
     if code_point >= 0xd800 && code_point < 0xdc00 {
         if (unsafe { *src_ptr.get_unchecked(0) } != b'\\')
-            || unsafe { *src_ptr.get_unchecked(0) } != b'u'
+            || unsafe { *src_ptr.get_unchecked(1) } != b'u'
         {
             return (0, src_offset);
         }
