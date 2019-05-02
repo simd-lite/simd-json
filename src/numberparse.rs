@@ -89,7 +89,9 @@ const STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED: [bool; 256] = [
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
-    STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED[c as usize]
+    return unsafe {
+        *STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED.get_unchecked(c as usize)
+    };
 }
 
 //#define SWAR_NUMBER_PARSING
@@ -139,7 +141,7 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> i32 {
         let mul_1_100: __m128i = _mm_setr_epi16(100, 1, 100, 1, 100, 1, 100, 1);
         let mul_1_10000: __m128i = _mm_setr_epi16(10000, 1, 10000, 1, 10000, 1, 10000, 1);
         let input: __m128i = _mm_sub_epi8(
-            _mm_loadu_si128(chars[0..16].as_ptr() as *const __m128i),
+            _mm_loadu_si128(chars.get_unchecked(0..16).as_ptr() as *const __m128i),
             ascii0,
         );
         let t1: __m128i = _mm_maddubs_epi16(input, mul_1_10);
@@ -164,42 +166,43 @@ impl<'de> Deserializer<'de> {
     #[inline(never)]
     fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<Number> {
         let mut negative: bool = false;
+        let mut digitcount = 0;
         if found_minus {
-            p = &p[1..];
+            p = unsafe { p.get_unchecked(1..) };
             negative = true;
         }
         let mut i: f64;
-        if p[0] == b'0' {
+        if unsafe { *p.get_unchecked(0) } == b'0' {
             // 0 cannot be followed by an integer
-            p = &p[1..];
+            digitcount += 1;
             i = 0.0;
         } else {
-            let mut digit: u8 = p[0] - b'0';
+            let mut digit: u8 = unsafe { *p.get_unchecked(0) } - b'0';
             i = digit as f64;
-            p = &p[1..];
-            while is_integer(p[0]) {
-                digit = p[0] - b'0';
+            digitcount += 1;
+            while is_integer(unsafe { *p.get_unchecked(digitcount) }) {
+                digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 i = 10.0 * i + digit as f64;
-                p = &p[1..];
+                digitcount += 1;
             }
         }
-        if p[0] == b'.' {
+        if unsafe { *p.get_unchecked(digitcount) } == b'.' {
             let mut fraction: u64 = 0;
             let mut fractionalweight: u64;
-            p = &p[1..];
+            digitcount += 1;
             //let mut fractionalweight: f64 = 1.0;
-            if is_integer(p[0]) {
-                let digit: u8 = p[0] - b'0';
-                p = &p[1..];
+            if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
+                let digit: u8 = unsafe { *p.get_unchecked(digitcount) } - b'0';
+                digitcount += 1;
                 fractionalweight = 10;
                 fraction += digit as u64;
             //i = i + digit as f64 * fractionalweight;
             } else {
                 return Err(self.error(ErrorType::Parser));
             }
-            while is_integer(p[0]) {
-                let digit: u8 = p[0] - b'0';
-                p = &p[1..];
+            while is_integer(unsafe { *p.get_unchecked(digitcount) }) {
+                let digit: u8 = unsafe { *p.get_unchecked(digitcount) } - b'0';
+                digitcount += 1;
                 fractionalweight *= 10;
                 fraction *= 10;
                 fraction += digit as u64;
@@ -209,37 +212,39 @@ impl<'de> Deserializer<'de> {
             i += fraction as f64 / fractionalweight as f64;
             //dbg!(i);
         }
-        if (p[0] == b'e') || (p[0] == b'E') {
-            p = &p[1..];
+        if (unsafe { *p.get_unchecked(digitcount) } == b'e')
+            || (unsafe { *p.get_unchecked(digitcount) } == b'E')
+        {
+            digitcount += 1;
             let mut negexp: bool = false;
-            if p[0] == b'-' {
+            if unsafe { *p.get_unchecked(digitcount) } == b'-' {
                 negexp = true;
-                p = &p[1..];
-            } else if p[0] == b'+' {
-                p = &p[1..];
+                digitcount += 1;
+            } else if unsafe { *p.get_unchecked(digitcount) } == b'+' {
+                digitcount += 1;
             }
-            if !is_integer(p[0]) {
+            if !is_integer(unsafe { *p.get_unchecked(digitcount) }) {
                 return Err(self.error(ErrorType::Parser));
             }
-            let mut digit: u8 = p[0] - b'0';
+            let mut digit: u8 = unsafe { *p.get_unchecked(digitcount) } - b'0';
             let mut expnumber: i64 = digit as i64; // exponential part
-            p = &p[1..];
-            if is_integer(p[0]) {
-                digit = p[0] - b'0';
+            digitcount += 1;
+            if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
+                digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 expnumber = 10 * expnumber + digit as i64;
-                p = &p[1..];
+                digitcount += 1;
             }
-            if is_integer(p[0]) {
-                digit = p[0] - b'0';
+            if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
+                digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 expnumber = 10 * expnumber + digit as i64;
-                p = &p[1..];
+                digitcount += 1;
             }
-            if is_integer(p[0]) {
-                digit = p[0] - b'0';
+            if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
+                digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 expnumber = 10 * expnumber + digit as i64;
-                p = &p[1..];
+                digitcount += 1;
             }
-            if is_integer(p[0]) {
+            if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
                 // we refuse to parse this
                 return Err(self.error(ErrorType::Parser));
             }
@@ -254,11 +259,11 @@ impl<'de> Deserializer<'de> {
             }
             i *= POWER_OF_TEN[(308 + exponent) as usize];
         }
-        if is_not_structural_or_whitespace(p[0]) != 0 {
+        if is_not_structural_or_whitespace(unsafe { *p.get_unchecked(digitcount) }) {
             return Err(self.error(ErrorType::Parser));
         }
 
-        if is_structural_or_whitespace(p[0]) != 0 {
+        if is_structural_or_whitespace(unsafe { *p.get_unchecked(digitcount) }) {
             Ok(Number::F64(if negative { -i } else { i }))
         } else {
             Err(self.error(ErrorType::Parser))
@@ -346,15 +351,6 @@ impl<'de> Deserializer<'de> {
     pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
         if negative {
             buf = unsafe { buf.get_unchecked(1..) };
-            /*
-            // We don't need that as the next batch checks:
-            // if it's 0 (if branch)
-            // or if it's an integer (else branch)
-            if !is_integer(p[0]) {
-                // a negative sign must be followed by an integer
-                return Err(self.error(ErrorType::InvalidNumber));
-            }
-            */
         }
         //let startdigits: *const u8 = p;
         let mut digitcount = 0;
@@ -401,9 +397,12 @@ impl<'de> Deserializer<'de> {
 
             #[cfg(feature = "swar-number-parsing")]
             {
-                if buf.len() - digitcount >= 16 && is_made_of_eight_digits_fast(&buf[digitcount..])
+                if buf.len() - digitcount >= 16
+                    && is_made_of_eight_digits_fast(unsafe { buf.get_unchecked(digitcount..) })
                 {
-                    i = i * 100_000_000 + parse_eight_digits_unrolled(&buf[digitcount..]) as i64;
+                    i = i * 100_000_000
+                        + parse_eight_digits_unrolled(unsafe { buf.get_unchecked(digitcount..) })
+                            as i64;
                     digitcount += 8;
                     // exponent -= 8;
                 }
@@ -483,7 +482,7 @@ impl<'de> Deserializer<'de> {
              */
             Number::I64(i)
         };
-        if is_structural_or_whitespace(unsafe { *buf.get_unchecked(digitcount) }) != 0 {
+        if is_structural_or_whitespace(unsafe { *buf.get_unchecked(digitcount) }) {
             Ok(v)
         } else {
             Err(self.error(ErrorType::InvalidNumber))

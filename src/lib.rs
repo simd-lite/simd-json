@@ -419,7 +419,9 @@ impl<'de> Deserializer<'de> {
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-            copy[0..len].clone_from_slice(input);
+            unsafe {
+                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+            };
             if is_valid_null_atom(&copy) {
                 Ok(())
             } else {
