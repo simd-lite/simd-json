@@ -349,11 +349,12 @@ impl<'de> Deserializer<'de> {
     // define JSON_TEST_NUMBERS for unit testing
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
-        let sign = 1;
-        if negative {
+        let sign = if negative {
             buf = unsafe { buf.get_unchecked(1..) };
-            sign = -1;
-        }
+            -1
+        } else {
+            1
+        };
         //let startdigits: *const u8 = p;
         let mut digitcount = 0;
         let mut i: i64;
