@@ -172,12 +172,13 @@ impl<'de> Deserializer<'de> {
             negative = true;
         }
         let mut i: f64;
+        let mut digit: u8;
         if unsafe { *p.get_unchecked(0) } == b'0' {
             // 0 cannot be followed by an integer
             digitcount += 1;
             i = 0.0;
         } else {
-            let mut digit: u8 = unsafe { *p.get_unchecked(0) } - b'0';
+            digit = unsafe { *p.get_unchecked(0) } - b'0';
             i = digit as f64;
             digitcount += 1;
             while is_integer(unsafe { *p.get_unchecked(digitcount) }) {
@@ -192,7 +193,7 @@ impl<'de> Deserializer<'de> {
             digitcount += 1;
             //let mut fractionalweight: f64 = 1.0;
             if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
-                let digit: u8 = unsafe { *p.get_unchecked(digitcount) } - b'0';
+                digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 digitcount += 1;
                 fractionalweight = 10;
                 fraction += digit as u64;
@@ -355,6 +356,7 @@ impl<'de> Deserializer<'de> {
         let mut digitcount = 0;
         let mut i: i64;
         let mut d = unsafe { *buf.get_unchecked(digitcount) };
+        let mut digit: u8;
         if d == b'0' {
             // 0 cannot be followed by an integer
             digitcount += 1;
@@ -368,7 +370,7 @@ impl<'de> Deserializer<'de> {
                 // must start with an integer
                 return Err(self.error(ErrorType::InvalidNumber));
             }
-            let mut digit: u8 = d - b'0';
+            digit = d - b'0';
             i = digit as i64;
             digitcount += 1;
             d = unsafe { *buf.get_unchecked(digitcount) };
@@ -388,7 +390,7 @@ impl<'de> Deserializer<'de> {
             d = unsafe { *buf.get_unchecked(digitcount) };
             let firstafterperiod = digitcount;
             if is_integer(d) {
-                let digit: u8 = d - b'0';
+                digit = d - b'0';
                 digitcount += 1;
                 i = i * 10 + digit as i64;
             } else {
@@ -411,7 +413,7 @@ impl<'de> Deserializer<'de> {
             }
             d = unsafe { *buf.get_unchecked(digitcount) };
             while is_integer(d) {
-                let digit: u8 = d - b'0';
+                digit = d - b'0';
                 i = i * 10 + digit as i64; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
                 digitcount += 1;
                 d = unsafe { *buf.get_unchecked(digitcount) };
@@ -434,7 +436,7 @@ impl<'de> Deserializer<'de> {
             if !is_integer(d) {
                 return Err(self.error(ErrorType::InvalidNumber));
             }
-            let mut digit: u8 = d - b'0';
+            digit = d - b'0';
             expnumber = digit as i64;
             digitcount += 1;
             d = unsafe { *buf.get_unchecked(digitcount) };
