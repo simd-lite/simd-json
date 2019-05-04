@@ -347,12 +347,12 @@ impl<'de> Deserializer<'de> {
     // parse the number at buf + offset
     // define JSON_TEST_NUMBERS for unit testing
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
+    pub fn parse_number_int(&self, buf: &[u8], negative: bool) -> Result<Number> {
+        let mut digitcount = 0;
         if negative {
-            buf = unsafe { buf.get_unchecked(1..) };
+            digitcount += 1;
         }
         //let startdigits: *const u8 = p;
-        let mut digitcount = 0;
         let mut i: i64;
         let mut d = unsafe { *buf.get_unchecked(digitcount) };
         if d == b'0' {
@@ -367,16 +367,14 @@ impl<'de> Deserializer<'de> {
             if !is_integer(d) {
                 // must start with an integer
                 return Err(self.error(ErrorType::InvalidNumber));
-            }
-            let mut digit: u8 = d - b'0';
-            i = digit as i64;
+            };
+            i = (d - b'0') as i64;
             digitcount += 1;
             d = unsafe { *buf.get_unchecked(digitcount) };
             // the is_made_of_eight_digits_fast routine is unlikely to help here because
             // we rarely see large integer parts like 123456789
             while is_integer(d) {
-                digit = d - b'0';
-                i = 10 * i + digit as i64; // might overflow
+                i = 10 * i + (d - b'0') as i64; // might overflow
                 digitcount += 1;
                 d = unsafe { *buf.get_unchecked(digitcount) };
             }
@@ -388,9 +386,8 @@ impl<'de> Deserializer<'de> {
             d = unsafe { *buf.get_unchecked(digitcount) };
             let firstafterperiod = digitcount;
             if is_integer(d) {
-                let digit: u8 = d - b'0';
+                i = i * 10 + (d - b'0') as i64;
                 digitcount += 1;
-                i = i * 10 + digit as i64;
             } else {
                 return Err(self.error(ErrorType::InvalidNumber));
             }
@@ -399,9 +396,7 @@ impl<'de> Deserializer<'de> {
 
             #[cfg(feature = "swar-number-parsing")]
             {
-                if buf.len() - digitcount >= 16
-                    && is_made_of_eight_digits_fast(unsafe { buf.get_unchecked(digitcount..) })
-                {
+                if is_made_of_eight_digits_fast(unsafe { buf.get_unchecked(digitcount..) }) {
                     i = i * 100_000_000
                         + parse_eight_digits_unrolled(unsafe { buf.get_unchecked(digitcount..) })
                             as i64;
@@ -411,8 +406,7 @@ impl<'de> Deserializer<'de> {
             }
             d = unsafe { *buf.get_unchecked(digitcount) };
             while is_integer(d) {
-                let digit: u8 = d - b'0';
-                i = i * 10 + digit as i64; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
+                i = i * 10 + (d - b'0') as i64; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
                 digitcount += 1;
                 d = unsafe { *buf.get_unchecked(digitcount) };
             }
@@ -434,19 +428,16 @@ impl<'de> Deserializer<'de> {
             if !is_integer(d) {
                 return Err(self.error(ErrorType::InvalidNumber));
             }
-            let mut digit: u8 = d - b'0';
-            expnumber = digit as i64;
+            expnumber = (d - b'0') as i64;
             digitcount += 1;
             d = unsafe { *buf.get_unchecked(digitcount) };
             if is_integer(d) {
-                digit = d - b'0';
-                expnumber = 10 * expnumber + digit as i64;
+                expnumber = 10 * expnumber + (d - b'0') as i64;
                 digitcount += 1;
                 d = unsafe { *buf.get_unchecked(digitcount) };
             }
             if is_integer(d) {
-                digit = d - b'0';
-                expnumber = 10 * expnumber + digit as i64;
+                expnumber = 10 * expnumber + (d - b'0') as i64;
                 digitcount += 1;
                 d = unsafe { *buf.get_unchecked(digitcount) };
             }
