@@ -202,7 +202,7 @@ impl<'de> Deserializer<'de> {
                 return Err(self.error(ErrorType::Parser));
             }
             while is_integer(unsafe { *p.get_unchecked(digitcount) }) {
-                let digit: u8 = unsafe { *p.get_unchecked(digitcount) } - b'0';
+                digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 digitcount += 1;
                 fractionalweight *= 10;
                 fraction *= 10;
@@ -227,7 +227,7 @@ impl<'de> Deserializer<'de> {
             if !is_integer(unsafe { *p.get_unchecked(digitcount) }) {
                 return Err(self.error(ErrorType::Parser));
             }
-            let mut digit: u8 = unsafe { *p.get_unchecked(digitcount) } - b'0';
+            digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
             let mut expnumber: i64 = digit as i64; // exponential part
             digitcount += 1;
             if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
@@ -349,8 +349,10 @@ impl<'de> Deserializer<'de> {
     // define JSON_TEST_NUMBERS for unit testing
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
+        let sign = 1;
         if negative {
             buf = unsafe { buf.get_unchecked(1..) };
+            sign = -1;
         }
         //let startdigits: *const u8 = p;
         let mut digitcount = 0;
@@ -458,7 +460,7 @@ impl<'de> Deserializer<'de> {
             }
             exponent += if negexp { -expnumber } else { expnumber };
         }
-        i = if negative { -i } else { i };
+        i = i * sign;
         let v = if (exponent != 0) || (expnumber != 0) {
             if unlikely!(digitcount >= 19) {
                 // this is uncommon!!!
