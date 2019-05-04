@@ -373,10 +373,68 @@ impl<'de> Deserializer<'de> {
                 // must start with an integer
                 return Err(self.error(ErrorType::InvalidNumber));
             }
-            digit = d - b'0';
+
+            let mut next_eight: u64 = unsafe {
+                let ascii0: __m128i = _mm_set1_epi8(b'0' as i8);
+                let bytes: __m128i = _mm_sub_epi8(
+                    _mm_loadu_si128(
+                        buf.get_unchecked(digitcount..digitcount + 16).as_ptr() as *const __m128i
+                    ),
+                    ascii0,
+                );
+                static_cast_u64!(_mm_cvtsi128_si64(bytes))
+            };
+
+            digit = (next_eight & 0xFF) as u8;
+            //digit = d - b'0';
             i = digit as i64;
             digitcount += 1;
+
+            // this is somewhat terrible
+            next_eight = next_eight >> 8;
+            digit = (next_eight & 0xFF) as u8;
+            if digit <= 9 {
+                i = 10 * i + digit as i64; // might overflow
+                digitcount += 1;
+                next_eight = next_eight >> 8;
+                digit = (next_eight & 0xFF) as u8;
+                if digit <= 9 {
+                    i = 10 * i + digit as i64; // might overflow
+                    digitcount += 1;
+                    next_eight = next_eight >> 8;
+                    digit = (next_eight & 0xFF) as u8;
+                    if digit <= 9 {
+                        i = 10 * i + digit as i64; // might overflow
+                        digitcount += 1;
+                        next_eight = next_eight >> 8;
+                        digit = (next_eight & 0xFF) as u8;
+                        if digit <= 9 {
+                            i = 10 * i + digit as i64; // might overflow
+                            digitcount += 1;
+                            next_eight = next_eight >> 8;
+                            digit = (next_eight & 0xFF) as u8;
+                            if digit <= 9 {
+                                i = 10 * i + digit as i64; // might overflow
+                                digitcount += 1;
+                                next_eight = next_eight >> 8;
+                                digit = (next_eight & 0xFF) as u8;
+                                if digit <= 9 {
+                                    i = 10 * i + digit as i64; // might overflow
+                                    digitcount += 1;
+                                    next_eight = next_eight >> 8;
+                                    digit = (next_eight & 0xFF) as u8;
+                                    if digit <= 9 {
+                                        i = 10 * i + digit as i64; // might overflow
+                                        digitcount += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             d = unsafe { *buf.get_unchecked(digitcount) };
+
             // the is_made_of_eight_digits_fast routine is unlikely to help here because
             // we rarely see large integer parts like 123456789
             while is_integer(d) {
