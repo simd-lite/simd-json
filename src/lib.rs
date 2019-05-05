@@ -87,8 +87,6 @@ use crate::numberparse::Number;
 use crate::portability::*;
 use crate::stage2::*;
 use crate::stringparse::*;
-#[cfg(target_arch = "x86")]
-use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 use std::mem;

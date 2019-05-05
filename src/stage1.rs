@@ -2,8 +2,6 @@
 use crate::portability::*;
 use crate::utf8check::*;
 use crate::*;
-#[cfg(target_arch = "x86")]
-use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
@@ -165,7 +163,11 @@ unsafe fn find_quote_mask_and_bits(
     return quote_mask;
 }
 
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
+#[cfg(all(
+    target_arch = "x86_64",
+    target_feature = "avx",
+    target_feature = "avx2"
+))]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn find_whitespace_and_structurals(
     input: &SimdInput,
