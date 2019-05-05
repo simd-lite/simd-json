@@ -71,7 +71,6 @@ mod charutils;
 mod macros;
 mod error;
 mod numberparse;
-mod parsedjson;
 mod portability;
 pub mod serde;
 mod stage1;
@@ -237,6 +236,7 @@ impl<'de> Deserializer<'de> {
 
     // We parse a string that's likely to be less then 32 characters and without any
     // fancy in it like object keys
+    #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_short_str_(&mut self) -> Result<&'de str> {
         let mut padding = [0u8; 32];
@@ -279,6 +279,7 @@ impl<'de> Deserializer<'de> {
         self.parse_str_()
     }
 
+    #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_str_(&mut self) -> Result<&'de str> {
         use std::slice::from_raw_parts_mut;
