@@ -57,7 +57,6 @@ const POWER_OF_TEN: [f64; 617] = [
     1e307, 1e308,
 ];
 
-//#[inline(always)]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_integer(c: u8) -> bool {
     // this gets compiled to (uint8_t)(c - '0') <= 9 on all decent compilers
@@ -131,6 +130,7 @@ pub enum Number {
     I64(i64),
 }
 
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> i32 {
     unsafe {
