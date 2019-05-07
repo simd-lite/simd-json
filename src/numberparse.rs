@@ -128,8 +128,8 @@ pub enum Number {
     I64(i64),
 }
 
-#[cfg_attr(not(feature = "no-inline"), inline)]
 #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> i32 {
     unsafe {
         // this actually computes *16* values so we are being wasteful.
