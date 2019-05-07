@@ -124,7 +124,7 @@ impl<'de> Deserializer<'de> {
                         goto!(ScopeEnd);
                     }
                     _c => {
-                        fail!();
+                        fail!(ErrorType::ExpectedArrayContent);
                     }
                 }
             }};
@@ -138,7 +138,7 @@ impl<'de> Deserializer<'de> {
                         cnt += 1;
                         update_char!();
                         if c != b'"' {
-                            fail!();
+                            fail!(ErrorType::ExpectedObjectKey);
                         } else {
                             let d = if let Some(next) = si.peek() {
                                 (**next as usize) - idx
@@ -158,7 +158,7 @@ impl<'de> Deserializer<'de> {
                         goto!(ScopeEnd);
                     }
                     _ => {
-                        fail!();
+                        fail!(ErrorType::ExpectedObjectContent);
                     }
                 }
             }};
@@ -197,7 +197,7 @@ impl<'de> Deserializer<'de> {
                         goto!(ScopeEnd);
                     }
                     _c => {
-                        fail!();
+                        fail!(ErrorType::ExpectedObjectContent);
                     }
                 }
             }};
@@ -205,7 +205,10 @@ impl<'de> Deserializer<'de> {
 
         macro_rules! fail {
             () => {
-                return Err(Error::generic(ErrorType::InternalError));
+                return Err(Error::new(i, idx, c as char, ErrorType::InternalError));
+            };
+            ($t:expr) => {
+                return Err(Error::new(i, idx, c as char, $t));
             };
         }
         // State start, we pull this outside of the
@@ -240,7 +243,7 @@ impl<'de> Deserializer<'de> {
                         state = State::ScopeEnd;
                     }
                     _c => {
-                        fail!();
+                        fail!(ErrorType::ExpectedObjectContent);
                     }
                 }
             }
@@ -274,44 +277,44 @@ impl<'de> Deserializer<'de> {
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
-                    fail!();
+                    fail!(ErrorType::TrailingCharacters);
                 }
             }
             b't' => {
                 if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
-                    fail!(); // TODO: better error
+                    fail!(ErrorType::ExpectedBoolean); // TODO: better error
                 }
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
-                    fail!();
+                    fail!(ErrorType::TrailingCharacters);
                 }
             }
             b'f' => {
                 if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
-                    fail!(); // TODO: better error
+                    fail!(ErrorType::ExpectedBoolean); // TODO: better error
                 }
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
-                    fail!();
+                    fail!(ErrorType::TrailingCharacters);
                 }
             }
             b'n' => {
                 if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
-                    fail!(); // TODO: better error
+                    fail!(ErrorType::ExpectedNull); // TODO: better error
                 }
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
-                    fail!();
+                    fail!(ErrorType::TrailingCharacters);
                 }
             }
             b'-' | b'0'...b'9' => {
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
-                    fail!();
+                    fail!(ErrorType::TrailingCharacters);
                 }
             }
             _ => {
@@ -326,7 +329,7 @@ impl<'de> Deserializer<'de> {
                 ObjectKey => {
                     update_char!();
                     if unlikely!(c != b':') {
-                        fail!();
+                        fail!(ErrorType::ExpectedObjectColon);
                     }
                     update_char!();
                     match c {
@@ -346,19 +349,19 @@ impl<'de> Deserializer<'de> {
                         }
                         b't' => {
                             if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
-                                fail!(); // TODO: better error
+                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'f' => {
                             if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
-                                fail!(); // TODO: better error
+                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'n' => {
                             if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
-                                fail!(); // TODO: better error
+                                fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             object_continue!();
                         }
@@ -441,19 +444,19 @@ impl<'de> Deserializer<'de> {
                         }
                         b't' => {
                             if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
-                                fail!(); // TODO: better error
+                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'f' => {
                             if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
-                                fail!(); // TODO: better error
+                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'n' => {
                             if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
-                                fail!(); // TODO: better error
+                                fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             array_continue!();
                         }
