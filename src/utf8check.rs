@@ -42,21 +42,21 @@ impl Default for AvxProcessedUtfBytes {
 // all byte values must be no larger than 0xF4
 
 /*****************************/
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn push_last_byte_of_a_to_b(a: __m256i, b: __m256i) -> __m256i {
     unsafe { _mm256_alignr_epi8(b, _mm256_permute2x128_si256(a, b, 0x21), 15) }
 }
 
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn push_last_2bytes_of_a_to_b(a: __m256i, b: __m256i) -> __m256i {
     unsafe { _mm256_alignr_epi8(b, _mm256_permute2x128_si256(a, b, 0x21), 14) }
 }
 
 // all byte values must be no larger than 0xF4
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn avxcheck_smaller_than_0xf4(current_bytes: __m256i, has_error: &mut __m256i) {
     // unsigned, saturates to 0 below max
     *has_error = unsafe {
@@ -67,8 +67,8 @@ fn avxcheck_smaller_than_0xf4(current_bytes: __m256i, has_error: &mut __m256i) {
     };
 }
 
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn avxcontinuation_lengths(high_nibbles: __m256i) -> __m256i {
     unsafe {
         _mm256_shuffle_epi8(
@@ -89,8 +89,8 @@ fn avxcontinuation_lengths(high_nibbles: __m256i) -> __m256i {
     }
 }
 
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn avxcarry_continuations(initial_lengths: __m256i, previous_carries: __m256i) -> __m256i {
     unsafe {
         let right1: __m256i = _mm256_subs_epu8(
@@ -106,8 +106,8 @@ fn avxcarry_continuations(initial_lengths: __m256i, previous_carries: __m256i) -
     }
 }
 
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn avxcheck_continuations(initial_lengths: __m256i, carries: __m256i, has_error: &mut __m256i) {
     // overlap || underlap
     // carry > length && length > 0 || !(carry > length) && !(length > 0)
@@ -125,8 +125,8 @@ fn avxcheck_continuations(initial_lengths: __m256i, carries: __m256i, has_error:
 // when 0xED is found, next byte must be no larger than 0x9F
 // when 0xF4 is found, next byte must be no larger than 0x8F
 // next byte must be continuation, ie sign bit is set, so signed < is ok
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn avxcheck_first_continuation_max(
     current_bytes: __m256i,
     off1_current_bytes: __m256i,
@@ -161,8 +161,8 @@ fn avxcheck_first_continuation_max(
 // E       => < E1 && < A0
 // F       => < F1 && < 90
 // else      false && false
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn avxcheck_overlong(
     current_bytes: __m256i,
     off1_current_bytes: __m256i,
@@ -254,8 +254,8 @@ fn avxcheck_overlong(
     }
 }
 
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn avx_count_nibbles(bytes: __m256i, answer: &mut AvxProcessedUtfBytes) {
     answer.rawbytes = bytes;
     answer.high_nibbles =
@@ -264,8 +264,8 @@ fn avx_count_nibbles(bytes: __m256i, answer: &mut AvxProcessedUtfBytes) {
 
 // check whether the current bytes are valid UTF-8
 // at the end of the function, previous gets updated
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 pub fn avxcheck_utf8_bytes(
     current_bytes: __m256i,
     previous: &AvxProcessedUtfBytes,

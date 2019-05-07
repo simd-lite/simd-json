@@ -23,8 +23,8 @@ fn fill_input(ptr: &[u8]) -> SimdInput {
     }
 }
 
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 unsafe fn check_utf8(
     input: &SimdInput,
     has_error: &mut __m256i,
@@ -52,8 +52,8 @@ unsafe fn check_utf8(
 
 /// a straightforward comparison of a mask against input. 5 uops; would be
 /// cheaper in AVX512.
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
     unsafe {
         let mask: __m256i = _mm256_set1_epi8(m as i8);
@@ -66,8 +66,8 @@ fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
 }
 
 // find all values less than or equal than the content of maxval (using unsigned arithmetic)
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
     unsafe {
         let cmp_res_0: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
@@ -132,6 +132,7 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
 // sequences outside quotes; these
 // backslash sequences (of any length) will be detected elsewhere.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 unsafe fn find_quote_mask_and_bits(
     input: &SimdInput,
     odd_ends: u64,
@@ -163,12 +164,12 @@ unsafe fn find_quote_mask_and_bits(
     return quote_mask;
 }
 
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
 #[cfg(all(
     target_arch = "x86_64",
     target_feature = "avx",
     target_feature = "avx2"
 ))]
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn find_whitespace_and_structurals(
     input: &SimdInput,
     whitespace: &mut u64,
@@ -253,8 +254,12 @@ unsafe fn find_whitespace_and_structurals(
 // will potentially store extra values beyond end of valid bits, so base_ptr
 // needs to be large enough to handle this
 //TODO: usize was u32 here does this matter?
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg(all(
+    target_arch = "x86_64",
+    target_feature = "avx",
+    target_feature = "avx2"
+))]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     let cnt: usize = hamming(bits) as usize;
     let mut l = base.len();
