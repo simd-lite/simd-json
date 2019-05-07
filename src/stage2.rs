@@ -73,13 +73,11 @@ enum StackState {
 impl<'de> Deserializer<'de> {
     pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
         let mut counts = Vec::with_capacity(structural_indexes.len());
-        unsafe {
-            counts.set_len(structural_indexes.len());
-        };
-        let mut stack = Vec::with_capacity(structural_indexes.len()); // since we are open close we know worst case this is 2x the size
+        let mut stack = Vec::with_capacity(structural_indexes.len());
         let mut depth = 0;
         unsafe {
-            stack.set_len(structural_indexes.len() / 2);
+            counts.set_len(structural_indexes.len() / 2);
+            stack.set_len(structural_indexes.len());
         }
 
         let mut last_start = 1;
