@@ -74,12 +74,12 @@ impl<'de> Deserializer<'de> {
     pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
         let mut counts = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
-        let mut depth = 0;
         unsafe {
-            counts.set_len(structural_indexes.len() / 2);
+            counts.set_len(structural_indexes.len());
             stack.set_len(structural_indexes.len());
         }
 
+        let mut depth = 0;
         let mut last_start = 1;
         let mut cnt = 0;
         let mut str_len = 0;
