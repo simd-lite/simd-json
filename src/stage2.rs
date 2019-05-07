@@ -76,7 +76,7 @@ impl<'de> Deserializer<'de> {
         unsafe {
             counts.set_len(structural_indexes.len());
         };
-        let mut stack = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
+        let mut stack = Vec::with_capacity(structural_indexes.len()); // since we are open close we know worst case this is 2x the size
         let mut depth = 0;
         unsafe {
             stack.set_len(structural_indexes.len() / 2);
@@ -97,7 +97,6 @@ impl<'de> Deserializer<'de> {
         macro_rules! update_char {
             () => {
                 idx = *stry!(si.next().ok_or_else(|| (Error::generic(ErrorType::Syntax)))) as usize;
-
                 i += 1;
                 c = unsafe { *input.get_unchecked(idx) };
             };
