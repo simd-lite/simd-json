@@ -86,7 +86,6 @@ extern crate lazy_static;
 
 use crate::numberparse::Number;
 use crate::portability::*;
-use crate::stage2::*;
 use crate::stringparse::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -410,105 +409,6 @@ impl<'de> Deserializer<'de> {
                 src_i += 32;
                 dst_i += 32;
             }
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_null(&mut self) -> Result<()> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        let len = input.len();
-        if len < SIMDJSON_PADDING {
-            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-            unsafe {
-                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-            };
-            if is_valid_null_atom(&copy) {
-                Ok(())
-            } else {
-                Err(self.error(ErrorType::ExpectedNull))
-            }
-        } else {
-            if is_valid_null_atom(input) {
-                Ok(())
-            } else {
-                Err(self.error(ErrorType::ExpectedNull))
-            }
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_null_(&mut self) -> Result<()> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        if is_valid_null_atom(input) {
-            Ok(())
-        } else {
-            Err(self.error(ErrorType::ExpectedNull))
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_true(&mut self) -> Result<bool> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        let len = input.len();
-        if len < SIMDJSON_PADDING {
-            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-            unsafe {
-                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-            };
-            if is_valid_true_atom(&copy) {
-                Ok(true)
-            } else {
-                Err(self.error(ErrorType::ExpectedBoolean))
-            }
-        } else {
-            if is_valid_true_atom(input) {
-                Ok(true)
-            } else {
-                Err(self.error(ErrorType::ExpectedBoolean))
-            }
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_true_(&mut self) -> Result<bool> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        if is_valid_true_atom(input) {
-            Ok(true)
-        } else {
-            Err(self.error(ErrorType::ExpectedBoolean))
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_false(&mut self) -> Result<bool> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        let len = input.len();
-        if len < SIMDJSON_PADDING {
-            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-            unsafe {
-                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-            };
-            if is_valid_false_atom(&copy) {
-                Ok(false)
-            } else {
-                Err(self.error(ErrorType::ExpectedBoolean))
-            }
-        } else {
-            if is_valid_false_atom(input) {
-                Ok(false)
-            } else {
-                Err(self.error(ErrorType::ExpectedBoolean))
-            }
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_false_(&mut self) -> Result<bool> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        if is_valid_false_atom(input) {
-            Ok(false)
-        } else {
-            Err(self.error(ErrorType::ExpectedBoolean))
         }
     }
 

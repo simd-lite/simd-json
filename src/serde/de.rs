@@ -15,12 +15,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            b'n' => {
-                stry!(self.parse_null());
-                visitor.visit_unit()
-            }
-            b't' => visitor.visit_bool(stry!(self.parse_true())),
-            b'f' => visitor.visit_bool(stry!(self.parse_false())),
+            b'n' => visitor.visit_unit(),
+            b't' => visitor.visit_bool(true),
+            b'f' => visitor.visit_bool(false),
             b'-' => match stry!(self.parse_number(true)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
@@ -61,8 +58,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            b't' => visitor.visit_bool(stry!(self.parse_true())),
-            b'f' => visitor.visit_bool(stry!(self.parse_false())),
+            b't' => visitor.visit_bool(true),
+            b'f' => visitor.visit_bool(false),
             _c => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
@@ -206,7 +203,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         if stry!(self.peek()) == b'n' {
             self.skip();
-            stry!(self.parse_null());
             visitor.visit_unit()
         } else {
             visitor.visit_some(self)
@@ -222,7 +218,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         if stry!(self.next()) != b'n' {
             return Err(self.error(ErrorType::ExpectedNull));
         }
-        stry!(self.parse_null());
         visitor.visit_unit()
     }
 
