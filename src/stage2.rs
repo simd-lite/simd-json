@@ -277,7 +277,37 @@ impl<'de> Deserializer<'de> {
                     fail!();
                 }
             }
-            b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+            b't' => {
+                if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                    fail!(); // TODO: better error
+                }
+                if si.next().is_none() {
+                    return Ok((counts, str_len as usize));
+                } else {
+                    fail!();
+                }
+            }
+            b'f' => {
+                if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                    fail!(); // TODO: better error
+                }
+                if si.next().is_none() {
+                    return Ok((counts, str_len as usize));
+                } else {
+                    fail!();
+                }
+            }
+            b'n' => {
+                if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                    fail!(); // TODO: better error
+                }
+                if si.next().is_none() {
+                    return Ok((counts, str_len as usize));
+                } else {
+                    fail!();
+                }
+            }
+            b'-' | b'0'...b'9' => {
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
@@ -314,7 +344,25 @@ impl<'de> Deserializer<'de> {
                             unsafe { *counts.get_unchecked_mut(i) = d };
                             object_continue!();
                         }
-                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+                        b't' => {
+                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(); // TODO: better error
+                            }
+                            object_continue!();
+                        }
+                        b'f' => {
+                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(); // TODO: better error
+                            }
+                            object_continue!();
+                        }
+                        b'n' => {
+                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(); // TODO: better error
+                            }
+                            object_continue!();
+                        }
+                        b'-' | b'0'...b'9' => {
                             object_continue!();
                         }
                         b'{' => {
@@ -391,7 +439,25 @@ impl<'de> Deserializer<'de> {
                             unsafe { *counts.get_unchecked_mut(i) = d };
                             array_continue!();
                         }
-                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+                        b't' => {
+                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(); // TODO: better error
+                            }
+                            array_continue!();
+                        }
+                        b'f' => {
+                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(); // TODO: better error
+                            }
+                            array_continue!();
+                        }
+                        b'n' => {
+                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(); // TODO: better error
+                            }
+                            array_continue!();
+                        }
+                        b'-' | b'0'...b'9' => {
                             array_continue!();
                         }
                         b'{' => {

@@ -194,12 +194,9 @@ impl<'de> Deserializer<'de> {
             }
             b'-' => self.parse_number(true).map(Value::from),
             b'0'...b'9' => self.parse_number(false).map(Value::from),
-            b'n' => {
-                stry!(self.parse_null());
-                Ok(Value::Null)
-            }
-            b't' => self.parse_true().map(Value::Bool),
-            b'f' => self.parse_false().map(Value::Bool),
+            b'n' => Ok(Value::Null),
+            b't' => Ok(Value::Bool(true)),
+            b'f' => Ok(Value::Bool(false)),
             b'[' => self.parse_array_borrowed(),
             b'{' => self.parse_map_borrowed(),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
@@ -219,12 +216,9 @@ impl<'de> Deserializer<'de> {
             }
             b'-' => self.parse_number_(true).map(Value::from),
             b'0'...b'9' => self.parse_number_(false).map(Value::from),
-            b'n' => {
-                stry!(self.parse_null_());
-                Ok(Value::Null)
-            }
-            b't' => self.parse_true_().map(Value::Bool),
-            b'f' => self.parse_false_().map(Value::Bool),
+            b'n' => Ok(Value::Null),
+            b't' => Ok(Value::Bool(true)),
+            b'f' => Ok(Value::Bool(false)),
             b'[' => self.parse_array_borrowed(),
             b'{' => self.parse_map_borrowed(),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
