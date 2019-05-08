@@ -349,11 +349,8 @@ impl<'de> Deserializer<'de> {
     // define JSON_TEST_NUMBERS for unit testing
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
-        let sign = if negative {
+        if negative {
             buf = unsafe { buf.get_unchecked(1..) };
-            -1
-        } else {
-            1
         };
         //let startdigits: *const u8 = p;
         let mut digitcount = 0;
@@ -461,7 +458,7 @@ impl<'de> Deserializer<'de> {
             }
             exponent += if negexp { -expnumber } else { expnumber };
         }
-        i = i * sign;
+        i = if negative { -i } else { i };
         let v = if (exponent != 0) || (expnumber != 0) {
             if unlikely!(digitcount >= 19) {
                 // this is uncommon!!!
