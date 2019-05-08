@@ -15,6 +15,11 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
+            b'"' => {
+                // We don't do the short string optimisation as serde requires
+                // additional checks
+                visitor.visit_borrowed_str(stry!(self.parse_str_()))
+            }
             b'n' => visitor.visit_unit(),
             b't' => visitor.visit_bool(true),
             b'f' => visitor.visit_bool(false),
@@ -26,12 +31,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
             },
-            b'"' => {
-                // We don't do the short string optimisation as serde requires
-                // additional checks
-                visitor.visit_borrowed_str(stry!(self.parse_str_()))
-            }
-
             b'[' => visitor.visit_seq(CommaSeparated::new(&mut self)),
             b'{' => visitor.visit_map(CommaSeparated::new(&mut self)),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
