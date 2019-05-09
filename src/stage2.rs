@@ -6,6 +6,7 @@ use crate::{Deserializer, Error, ErrorType, Result};
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
+    let mut error: u64;
     unsafe {
         //let tv: u64 = *(b"true    ".as_ptr() as *const u64);
         // this is the same:
@@ -16,14 +17,16 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
         //   std::memcpy(&locval, loc, sizeof(uint64_t));
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
-        (((locval & MASK4) ^ TV) as u32 == 0)
-            || is_not_structural_or_whitespace(*loc.get_unchecked(4))
+        error = (locval & MASK4) ^ TV;
+        error |= is_not_structural_or_whitespace(*loc.get_unchecked(4)) as u64;
     }
+    error == 0
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_valid_false_atom(loc: &[u8]) -> bool {
     // TODO: this is ugly and probably copies data every time
+    let mut error: u64;
     unsafe {
         //let fv: u64 = *(b"false   ".as_ptr() as *const u64);
         // this is the same:
@@ -38,13 +41,16 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
         // but that failes on falsy as the u32 conversion
         // will mask the error on the y so we re-write it
         // it would be interesting what the consequecnes are
-        (((locval ^ FV) & MASK5) == 0) || is_not_structural_or_whitespace(*loc.get_unchecked(5))
+        error = (locval & MASK5) ^ FV;
+        error |= is_not_structural_or_whitespace(*loc.get_unchecked(5)) as u64;
     }
+    error == 0
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_valid_null_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
+    let mut error: u64;
     unsafe {
         //let nv: u64 = *(b"null   ".as_ptr() as *const u64);
         // this is the same:
@@ -52,9 +58,10 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
         const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
-        (((locval & MASK4) ^ NV) as u32 == 0)
-            || is_not_structural_or_whitespace(*loc.get_unchecked(4))
+        error = (locval & MASK4) ^ NV;
+        error |= is_not_structural_or_whitespace(*loc.get_unchecked(4)) as u64;
     }
+    error == 0
 }
 
 #[derive(Debug)]

@@ -260,11 +260,11 @@ impl<'de> Deserializer<'de> {
             }
             i *= POWER_OF_TEN[(308 + exponent) as usize];
         }
-        if is_not_structural_or_whitespace(unsafe { *p.get_unchecked(digitcount) }) {
+        if is_not_structural_or_whitespace(unsafe { *p.get_unchecked(digitcount) }) != 0 {
             return Err(self.error(ErrorType::Parser));
         }
 
-        if is_structural_or_whitespace(unsafe { *p.get_unchecked(digitcount) }) {
+        if is_structural_or_whitespace(unsafe { *p.get_unchecked(digitcount) }) != 0 {
             Ok(Number::F64(if negative { -i } else { i }))
         } else {
             Err(self.error(ErrorType::Parser))
@@ -490,7 +490,7 @@ impl<'de> Deserializer<'de> {
              */
             Number::I64(i)
         };
-        if is_structural_or_whitespace(d) {
+        if is_structural_or_whitespace(d) != 0 {
             Ok(v)
         } else {
             Err(self.error(ErrorType::InvalidNumber))
