@@ -869,6 +869,17 @@ mod tests {
     }
 
     #[test]
+    fn null() {
+        let mut d = String::from(r#"null"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        assert_eq!(to_value(&mut d1), Ok(Value::Null));
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+    }
+    #[test]
     fn null_null() {
         let mut d = String::from(r#"[null, null]"#);
         let mut d1 = d.clone();
