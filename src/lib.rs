@@ -159,10 +159,7 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        //let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
         let (counts, str_len) = Deserializer::validate(input, &structural_indexes)?;
-        //assert_eq!(counts, counts2);
-        //assert_eq!(str_len, str_len2);
 
         let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
         unsafe {
@@ -706,6 +703,24 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
         assert_eq!(to_value(&mut d1), Ok(Value::Array(vec![])));
         assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn malformed_array() {
+        let mut d = String::from(r#"[["#);
+        let mut d1 = d.clone();
+        let mut d2 = d.clone();
+        let mut d = unsafe { d.as_bytes_mut() };
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d2 = unsafe { d2.as_bytes_mut() };
+        let v_serde: Result<serde_json::Value, _> = serde_json::from_slice(d);
+        let v_simd_ov = to_owned_value(&mut d);
+        let v_simd_bv = to_borrowed_value(&mut d1);
+        let v_simd: Result<serde_json::Value, _> = from_slice(&mut d2);
+        assert!(v_simd_ov.is_err());
+        assert!(v_simd_bv.is_err());
+        assert!(v_simd.is_err());
+        assert!(v_serde.is_err());
     }
 
     #[test]

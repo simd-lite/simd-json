@@ -91,10 +91,12 @@ impl<'de> Deserializer<'de> {
         let mut cnt = 0;
         let mut str_len = 0;
 
-        //        let mut i: usize = 0; // index of the structural character (0,1,2,3...)
-        let mut idx: usize; // location of the structural character in the input (buf)
-        let mut c: u8; // used to track the (structural) character we are looking at, updated
-                       // by UPDATE_CHAR macro
+        // let mut i: usize = 0; // index of the structural character (0,1,2,3...)
+        // location of the structural character in the input (buf)
+        let mut idx: usize;
+        // used to track the (structural) character we are looking at, updated
+        // by UPDATE_CHAR macro
+        let mut c: u8;
         let mut i = 0;
 
         // this macro reads the next structural character, updating idx, i and c.
