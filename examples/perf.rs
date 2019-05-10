@@ -199,6 +199,11 @@ mod int {
             )
             .expect("Unable to write file");
         } else {
+            let _ = fs::create_dir(".current");
+            fs::write(
+                format!(".current/{}.json", name),
+                serde_json::to_vec(&stats).expect("Failed to serialize"),
+            );
             let file =
                 File::open(format!(".baseline/{}.json", name)).expect("Could not open baseline");
             let reader = BufReader::new(file);
