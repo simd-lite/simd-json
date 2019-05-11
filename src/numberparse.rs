@@ -385,9 +385,11 @@ impl<'de> Deserializer<'de> {
                 if buf.len() - digitcount >= 16
                     && is_made_of_eight_digits_fast(unsafe { buf.get_unchecked(digitcount..) })
                 {
-                    i = i * 100_000_000
-                        + parse_eight_digits_unrolled(unsafe { buf.get_unchecked(digitcount..) })
-                            as i64;
+                    i = i
+                        .wrapping_mul(100_000_000)
+                        .wrapping_add(parse_eight_digits_unrolled(unsafe {
+                            buf.get_unchecked(digitcount..)
+                        }) as i64);
                     digitcount += 8;
                     // exponent -= 8;
                 }
