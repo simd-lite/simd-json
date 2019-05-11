@@ -67,7 +67,7 @@ pub fn handle_unicode_codepoint(
         } else {
             return Err(ErrorType::InvalidUTF8);
         };
-        code_point = (((c1 - 0xd800) << 10) | (c2 - 0xdc00)) + 0x10000;
+        code_point = ((c1 << 10) | c2) + 0x10000;
         src_offset += 6;
     }
     let offset: usize = codepoint_to_utf8(code_point, dst_ptr);
