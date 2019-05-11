@@ -204,11 +204,9 @@ impl<'de> Deserializer<'de> {
             while is_integer(unsafe { *p.get_unchecked(digitcount) }) {
                 digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 digitcount += 1;
-                fractionalweight *= 10;
-                fraction *= 10;
+                fractionalweight = fractionalweight.wrapping_mul(10);
+                fraction = fraction.wrapping_mul(10);
                 fraction += digit as u64;
-                //                dbg!(fraction);
-                //dbg!(fractionalweight);
             }
             i += fraction as f64 / fractionalweight as f64;
             //dbg!(i);
@@ -378,7 +376,8 @@ impl<'de> Deserializer<'de> {
             // we rarely see large integer parts like 123456789
             while is_integer(d) {
                 digit = d - b'0';
-                i = 10 * i + digit as i64; // might overflow
+                i = i.wrapping_mul(10).wrapping_add(digit as i64);
+                //i = 10 * i + digit as i64; // might overflow
                 digitcount += 1;
                 d = unsafe { *buf.get_unchecked(digitcount) };
             }
@@ -392,7 +391,7 @@ impl<'de> Deserializer<'de> {
             if is_integer(d) {
                 digit = d - b'0';
                 digitcount += 1;
-                i = i * 10 + digit as i64;
+                i = i.wrapping_mul(10).wrapping_add(digit as i64);
             } else {
                 return Err(self.error(ErrorType::InvalidNumber));
             }
@@ -414,7 +413,8 @@ impl<'de> Deserializer<'de> {
             d = unsafe { *buf.get_unchecked(digitcount) };
             while is_integer(d) {
                 digit = d - b'0';
-                i = i * 10 + digit as i64; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
+                i = i.wrapping_mul(10).wrapping_add(digit as i64);
+                //i = i * 10 + ; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
                 digitcount += 1;
                 d = unsafe { *buf.get_unchecked(digitcount) };
             }
