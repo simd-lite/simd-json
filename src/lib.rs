@@ -378,10 +378,14 @@ impl<'de> Deserializer<'de> {
                     // within the unicode codepoint handling code.
                     src_i += bs_dist as usize;
                     dst_i += bs_dist as usize;
-                    let (o, s) =
+                    let (o, s) = if let Ok(r) =
                         handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, unsafe {
                             dst.get_unchecked_mut(dst_i..)
-                        });
+                        }) {
+                        r
+                    } else {
+                        return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
+                    };
                     if o == 0 {
                         return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
                     };

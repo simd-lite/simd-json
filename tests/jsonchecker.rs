@@ -126,7 +126,7 @@ fail!(fail62);
 fail!(fail63);
 fail!(fail64);
 fail!(fail65);
-// fail!(fail66);
+fail!(fail66);
 // fail!(fail67);
 // fail!(fail68);
 // fail!(fail69);
