@@ -38,6 +38,19 @@ macro_rules! fail {
     };
 }
 
+macro_rules! crash {
+    ($file:ident) => {
+        #[test]
+        fn $file() {
+            let mut v1 = Vec::new();
+            let f = String::from(concat!("data/crash/", stringify!($file), ".json"));
+            File::open(f).unwrap().read_to_end(&mut v1).unwrap();
+            let mut v2 = v1.clone();
+            let _ = simd_json::to_borrowed_value(&mut v1);
+            let _ = simd_json::to_borrowed_value(&mut v2);
+        }
+    };
+}
 pass!(pass01);
 pass!(pass02);
 pass!(pass03);
@@ -127,6 +140,27 @@ fail!(fail63);
 fail!(fail64);
 fail!(fail65);
 fail!(fail66);
-// fail!(fail67);
-// fail!(fail68);
-// fail!(fail69);
+fail!(fail67);
+fail!(fail68);
+fail!(fail69);
+
+crash!(crash000000);
+crash!(crash000001);
+crash!(crash000002);
+crash!(crash000003);
+crash!(crash000004);
+crash!(crash000005);
+crash!(crash000006);
+crash!(crash000007);
+crash!(crash000008);
+crash!(crash000009);
+
+crash!(crash000010);
+crash!(crash000011);
+crash!(crash000012);
+crash!(crash000013);
+crash!(crash000014);
+crash!(crash000015);
+crash!(crash000016);
+crash!(crash000017);
+crash!(crash000018);
