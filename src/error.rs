@@ -39,6 +39,7 @@ pub enum ErrorType {
     ExpectedArrayContent,
     ExpectedObjectContent,
     ExpectedObjectKey,
+    Overflow,
 }
 
 #[derive(Debug, PartialEq)]

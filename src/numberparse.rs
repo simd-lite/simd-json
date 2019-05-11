@@ -164,21 +164,16 @@ impl<'de> Deserializer<'de> {
     /// Note: a redesign could avoid this function entirely.
     ///
     #[inline(never)]
-    fn parse_float(&self, mut p: &[u8], found_minus: bool) -> Result<Number> {
-        let mut negative: bool = false;
-        let mut digitcount = 0;
-        if found_minus {
-            p = unsafe { p.get_unchecked(1..) };
-            negative = true;
-        }
+    fn parse_float(&self, p: &[u8], negative: bool) -> Result<Number> {
+        let mut digitcount = if negative { 1 } else { 0 };
         let mut i: f64;
         let mut digit: u8;
-        if unsafe { *p.get_unchecked(0) } == b'0' {
+        if unsafe { *p.get_unchecked(digitcount) } == b'0' {
             // 0 cannot be followed by an integer
             digitcount += 1;
             i = 0.0;
         } else {
-            digit = unsafe { *p.get_unchecked(0) } - b'0';
+            digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
             i = digit as f64;
             digitcount += 1;
             while is_integer(unsafe { *p.get_unchecked(digitcount) }) {
@@ -269,89 +264,71 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    /*
-    // called by parse_number when we know that the output is an integer,
-    // but where there might be some integer overflow.
-    // we want to catch overflows!
-    // Do not call this function directly as it skips some of the checks from
-    // parse_number
-    //
-    // This function will almost never be called!!!
-    //
-    static never_inline bool parse_large_integer(const uint8_t *const buf,
-                                                 ParsedJson &pj,
-                                                 const uint32_t offset,
-                                                 bool found_minus) {
-      const char *p = reinterpret_cast<const char *>(buf + offset);
+    /// called by parse_number when we know that the output is an integer,
+    /// but where there might be some integer overflow.
+    /// we want to catch overflows!
+    /// Do not call this function directly as it skips some of the checks from
+    /// parse_number
+    ///
+    /// This function will almost never be called!!!
+    ///
+    #[inline(never)]
+    fn parse_large_integer(&self, buf: &[u8], negative: bool) -> Result<Number> {
+        let mut digitcount = if negative { 1 } else { 0 };
+        let mut i: u64;
+        let mut d = unsafe { *buf.get_unchecked(digitcount) };
+        let mut digit: u8;
 
-      bool negative = false;
-      if (found_minus) {
-        ++p;
-        negative = true;
-      }
-      uint64_t i;
-      if (*p == '0') { // 0 cannot be followed by an integer
-        ++p;
-        i = 0;
-      } else {
-        unsigned char digit = *p - '0';
-        i = digit;
-        p++;
-        // the is_made_of_eight_digits_fast routine is unlikely to help here because
-        // we rarely see large integer parts like 123456789
-        while (is_integer(*p)) {
-          digit = *p - '0';
-          if (mul_overflow(i, 10, &i)) {
-    #ifdef JSON_TEST_NUMBERS // for unit testing
-            foundInvalidNumber(buf + offset);
-    #endif
-            return false; // overflow
-          }
-          if (add_overflow(i, digit, &i)) {
-    #ifdef JSON_TEST_NUMBERS // for unit testing
-            foundInvalidNumber(buf + offset);
-    #endif
-            return false; // overflow
-          }
-          ++p;
+        if d == b'0' {
+            digitcount += 1;
+            d = unsafe { *buf.get_unchecked(digitcount) };
+            i = 0;
+        } else {
+            digit = d - b'0';
+            i = digit as u64;
+            digitcount += 1;
+            d = unsafe { *buf.get_unchecked(digitcount) };
+            // the is_made_of_eight_digits_fast routine is unlikely to help here because
+            // we rarely see large integer parts like 123456789
+            while is_integer(d) {
+                digit = d - b'0';
+                if let Some(i1) = i.checked_mul(10).and_then(|i| i.checked_add(digit as u64)) {
+                    i = i1;
+                } else {
+                    return Err(self.error(ErrorType::Overflow));
+                }
+                digitcount += 1;
+                d = unsafe { *buf.get_unchecked(digitcount) };
+            }
         }
-      }
-      if (negative) {
-        if (i > 0x8000000000000000) {
-    // overflows!
-    #ifdef JSON_TEST_NUMBERS // for unit testing
-          foundInvalidNumber(buf + offset);
-    #endif
-          return false; // overflow
+
+        if negative {
+            if i > 0x8000000000000000 {
+                return Err(self.error(ErrorType::Overflow));
+            }
+        } else {
+            if i >= 0x8000000000000000 {
+                return Err(self.error(ErrorType::Overflow));
+            }
         }
-      } else {
-        if (i >= 0x8000000000000000) {
-    // overflows!
-    #ifdef JSON_TEST_NUMBERS // for unit testing
-          foundInvalidNumber(buf + offset);
-    #endif
-          return false; // overflow
+
+        if is_structural_or_whitespace(d) != 0 {
+            if negative {
+                Ok(Number::I64(-(i as i64)))
+            } else {
+                Ok(Number::I64(i as i64))
+            }
+        } else {
+            Err(self.error(ErrorType::InvalidNumber))
         }
-      }
-      int64_t signed_answer = negative ? -static_cast<int64_t>(i) : static_cast<int64_t>(i);
-      pj.write_tape_s64(signed_answer);
-    #ifdef JSON_TEST_NUMBERS // for unit testing
-      foundInteger(signed_answer, buf + offset);
-    #endif
-      return is_structural_or_whitespace(*p);
     }
-
-    */
 
     // parse the number at buf + offset
     // define JSON_TEST_NUMBERS for unit testing
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_number_int(&self, mut buf: &[u8], negative: bool) -> Result<Number> {
-        if negative {
-            buf = unsafe { buf.get_unchecked(1..) };
-        };
+    pub fn parse_number_int(&self, buf: &[u8], negative: bool) -> Result<Number> {
+        let mut digitcount = if negative { 1 } else { 0 };
         //let startdigits: *const u8 = p;
-        let mut digitcount = 0;
         let mut i: i64;
         let mut d = unsafe { *buf.get_unchecked(digitcount) };
         let mut digit: u8;
@@ -376,7 +353,12 @@ impl<'de> Deserializer<'de> {
             // we rarely see large integer parts like 123456789
             while is_integer(d) {
                 digit = d - b'0';
-                i = i.wrapping_mul(10).wrapping_add(digit as i64);
+                i = i.wrapping_mul(10);
+                if let Some(i1) = i.checked_add(digit as i64) {
+                    i = i1;
+                } else {
+                    return Err(self.error(ErrorType::Overflow));
+                }
                 //i = 10 * i + digit as i64; // might overflow
                 digitcount += 1;
                 d = unsafe { *buf.get_unchecked(digitcount) };
@@ -459,11 +441,13 @@ impl<'de> Deserializer<'de> {
             exponent += if negexp { -expnumber } else { expnumber };
         }
         i = if negative { -i } else { i };
+        dbg!(digitcount);
         let v = if (exponent != 0) || (expnumber != 0) {
             if unlikely!(digitcount >= 19) {
                 // this is uncommon!!!
                 // this is almost never going to get called!!!
                 // we start anew, going slowly!!!
+                dbg!("parse_float");
                 return self.parse_float(buf, negative);
             }
             ///////////
@@ -482,12 +466,10 @@ impl<'de> Deserializer<'de> {
                 Number::F64(d)
             }
         } else {
-            /* TODO: implement this
             if unlikely!(digitcount >= 18) {
                 // this is uncommon!!!
-                return parse_large_integer(buf, pj, offset, found_minus);
+                return self.parse_large_integer(buf, negative);
             }
-             */
             Number::I64(i)
         };
         if is_structural_or_whitespace(d) != 0 {

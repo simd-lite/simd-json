@@ -136,22 +136,26 @@ impl<'de> Deserializer<'de> {
         let len = input.len();
 
         let buf_start: usize = input.as_ptr() as *const () as usize;
+        dbg!(buf_start);
+        dbg!(input.len());
+        dbg!(*PAGE_SIZE);
+        let needs_relocation = (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING;
+        dbg!(needs_relocation);
 
-        let s1_result: std::result::Result<Vec<u32>, ErrorType> =
-            if (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING {
-                let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
-                unsafe {
-                    data.set_len(len + 1);
-                    data.as_mut_slice()
-                        .get_unchecked_mut(0..len)
-                        .clone_from_slice(input);
-                    *(data.get_unchecked_mut(len)) = 0;
-                    data.set_len(len);
-                    Deserializer::find_structural_bits(&data)
-                }
-            } else {
-                unsafe { Deserializer::find_structural_bits(input) }
-            };
+        let s1_result: std::result::Result<Vec<u32>, ErrorType> = if needs_relocation {
+            let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
+            unsafe {
+                data.set_len(len + 1);
+                data.as_mut_slice()
+                    .get_unchecked_mut(0..len)
+                    .clone_from_slice(input);
+                *(data.get_unchecked_mut(len)) = 0;
+                data.set_len(len);
+                Deserializer::find_structural_bits(&data)
+            }
+        } else {
+            unsafe { Deserializer::find_structural_bits(input) }
+        };
         let structural_indexes = match s1_result {
             Ok(i) => i,
             Err(t) => {
@@ -407,6 +411,18 @@ impl<'de> Deserializer<'de> {
                 dst_i += 32;
             }
         }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+        let len = input.len();
+        let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+        copy[len] = 0;
+        unsafe {
+            copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+        };
+        self.parse_number_int(&copy, minus)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
