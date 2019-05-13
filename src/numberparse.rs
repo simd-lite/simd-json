@@ -442,7 +442,7 @@ impl<'de> Deserializer<'de> {
             }
             exponent += if negexp { -expnumber } else { expnumber };
         }
-        i = if negative { -i } else { i };
+        i = if negative { i.wrapping_neg() } else { i };
         dbg!(digitcount);
         let v = if (exponent != 0) || (expnumber != 0) {
             if unlikely!(digitcount >= 19) {
