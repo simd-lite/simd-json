@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 use crate::charutils::*;
-use crate::{Deserializer, Error, ErrorType, Result};
+use crate::{Deserializer, Error, ErrorType, Result, SIMDJSON_PADDING};
 //use crate::portability::*;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
-    let mut error: u32;
+    let mut error: u64;
     unsafe {
         //let tv: u64 = *(b"true    ".as_ptr() as *const u64);
         // this is the same:
@@ -17,8 +17,8 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
         //   std::memcpy(&locval, loc, sizeof(uint64_t));
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
-        error = ((locval & MASK4) ^ TV) as u32;
-        error |= is_not_structural_or_whitespace(*loc.get_unchecked(4));
+        error = (locval & MASK4) ^ TV;
+        error |= is_not_structural_or_whitespace(*loc.get_unchecked(4)) as u64;
     }
     error == 0
 }
@@ -26,8 +26,8 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_valid_false_atom(loc: &[u8]) -> bool {
     // TODO: this is ugly and probably copies data every time
+    let mut error: u64;
     unsafe {
-        let error;
         //let fv: u64 = *(b"false   ".as_ptr() as *const u64);
         // this is the same:
 
@@ -41,15 +41,16 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
         // but that failes on falsy as the u32 conversion
         // will mask the error on the y so we re-write it
         // it would be interesting what the consequecnes are
-        error = ((locval ^ FV) & MASK5) == 0;
-        error || is_not_structural_or_whitespace(*loc.get_unchecked(5)) == 1
+        error = (locval & MASK5) ^ FV;
+        error |= is_not_structural_or_whitespace(*loc.get_unchecked(5)) as u64;
     }
+    error == 0
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_valid_null_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
-    let mut error: u32;
+    let mut error: u64;
     unsafe {
         //let nv: u64 = *(b"null   ".as_ptr() as *const u64);
         // this is the same:
@@ -57,8 +58,8 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
         const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
-        error = ((locval & MASK4) ^ NV) as u32;
-        error |= is_not_structural_or_whitespace(*loc.get_unchecked(4));
+        error = (locval & MASK4) ^ NV;
+        error |= is_not_structural_or_whitespace(*loc.get_unchecked(4)) as u64;
     }
     error == 0
 }
@@ -79,23 +80,23 @@ enum StackState {
 impl<'de> Deserializer<'de> {
     pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
         let mut counts = Vec::with_capacity(structural_indexes.len());
+        let mut stack = Vec::with_capacity(structural_indexes.len());
         unsafe {
             counts.set_len(structural_indexes.len());
-        };
-        let mut stack = Vec::with_capacity(structural_indexes.len() / 2); // since we are open close we know worst case this is 2x the size
-        let mut depth = 0;
-        unsafe {
-            stack.set_len(structural_indexes.len() / 2);
+            stack.set_len(structural_indexes.len());
         }
 
+        let mut depth = 0;
         let mut last_start = 1;
         let mut cnt = 0;
         let mut str_len = 0;
 
-        //        let mut i: usize = 0; // index of the structural character (0,1,2,3...)
-        let mut idx: usize; // location of the structural character in the input (buf)
-        let mut c: u8; // used to track the (structural) character we are looking at, updated
-                       // by UPDATE_CHAR macro
+        // let mut i: usize = 0; // index of the structural character (0,1,2,3...)
+        // location of the structural character in the input (buf)
+        let mut idx: usize;
+        // used to track the (structural) character we are looking at, updated
+        // by UPDATE_CHAR macro
+        let mut c: u8;
         let mut i = 0;
 
         // this macro reads the next structural character, updating idx, i and c.
@@ -103,7 +104,6 @@ impl<'de> Deserializer<'de> {
         macro_rules! update_char {
             () => {
                 idx = *stry!(si.next().ok_or_else(|| (Error::generic(ErrorType::Syntax)))) as usize;
-
                 i += 1;
                 c = unsafe { *input.get_unchecked(idx) };
             };
@@ -133,7 +133,7 @@ impl<'de> Deserializer<'de> {
                         goto!(ScopeEnd);
                     }
                     _c => {
-                        fail!();
+                        fail!(ErrorType::ExpectedArrayContent);
                     }
                 }
             }};
@@ -147,7 +147,7 @@ impl<'de> Deserializer<'de> {
                         cnt += 1;
                         update_char!();
                         if c != b'"' {
-                            fail!();
+                            fail!(ErrorType::ExpectedObjectKey);
                         } else {
                             let d = if let Some(next) = si.peek() {
                                 (**next as usize) - idx
@@ -167,7 +167,7 @@ impl<'de> Deserializer<'de> {
                         goto!(ScopeEnd);
                     }
                     _ => {
-                        fail!();
+                        fail!(ErrorType::ExpectedObjectContent);
                     }
                 }
             }};
@@ -206,7 +206,7 @@ impl<'de> Deserializer<'de> {
                         goto!(ScopeEnd);
                     }
                     _c => {
-                        fail!();
+                        fail!(ErrorType::ExpectedObjectContent);
                     }
                 }
             }};
@@ -214,7 +214,10 @@ impl<'de> Deserializer<'de> {
 
         macro_rules! fail {
             () => {
-                return Err(Error::generic(ErrorType::InternalError));
+                return Err(Error::new(i, idx, c as char, ErrorType::InternalError));
+            };
+            ($t:expr) => {
+                return Err(Error::new(i, idx, c as char, $t));
             };
         }
         // State start, we pull this outside of the
@@ -249,7 +252,7 @@ impl<'de> Deserializer<'de> {
                         state = State::ScopeEnd;
                     }
                     _c => {
-                        fail!();
+                        fail!(ErrorType::ExpectedObjectContent);
                     }
                 }
             }
@@ -283,14 +286,59 @@ impl<'de> Deserializer<'de> {
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
-                    fail!();
+                    fail!(ErrorType::TrailingCharacters);
                 }
             }
-            b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+            b't' => {
+                let len = input.len();
+                let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+                unsafe {
+                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+                    if !is_valid_true_atom(copy.get_unchecked(idx..)) {
+                        fail!(ErrorType::ExpectedNull); // TODO: better error
+                    }
+                };
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
-                    fail!();
+                    fail!(ErrorType::TrailingCharacters);
+                }
+            }
+            b'f' => {
+                let len = input.len();
+                let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+                unsafe {
+                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+                    if !is_valid_false_atom(copy.get_unchecked(idx..)) {
+                        fail!(ErrorType::ExpectedNull); // TODO: better error
+                    }
+                };
+                if si.next().is_none() {
+                    return Ok((counts, str_len as usize));
+                } else {
+                    fail!(ErrorType::TrailingCharacters);
+                }
+            }
+            b'n' => {
+                let len = input.len();
+                let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+                unsafe {
+                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+                    if !is_valid_null_atom(copy.get_unchecked(idx..)) {
+                        fail!(ErrorType::ExpectedNull); // TODO: better error
+                    }
+                };
+                if si.next().is_none() {
+                    return Ok((counts, str_len as usize));
+                } else {
+                    fail!(ErrorType::TrailingCharacters);
+                }
+            }
+            b'-' | b'0'...b'9' => {
+                if si.next().is_none() {
+                    return Ok((counts, str_len as usize));
+                } else {
+                    fail!(ErrorType::TrailingCharacters);
                 }
             }
             _ => {
@@ -305,7 +353,7 @@ impl<'de> Deserializer<'de> {
                 ObjectKey => {
                     update_char!();
                     if unlikely!(c != b':') {
-                        fail!();
+                        fail!(ErrorType::ExpectedObjectColon);
                     }
                     update_char!();
                     match c {
@@ -323,7 +371,25 @@ impl<'de> Deserializer<'de> {
                             unsafe { *counts.get_unchecked_mut(i) = d };
                             object_continue!();
                         }
-                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+                        b't' => {
+                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
+                            }
+                            object_continue!();
+                        }
+                        b'f' => {
+                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
+                            }
+                            object_continue!();
+                        }
+                        b'n' => {
+                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(ErrorType::ExpectedNull); // TODO: better error
+                            }
+                            object_continue!();
+                        }
+                        b'-' | b'0'...b'9' => {
                             object_continue!();
                         }
                         b'{' => {
@@ -400,7 +466,25 @@ impl<'de> Deserializer<'de> {
                             unsafe { *counts.get_unchecked_mut(i) = d };
                             array_continue!();
                         }
-                        b't' | b'f' | b'n' | b'-' | b'0'...b'9' => {
+                        b't' => {
+                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
+                            }
+                            array_continue!();
+                        }
+                        b'f' => {
+                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
+                            }
+                            array_continue!();
+                        }
+                        b'n' => {
+                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                                fail!(ErrorType::ExpectedNull); // TODO: better error
+                            }
+                            array_continue!();
+                        }
+                        b'-' | b'0'...b'9' => {
                             array_continue!();
                         }
                         b'{' => {

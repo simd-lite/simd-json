@@ -86,7 +86,6 @@ extern crate lazy_static;
 
 use crate::numberparse::Number;
 use crate::portability::*;
-use crate::stage2::*;
 use crate::stringparse::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -137,22 +136,26 @@ impl<'de> Deserializer<'de> {
         let len = input.len();
 
         let buf_start: usize = input.as_ptr() as *const () as usize;
+        dbg!(buf_start);
+        dbg!(input.len());
+        dbg!(*PAGE_SIZE);
+        let needs_relocation = (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING;
+        dbg!(needs_relocation);
 
-        let s1_result: std::result::Result<Vec<u32>, ErrorType> =
-            if (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING {
-                let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
-                unsafe {
-                    data.set_len(len + 1);
-                    data.as_mut_slice()
-                        .get_unchecked_mut(0..len)
-                        .clone_from_slice(input);
-                    *(data.get_unchecked_mut(len)) = 0;
-                    data.set_len(len);
-                    Deserializer::find_structural_bits(&data)
-                }
-            } else {
-                unsafe { Deserializer::find_structural_bits(input) }
-            };
+        let s1_result: std::result::Result<Vec<u32>, ErrorType> = if needs_relocation {
+            let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
+            unsafe {
+                data.set_len(len + 1);
+                data.as_mut_slice()
+                    .get_unchecked_mut(0..len)
+                    .clone_from_slice(input);
+                *(data.get_unchecked_mut(len)) = 0;
+                data.set_len(len);
+                Deserializer::find_structural_bits(&data)
+            }
+        } else {
+            unsafe { Deserializer::find_structural_bits(input) }
+        };
         let structural_indexes = match s1_result {
             Ok(i) => i,
             Err(t) => {
@@ -160,10 +163,7 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        //let (counts, str_len) = Deserializer::compute_size(input, &structural_indexes)?;
         let (counts, str_len) = Deserializer::validate(input, &structural_indexes)?;
-        //assert_eq!(counts, counts2);
-        //assert_eq!(str_len, str_len2);
 
         let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
         unsafe {
@@ -378,10 +378,14 @@ impl<'de> Deserializer<'de> {
                     // within the unicode codepoint handling code.
                     src_i += bs_dist as usize;
                     dst_i += bs_dist as usize;
-                    let (o, s) =
+                    let (o, s) = if let Ok(r) =
                         handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, unsafe {
                             dst.get_unchecked_mut(dst_i..)
-                        });
+                        }) {
+                        r
+                    } else {
+                        return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
+                    };
                     if o == 0 {
                         return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
                     };
@@ -414,100 +418,15 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_null(&mut self) -> Result<()> {
+    fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
         let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         let len = input.len();
-        if len < SIMDJSON_PADDING {
-            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-            copy[0..len].clone_from_slice(input);
-            if is_valid_null_atom(&copy) {
-                Ok(())
-            } else {
-                Err(self.error(ErrorType::ExpectedNull))
-            }
-        } else {
-            if is_valid_null_atom(input) {
-                Ok(())
-            } else {
-                Err(self.error(ErrorType::ExpectedNull))
-            }
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_null_(&mut self) -> Result<()> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        if is_valid_null_atom(input) {
-            Ok(())
-        } else {
-            Err(self.error(ErrorType::ExpectedNull))
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_true(&mut self) -> Result<bool> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        let len = input.len();
-        if len < SIMDJSON_PADDING {
-            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-            unsafe {
-                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-            };
-            if is_valid_true_atom(&copy) {
-                Ok(true)
-            } else {
-                Err(self.error(ErrorType::ExpectedBoolean))
-            }
-        } else {
-            if is_valid_true_atom(input) {
-                Ok(true)
-            } else {
-                Err(self.error(ErrorType::ExpectedBoolean))
-            }
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_true_(&mut self) -> Result<bool> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        if is_valid_true_atom(input) {
-            Ok(true)
-        } else {
-            Err(self.error(ErrorType::ExpectedBoolean))
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_false(&mut self) -> Result<bool> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        let len = input.len();
-        if len < SIMDJSON_PADDING {
-            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-            unsafe {
-                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-            };
-            if is_valid_false_atom(&copy) {
-                Ok(false)
-            } else {
-                Err(self.error(ErrorType::ExpectedBoolean))
-            }
-        } else {
-            if is_valid_false_atom(input) {
-                Ok(false)
-            } else {
-                Err(self.error(ErrorType::ExpectedBoolean))
-            }
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_false_(&mut self) -> Result<bool> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        if is_valid_false_atom(input) {
-            Ok(false)
-        } else {
-            Err(self.error(ErrorType::ExpectedBoolean))
-        }
+        let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+        copy[len] = 0;
+        unsafe {
+            copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+        };
+        self.parse_number_int(&copy, minus)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -807,6 +726,24 @@ mod tests {
     }
 
     #[test]
+    fn malformed_array() {
+        let mut d = String::from(r#"[["#);
+        let mut d1 = d.clone();
+        let mut d2 = d.clone();
+        let mut d = unsafe { d.as_bytes_mut() };
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d2 = unsafe { d2.as_bytes_mut() };
+        let v_serde: Result<serde_json::Value, _> = serde_json::from_slice(d);
+        let v_simd_ov = to_owned_value(&mut d);
+        let v_simd_bv = to_borrowed_value(&mut d1);
+        let v_simd: Result<serde_json::Value, _> = from_slice(&mut d2);
+        assert!(v_simd_ov.is_err());
+        assert!(v_simd_bv.is_err());
+        assert!(v_simd.is_err());
+        assert!(v_serde.is_err());
+    }
+
+    #[test]
     fn double_array() {
         let mut d = String::from(r#"[[]]"#);
         let mut d1 = d.clone();
@@ -966,6 +903,17 @@ mod tests {
         assert_eq!(v_simd, v_serde)
     }
 
+    #[test]
+    fn null() {
+        let mut d = String::from(r#"null"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        assert_eq!(to_value(&mut d1), Ok(Value::Null));
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+    }
     #[test]
     fn null_null() {
         let mut d = String::from(r#"[null, null]"#);

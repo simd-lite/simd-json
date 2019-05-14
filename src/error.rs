@@ -11,7 +11,7 @@ pub enum ErrorType {
     ExpectedFloat,
     ExpectedInteger,
     ExpectedMap,
-    ExpectedMapColon,
+    ExpectedObjectColon,
     ExpectedMapComma,
     ExpectedMapEnd,
     ExpectedNull,
@@ -36,6 +36,10 @@ pub enum ErrorType {
     UnexpectedCharacter,
     UnexpectedEnd,
     UnterminatedString,
+    ExpectedArrayContent,
+    ExpectedObjectContent,
+    ExpectedObjectKey,
+    Overflow,
 }
 
 #[derive(Debug, PartialEq)]
