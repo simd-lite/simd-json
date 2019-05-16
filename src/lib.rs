@@ -136,11 +136,7 @@ impl<'de> Deserializer<'de> {
         let len = input.len();
 
         let buf_start: usize = input.as_ptr() as *const () as usize;
-        dbg!(buf_start);
-        dbg!(input.len());
-        dbg!(*PAGE_SIZE);
         let needs_relocation = (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING;
-        dbg!(needs_relocation);
 
         let s1_result: std::result::Result<Vec<u32>, ErrorType> = if needs_relocation {
             let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);

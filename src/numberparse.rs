@@ -204,7 +204,6 @@ impl<'de> Deserializer<'de> {
                 fraction += digit as u64;
             }
             i += fraction as f64 / fractionalweight as f64;
-            //dbg!(i);
         }
         if (unsafe { *p.get_unchecked(digitcount) } == b'e')
             || (unsafe { *p.get_unchecked(digitcount) } == b'E')
@@ -443,13 +442,11 @@ impl<'de> Deserializer<'de> {
             exponent += if negexp { -expnumber } else { expnumber };
         }
         i = if negative { i.wrapping_neg() } else { i };
-        dbg!(digitcount);
         let v = if (exponent != 0) || (expnumber != 0) {
             if unlikely!(digitcount >= 19) {
                 // this is uncommon!!!
                 // this is almost never going to get called!!!
                 // we start anew, going slowly!!!
-                dbg!("parse_float");
                 return self.parse_float(buf, negative);
             }
             ///////////
