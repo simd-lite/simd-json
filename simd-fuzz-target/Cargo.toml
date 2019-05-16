@@ -1,0 +1,10 @@
+[package]
+name = "simd-fuzz-target"
+version = "0.1.0"
+authors = ["Heinz Gies <heinz@licenser.net>"]
+edition = "2018"
+[dependencies]
+
+afl = "0.4"
+simd-json = {"version" = "0.1", path = "../"}
+
