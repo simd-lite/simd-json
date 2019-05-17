@@ -1,6 +1,6 @@
 [package]
 name = "simd-json"
-version = "0.1.7"
+version = "0.1.8"
 authors = ["Heinz N. Gies <heinz@licenser.net>"]
 edition = "2018"
 exclude = [ "data/*" ]
@@ -9,12 +9,12 @@ description = "High performance JSON parser based on a port of simdjson"
 repository = "https://github.com/Licenser/simdjson-rs"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1" }
-halfbrown = { version = "0.1", features = ["serde"] }
-lazy_static = "1"
+halfbrown = { version = "0.1" }
 page_size = "0.4"
 
+# serde compatibilty
+serde = { version = "1.0", features = ["derive"], optional = true}
+serde_json = { version = "1", optional = true}
 
 # Thisn should be  a dev dependecy but we can't make it optional then
 # simdjson-rust = { git = "https://github.com/SunDoge/simdjson-rust", optional = true }
@@ -40,11 +40,18 @@ harness = false
 
 
 [features]
-default = ["swar-number-parsing"]
+default = ["swar-number-parsing", "serde-compat"]
+# use 8 number at once parsing strategy
 swar-number-parsing = []
+# serde compatibility
+serde-compat = [ "serde", "serde_json", "halfbrown/serde" ]
+# don't inline code - used for debugging
 no-inline = []
+# also bench serde in the benchmarks
 bench-serde = []
+# use branch hints - requires nightly :(
 hints = [] # requires nightly
+# for perf testing, used by the example
 perf = ["perfcnt", "getopts", "colored"]
 
 
