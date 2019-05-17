@@ -66,6 +66,11 @@
 //! let v: Value = simd_json::serde::from_slice(&mut d).unwrap();
 //! ```
 
+#[cfg(feature = "serde")]
+extern crate serde as serde_ext;
+#[cfg(feature = "serde")]
+pub mod serde;
+
 mod charutils;
 #[macro_use]
 mod macros;
@@ -73,16 +78,11 @@ mod error;
 mod numberparse;
 mod parsedjson;
 mod portability;
-pub mod serde;
 mod stage1;
 mod stage2;
 mod stringparse;
 mod utf8check;
 pub mod value;
-
-extern crate serde as serde_ext;
-#[macro_use]
-extern crate lazy_static;
 
 use crate::numberparse::Number;
 use crate::portability::*;
@@ -98,11 +98,6 @@ pub use error::{Error, ErrorType};
 pub use value::*;
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
-// We only do this for the string parse function as it seems to slow down other frunctions
-// odd...
-lazy_static! {
-    static ref PAGE_SIZE: usize = { page_size::get() };
-}
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -136,7 +131,7 @@ impl<'de> Deserializer<'de> {
         let len = input.len();
 
         let buf_start: usize = input.as_ptr() as *const () as usize;
-        let needs_relocation = (buf_start + input.len()) % *PAGE_SIZE < SIMDJSON_PADDING;
+        let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
 
         let s1_result: std::result::Result<Vec<u32>, ErrorType> = if needs_relocation {
             let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
@@ -192,20 +187,6 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next(&mut self) -> Result<u8> {
-        unsafe {
-            self.idx += 1;
-            if let Some(idx) = self.structural_indexes.get(self.idx) {
-                self.iidx = *idx as usize;
-                let r = *self.input.get_unchecked(self.iidx);
-                Ok(r)
-            } else {
-                Err(self.error(ErrorType::Syntax))
-            }
-        }
-    }
-
     // pull out the check so we don't need to
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -214,15 +195,6 @@ impl<'de> Deserializer<'de> {
             self.idx += 1;
             self.iidx = *self.structural_indexes.get_unchecked(self.idx) as usize;
             *self.input.get_unchecked(self.iidx)
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn peek(&self) -> Result<u8> {
-        if let Some(idx) = self.structural_indexes.get(self.idx + 1) {
-            unsafe { Ok(*self.input.get_unchecked(*idx as usize)) }
-        } else {
-            Err(self.error(ErrorType::UnexpectedEnd))
         }
     }
 
@@ -444,44 +416,6 @@ impl<'de> Deserializer<'de> {
     fn parse_number_(&mut self, minus: bool) -> Result<Number> {
         let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         self.parse_number_int(input, minus)
-    }
-
-    fn parse_signed(&mut self) -> Result<i64> {
-        match self.next_() {
-            b'-' => match stry!(self.parse_number(true)) {
-                Number::I64(n) => Ok(n),
-                _ => Err(self.error(ErrorType::ExpectedSigned)),
-            },
-            b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Number::I64(n) => Ok(n),
-                _ => Err(self.error(ErrorType::ExpectedSigned)),
-            },
-            _ => Err(self.error(ErrorType::ExpectedSigned)),
-        }
-    }
-
-    fn parse_unsigned(&mut self) -> Result<u64> {
-        match self.next_() {
-            b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Number::I64(n) => Ok(n as u64),
-                _ => Err(self.error(ErrorType::ExpectedUnsigned)),
-            },
-            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
-        }
-    }
-
-    fn parse_double(&mut self) -> Result<f64> {
-        match self.next_() {
-            b'-' => match stry!(self.parse_number(true)) {
-                Number::F64(n) => Ok(n),
-                Number::I64(n) => Ok(n as f64),
-            },
-            b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Number::F64(n) => Ok(n),
-                Number::I64(n) => Ok(n as f64),
-            },
-            _ => Err(self.error(ErrorType::ExpectedFloat)),
-        }
     }
 }
 

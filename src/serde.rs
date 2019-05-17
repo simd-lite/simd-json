@@ -7,8 +7,9 @@
 /// directly to structs this is th4 place to go.
 mod de;
 mod value;
+use crate::numberparse::Number;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
-use serde::Deserialize;
+use serde_ext::Deserialize;
 use std::fmt;
 
 pub use value::*;
@@ -48,5 +49,71 @@ impl serde::de::Error for Error {
 impl serde_ext::ser::Error for Error {
     fn custom<T: fmt::Display>(msg: T) -> Self {
         Error::generic(ErrorType::Serde(msg.to_string()))
+    }
+}
+
+// Functions purely used by serde
+impl<'de> Deserializer<'de> {
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn next(&mut self) -> Result<u8> {
+        unsafe {
+            self.idx += 1;
+            if let Some(idx) = self.structural_indexes.get(self.idx) {
+                self.iidx = *idx as usize;
+                let r = *self.input.get_unchecked(self.iidx);
+                Ok(r)
+            } else {
+                Err(self.error(ErrorType::Syntax))
+            }
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn peek(&self) -> Result<u8> {
+        if let Some(idx) = self.structural_indexes.get(self.idx + 1) {
+            unsafe { Ok(*self.input.get_unchecked(*idx as usize)) }
+        } else {
+            Err(self.error(ErrorType::UnexpectedEnd))
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_signed(&mut self) -> Result<i64> {
+        match self.next_() {
+            b'-' => match stry!(self.parse_number(true)) {
+                Number::I64(n) => Ok(n),
+                _ => Err(self.error(ErrorType::ExpectedSigned)),
+            },
+            b'0'...b'9' => match stry!(self.parse_number(false)) {
+                Number::I64(n) => Ok(n),
+                _ => Err(self.error(ErrorType::ExpectedSigned)),
+            },
+            _ => Err(self.error(ErrorType::ExpectedSigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_unsigned(&mut self) -> Result<u64> {
+        match self.next_() {
+            b'0'...b'9' => match stry!(self.parse_number(false)) {
+                Number::I64(n) => Ok(n as u64),
+                _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+            },
+            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+        }
+    }
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_double(&mut self) -> Result<f64> {
+        match self.next_() {
+            b'-' => match stry!(self.parse_number(true)) {
+                Number::F64(n) => Ok(n),
+                Number::I64(n) => Ok(n as f64),
+            },
+            b'0'...b'9' => match stry!(self.parse_number(false)) {
+                Number::F64(n) => Ok(n),
+                Number::I64(n) => Ok(n as f64),
+            },
+            _ => Err(self.error(ErrorType::ExpectedFloat)),
+        }
     }
 }
