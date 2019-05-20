@@ -66,9 +66,9 @@
 //! let v: Value = simd_json::serde::from_slice(&mut d).unwrap();
 //! ```
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde_impl")]
 extern crate serde as serde_ext;
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde_impl")]
 pub mod serde;
 
 mod charutils;

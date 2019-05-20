@@ -1,6 +1,6 @@
 [package]
 name = "simd-json"
-version = "0.1.8"
+version = "0.1.9"
 authors = ["Heinz N. Gies <heinz@licenser.net>"]
 edition = "2018"
 exclude = [ "data/*" ]
@@ -40,11 +40,11 @@ harness = false
 
 
 [features]
-default = ["swar-number-parsing", "serde-compat"]
+default = ["swar-number-parsing", "serde_impl"]
 # use 8 number at once parsing strategy
 swar-number-parsing = []
 # serde compatibility
-serde-compat = [ "serde", "serde_json", "halfbrown/serde" ]
+serde_impl = [ "serde", "serde_json", "halfbrown/serde" ]
 # don't inline code - used for debugging
 no-inline = []
 # also bench serde in the benchmarks

@@ -25,7 +25,7 @@ If you are writing perormance centric code, make sure to use jemalloc and not th
 
 simd-json.rs is compatible with serde and serde-json. The Value types provided implement serializers and deserialisers. In addition to that simd-json.rs implements the Deserializer for the parser so it can deserialize anything that implements the serde Deserialize trait.
 
-That said serde is contained in the `serde-comp` feature which is part of the default feature set, but it can be disabled.
+That said serde is contained in the `serde_impl` feature which is part of the default feature set, but it can be disabled.
 
 ### serializing
 
