@@ -347,7 +347,7 @@ impl<'de> Deserializer<'de> {
         }
 
         loop {
-            use State::*;
+            use self::State::*;
             match state {
                 ////////////////////////////// OBJECT STATES /////////////////////////////
                 ObjectKey => {

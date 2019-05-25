@@ -12,7 +12,7 @@ use crate::{stry, Deserializer, Error, ErrorType, Result};
 use serde_ext::Deserialize;
 use std::fmt;
 
-pub use value::*;
+pub use self::value::*;
 
 /// parses a byte slice using a serde deserializer.
 /// note that the slice will be rewritten in the process.

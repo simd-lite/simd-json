@@ -94,8 +94,8 @@ use std::arch::x86_64::*;
 use std::mem;
 use std::str;
 
-pub use error::{Error, ErrorType};
-pub use value::*;
+pub use crate::error::{Error, ErrorType};
+pub use crate::value::*;
 
 const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 
