@@ -183,15 +183,14 @@ impl<'de> Deserializer<'de> {
             }
         }
         if unsafe { *p.get_unchecked(digitcount) } == b'.' {
-            let mut fraction: u64 = 0;
-            let mut fractionalweight: u64;
+            let mut fraction: f64 = 0.0;
+            let mut fractionalweight: f64 = 10.0;
             digitcount += 1;
             //let mut fractionalweight: f64 = 1.0;
             if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
                 digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 digitcount += 1;
-                fractionalweight = 10;
-                fraction += digit as u64;
+                fraction += digit as f64;
             //i = i + digit as f64 * fractionalweight;
             } else {
                 return Err(self.error(ErrorType::Parser));
@@ -199,11 +198,11 @@ impl<'de> Deserializer<'de> {
             while is_integer(unsafe { *p.get_unchecked(digitcount) }) {
                 digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 digitcount += 1;
-                fractionalweight = fractionalweight.wrapping_mul(10);
-                fraction = fraction.wrapping_mul(10);
-                fraction += digit as u64;
+                fractionalweight *= 10.0;
+                fraction *= 10.0;
+                fraction += digit as f64;
             }
-            i += fraction as f64 / fractionalweight as f64;
+            i += fraction / fractionalweight;
         }
         if (unsafe { *p.get_unchecked(digitcount) } == b'e')
             || (unsafe { *p.get_unchecked(digitcount) } == b'E')
