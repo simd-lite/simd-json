@@ -11,6 +11,7 @@ repository = "https://github.com/Licenser/simdjson-rs"
 [dependencies]
 halfbrown = { version = "0.1" }
 page_size = "0.4"
+float_fast_print = "0.1"
 
 # serde compatibilty
 serde = { version = "1.0", features = ["derive"], optional = true}

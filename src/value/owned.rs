@@ -2,6 +2,7 @@
 /// structure fully owned, avoiding lifetimes at the cost of performance.
 mod cmp;
 mod from;
+mod serialize;
 
 use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
@@ -34,10 +35,11 @@ pub enum Value {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::Null => write!(f, "null"),
-            Value::Bool(b) => write!(f, "{}", b),
-            Value::I64(n) => write!(f, "{}", n),
-            Value::F64(n) => write!(f, "{}", n),
+            Value::Null => f.write_str("null"),
+            Value::Bool(false) => f.write_str("false"),
+            Value::Bool(true) => f.write_str("true"),
+            Value::I64(n) => f.write_str(&n.to_string()),
+            Value::F64(n) => f.write_str(&n.to_string()),
             Value::String(s) => write!(f, "{}", s),
             Value::Array(a) => write!(f, "{:?}", a),
             Value::Object(o) => write!(f, "{:?}", o),

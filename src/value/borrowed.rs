@@ -2,6 +2,7 @@
 // it tradecs having lifetimes for a gain in performance.
 mod cmp;
 mod from;
+mod serialize;
 
 use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
