@@ -11,7 +11,10 @@ repository = "https://github.com/Licenser/simdjson-rs"
 [dependencies]
 halfbrown = { version = "0.1" }
 page_size = "0.4"
-float_fast_print = { versionb = "0.1", git = "https://github.com/Licenser/float_fast_print", branch = "perf" }
+itoa = "0.4"
+ryu = "0.2"
+
+
 
 # serde compatibilty
 serde = { version = "1.0", features = ["derive"], optional = true}

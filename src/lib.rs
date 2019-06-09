@@ -1238,11 +1238,12 @@ mod tests {
             if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
                 let mut d1 = d.clone();
                 let d1 = unsafe{ d1.as_bytes_mut()};
-                let mut d2 = d.clone();
+                let v_simd_serde: serde_json::Value = from_slice(d1).expect("");
+                // We add our own encoder in here.
+                let mut d2 = v_simd_serde.to_string();
                 let d2 = unsafe{ d2.as_bytes_mut()};
                 let mut d3 = d.clone();
                 let d3 = unsafe{ d3.as_bytes_mut()};
-                let v_simd_serde: serde_json::Value = from_slice(d1).expect("");
                 assert_eq!(v_simd_serde, v_serde);
                 let v_simd_owned = to_owned_value(d2);
                 assert!(v_simd_owned.is_ok());
