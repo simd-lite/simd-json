@@ -54,10 +54,10 @@ pub fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
     // invalid value. After the shifts, this will *still* result in the outcome that the high 16 bits of any
     // value with any invalid char will be all 1's. We check for this in the caller.
     unsafe {
-        let v1: i32 = *DIGITTOVAL.get_unchecked(*src.get_unchecked(0) as usize) as i32;
-        let v2: i32 = *DIGITTOVAL.get_unchecked(*src.get_unchecked(1) as usize) as i32;
-        let v3: i32 = *DIGITTOVAL.get_unchecked(*src.get_unchecked(2) as usize) as i32;
-        let v4: i32 = *DIGITTOVAL.get_unchecked(*src.get_unchecked(3) as usize) as i32;
+        let v1: i32 = i32::from(*DIGITTOVAL.get_unchecked(*src.get_unchecked(0) as usize));
+        let v2: i32 = i32::from(*DIGITTOVAL.get_unchecked(*src.get_unchecked(1) as usize));
+        let v3: i32 = i32::from(*DIGITTOVAL.get_unchecked(*src.get_unchecked(2) as usize));
+        let v4: i32 = i32::from(*DIGITTOVAL.get_unchecked(*src.get_unchecked(3) as usize));
         (v1 << 12 | v2 << 8 | v3 << 4 | v4) as u32
     }
 }
@@ -93,7 +93,7 @@ pub fn codepoint_to_utf8(cp: u32, c: &mut [u8]) -> usize {
             *c.get_unchecked_mut(1) = (((cp >> 6) & 63) + 128) as u8;
             *c.get_unchecked_mut(2) = ((cp & 63) + 128) as u8;
             return 3;
-        } else if cp <= 0x10FFFF {
+        } else if cp <= 0x0010_FFFF {
             // if you know you have a valid code point, this is not needed
             *c.get_unchecked_mut(0) = ((cp >> 18) + 240) as u8;
             *c.get_unchecked_mut(1) = (((cp >> 12) & 63) + 128) as u8;
@@ -103,5 +103,5 @@ pub fn codepoint_to_utf8(cp: u32, c: &mut [u8]) -> usize {
         }
     }
     // will return 0 when the code point was too large.
-    return 0; // bad r
+    0
 }

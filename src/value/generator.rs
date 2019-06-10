@@ -107,6 +107,7 @@ pub trait BaseGenerator {
             let backslash = _mm256_set1_epi8(b'\\' as i8);
             while len - idx >= 32 {
                 // Load 32 bytes of data;
+                #[allow(clippy::cast_ptr_alignment)]
                 let data: __m256i = _mm256_loadu_si256(string.as_ptr().add(idx) as *const __m256i);
                 // Test the data against being backslash and quote.
                 let bs_or_quote = _mm256_or_si256(
@@ -123,7 +124,7 @@ pub trait BaseGenerator {
                 let quote_bits = _mm256_movemask_epi8(_mm256_or_si256(bs_or_quote, in_range));
                 if quote_bits != 0 {
                     let quote_dist = trailingzeroes(quote_bits as u64) as usize;
-                    stry!(self.get_writer().write(&string[0..idx + quote_dist]));
+                    stry!(self.get_writer().write_all(&string[0..idx + quote_dist]));
                     let ch = string[idx + quote_dist];
                     match ESCAPED[ch as usize] {
                         b'u' => stry!(write!(self.get_writer(), "\\u{:04x}", ch)),
@@ -146,6 +147,7 @@ pub trait BaseGenerator {
             let backslash = _mm_set1_epi8(b'\\' as i8);
             while len - idx > 16 {
                 // Load 16 bytes of data;
+                #[allow(clippy::cast_ptr_alignment)]
                 let data: __m128i = _mm_loadu_si128(string.as_ptr().add(idx) as *const __m128i);
                 // Test the data against being backslash and quote.
                 let bs_or_quote =
@@ -160,7 +162,7 @@ pub trait BaseGenerator {
                 let quote_bits = _mm_movemask_epi8(_mm_or_si128(bs_or_quote, in_range));
                 if quote_bits != 0 {
                     let quote_dist = trailingzeroes(quote_bits as u64) as usize;
-                    stry!(self.get_writer().write(&string[0..idx + quote_dist]));
+                    stry!(self.get_writer().write_all(&string[0..idx + quote_dist]));
                     let ch = string[idx + quote_dist];
                     match ESCAPED[ch as usize] {
                         b'u' => stry!(write!(self.get_writer(), "\\u{:04x}", ch)),
@@ -174,7 +176,7 @@ pub trait BaseGenerator {
                     idx += 16;
                 }
             }
-            stry!(self.get_writer().write(&string[0..idx]));
+            stry!(self.get_writer().write_all(&string[0..idx]));
             string = &string[idx..];
         }
         // Legacy code to handle the remainder of the code
@@ -429,10 +431,6 @@ pub fn extend_from_slice(dst: &mut Vec<u8>, src: &[u8]) {
         // We would have failed if `reserve` overflowed
         dst.set_len(dst_len + src_len);
 
-        ptr::copy_nonoverlapping(
-            src.as_ptr(),
-            dst.as_mut_ptr().offset(dst_len as isize),
-            src_len,
-        );
+        ptr::copy_nonoverlapping(src.as_ptr(), dst.as_mut_ptr().add(dst_len), src_len);
     }
 }

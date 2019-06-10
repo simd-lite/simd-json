@@ -62,68 +62,68 @@ impl From<bool> for Value {
 /********* i_ **********/
 impl From<i8> for Value {
     fn from(i: i8) -> Self {
-        Value::I64(i as i64)
+        Value::I64(i64::from(i))
     }
 }
 
 impl From<i16> for Value {
     fn from(i: i16) -> Self {
-        Value::I64(i as i64)
+        Value::I64(i64::from(i))
     }
 }
 
 impl From<i32> for Value {
     fn from(i: i32) -> Self {
-        Value::I64(i as i64)
+        Value::I64(i64::from(i))
     }
 }
 
 impl From<i64> for Value {
     fn from(i: i64) -> Self {
-        Value::I64(i as i64)
+        Value::I64(i)
     }
 }
 
 impl From<&i8> for Value {
     fn from(i: &i8) -> Self {
-        Value::I64(*i as i64)
+        Value::I64(i64::from(*i))
     }
 }
 
 impl From<&i16> for Value {
     fn from(i: &i16) -> Self {
-        Value::I64(*i as i64)
+        Value::I64(i64::from(*i))
     }
 }
 
 impl From<&i32> for Value {
     fn from(i: &i32) -> Self {
-        Value::I64(*i as i64)
+        Value::I64(i64::from(*i))
     }
 }
 
 impl From<&i64> for Value {
     fn from(i: &i64) -> Self {
-        Value::I64(*i as i64)
+        Value::I64(*i)
     }
 }
 
 /********* u_ **********/
 impl From<u8> for Value {
     fn from(i: u8) -> Self {
-        Value::I64(i as i64)
+        Value::I64(i64::from(i))
     }
 }
 
 impl From<u16> for Value {
     fn from(i: u16) -> Self {
-        Value::I64(i as i64)
+        Value::I64(i64::from(i))
     }
 }
 
 impl From<u32> for Value {
     fn from(i: u32) -> Self {
-        Value::I64(i as i64)
+        Value::I64(i64::from(i))
     }
 }
 
@@ -135,19 +135,19 @@ impl From<u64> for Value {
 
 impl From<&u8> for Value {
     fn from(i: &u8) -> Self {
-        Value::I64(*i as i64)
+        Value::I64(i64::from(*i))
     }
 }
 
 impl From<&u16> for Value {
     fn from(i: &u16) -> Self {
-        Value::I64(*i as i64)
+        Value::I64(i64::from(*i))
     }
 }
 
 impl From<&u32> for Value {
     fn from(i: &u32) -> Self {
-        Value::I64(*i as i64)
+        Value::I64(i64::from(*i))
     }
 }
 
@@ -160,24 +160,24 @@ impl From<&u64> for Value {
 /********* f_ **********/
 impl From<f32> for Value {
     fn from(f: f32) -> Self {
-        Value::F64(f as f64)
+        Value::F64(f64::from(f))
     }
 }
 
 impl From<f64> for Value {
     fn from(f: f64) -> Self {
-        Value::F64(f as f64)
+        Value::F64(f)
     }
 }
 
 impl From<&f32> for Value {
     fn from(f: &f32) -> Self {
-        Value::F64(*f as f64)
+        Value::F64(f64::from(*f))
     }
 }
 
 impl From<&f64> for Value {
     fn from(f: &f64) -> Self {
-        Value::F64(*f as f64)
+        Value::F64(*f)
     }
 }

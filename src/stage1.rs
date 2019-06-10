@@ -17,6 +17,7 @@ struct SimdInput {
 
 fn fill_input(ptr: &[u8]) -> SimdInput {
     unsafe {
+        #[allow(clippy::cast_ptr_alignment)]
         SimdInput {
             lo: _mm256_loadu_si256(ptr.as_ptr() as *const __m256i),
             hi: _mm256_loadu_si256(ptr.as_ptr().add(32) as *const __m256i),
@@ -57,7 +58,7 @@ fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
     unsafe {
         let mask: __m256i = _mm256_set1_epi8(m as i8);
         let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.lo, mask);
-        let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
+        let res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)));
         let cmp_res_1: __m256i = _mm256_cmpeq_epi8(input.hi, mask);
         let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
         res_0 | (res_1 << 32)
@@ -70,7 +71,7 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
     unsafe {
         let cmp_res_0: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
         // TODO: c++ uses static cast, here what are the implications?
-        let res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)) as u64;
+        let res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)));
         let cmp_res_1: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval);
         let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
         res_0 | (res_1 << 32)
@@ -88,7 +89,7 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
 // sequences of backslashes in an obvious way.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
-    const EVEN_BITS: u64 = 0x5555555555555555;
+    const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
     const ODD_BITS: u64 = !EVEN_BITS;
 
     let bs_bits: u64 = cmp_mask_against_input(&input, b'\\');
@@ -115,7 +116,7 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
     let even_start_odd_end: u64 = even_carry_ends & ODD_BITS;
     let odd_start_even_end: u64 = odd_carry_ends & EVEN_BITS;
     let odd_ends: u64 = even_start_odd_end | odd_start_even_end;
-    return odd_ends;
+    odd_ends
 }
 
 // return both the quote mask (which is a half-open mask that covers the first
@@ -138,7 +139,7 @@ unsafe fn find_quote_mask_and_bits(
     error_mask: &mut u64,
 ) -> u64 {
     *quote_bits = cmp_mask_against_input(&input, b'"');
-    *quote_bits = *quote_bits & !odd_ends;
+    *quote_bits &= !odd_ends;
     // remove from the valid quoted region the unescapted characters.
     #[allow(overflowing_literals)]
     let mut quote_mask: u64 = _mm_cvtsi128_si64(_mm_clmulepi64_si128(
@@ -158,7 +159,7 @@ unsafe fn find_quote_mask_and_bits(
     // compliant as of C++20,
     // John Regher from Utah U. says this is fine code
     *prev_iter_inside_quote = static_cast_u64!(static_cast_i64!(quote_mask) >> 63);
-    return quote_mask;
+    quote_mask
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -222,7 +223,7 @@ unsafe fn find_whitespace_and_structurals(
         _mm256_set1_epi8(0),
     );
 
-    let structural_res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(tmp_lo)) as u64;
+    let structural_res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_lo)));
     let structural_res_1: u64 = _mm256_movemask_epi8(tmp_hi) as u64;
     *structurals = !(structural_res_0 | (structural_res_1 << 32));
 
@@ -235,7 +236,7 @@ unsafe fn find_whitespace_and_structurals(
         _mm256_set1_epi8(0),
     );
 
-    let ws_res_0: u64 = static_cast_u32!(_mm256_movemask_epi8(tmp_ws_lo)) as u64;
+    let ws_res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_ws_lo)));
     let ws_res_1: u64 = _mm256_movemask_epi8(tmp_ws_hi) as u64;
     *whitespace = !(ws_res_0 | (ws_res_1 << 32));
 }
@@ -295,6 +296,7 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
 
             let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
             let v: __m256i = _mm256_add_epi32(idx_64_v, v);
+            #[allow(clippy::cast_ptr_alignment)]
             _mm256_storeu_si256(base.as_mut_ptr().add(l) as *mut __m256i, v);
         }
         l += 8;
@@ -340,7 +342,7 @@ fn finalize_structurals(
     // now, we've used our close quotes all we need to. So let's switch them off
     // they will be off in the quote mask and on in quote bits.
     structurals &= !(quote_bits & !quote_mask);
-    return structurals;
+    structurals
 }
 
 //WARN_UNUSED

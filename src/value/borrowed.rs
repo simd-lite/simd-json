@@ -4,13 +4,14 @@ mod cmp;
 mod from;
 mod serialize;
 
+use crate::value::{ValueTrait, ValueType};
 use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::Index;
+
 pub type Map<'a> = HashMap<Cow<'a, str>, Value<'a>>;
-use crate::value::{ValueTrait, ValueType};
 
 /// Parses a slice of butes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
@@ -18,7 +19,7 @@ use crate::value::{ValueTrait, ValueType};
 /// has the dame lifetime as the slice it was created from.
 pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
-    deserializer.to_value_borrowed_root()
+    deserializer.parse_value_borrowed_root()
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -96,7 +97,7 @@ impl<'a> ValueTrait for Value<'a> {
 
     fn as_u64(&self) -> Option<u64> {
         match self {
-            Value::I64(i) if i >= &0 => Some(*i as u64),
+            Value::I64(i) if *i >= 0 => Some(*i as u64),
             _ => None,
         }
     }
@@ -167,7 +168,7 @@ impl<'a> Default for Value<'a> {
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn to_value_borrowed_root(&mut self) -> Result<Value<'de>> {
+    pub fn parse_value_borrowed_root(&mut self) -> Result<Value<'de>> {
         match self.next_() {
             b'"' => {
                 if self.count_elements() < 32 {
@@ -187,7 +188,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn to_value_borrowed(&mut self) -> Result<Value<'de>> {
+    fn parse_value_borrowed(&mut self) -> Result<Value<'de>> {
         match self.next_() {
             b'"' => {
                 // We can only have entered this by being in an object so we know there is
@@ -218,7 +219,7 @@ impl<'de> Deserializer<'de> {
         let mut res = Vec::with_capacity(es);
 
         for _i in 0..es {
-            res.push(stry!(self.to_value_borrowed()));
+            res.push(stry!(self.parse_value_borrowed()));
             self.skip();
         }
         Ok(Value::Array(res))
@@ -245,7 +246,7 @@ impl<'de> Deserializer<'de> {
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
             self.skip();
-            res.insert_nocheck(key.into(), stry!(self.to_value_borrowed()));
+            res.insert_nocheck(key.into(), stry!(self.parse_value_borrowed()));
             self.skip();
         }
         Ok(Value::Object(res))

@@ -77,7 +77,7 @@ impl PartialEq<i32> for Value {
 impl PartialEq<i64> for Value {
     fn eq(&self, other: &i64) -> bool {
         match self {
-            Value::I64(i) => i == &i64::from(*other),
+            Value::I64(i) => i == other,
             _ => false,
         }
     }
@@ -94,7 +94,7 @@ impl PartialEq<f32> for Value {
 impl PartialEq<f64> for Value {
     fn eq(&self, other: &f64) -> bool {
         match self {
-            Value::F64(f) => f == &f64::from(*other),
+            Value::F64(f) => f == other,
             _ => false,
         }
     }
