@@ -17,9 +17,20 @@ pub mod owned;
 pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
 pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
 
-pub trait Value {
+pub enum ValueType {
+    Null,
+    Bool,
+    I64,
+    F64,
+    String,
+    Array,
+    Object,
+}
+pub trait ValueTrait {
     fn get(&self, k: &str) -> Option<&Self>;
     fn get_mut(&mut self, k: &str) -> Option<&mut Self>;
+
+    fn kind(&self) -> ValueType;
 
     fn is_null(&self) -> bool;
 

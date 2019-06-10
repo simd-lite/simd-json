@@ -4,7 +4,7 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::value::Value as ValueTrait;
+use crate::value::{ValueTrait, ValueType};
 use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
 use std::fmt;
@@ -60,6 +60,18 @@ impl ValueTrait for Value {
         match self {
             Value::Object(m) => m.get_mut(k),
             _ => None,
+        }
+    }
+
+    fn kind(&self) -> ValueType {
+        match self {
+            Value::Null => ValueType::Null,
+            Value::Bool(_) => ValueType::Bool,
+            Value::F64(_) => ValueType::F64,
+            Value::I64(_) => ValueType::I64,
+            Value::String(_) => ValueType::String,
+            Value::Array(_) => ValueType::Array,
+            Value::Object(_) => ValueType::Object,
         }
     }
 

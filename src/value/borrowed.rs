@@ -10,7 +10,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::ops::Index;
 pub type Map<'a> = HashMap<Cow<'a, str>, Value<'a>>;
-use crate::value::Value as ValueTrait;
+use crate::value::{ValueTrait, ValueType};
 
 /// Parses a slice of butes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
@@ -58,6 +58,18 @@ impl<'a> ValueTrait for Value<'a> {
         match self {
             Value::Object(m) => m.get_mut(k),
             _ => None,
+        }
+    }
+
+    fn kind(&self) -> ValueType {
+        match self {
+            Value::Null => ValueType::Null,
+            Value::Bool(_) => ValueType::Bool,
+            Value::F64(_) => ValueType::F64,
+            Value::I64(_) => ValueType::I64,
+            Value::String(_) => ValueType::String,
+            Value::Array(_) => ValueType::Array,
+            Value::Object(_) => ValueType::Object,
         }
     }
 

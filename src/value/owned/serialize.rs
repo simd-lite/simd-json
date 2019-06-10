@@ -7,7 +7,7 @@
 use super::{Map, Value};
 use crate::stry;
 use crate::value::generator::*;
-use crate::value::Value as ValueTrait;
+use crate::value::ValueTrait;
 use std::io;
 use std::io::Write;
 
