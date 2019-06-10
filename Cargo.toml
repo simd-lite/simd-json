@@ -15,7 +15,6 @@ itoa = "0.4"
 ryu = "0.2"
 lexical = "2.1"
 
-
 # serde compatibilty
 serde = { version = "1.0", features = ["derive"], optional = true}
 serde_json = { version = "1", optional = true}
