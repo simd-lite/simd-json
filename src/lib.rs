@@ -1201,11 +1201,36 @@ mod tests {
         assert_eq!(v_simd, v_serde)
     }
 
+    // How much do we care about this, it's within the same range and
+    // based on floating point math inprecisions during parsing.
+    // Is this a real issue worth improving?
+    #[test]
+    fn silly_float1() {
+        let v = Value::from(3.0901448042322017e305);
+        let s = v.to_string();
+        dbg!(&s);
+        let mut bytes = s.as_bytes().to_vec();
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        assert_eq!(v, parsed);
+    }
+
+    #[test]
+    #[ignore]
+    fn silly_float2() {
+        let v = Value::from(-6.990585694841803e305);
+        let s = v.to_string();
+        dbg!(&s);
+        let mut bytes = s.as_bytes().to_vec();
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        assert_eq!(v, parsed);
+    }
+
+    //6.576692109929364e305
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
             Just(Value::Null),
             any::<bool>().prop_map(Value::Bool),
-            //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), The float parsing of simd and serde are too different
+            // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // The float parsing of simd and serde are too different
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),
         ];
@@ -1225,6 +1250,47 @@ mod tests {
         .boxed()
     }
 
+    fn arb_json_value() -> BoxedStrategy<Value> {
+        let leaf = prop_oneof![
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
+            //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
+            any::<i64>().prop_map(|i| json!(i)),
+            ".*".prop_map(Value::from),
+        ];
+        leaf.prop_recursive(
+            8,   // 8 levels deep
+            256, // Shoot for maximum size of 256 nodes
+            10,  // We put up to 10 items per collection
+            |inner| {
+                prop_oneof![
+                    // Take the inner strategy and make the two recursive cases.
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| json!(v)),
+                    prop::collection::hash_map(".*", inner, 0..10).prop_map(|m| json!(m)),
+                ]
+            },
+        )
+        .boxed()
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            // Setting both fork and timeout is redundant since timeout implies
+            // fork, but both are shown for clarity.
+            fork: true,
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_json_encode_Decode(val in arb_json_value()) {
+            let mut encoded: Vec<u8> = Vec::new();
+            val.write(&mut encoded);
+            println!("{}", String::from_utf8(encoded.clone()).unwrap());
+            let res = to_owned_value(&mut encoded).unwrap();
+            assert_eq!(val, res);
+        }
+
+    }
     proptest! {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies
@@ -1238,11 +1304,12 @@ mod tests {
             if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
                 let mut d1 = d.clone();
                 let d1 = unsafe{ d1.as_bytes_mut()};
-                let mut d2 = d.clone();
+                let v_simd_serde: serde_json::Value = from_slice(d1).expect("");
+                // We add our own encoder in here.
+                let mut d2 = v_simd_serde.to_string();
                 let d2 = unsafe{ d2.as_bytes_mut()};
                 let mut d3 = d.clone();
                 let d3 = unsafe{ d3.as_bytes_mut()};
-                let v_simd_serde: serde_json::Value = from_slice(d1).expect("");
                 assert_eq!(v_simd_serde, v_serde);
                 let v_simd_owned = to_owned_value(d2);
                 assert!(v_simd_owned.is_ok());
