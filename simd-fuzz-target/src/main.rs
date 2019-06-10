@@ -13,7 +13,7 @@ fn main() {
                 simd_json::to_owned_value(&mut data1),
             ) {
                 let joi: simd_json::OwnedValue = jb.clone().into();
-                assert_eq!(jo, joi);
+                assert_eq!(jo, &joi);
                 assert_eq!(jo.to_string(), jb.to_string());
             }
         }
