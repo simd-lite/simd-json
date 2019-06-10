@@ -1225,6 +1225,47 @@ mod tests {
         .boxed()
     }
 
+    fn arb_json_value() -> BoxedStrategy<Value> {
+        let leaf = prop_oneof![
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
+            // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
+            any::<i64>().prop_map(|i| json!(i)),
+            ".*".prop_map(Value::from),
+        ];
+        leaf.prop_recursive(
+            8,   // 8 levels deep
+            256, // Shoot for maximum size of 256 nodes
+            10,  // We put up to 10 items per collection
+            |inner| {
+                prop_oneof![
+                    // Take the inner strategy and make the two recursive cases.
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| json!(v)),
+                    prop::collection::hash_map(".*", inner, 0..10).prop_map(|m| json!(m)),
+                ]
+            },
+        )
+        .boxed()
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            // Setting both fork and timeout is redundant since timeout implies
+            // fork, but both are shown for clarity.
+            fork: true,
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_json_encode_Decode(val in arb_json_value()) {
+            let mut encoded: Vec<u8> = Vec::new();
+            val.write(&mut encoded);
+            println!("{}", String::from_utf8(encoded.clone()).unwrap());
+            let res = to_owned_value(&mut encoded).unwrap();
+            assert_eq!(val, res);
+        }
+
+    }
     proptest! {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies

@@ -126,7 +126,7 @@ pub trait BaseGenerator {
                     stry!(self.get_writer().write(&string[0..idx + quote_dist]));
                     let ch = string[idx + quote_dist];
                     match ESCAPED[ch as usize] {
-                        b'u' => stry!(write!(self.get_writer(), "{:04x}", ch)),
+                        b'u' => stry!(write!(self.get_writer(), "\\u{:04x}", ch)),
 
                         escape => stry!(self.write(&[b'\\', escape])),
                     };
@@ -163,7 +163,7 @@ pub trait BaseGenerator {
                     stry!(self.get_writer().write(&string[0..idx + quote_dist]));
                     let ch = string[idx + quote_dist];
                     match ESCAPED[ch as usize] {
-                        b'u' => stry!(write!(self.get_writer(), "{:04x}", ch)),
+                        b'u' => stry!(write!(self.get_writer(), "\\u{:04x}", ch)),
 
                         escape => stry!(self.write(&[b'\\', escape])),
                     };
