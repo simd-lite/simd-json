@@ -5,7 +5,7 @@
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
 use crate::portability::trailingzeroes;
-use crate::value::Value as ValueTrait;
+use crate::value::ValueTrait;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
