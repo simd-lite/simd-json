@@ -1,3 +1,4 @@
+#![deny(warnings)]
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
 //! simdjson-rs is a rust port of the simejson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
