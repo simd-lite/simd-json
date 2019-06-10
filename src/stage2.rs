@@ -15,10 +15,11 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
 
         // TODO: does this has the same effect as:
         //   std::memcpy(&locval, loc, sizeof(uint64_t));
+        #[allow(clippy::cast_ptr_alignment)]
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
         error = (locval & MASK4) ^ TV;
-        error |= is_not_structural_or_whitespace(*loc.get_unchecked(4)) as u64;
+        error |= u64::from(is_not_structural_or_whitespace(*loc.get_unchecked(4)));
     }
     error == 0
 }
@@ -34,6 +35,7 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
         const FV: u64 = 0x00_00_00_65_73_6c_61_66;
         const MASK5: u64 = 0x00_00_00_ff_ff_ff_ff_ff;
 
+        #[allow(clippy::cast_ptr_alignment)]
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
         // FIXME the original code looks like this:
@@ -42,7 +44,7 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
         // will mask the error on the y so we re-write it
         // it would be interesting what the consequecnes are
         error = (locval & MASK5) ^ FV;
-        error |= is_not_structural_or_whitespace(*loc.get_unchecked(5)) as u64;
+        error |= u64::from(is_not_structural_or_whitespace(*loc.get_unchecked(5)));
     }
     error == 0
 }
@@ -56,10 +58,11 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
         // this is the same:
         const NV: u64 = 0x00_00_00_00_6c_6c_75_6e;
         const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
+        #[allow(clippy::cast_ptr_alignment)]
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
         error = (locval & MASK4) ^ NV;
-        error |= is_not_structural_or_whitespace(*loc.get_unchecked(4)) as u64;
+        error |= u64::from(is_not_structural_or_whitespace(*loc.get_unchecked(4)));
     }
     error == 0
 }

@@ -214,13 +214,17 @@ impl<'de> Deserializer<'de> {
         //short strings are very common for IDs
         let v: __m256i = if src.len() >= 32 {
             // This is safe since we ensure src is at least 32 wide
-            unsafe { _mm256_loadu_si256(src.get_unchecked(..32).as_ptr() as *const __m256i) }
+            #[allow(clippy::cast_ptr_alignment)]
+            unsafe {
+                _mm256_loadu_si256(src.get_unchecked(..32).as_ptr() as *const __m256i)
+            }
         } else {
             unsafe {
                 padding
                     .get_unchecked_mut(..src.len())
                     .clone_from_slice(&src);
                 // This is safe since we ensure src is at least 32 wide
+                #[allow(clippy::cast_ptr_alignment)]
                 _mm256_loadu_si256(padding.get_unchecked(..32).as_ptr() as *const __m256i)
             }
         };
@@ -233,7 +237,7 @@ impl<'de> Deserializer<'de> {
         let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
         let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
         if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
-            let quote_dist: u32 = trailingzeroes(quote_bits as u64) as u32;
+            let quote_dist: u32 = trailingzeroes(u64::from(quote_bits)) as u32;
             let v = unsafe {
                 self.input.get_unchecked(idx..idx + quote_dist as usize) as *const [u8]
                     as *const str
@@ -270,10 +274,7 @@ impl<'de> Deserializer<'de> {
         } else {
             let ptr = self.input.as_mut_ptr();
             unsafe {
-                from_raw_parts_mut(
-                    ptr.offset(self.str_offset as isize),
-                    self.input.len() - self.str_offset,
-                )
+                from_raw_parts_mut(ptr.add(self.str_offset), self.input.len() - self.str_offset)
             }
         };
         let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
@@ -282,18 +283,25 @@ impl<'de> Deserializer<'de> {
         loop {
             let v: __m256i = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 32 wide
-                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) }
+                #[allow(clippy::cast_ptr_alignment)]
+                unsafe {
+                    _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i)
+                }
             } else {
                 unsafe {
                     padding
                         .get_unchecked_mut(..src.len() - src_i)
                         .clone_from_slice(src.get_unchecked(src_i..));
                     // This is safe since we ensure src is at least 32 wide
+                    #[allow(clippy::cast_ptr_alignment)]
                     _mm256_loadu_si256(padding.as_ptr() as *const __m256i)
                 }
             };
 
-            unsafe { _mm256_storeu_si256(dst.as_mut_ptr().add(dst_i) as *mut __m256i, v) };
+            #[allow(clippy::cast_ptr_alignment)]
+            unsafe {
+                _mm256_storeu_si256(dst.as_mut_ptr().add(dst_i) as *mut __m256i, v)
+            };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
@@ -308,7 +316,7 @@ impl<'de> Deserializer<'de> {
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
                 // find out where the quote is...
-                let quote_dist: u32 = trailingzeroes(quote_bits as u64) as u32;
+                let quote_dist: u32 = trailingzeroes(u64::from(quote_bits)) as u32;
 
                 ///////////////////////
                 // Above, check for overflow in case someone has a crazy string (>=4GB?)
@@ -338,7 +346,7 @@ impl<'de> Deserializer<'de> {
             }
             if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
                 // find out where the backspace is
-                let bs_dist: u32 = trailingzeroes(bs_bits as u64);
+                let bs_dist: u32 = trailingzeroes(u64::from(bs_bits));
                 let escape_char: u8 = unsafe { *src.get_unchecked(src_i + bs_dist as usize + 1) };
                 // we encountered backslash first. Handle backslash
                 if escape_char == b'u' {

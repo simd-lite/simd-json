@@ -360,7 +360,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
                 self.first = false;
             }
             self.len -= 1;
-            seed.deserialize(&mut *self.de).map(|e| Some(e))
+            seed.deserialize(&mut *self.de).map(Some)
         }
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]

@@ -17,9 +17,9 @@ pub type Map = HashMap<String, Value>;
 /// We do not keep any references to the raw data but re-allocate
 /// owned memory whereever required thus returning a value without
 /// a lifetime.
-pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value> {
+pub fn to_value(s: &mut [u8]) -> Result<Value> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
-    deserializer.to_value_owned_root()
+    deserializer.parse_value_owned_root()
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -98,7 +98,7 @@ impl ValueTrait for Value {
 
     fn as_u64(&self) -> Option<u64> {
         match self {
-            Value::I64(i) if i >= &0 => Some(*i as u64),
+            Value::I64(i) if *i >= 0 => Some(*i as u64),
             _ => None,
         }
     }
@@ -170,7 +170,7 @@ impl Default for Value {
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn to_value_owned_root(&mut self) -> Result<Value> {
+    pub fn parse_value_owned_root(&mut self) -> Result<Value> {
         #[cfg(feature = "paranoid")]
         {
             if self.idx + 1 > self.structural_indexes.len() {
@@ -197,7 +197,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn to_value_owned(&mut self) -> Result<Value> {
+    fn parse_value_owned(&mut self) -> Result<Value> {
         #[cfg(feature = "paranoid")]
         {
             if self.idx + 1 > self.structural_indexes.len() {
@@ -233,7 +233,7 @@ impl<'de> Deserializer<'de> {
         let mut res = Vec::with_capacity(es);
 
         for _i in 0..es {
-            res.push(stry!(self.to_value_owned()));
+            res.push(stry!(self.parse_value_owned()));
             self.skip();
         }
         Ok(Value::Array(res))
@@ -260,7 +260,7 @@ impl<'de> Deserializer<'de> {
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
             self.skip();
-            res.insert_nocheck(key.into(), stry!(self.to_value_owned()));
+            res.insert_nocheck(key.into(), stry!(self.parse_value_owned()));
             self.skip();
         }
         Ok(Value::Object(res))

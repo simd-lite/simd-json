@@ -289,7 +289,7 @@ struct BorrowedCowStrDeserializer<'de> {
 
 impl<'de> BorrowedCowStrDeserializer<'de> {
     fn new(value: Cow<'de, str>) -> Self {
-        BorrowedCowStrDeserializer { value: value }
+        BorrowedCowStrDeserializer { value }
     }
 }
 
@@ -440,7 +440,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(value as i64))
+        Ok(Value::I64(i64::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -448,7 +448,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(value as i64))
+        Ok(Value::I64(i64::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -456,7 +456,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(value as i64))
+        Ok(Value::I64(i64::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -474,7 +474,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(value as i64))
+        Ok(Value::I64(i64::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -482,7 +482,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(value as i64))
+        Ok(Value::I64(i64::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -490,7 +490,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(value as i64))
+        Ok(Value::I64(i64::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -513,7 +513,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::F64(value as f64))
+        Ok(Value::F64(f64::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

@@ -61,21 +61,21 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_i8(self, value: i8) -> Result<Value> {
-        self.serialize_i64(value as i64)
+        self.serialize_i64(i64::from(value))
     }
 
     #[inline]
     fn serialize_i16(self, value: i16) -> Result<Value> {
-        self.serialize_i64(value as i64)
+        self.serialize_i64(i64::from(value))
     }
 
     #[inline]
     fn serialize_i32(self, value: i32) -> Result<Value> {
-        self.serialize_i64(value as i64)
+        self.serialize_i64(i64::from(value))
     }
 
     fn serialize_i64(self, value: i64) -> Result<Value> {
-        Ok(Value::I64(value.into()))
+        Ok(Value::I64(value))
     }
 
     #[cfg(feature = "arbitrary_precision")]
@@ -87,17 +87,17 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_u8(self, value: u8) -> Result<Value> {
-        self.serialize_u64(value as u64)
+        self.serialize_u64(u64::from(value))
     }
 
     #[inline]
     fn serialize_u16(self, value: u16) -> Result<Value> {
-        self.serialize_u64(value as u64)
+        self.serialize_u64(u64::from(value))
     }
 
     #[inline]
     fn serialize_u32(self, value: u32) -> Result<Value> {
-        self.serialize_u64(value as u64)
+        self.serialize_u64(u64::from(value))
     }
 
     #[inline]
@@ -114,7 +114,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_f32(self, value: f32) -> Result<Value> {
-        self.serialize_f64(value as f64)
+        self.serialize_f64(f64::from(value))
     }
 
     #[inline]
@@ -339,7 +339,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     fn end(self) -> Result<Value> {
         let mut object = Map::new();
 
-        object.insert(self.name.into(), Value::Array(self.vec));
+        object.insert(self.name, Value::Array(self.vec));
 
         Ok(Value::Object(object))
     }
@@ -380,7 +380,7 @@ impl serde::ser::SerializeMap for SerializeMap {
                 // Panic because this indicates a bug in the program rather than an
                 // expected failure.
                 let key = key.expect("serialize_value called before serialize_key");
-                map.insert(key.into(), stry!(to_value(&value)));
+                map.insert(key, stry!(to_value(&value)));
                 Ok(())
             }
             #[cfg(feature = "arbitrary_precision")]
@@ -650,7 +650,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     fn end(self) -> Result<Value> {
         let mut object = Map::new();
 
-        object.insert(self.name.into(), Value::Object(self.map));
+        object.insert(self.name, Value::Object(self.map));
 
         Ok(Value::Object(object))
     }
