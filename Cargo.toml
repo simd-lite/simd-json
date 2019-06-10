@@ -13,7 +13,7 @@ halfbrown = { version = "0.1" }
 page_size = "0.4"
 itoa = "0.4"
 ryu = "0.2"
-
+lexical = "2.1"
 
 
 # serde compatibilty
@@ -26,6 +26,8 @@ jemallocator = { version = "0.3", optional = true }
 perfcnt = { version = "0.4", optional = true }
 getopts = { version = "0.2", optional = true }
 colored = { version = "1.7", optional = true }
+
+
 
 
 [dev-dependencies]

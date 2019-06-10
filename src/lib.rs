@@ -1201,6 +1201,9 @@ mod tests {
         assert_eq!(v_simd, v_serde)
     }
 
+    // How much do we care about this, it's within the same range and
+    // based on floating point math inprecisions during parsing.
+    // Is this a real issue worth improving?
     #[test]
     fn silly_float() {
         //let mut m: HashMap<String, Value> = HashMap::new();
@@ -1212,11 +1215,12 @@ mod tests {
         assert_eq!(v, parsed);
     }
 
+    //6.576692109929364e305
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
             Just(Value::Null),
             any::<bool>().prop_map(Value::Bool),
-            //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), The float parsing of simd and serde are too different
+            // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // The float parsing of simd and serde are too different
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),
         ];
@@ -1240,7 +1244,7 @@ mod tests {
         let leaf = prop_oneof![
             Just(Value::Null),
             any::<bool>().prop_map(Value::Bool),
-            // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
+            //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),
         ];
