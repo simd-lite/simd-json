@@ -1201,6 +1201,17 @@ mod tests {
         assert_eq!(v_simd, v_serde)
     }
 
+    #[test]
+    fn silly_float() {
+        //let mut m: HashMap<String, Value> = HashMap::new();
+        let v = Value::from(3.0901448042322017e305);
+        let s = v.to_string();
+        dbg!(&s);
+        let mut bytes = s.as_bytes().to_vec();
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        assert_eq!(v, parsed);
+    }
+
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
             Just(Value::Null),
