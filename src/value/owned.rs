@@ -33,22 +33,10 @@ pub enum Value {
     Object(Map),
 }
 
-impl Value {
-    pub fn as_array(&self) -> Option<&Vec<Value>> {
-        match self {
-            Value::Array(a) => Some(a),
-            _ => None,
-        }
-    }
-    pub fn as_object(&self) -> Option<&Map> {
-        match self {
-            Value::Object(m) => Some(m),
-            _ => None,
-        }
-    }
-}
-
 impl ValueTrait for Value {
+    type Map = Map;
+    type Array = Vec<Value>;
+
     fn get(&self, k: &str) -> Option<&Value> {
         match self {
             Value::Object(m) => m.get(k),
@@ -124,17 +112,31 @@ impl ValueTrait for Value {
             _ => None,
         }
     }
-    fn is_array(&self) -> bool {
+
+    fn as_array(&self) -> Option<&Vec<Value>> {
         match self {
-            Value::Array(_m) => true,
-            _ => false,
+            Value::Array(a) => Some(a),
+            _ => None,
         }
     }
 
-    fn is_object(&self) -> bool {
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Value>> {
         match self {
-            Value::Object(_m) => true,
-            _ => false,
+            Value::Array(a) => Some(a),
+            _ => None,
+        }
+    }
+
+    fn as_object(&self) -> Option<&Map> {
+        match self {
+            Value::Object(m) => Some(m),
+            _ => None,
+        }
+    }
+    fn as_object_mut(&mut self) -> Option<&mut Self::Map> {
+        match self {
+            Value::Object(m) => Some(m),
+            _ => None,
         }
     }
 }

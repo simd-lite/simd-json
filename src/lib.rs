@@ -1291,9 +1291,9 @@ mod tests {
         })]
 
         #[test]
-        fn prop_json_encode_Decode(val in arb_json_value()) {
+        fn prop_json_encode_decode(val in arb_json_value()) {
             let mut encoded: Vec<u8> = Vec::new();
-            val.write(&mut encoded);
+            let _ = val.write(&mut encoded);
             println!("{}", String::from_utf8(encoded.clone()).unwrap());
             let res = to_owned_value(&mut encoded).unwrap();
             assert_eq!(val, res);

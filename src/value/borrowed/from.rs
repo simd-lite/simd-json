@@ -1,6 +1,8 @@
 use super::Value;
 use crate::numberparse::Number;
 use crate::OwnedValue;
+use std::borrow::Cow;
+use std::iter::FromIterator;
 
 impl<'a> From<Number> for Value<'a> {
     #[inline]
@@ -31,14 +33,14 @@ impl<'a> From<OwnedValue> for Value<'a> {
 }
 
 /********* str_ **********/
-impl<'a> From<&'a str> for Value<'a> {
+impl<'v> From<&'v str> for Value<'v> {
     #[inline]
-    fn from(s: &'a str) -> Self {
+    fn from(s: &'v str) -> Self {
         Value::String(s.into())
     }
 }
 
-impl<'a> From<String> for Value<'a> {
+impl<'v> From<String> for Value<'v> {
     #[inline]
     fn from(s: String) -> Self {
         Value::String(s.into())
@@ -46,64 +48,69 @@ impl<'a> From<String> for Value<'a> {
 }
 
 /********* atoms **********/
-impl<'a> From<bool> for Value<'a> {
+impl<'v> From<bool> for Value<'v> {
     #[inline]
     fn from(b: bool) -> Self {
         Value::Bool(b)
     }
 }
+impl<'v> From<()> for Value<'v> {
+    fn from(_b: ()) -> Self {
+        Value::Null
+    }
+}
 
 /********* i_ **********/
-impl<'a> From<i8> for Value<'a> {
+impl<'v> From<i8> for Value<'v> {
     #[inline]
     fn from(i: i8) -> Self {
         Value::I64(i64::from(i))
     }
 }
 
-impl<'a> From<i16> for Value<'a> {
+impl<'v> From<i16> for Value<'v> {
     #[inline]
     fn from(i: i16) -> Self {
         Value::I64(i64::from(i))
     }
 }
 
-impl<'a> From<i32> for Value<'a> {
+impl<'v> From<i32> for Value<'v> {
     #[inline]
     fn from(i: i32) -> Self {
         Value::I64(i64::from(i))
     }
 }
 
-impl<'a> From<i64> for Value<'a> {
+impl<'v> From<i64> for Value<'v> {
     #[inline]
     fn from(i: i64) -> Self {
         Value::I64(i)
     }
 }
 
-impl<'a> From<&i8> for Value<'a> {
+impl<'v> From<&i8> for Value<'v> {
     #[inline]
     fn from(i: &i8) -> Self {
         Value::I64(i64::from(*i))
     }
 }
 
-impl<'a> From<&i16> for Value<'a> {
+impl<'v> From<&i16> for Value<'v> {
     #[inline]
     fn from(i: &i16) -> Self {
         Value::I64(i64::from(*i))
     }
 }
 
-impl<'a> From<&i32> for Value<'a> {
+impl<'v> From<&i32> for Value<'v> {
     #[inline]
     fn from(i: &i32) -> Self {
         Value::I64(i64::from(*i))
     }
 }
 
-impl<'a> From<&i64> for Value<'a> {
+impl<'v> From<&i64> for Value<'v> {
     #[inline]
     fn from(i: &i64) -> Self {
         Value::I64(*i)
@@ -111,56 +118,56 @@ impl<'a> From<&i64> for Value<'a> {
 }
 
 /********* u_ **********/
-impl<'a> From<u8> for Value<'a> {
+impl<'v> From<u8> for Value<'v> {
     #[inline]
     fn from(i: u8) -> Self {
         Value::I64(i64::from(i))
     }
 }
 
-impl<'a> From<u16> for Value<'a> {
+impl<'v> From<u16> for Value<'v> {
     #[inline]
     fn from(i: u16) -> Self {
         Value::I64(i64::from(i))
     }
 }
 
-impl<'a> From<u32> for Value<'a> {
+impl<'v> From<u32> for Value<'v> {
     #[inline]
     fn from(i: u32) -> Self {
         Value::I64(i64::from(i))
     }
 }
 
-impl<'a> From<u64> for Value<'a> {
+impl<'v> From<u64> for Value<'v> {
     #[inline]
     fn from(i: u64) -> Self {
         Value::I64(i as i64)
     }
 }
 
-impl<'a> From<&u8> for Value<'a> {
+impl<'v> From<&u8> for Value<'v> {
     #[inline]
     fn from(i: &u8) -> Self {
         Value::I64(i64::from(*i))
     }
 }
 
-impl<'a> From<&u16> for Value<'a> {
+impl<'v> From<&u16> for Value<'v> {
     #[inline]
     fn from(i: &u16) -> Self {
         Value::I64(i64::from(*i))
     }
 }
 
-impl<'a> From<&u32> for Value<'a> {
+impl<'v> From<&u32> for Value<'v> {
     #[inline]
     fn from(i: &u32) -> Self {
         Value::I64(i64::from(*i))
     }
 }
 
-impl<'a> From<&u64> for Value<'a> {
+impl<'v> From<&u64> for Value<'v> {
     #[inline]
     fn from(i: &u64) -> Self {
         Value::I64(*i as i64)
@@ -168,30 +175,55 @@ impl<'a> From<&u64> for Value<'a> {
 }
 
 /********* f_ **********/
-impl<'a> From<f32> for Value<'a> {
+impl<'v> From<f32> for Value<'v> {
     #[inline]
     fn from(f: f32) -> Self {
         Value::F64(f64::from(f))
     }
 }
 
-impl<'a> From<f64> for Value<'a> {
+impl<'v> From<f64> for Value<'v> {
     #[inline]
     fn from(f: f64) -> Self {
         Value::F64(f)
     }
 }
 
-impl<'a> From<&f32> for Value<'a> {
+impl<'v> From<&f32> for Value<'v> {
     #[inline]
     fn from(f: &f32) -> Self {
         Value::F64(f64::from(*f))
     }
 }
 
-impl<'a> From<&f64> for Value<'a> {
+impl<'v> From<&f64> for Value<'v> {
     #[inline]
     fn from(f: &f64) -> Self {
         Value::F64(*f)
+    }
+}
+
+impl<'v, S> From<Vec<S>> for Value<'v>
+where
+    Value<'v>: From<S>,
+{
+    fn from(v: Vec<S>) -> Self {
+        Value::Array(v.into_iter().map(Value::from).collect())
+    }
+}
+
+impl<'v, V: Into<Value<'v>>> FromIterator<V> for Value<'v> {
+    fn from_iter<I: IntoIterator<Item = V>>(iter: I) -> Self {
+        Value::Array(iter.into_iter().map(Into::into).collect())
+    }
+}
+
+impl<'v, K: Into<Cow<'v, str>>, V: Into<Value<'v>>> FromIterator<(K, V)> for Value<'v> {
+    fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
+        Value::Object(
+            iter.into_iter()
+                .map(|(k, v)| (Into::into(k), Into::into(v)))
+                .collect(),
+        )
     }
 }

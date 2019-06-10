@@ -318,17 +318,17 @@ impl<V: ValueTrait> BaseGenerator for PrettyGenerator<V> {
 
 /****** Writer Generator ******/
 
-pub struct WriterGenerator<'a, W: 'a + Write, V: ValueTrait> {
-    writer: &'a mut W,
+pub struct WriterGenerator<'w, W: 'w + Write, V: ValueTrait> {
+    writer: &'w mut W,
     _value: PhantomData<V>,
 }
 
-impl<'a, W, V> WriterGenerator<'a, W, V>
+impl<'w, W, V> WriterGenerator<'w, W, V>
 where
-    W: 'a + Write,
+    W: 'w + Write,
     V: ValueTrait,
 {
-    pub fn new(writer: &'a mut W) -> Self {
+    pub fn new(writer: &'w mut W) -> Self {
         WriterGenerator {
             writer,
             _value: PhantomData,
@@ -336,7 +336,7 @@ where
     }
 }
 
-impl<'a, W, V> BaseGenerator for WriterGenerator<'a, W, V>
+impl<'w, W, V> BaseGenerator for WriterGenerator<'w, W, V>
 where
     W: Write,
     V: ValueTrait,
@@ -356,23 +356,23 @@ where
 
 /****** Pretty Writer Generator ******/
 
-pub struct PrettyWriterGenerator<'a, W, V>
+pub struct PrettyWriterGenerator<'w, W, V>
 where
-    W: 'a + Write,
+    W: 'w + Write,
     V: ValueTrait,
 {
-    writer: &'a mut W,
+    writer: &'w mut W,
     dent: u16,
     spaces_per_indent: u16,
     _value: PhantomData<V>,
 }
 
-impl<'a, W, V> PrettyWriterGenerator<'a, W, V>
+impl<'w, W, V> PrettyWriterGenerator<'w, W, V>
 where
-    W: 'a + Write,
+    W: 'w + Write,
     V: ValueTrait,
 {
-    pub fn new(writer: &'a mut W, spaces_per_indent: u16) -> Self {
+    pub fn new(writer: &'w mut W, spaces_per_indent: u16) -> Self {
         PrettyWriterGenerator {
             writer,
             dent: 0,
@@ -382,7 +382,7 @@ where
     }
 }
 
-impl<'a, W, V> BaseGenerator for PrettyWriterGenerator<'a, W, V>
+impl<'w, W, V> BaseGenerator for PrettyWriterGenerator<'w, W, V>
 where
     W: Write,
     V: ValueTrait,

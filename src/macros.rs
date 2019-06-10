@@ -398,3 +398,20 @@ macro_rules! stry {
         }
     };
 }
+
+#[cfg(test)]
+mod test {
+    use crate::*;
+    use halfbrown::hashmap;
+    #[test]
+    fn array() {
+        let v: OwnedValue = json!(vec![1]);
+        assert_eq!(OwnedValue::Array(vec![OwnedValue::I64(1)]), v);
+    }
+
+    #[test]
+    fn obj() {
+        let v: OwnedValue = json!(hashmap! {"test" => 1});
+        assert_eq!(OwnedValue::Object(hashmap! {"test".into() => 1.into()}), v);
+    }
+}

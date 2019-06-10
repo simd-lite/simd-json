@@ -11,51 +11,40 @@ use std::borrow::Cow;
 use std::fmt;
 use std::ops::Index;
 
-pub type Map<'a> = HashMap<Cow<'a, str>, Value<'a>>;
+pub type Map<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 
 /// Parses a slice of butes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
 /// has the dame lifetime as the slice it was created from.
-pub fn to_value<'a>(s: &'a mut [u8]) -> Result<Value<'a>> {
+pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
     deserializer.parse_value_borrowed_root()
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Value<'a> {
+pub enum Value<'v> {
     Null,
     Bool(bool),
     F64(f64),
     I64(i64),
-    String(Cow<'a, str>),
-    Array(Vec<Value<'a>>),
-    Object(Map<'a>),
+    String(Cow<'v, str>),
+    Array(Vec<Value<'v>>),
+    Object(Map<'v>),
 }
 
-impl<'a> Value<'a> {
-    pub fn as_array(&self) -> Option<&Vec<Value>> {
-        match self {
-            Value::Array(a) => Some(a),
-            _ => None,
-        }
-    }
-    pub fn as_object(&self) -> Option<&Map> {
-        match self {
-            Value::Object(m) => Some(m),
-            _ => None,
-        }
-    }
-}
-impl<'a> ValueTrait for Value<'a> {
-    fn get(&self, k: &str) -> Option<&Value<'a>> {
+impl<'v> ValueTrait for Value<'v> {
+    type Map = Map<'v>;
+    type Array = Vec<Value<'v>>;
+
+    fn get(&self, k: &str) -> Option<&Value<'v>> {
         match self {
             Value::Object(m) => m.get(k),
             _ => None,
         }
     }
 
-    fn get_mut(&mut self, k: &str) -> Option<&mut Value<'a>> {
+    fn get_mut(&mut self, k: &str) -> Option<&mut Value<'v>> {
         match self {
             Value::Object(m) => m.get_mut(k),
             _ => None,
@@ -123,22 +112,37 @@ impl<'a> ValueTrait for Value<'a> {
             _ => None,
         }
     }
-    fn is_array(&self) -> bool {
+
+    fn as_array(&self) -> Option<&Vec<Value<'v>>> {
         match self {
-            Value::Array(_m) => true,
-            _ => false,
+            Value::Array(a) => Some(a),
+            _ => None,
         }
     }
 
-    fn is_object(&self) -> bool {
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
         match self {
-            Value::Object(_m) => true,
-            _ => false,
+            Value::Array(a) => Some(a),
+            _ => None,
+        }
+    }
+
+    fn as_object(&self) -> Option<&Self::Map> {
+        match self {
+            Value::Object(m) => Some(m),
+            _ => None,
+        }
+    }
+
+    fn as_object_mut(&mut self) -> Option<&mut Self::Map> {
+        match self {
+            Value::Object(m) => Some(m),
+            _ => None,
         }
     }
 }
 
-impl<'a> fmt::Display for Value<'a> {
+impl<'v> fmt::Display for Value<'v> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Value::Null => write!(f, "null"),
@@ -152,15 +156,15 @@ impl<'a> fmt::Display for Value<'a> {
     }
 }
 
-impl<'a> Index<&str> for Value<'a> {
-    type Output = Value<'a>;
-    fn index(&self, index: &str) -> &Value<'a> {
+impl<'v> Index<&str> for Value<'v> {
+    type Output = Value<'v>;
+    fn index(&self, index: &str) -> &Value<'v> {
         static NULL: Value = Value::Null;
         self.get(index).unwrap_or(&NULL)
     }
 }
 
-impl<'a> Default for Value<'a> {
+impl<'v> Default for Value<'v> {
     fn default() -> Self {
         Value::Null
     }

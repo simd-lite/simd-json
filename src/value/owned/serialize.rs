@@ -122,7 +122,7 @@ impl Generator for PrettyGenerator<Value> {
     type V = Value;
 }
 
-impl<'a, W> Generator for WriterGenerator<'a, W, Value>
+impl<'w, W> Generator for WriterGenerator<'w, W, Value>
 where
     W: Write,
 {
@@ -130,7 +130,7 @@ where
     type V = Value;
 }
 
-impl<'a, W> Generator for PrettyWriterGenerator<'a, W, Value>
+impl<'w, W> Generator for PrettyWriterGenerator<'w, W, Value>
 where
     W: Write,
 {

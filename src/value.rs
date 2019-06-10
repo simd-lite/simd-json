@@ -26,7 +26,36 @@ pub enum ValueType {
     Array,
     Object,
 }
-pub trait ValueTrait {
+pub trait ValueTrait:
+    From<i8>
+    + From<i16>
+    + From<i32>
+    + From<i64>
+    + From<u8>
+    + From<u16>
+    + From<u32>
+    + From<u64>
+    + From<f32>
+    + From<f64>
+    /* Silly rust ... I got no idea how to do those :/
+    + From<&'v i8>
+    + From<&'v i16>
+    + From<&'v i32>
+    + From<&'v i64>
+    + From<&'v u8>
+    + From<&'v u16>
+    + From<&'v u32>
+    + From<&'v u64>
+    + From<&'v f32>
+    + From<&'v f64>
+    */
+    + From<String>
+    + From<bool>
+    + From<()>
+{
+    type Map;
+    type Array;
+
     fn get(&self, k: &str) -> Option<&Self>;
     fn get_mut(&mut self, k: &str) -> Option<&mut Self>;
 
@@ -62,7 +91,15 @@ pub trait ValueTrait {
         self.as_string().is_some()
     }
 
-    fn is_array(&self) -> bool;
+    fn is_array(&self) -> bool {
+        self.as_array().is_some()
+    }
+    fn as_array(&self) -> Option<&Self::Array>;
+    fn as_array_mut(&mut self) -> Option<&mut Self::Array>;
 
-    fn is_object(&self) -> bool;
+    fn is_object(&self) -> bool {
+        self.as_object().is_some()
+    }
+    fn as_object(&self) -> Option<&Self::Map>;
+    fn as_object_mut(&mut self) -> Option<&mut Self::Map>;
 }

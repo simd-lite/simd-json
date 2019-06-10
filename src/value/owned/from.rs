@@ -1,6 +1,7 @@
 use super::Value;
 use crate::numberparse::Number;
 use crate::BorrowedValue;
+use std::iter::FromIterator;
 
 impl From<Number> for Value {
     #[inline]
@@ -53,9 +54,16 @@ impl From<&String> for Value {
 }
 
 /********* atoms **********/
+
 impl From<bool> for Value {
     fn from(b: bool) -> Self {
         Value::Bool(b)
+    }
+}
+
+impl From<()> for Value {
+    fn from(_b: ()) -> Self {
+        Value::Null
     }
 }
 
@@ -179,5 +187,30 @@ impl From<&f32> for Value {
 impl From<&f64> for Value {
     fn from(f: &f64) -> Self {
         Value::F64(*f)
+    }
+}
+
+impl<S> From<Vec<S>> for Value
+where
+    Value: From<S>,
+{
+    fn from(v: Vec<S>) -> Self {
+        Value::Array(v.into_iter().map(Value::from).collect())
+    }
+}
+
+impl<V: Into<Value>> FromIterator<V> for Value {
+    fn from_iter<I: IntoIterator<Item = V>>(iter: I) -> Self {
+        Value::Array(iter.into_iter().map(Into::into).collect())
+    }
+}
+
+impl<K: Into<String>, V: Into<Value>> FromIterator<(K, V)> for Value {
+    fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
+        Value::Object(
+            iter.into_iter()
+                .map(|(k, v)| (Into::into(k), Into::into(v)))
+                .collect(),
+        )
     }
 }
