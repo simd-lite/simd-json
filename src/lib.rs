@@ -1205,9 +1205,19 @@ mod tests {
     // based on floating point math inprecisions during parsing.
     // Is this a real issue worth improving?
     #[test]
-    fn silly_float() {
-        //let mut m: HashMap<String, Value> = HashMap::new();
+    fn silly_float1() {
         let v = Value::from(3.0901448042322017e305);
+        let s = v.to_string();
+        dbg!(&s);
+        let mut bytes = s.as_bytes().to_vec();
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        assert_eq!(v, parsed);
+    }
+
+    #[test]
+    #[ignore]
+    fn silly_float2() {
+        let v = Value::from(-6.990585694841803e305);
         let s = v.to_string();
         dbg!(&s);
         let mut bytes = s.as_bytes().to_vec();
