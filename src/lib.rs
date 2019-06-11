@@ -4,31 +4,33 @@
 //! most of the design closely with a few exceptions to make it better
 //! fit into the rust ecosystem.
 //!
-//! Note: by default rustc will compile for compatibility not performance
-//! to take advantage of the simd part of simd json you have to use a native
-//! cpu target on a avx2 ca-able host system. Anexample how to di this
-//! can be found in thr `.cargo` directory of this project.
+//! Note: by default rustc will compile for compatibility, not 
+//! performance, to take advantage of the simd part of simd json. You
+//! have to use a native cpu target on a avx2 capable host system. An
+//! example how to do this can be found in the `.cargo` directory on
+//! [github](https://github.com/Licenser/simdjson-rs).
 //!
 //! ## Goals
 //!
 //! the goal of the rust port of simdjson is not to create a one to
-//! one copy but to integrate the principles into a library that plays
-//! well with the eustmecosystem. As such we provide both compatibility
-//! with serde as well as parsing to a dom to manipulate data.
+//! one copy, but to integrate the principles of the c++ library into
+//! a rust library that plays well with the rust ecosystem. As such
+//! we provide both compatibility with serde as well as parsing to a
+//! dom to manipulate data.
 //!
 //! ## Performance
 //!
 //! As a rule of thumb this library tries to get as close as posible
-//! to the performance of the c++ implementation as possible but some
-//! of the design decisions - such as parsimg to a dom or instead of a
-//! tape way ergonomics over performance. In other places Rust makes
-//! it harder to achive the same level of performance.
+//! to the performance of the c++ implementation, but some of the
+//! design decisions - such as parsing to a dom or a tape, weigh
+//! ergonomics over performance. In other places Rust makes it harder
+//! to achive the same level of performance.
 //!
 //! ## Safety
 //!
 //! this library uses unsafe all over the place, and while it leverages
-//! quite a few test cases along with property based testing pleae uses
-//! it with caution.
+//! quite a few test cases along with property based testing, please use
+//! this library with caution.
 //!
 //!
 //! ## Usage
@@ -37,16 +39,16 @@
 //!
 //! ### Values API
 //!
-//! The values API is a set of optimized DOM objects that alow to parsedjson
-//! JSON data that has no known or a variable structure. simdjson-rs has
-//! two versions of this:
+//! The values API is a set of optimized DOM objects that allow parsed
+//! json to JSON data that has no known variable structure. simdjson-rs
+//! has two versions of this:
 //!
 //! **Borrowed Values**
 //!
 //! ```
 //! use simd_json;
 //! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
-//! let v = simd_json::to_borrowed_value(&mut d).unwrap();
+//! let v: simd_json::BorrowedValue = simd_json::to_borrowed_value(&mut d).unwrap();
 //! ```
 //!
 //! **Owned Values**
@@ -54,7 +56,7 @@
 //! ```
 //! use simd_json;
 //! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
-//! let v = simd_json::to_owned_value(&mut d).unwrap();
+//! let v: simd_json::OwnedValue = simd_json::to_owned_value(&mut d).unwrap();
 //! ```
 //!
 //! ### Serde Comaptible API
