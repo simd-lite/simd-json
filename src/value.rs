@@ -17,6 +17,7 @@ pub mod owned;
 pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
 pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
 
+#[derive(Copy, Clone, Debug)]
 pub enum ValueType {
     Null,
     Bool,
@@ -26,6 +27,7 @@ pub enum ValueType {
     Array,
     Object,
 }
+
 pub trait ValueTrait:
     From<i8>
     + From<i16>
