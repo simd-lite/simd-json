@@ -1,9 +1,10 @@
 ///A dom object that references the raw input data to avoid allocations
-// it tradecs having lifetimes for a gain in performance.
+/// it trades having lifetimes for a gain in performance.
 mod cmp;
 mod from;
 mod serialize;
 
+use crate::number::Number;
 use crate::value::{ValueTrait, ValueType};
 use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
@@ -26,8 +27,9 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
 pub enum Value<'v> {
     Null,
     Bool(bool),
-    F64(f64),
-    I64(i64),
+    Number(Number),
+    //    F64(f64),
+    //    I64(i64),
     String(Cow<'v, str>),
     Array(Vec<Value<'v>>),
     Object(Map<'v>),
@@ -55,8 +57,9 @@ impl<'v> ValueTrait for Value<'v> {
         match self {
             Value::Null => ValueType::Null,
             Value::Bool(_) => ValueType::Bool,
-            Value::F64(_) => ValueType::F64,
-            Value::I64(_) => ValueType::I64,
+            Value::Number(_) => ValueType::I64,
+            //            Value::F64(_) => ValueType::F64,
+            //            Value::I64(_) => ValueType::I64,
             Value::String(_) => ValueType::String,
             Value::Array(_) => ValueType::Array,
             Value::Object(_) => ValueType::Object,
@@ -79,29 +82,28 @@ impl<'v> ValueTrait for Value<'v> {
 
     fn as_i64(&self) -> Option<i64> {
         match self {
-            Value::I64(i) => Some(*i),
+            Value::Number(n) => n.as_i64(),
             _ => None,
         }
     }
 
     fn as_u64(&self) -> Option<u64> {
         match self {
-            Value::I64(i) if *i >= 0 => Some(*i as u64),
+            Value::Number(n) => n.as_u64(),
             _ => None,
         }
     }
 
     fn as_f64(&self) -> Option<f64> {
         match self {
-            Value::F64(i) => Some(*i),
+            Value::Number(n) => n.as_f64(),
             _ => None,
         }
     }
 
     fn cast_f64(&self) -> Option<f64> {
         match self {
-            Value::F64(i) => Some(*i),
-            Value::I64(i) => Some(*i as f64),
+            Value::Number(n) => n.as_f64(),
             _ => None,
         }
     }
@@ -147,8 +149,8 @@ impl<'v> fmt::Display for Value<'v> {
         match self {
             Value::Null => write!(f, "null"),
             Value::Bool(b) => write!(f, "{}", b),
-            Value::I64(n) => write!(f, "{}", n),
-            Value::F64(n) => write!(f, "{}", n),
+            Value::Number(n) => write!(f, "{}", n),
+            //Value::F64(n) => write!(f, "{}", n),
             Value::String(s) => write!(f, "{}", s),
             Value::Array(a) => write!(f, "{:?}", a),
             Value::Object(o) => write!(f, "{:?}", o),
@@ -156,9 +158,9 @@ impl<'v> fmt::Display for Value<'v> {
     }
 }
 
-impl<'v> Index<&str> for Value<'v> {
+impl<'g, 'v: 'g> Index<&'g str> for Value<'v> {
     type Output = Value<'v>;
-    fn index(&self, index: &str) -> &Value<'v> {
+    fn index<'s>(&'s self, index: &'g str) -> &'s Value<'v> {
         static NULL: Value = Value::Null;
         self.get(index).unwrap_or(&NULL)
     }
@@ -180,8 +182,8 @@ impl<'de> Deserializer<'de> {
                 }
                 self.parse_str_().map(Value::from)
             }
-            b'-' => self.parse_number_root(true).map(Value::from),
-            b'0'...b'9' => self.parse_number_root(false).map(Value::from),
+            b'-' => self.parse_number_root(true).map(Value::Number),
+            b'0'...b'9' => self.parse_number_root(false).map(Value::Number),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
@@ -202,8 +204,8 @@ impl<'de> Deserializer<'de> {
                 }
                 self.parse_str_().map(Value::from)
             }
-            b'-' => self.parse_number_(true).map(Value::from),
-            b'0'...b'9' => self.parse_number_(false).map(Value::from),
+            b'-' => self.parse_number_(true).map(Value::Number),
+            b'0'...b'9' => self.parse_number_(false).map(Value::Number),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),

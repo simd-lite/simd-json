@@ -1,10 +1,10 @@
-#![deny(warnings)]
+//#![deny(warnings)]
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
 //! simdjson-rs is a rust port of the simejson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
 //! fit into the rust ecosystem.
 //!
-//! Note: by default rustc will compile for compatibility, not 
+//! Note: by default rustc will compile for compatibility, not
 //! performance, to take advantage of the simd part of simd json. You
 //! have to use a native cpu target on a avx2 capable host system. An
 //! example how to do this can be found in the `.cargo` directory on
@@ -78,6 +78,7 @@ mod charutils;
 #[macro_use]
 mod macros;
 mod error;
+pub mod number;
 mod numberparse;
 mod parsedjson;
 mod portability;
@@ -87,7 +88,7 @@ mod stringparse;
 mod utf8check;
 pub mod value;
 
-use crate::numberparse::Number;
+use crate::number::Number;
 use crate::portability::*;
 use crate::stringparse::*;
 #[cfg(target_arch = "x86")]
@@ -428,6 +429,12 @@ impl<'de> Deserializer<'de> {
         let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         self.parse_number_int(input, minus)
     }
+}
+
+pub mod util {
+    pub mod diyfp;
+    pub mod grisu2;
+    pub mod print_dec;
 }
 
 #[cfg(test)]

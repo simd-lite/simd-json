@@ -1,25 +1,13 @@
 use super::Value;
-use crate::numberparse::Number;
 use crate::BorrowedValue;
 use std::iter::FromIterator;
-
-impl From<Number> for Value {
-    #[inline]
-    fn from(n: Number) -> Self {
-        match n {
-            Number::F64(n) => Value::F64(n),
-            Number::I64(n) => Value::I64(n),
-        }
-    }
-}
 
 impl From<crate::BorrowedValue<'_>> for Value {
     fn from(b: BorrowedValue<'_>) -> Self {
         match b {
             BorrowedValue::Null => Value::Null,
             BorrowedValue::Bool(b) => Value::Bool(b),
-            BorrowedValue::F64(f) => Value::F64(f),
-            BorrowedValue::I64(i) => Value::I64(i),
+            BorrowedValue::Number(n) => Value::Number(n),
             BorrowedValue::String(s) => Value::from(s.to_string()),
             BorrowedValue::Array(a) => {
                 Value::Array(a.into_iter().map(|v| v.into()).collect::<Vec<Value>>())
@@ -70,123 +58,63 @@ impl From<()> for Value {
 /********* i_ **********/
 impl From<i8> for Value {
     fn from(i: i8) -> Self {
-        Value::I64(i64::from(i))
+        Value::Number(i.into())
     }
 }
 
 impl From<i16> for Value {
     fn from(i: i16) -> Self {
-        Value::I64(i64::from(i))
+        Value::Number(i.into())
     }
 }
 
 impl From<i32> for Value {
     fn from(i: i32) -> Self {
-        Value::I64(i64::from(i))
+        Value::Number(i.into())
     }
 }
 
 impl From<i64> for Value {
     fn from(i: i64) -> Self {
-        Value::I64(i)
-    }
-}
-
-impl From<&i8> for Value {
-    fn from(i: &i8) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl From<&i16> for Value {
-    fn from(i: &i16) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl From<&i32> for Value {
-    fn from(i: &i32) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl From<&i64> for Value {
-    fn from(i: &i64) -> Self {
-        Value::I64(*i)
+        Value::Number(i.into())
     }
 }
 
 /********* u_ **********/
 impl From<u8> for Value {
     fn from(i: u8) -> Self {
-        Value::I64(i64::from(i))
+        Value::Number(i.into())
     }
 }
 
 impl From<u16> for Value {
     fn from(i: u16) -> Self {
-        Value::I64(i64::from(i))
+        Value::Number(i.into())
     }
 }
 
 impl From<u32> for Value {
     fn from(i: u32) -> Self {
-        Value::I64(i64::from(i))
+        Value::Number(i.into())
     }
 }
 
 impl From<u64> for Value {
     fn from(i: u64) -> Self {
-        Value::I64(i as i64)
-    }
-}
-
-impl From<&u8> for Value {
-    fn from(i: &u8) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl From<&u16> for Value {
-    fn from(i: &u16) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl From<&u32> for Value {
-    fn from(i: &u32) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl From<&u64> for Value {
-    fn from(i: &u64) -> Self {
-        Value::I64(*i as i64)
+        Value::Number(i.into())
     }
 }
 
 /********* f_ **********/
 impl From<f32> for Value {
     fn from(f: f32) -> Self {
-        Value::F64(f64::from(f))
+        Value::Number(f.into())
     }
 }
 
 impl From<f64> for Value {
     fn from(f: f64) -> Self {
-        Value::F64(f)
-    }
-}
-
-impl From<&f32> for Value {
-    fn from(f: &f32) -> Self {
-        Value::F64(f64::from(*f))
-    }
-}
-
-impl From<&f64> for Value {
-    fn from(f: &f64) -> Self {
-        Value::F64(*f)
+        Value::Number(f.into())
     }
 }
 
