@@ -15,11 +15,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            b'"' => {
-                // We don't do the short string optimisation as serde requires
-                // additional checks
-                visitor.visit_borrowed_str(stry!(self.parse_str_()))
-            }
+            b'"' => visitor.visit_borrowed_str(self.parse_str_()),
             b'n' => visitor.visit_unit(),
             b't' => visitor.visit_bool(true),
             b'f' => visitor.visit_bool(false),
@@ -75,10 +71,10 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
         if let Some(next) = self.structural_indexes.get(self.idx + 1) {
             if *next as usize - self.iidx < 32 {
-                return visitor.visit_borrowed_str(stry!(self.parse_short_str_()));
+                return visitor.visit_borrowed_str(self.parse_str_());
             }
         }
-        visitor.visit_borrowed_str(stry!(self.parse_str_()))
+        visitor.visit_borrowed_str(self.parse_str_())
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -91,10 +87,10 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
         if let Some(next) = self.structural_indexes.get(self.idx + 1) {
             if *next as usize - self.iidx < 32 {
-                return visitor.visit_str(stry!(self.parse_short_str_()));
+                return visitor.visit_str(self.parse_str_());
             }
         }
-        visitor.visit_str(stry!(self.parse_str_()))
+        visitor.visit_str(self.parse_str_())
     }
 
     // The `parse_signed` function is generic over the integer type `T` so here
@@ -332,6 +328,7 @@ struct CommaSeparated<'a, 'de: 'a> {
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn new(de: &'a mut Deserializer<'de>) -> Self {
+        dbg!(de.count_elements());
         CommaSeparated {
             first: true,
             len: de.count_elements(),
@@ -351,7 +348,6 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
         T: DeserializeSeed<'de>,
     {
         if self.len == 0 {
-            self.de.skip();
             Ok(None)
         } else {
             if !self.first {

@@ -133,6 +133,7 @@ impl ValueTrait for Value {
             _ => None,
         }
     }
+
     fn as_object_mut(&mut self) -> Option<&mut Self::Map> {
         match self {
             Value::Object(m) => Some(m),
@@ -180,18 +181,12 @@ impl<'de> Deserializer<'de> {
             }
         }
         match self.next_() {
-            b'"' => {
-                let next = unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) as usize };
-                if next - self.iidx < 32 {
-                    return self.parse_short_str_().map(Value::from);
-                }
-                self.parse_str_().map(Value::from)
-            }
+            b'"' => Ok(Value::from(self.parse_str_())),
+            b'-' => self.parse_number_root(true).map(Value::from),
+            b'0'...b'9' => self.parse_number_root(false).map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
-            b'-' => self.parse_number_root(true).map(Value::from),
-            b'0'...b'9' => self.parse_number_root(false).map(Value::from),
             b'[' => self.parse_array_owned(),
             b'{' => self.parse_map_owned(),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
@@ -207,18 +202,12 @@ impl<'de> Deserializer<'de> {
             }
         }
         match self.next_() {
-            b'"' => {
-                let next = unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) as usize };
-                if next - self.iidx < 32 {
-                    return self.parse_short_str_().map(Value::from);
-                }
-                self.parse_str_().map(Value::from)
-            }
+            b'"' => Ok(Value::from(self.parse_str_())),
+            b'-' => self.parse_number_(true).map(Value::from),
+            b'0'...b'9' => self.parse_number_(false).map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
-            b'-' => self.parse_number(true).map(Value::from),
-            b'0'...b'9' => self.parse_number(false).map(Value::from),
             b'[' => self.parse_array_owned(),
             b'{' => self.parse_map_owned(),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
@@ -228,6 +217,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_array_owned(&mut self) -> Result<Value> {
         let es = self.count_elements();
+        dbg!(es);
         if unlikely!(es == 0) {
             self.skip();
             return Ok(Value::Array(Vec::new()));
@@ -258,7 +248,7 @@ impl<'de> Deserializer<'de> {
 
         for _ in 0..es {
             self.skip();
-            let key = stry!(self.parse_short_str_());
+            let key = self.parse_str_();
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
             self.skip();

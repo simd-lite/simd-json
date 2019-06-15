@@ -321,6 +321,6 @@ impl<'de> Visitor<'de> for ValueVisitor {
         while let Some(e) = seq.next_element()? {
             v.push(e);
         }
-        Ok(Value::Array(v))
+        Ok(Value::Array(v.into()))
     }
 }

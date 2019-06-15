@@ -60,7 +60,7 @@ impl<'de> Deserializer<'de> {
             self.idx += 1;
             if let Some(idx) = self.structural_indexes.get(self.idx) {
                 self.iidx = *idx as usize;
-                let r = *self.input.get_unchecked(self.iidx);
+                let r = *self.data.get_unchecked(self.iidx);
                 Ok(r)
             } else {
                 Err(self.error(ErrorType::Syntax))
@@ -71,7 +71,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn peek(&self) -> Result<u8> {
         if let Some(idx) = self.structural_indexes.get(self.idx + 1) {
-            unsafe { Ok(*self.input.get_unchecked(*idx as usize)) }
+            unsafe { Ok(*self.data.get_unchecked(*idx as usize)) }
         } else {
             Err(self.error(ErrorType::UnexpectedEnd))
         }

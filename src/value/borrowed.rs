@@ -32,6 +32,13 @@ impl<'v> MBV<'v> {
     pub fn new() -> Self {
         MBV::from(vec![])
     }
+    pub fn len(&self) -> usize {
+        match self {
+            MBV::Vector(v) => v.len(),
+            MBV::Slice(v) => v.len(),
+        }
+    }
+
     pub fn iter<'i>(&'i self) -> ::std::slice::Iter<'i, Value<'v>>
     where
         'v: 'i,
@@ -200,10 +207,11 @@ impl<'v> ValueTrait for Value<'v> {
 impl<'v> fmt::Display for Value<'v> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::Null => write!(f, "null"),
-            Value::Bool(b) => write!(f, "{}", b),
-            Value::I64(n) => write!(f, "{}", n),
-            Value::F64(n) => write!(f, "{}", n),
+            Value::Null => f.write_str("null"),
+            Value::Bool(false) => f.write_str("false"),
+            Value::Bool(true) => f.write_str("true"),
+            Value::I64(n) => f.write_str(&n.to_string()),
+            Value::F64(n) => f.write_str(&n.to_string()),
             Value::String(s) => write!(f, "{}", s),
             Value::Array(a) => write!(f, "{:?}", a),
             Value::Object(o) => write!(f, "{:?}", o),
@@ -228,13 +236,14 @@ impl<'v> Default for Value<'v> {
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_value_borrowed_root(&mut self) -> Result<Value<'de>> {
-        match self.next_() {
-            b'"' => {
-                if self.count_elements() < 32 {
-                    return self.parse_short_str_().map(Value::from);
-                }
-                self.parse_str_().map(Value::from)
+        #[cfg(feature = "paranoid")]
+        {
+            if self.idx + 1 > self.structural_indexes.len() {
+                return Err(self.error(ErrorType::UnexpectedEnd));
             }
+        }
+        match self.next_() {
+            b'"' => Ok(Value::from(self.parse_str_())),
             b'-' => self.parse_number_root(true).map(Value::from),
             b'0'...b'9' => self.parse_number_root(false).map(Value::from),
             b'n' => Ok(Value::Null),
@@ -248,15 +257,14 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_value_borrowed(&mut self) -> Result<Value<'de>> {
-        match self.next_() {
-            b'"' => {
-                // We can only have entered this by being in an object so we know there is
-                // something following as we made sure during checking for sizes.;
-                if self.count_elements() < 32 {
-                    return self.parse_short_str_().map(Value::from);
-                }
-                self.parse_str_().map(Value::from)
+        #[cfg(feature = "paranoid")]
+        {
+            if self.idx + 1 > self.structural_indexes.len() {
+                return Err(self.error(ErrorType::UnexpectedEnd));
             }
+        }
+        match self.next_() {
+            b'"' => Ok(Value::from(self.parse_str_())),
             b'-' => self.parse_number_(true).map(Value::from),
             b'0'...b'9' => self.parse_number_(false).map(Value::from),
             b'n' => Ok(Value::Null),
@@ -271,17 +279,41 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_array_borrowed(&mut self) -> Result<Value<'de>> {
         let es = self.count_elements();
+
         if unlikely!(es == 0) {
             self.skip();
             return Ok(Value::Array(MBV::new()));
         }
-        let mut res = Vec::with_capacity(es);
 
-        for _i in 0..es {
-            res.push(stry!(self.parse_value_borrowed()));
-            self.skip();
+        let s = std::mem::size_of::<Value>();
+        let size = es * s;
+        if size + self.offset < self.input.len() && !self.in_inlined_array {
+            use std::slice::from_raw_parts;
+            self.offset += self.offset % s;
+            self.in_inlined_array = true;
+            unsafe {
+                let p = self.input.as_mut_ptr().add(self.offset) as *mut Value;
+
+                for i in 0..es {
+                    let v = stry!(self.parse_value_borrowed());
+                    *p.add(i) = v;
+                    self.skip();
+                }
+                self.offset += size;
+
+                self.in_inlined_array = false;
+                let r = from_raw_parts(p, es);
+                Ok(Value::Array(r.into()))
+            }
+        } else {
+            let mut res = Vec::with_capacity(es);
+
+            for _i in 0..es {
+                res.push(stry!(self.parse_value_borrowed()));
+                self.skip();
+            }
+            Ok(Value::Array(res.into()))
         }
-        Ok(Value::Array(res.into()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -301,7 +333,7 @@ impl<'de> Deserializer<'de> {
 
         for _ in 0..es {
             self.skip();
-            let key = stry!(self.parse_short_str_());
+            let key = self.parse_str_();
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
             self.skip();

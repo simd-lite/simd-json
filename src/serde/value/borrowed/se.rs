@@ -18,7 +18,7 @@ impl<'a> Serialize for Value<'a> {
             Value::String(Cow::Owned(s)) => serializer.serialize_str(&s),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
-                for e in v {
+                for e in v.iter() {
                     seq.serialize_element(e)?;
                 }
                 seq.end()

@@ -1,4 +1,4 @@
-#![deny(warnings)]
+//#![deny(warnings)]
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
 //! simdjson-rs is a rust port of the simejson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
@@ -37,7 +37,7 @@
 //!
 //! simdjson-rs offers two main entry points for usage:
 //!
-//! ### Values API
+//! ### Values APItest_map
 //!
 //! The values API is a set of optimized DOM objects that allow parsed
 //! json to JSON data that has no known variable structure. simdjson-rs
@@ -88,8 +88,6 @@ mod utf8check;
 pub mod value;
 
 use crate::numberparse::Number;
-use crate::portability::*;
-use crate::stringparse::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -108,13 +106,14 @@ pub struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
     // the beginning as data is parsed.
     input: &'de mut [u8],
-    //data: Vec<u8>,
-    strings: Vec<u8>,
+    data: Vec<u8>,
     structural_indexes: Vec<u32>,
     idx: usize,
     counts: Vec<usize>,
-    str_offset: usize,
+    offset: usize,
     iidx: usize,
+    str_offset: usize,
+    in_inlined_array: bool,
 }
 
 impl<'de> Deserializer<'de> {
@@ -133,45 +132,48 @@ impl<'de> Deserializer<'de> {
 
         let len = input.len();
 
-        let buf_start: usize = input.as_ptr() as *const () as usize;
-        let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
+        // We always relocate the data, that way we can use input to prevent allocations
+        // for strings and arrays - sneaky isn't it? :P
 
-        let s1_result: std::result::Result<Vec<u32>, ErrorType> = if needs_relocation {
-            let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
-            unsafe {
-                data.set_len(len + 1);
-                data.as_mut_slice()
-                    .get_unchecked_mut(0..len)
-                    .clone_from_slice(input);
-                *(data.get_unchecked_mut(len)) = 0;
-                data.set_len(len);
-                Deserializer::find_structural_bits(&data)
-            }
-        } else {
-            unsafe { Deserializer::find_structural_bits(input) }
+        let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
+        let s1_result: std::result::Result<Vec<u32>, ErrorType> = unsafe {
+            data.set_len(len);
+            data.as_mut_slice()
+                .get_unchecked_mut(0..len)
+                .clone_from_slice(input);
+            *(data.get_unchecked_mut(len)) = 0;
+            data.set_len(len);
+            Deserializer::find_structural_bits(&data)
         };
+
         let structural_indexes = match s1_result {
             Ok(i) => i,
             Err(t) => {
                 return Err(Error::generic(t));
             }
         };
-
-        let (counts, str_len) = Deserializer::validate(input, &structural_indexes)?;
-
-        let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
+        /*
         unsafe {
-            v.set_len(str_len + SIMDJSON_PADDING);
-        };
+            dbg!(&String::from_utf8_unchecked(data.clone()));
+        }
+        */
+        let (counts, offset) = Deserializer::validate(&data, input, &structural_indexes)?;
 
+        /*
+        unsafe {
+            dbg!(&String::from_utf8_unchecked(input.to_vec()));
+        }
+         */
         Ok(Deserializer {
             counts,
             structural_indexes,
             input,
+            data,
             idx: 0,
-            strings: v,
             str_offset: 0,
+            offset,
             iidx: 0,
+            in_inlined_array: false,
         })
     }
 
@@ -185,7 +187,7 @@ impl<'de> Deserializer<'de> {
     fn c(&self) -> u8 {
         unsafe {
             *self
-                .input
+                .data
                 .get_unchecked(*self.structural_indexes.get_unchecked(self.idx) as usize)
         }
     }
@@ -197,7 +199,7 @@ impl<'de> Deserializer<'de> {
         unsafe {
             self.idx += 1;
             self.iidx = *self.structural_indexes.get_unchecked(self.idx) as usize;
-            *self.input.get_unchecked(self.iidx)
+            *self.data.get_unchecked(self.iidx)
         }
     }
 
@@ -206,199 +208,24 @@ impl<'de> Deserializer<'de> {
         unsafe { *self.counts.get_unchecked(self.idx) }
     }
 
-    // We parse a string that's likely to be less then 32 characters and without any
-    // fancy in it like object keys
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_short_str_(&mut self) -> Result<&'de str> {
-        let mut padding = [0u8; 32];
-        let idx = self.iidx + 1;
-        let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
-
-        //short strings are very common for IDs
-        let v: __m256i = if src.len() >= 32 {
-            // This is safe since we ensure src is at least 32 wide
-            #[allow(clippy::cast_ptr_alignment)]
-            unsafe {
-                _mm256_loadu_si256(src.get_unchecked(..32).as_ptr() as *const __m256i)
-            }
-        } else {
-            unsafe {
-                padding
-                    .get_unchecked_mut(..src.len())
-                    .clone_from_slice(&src);
-                // This is safe since we ensure src is at least 32 wide
-                #[allow(clippy::cast_ptr_alignment)]
-                _mm256_loadu_si256(padding.get_unchecked(..32).as_ptr() as *const __m256i)
-            }
-        };
-        let bs_bits: u32 = unsafe {
-            static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
-                v,
-                _mm256_set1_epi8(b'\\' as i8)
-            )))
-        };
-        let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
-        let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
-        if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
-            let quote_dist: u32 = trailingzeroes(u64::from(quote_bits)) as u32;
-            let v = unsafe {
-                self.input.get_unchecked(idx..idx + quote_dist as usize) as *const [u8]
-                    as *const str
-            };
-            self.str_offset = idx + quote_dist as usize;
-
-            unsafe {
-                return Ok(&*v);
-            }
-        }
-        self.parse_str_()
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_str_(&mut self) -> Result<&'de str> {
-        use std::slice::from_raw_parts_mut;
-        // Add 1 to skip the initial "
-        let idx = self.iidx + 1;
-        let mut padding = [0u8; 32];
-        //let mut read: usize = 0;
-
-        let needs_relocation = idx - self.str_offset <= 32;
-        // we include the terminal '"' so we know where to end
-        // This is safe since we check sub's lenght in the range access above and only
-        // create sub sliced form sub to `sub.len()`.
-
-        // if we don't need relocation we can write directly to the input
-        // saving us to copy data to the string storage first and then
-        // back tot he input.
-        // We can't always do that as if we're less then 32 characters
-        // behind we'll overwrite important parts of the input.
-        let dst: &mut [u8] = if needs_relocation {
-            &mut self.strings
-        } else {
-            let ptr = self.input.as_mut_ptr();
-            unsafe {
-                from_raw_parts_mut(ptr.add(self.str_offset), self.input.len() - self.str_offset)
-            }
-        };
-        let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
-        let mut src_i: usize = 0;
-        let mut dst_i: usize = 0;
-        loop {
-            let v: __m256i = if src.len() >= src_i + 32 {
-                // This is safe since we ensure src is at least 32 wide
-                #[allow(clippy::cast_ptr_alignment)]
-                unsafe {
-                    _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i)
-                }
-            } else {
-                unsafe {
-                    padding
-                        .get_unchecked_mut(..src.len() - src_i)
-                        .clone_from_slice(src.get_unchecked(src_i..));
-                    // This is safe since we ensure src is at least 32 wide
-                    #[allow(clippy::cast_ptr_alignment)]
-                    _mm256_loadu_si256(padding.as_ptr() as *const __m256i)
-                }
-            };
-
-            #[allow(clippy::cast_ptr_alignment)]
-            unsafe {
-                _mm256_storeu_si256(dst.as_mut_ptr().add(dst_i) as *mut __m256i, v)
-            };
-
-            // store to dest unconditionally - we can overwrite the bits we don't like
-            // later
-            let bs_bits: u32 = unsafe {
-                static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
-                    v,
-                    _mm256_set1_epi8(b'\\' as i8)
-                )))
-            };
-            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
-            let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
-            if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
-                // we encountered quotes first. Move dst to point to quotes and exit
-                // find out where the quote is...
-                let quote_dist: u32 = trailingzeroes(u64::from(quote_bits)) as u32;
-
-                ///////////////////////
-                // Above, check for overflow in case someone has a crazy string (>=4GB?)
-                // But only add the overflow check when the document itself exceeds 4GB
-                // Currently unneeded because we refuse to parse docs larger or equal to 4GB.
-                ////////////////////////
-
-                // we advance the point, accounting for the fact that we have a NULl termination
-
-                dst_i += quote_dist as usize;
-                unsafe {
-                    if needs_relocation {
-                        self.input
-                            .get_unchecked_mut(self.str_offset..self.str_offset + dst_i as usize)
-                            .clone_from_slice(&self.strings.get_unchecked(..dst_i));
-                    }
-                    let v = self
-                        .input
-                        .get_unchecked(self.str_offset..self.str_offset + dst_i as usize)
-                        as *const [u8] as *const str;
-                    self.str_offset += dst_i as usize;
-                    return Ok(&*v);
-                }
-
-                // we compare the pointers since we care if they are 'at the same spot'
-                // not if they are the same value
-            }
-            if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
-                // find out where the backspace is
-                let bs_dist: u32 = trailingzeroes(u64::from(bs_bits));
-                let escape_char: u8 = unsafe { *src.get_unchecked(src_i + bs_dist as usize + 1) };
-                // we encountered backslash first. Handle backslash
-                if escape_char == b'u' {
-                    // move src/dst up to the start; they will be further adjusted
-                    // within the unicode codepoint handling code.
-                    src_i += bs_dist as usize;
-                    dst_i += bs_dist as usize;
-                    let (o, s) = if let Ok(r) =
-                        handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, unsafe {
-                            dst.get_unchecked_mut(dst_i..)
-                        }) {
-                        r
-                    } else {
-                        return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
-                    };
-                    if o == 0 {
-                        return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
-                    };
-                    // We moved o steps forword at the destiation and 6 on the source
-                    src_i += s;
-                    dst_i += o;
-                } else {
-                    // simple 1:1 conversion. Will eat bs_dist+2 characters in input and
-                    // write bs_dist+1 characters to output
-                    // note this may reach beyond the part of the buffer we've actually
-                    // seen. I think this is ok
-                    let escape_result: u8 =
-                        unsafe { *ESCAPE_MAP.get_unchecked(escape_char as usize) };
-                    if escape_result == 0 {
-                        return Err(self.error(ErrorType::InvalidEscape));
-                    }
-                    unsafe {
-                        *dst.get_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
-                    }
-                    src_i += bs_dist as usize + 2;
-                    dst_i += bs_dist as usize + 1;
-                }
-            } else {
-                // they are the same. Since they can't co-occur, it means we encountered
-                // neither.
-                src_i += 32;
-                dst_i += 32;
-            }
+    fn parse_str_(&mut self) -> &'de str {
+        /*
+        dbg!(self.str_offset);
+        dbg!(self.count_elements());
+        dbg!(self.str_offset);
+        */
+        let next = self.str_offset + self.count_elements();
+        unsafe {
+            let r = self.input.get_unchecked(self.str_offset..next) as *const [u8] as *const str;
+            self.str_offset = next;
+            &*r
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+        let input = unsafe { &self.data.get_unchecked(self.iidx..) };
         let len = input.len();
         let mut copy = vec![0u8; len + SIMDJSON_PADDING];
         copy[len] = 0;
@@ -410,7 +237,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+        let input = unsafe { &self.data.get_unchecked(self.iidx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
@@ -425,7 +252,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number_(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+        let input = unsafe { &self.data.get_unchecked(self.iidx..) };
         self.parse_number_int(input, minus)
     }
 }
@@ -771,13 +598,32 @@ mod tests {
     }
 
     #[test]
+    fn nested_list_slice() {
+        let mut d =
+            String::from(r#"[42, [-65.613616999999977,43.420273000000009], [1], [2], 3, 4, 5, 1, 2, 3, 4, 5                                                                                                                   ]"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_borrowed = to_borrowed_value(&mut d);
+        dbg!(&v_borrowed);
+        assert!(false);
+    }
+
+    #[test]
     fn nested_list1() {
         let mut d = String::from(r#"[42, [23.0, "snot"], "bad", "ger"]"#);
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d2 = d.clone();
+        let mut d2 = unsafe { d2.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
+        let v_owned = to_value(&mut d1);
+        dbg!(&v_owned);
+        let v_borrowed = to_borrowed_value(&mut d2);
+        dbg!(&v_borrowed);
+
+        dbg!(std::mem::size_of::<Value>());
+        /*
         assert_eq!(
-            to_value(&mut d1),
+            v_owned,
             Ok(Value::Array(vec![
                 Value::from(42),
                 Value::Array(vec![Value::from(23.0), Value::from("snot")]),
@@ -785,7 +631,7 @@ mod tests {
                 Value::from("ger")
             ]))
         );
-
+        */
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
@@ -957,11 +803,14 @@ mod tests {
     #[test]
     fn map0() {
         let mut d = String::from(r#"{"snot": "badger"}"#);
+
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
+
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+
         assert_eq!(v_simd, v_serde);
         let mut h = Map::new();
         h.insert("snot".into(), Value::from("badger"));
@@ -974,8 +823,10 @@ mod tests {
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
+
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+
         assert_eq!(v_simd, v_serde);
         let mut h = Map::new();
         h.insert("snot".into(), Value::from("badger"));

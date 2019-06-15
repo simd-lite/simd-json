@@ -1,7 +1,13 @@
 #![allow(dead_code)]
 use crate::charutils::*;
+use crate::portability::*;
+use crate::stringparse::*;
 use crate::{Deserializer, Error, ErrorType, Result, SIMDJSON_PADDING};
-//use crate::portability::*;
+#[cfg(target_arch = "x86")]
+use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
+use std::mem;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_valid_true_atom(loc: &[u8]) -> bool {
@@ -80,8 +86,184 @@ enum StackState {
     Array,
 }
 
+// We parse a string that's likely to be less then 32 characters and without any
+// fancy in it like object keys
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
+fn extract_str_short(
+    data: &[u8],
+    input: &mut [u8],
+    offset: &mut usize,
+    mut idx: usize,
+) -> Result<usize> {
+    idx += 1;
+    let src: &[u8] = unsafe { data.get_unchecked(idx..) };
+    /*
+    unsafe {
+        dbg!(&String::from_utf8_unchecked(src.to_vec()));
+    }
+    */
+    // We relocateds at the beginning and ensured that we are 0 terminated
+    // so we always can copy from src.
+    #[allow(clippy::cast_ptr_alignment)]
+    let v: __m256i =
+        unsafe { _mm256_loadu_si256(src.get_unchecked(..32).as_ptr() as *const __m256i) };
+    let bs_bits: u32 = unsafe {
+        static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
+            v,
+            _mm256_set1_epi8(b'\\' as i8)
+        )))
+    };
+    let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
+    let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
+    if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
+        let quote_dist: u32 = trailingzeroes(u64::from(quote_bits)) as u32;
+        unsafe {
+            if input.len() - *offset < 32 {
+                input
+                    .as_mut_ptr()
+                    .add(*offset)
+                    .copy_from(src.as_ptr(), quote_dist as usize);
+            } else {
+                _mm256_storeu_si256(input.as_mut_ptr().add(*offset) as *mut __m256i, v)
+            }
+        }
+        *offset += quote_dist as usize;
+
+        return Ok(quote_dist as usize);
+    } else {
+        extract_str(data, input, offset, idx - 1)
+    }
+}
+
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
+fn extract_str(data: &[u8], input: &mut [u8], offset: &mut usize, mut idx: usize) -> Result<usize> {
+    // Add 1 to skip the initial "
+    idx += 1;
+    let mut padding = [0u8; 32];
+    //let mut read: usize = 0;
+
+    // we include the terminal '"' so we know where to end
+    // This is safe since we check sub's lenght in the range access above and only
+    // create sub sliced form sub to `sub.len()`.
+
+    // if we don't need relocation we can write directly to the input
+    // saving us to copy data to the string storage first and then
+    // back tot he input.
+    // We can't always do that as if we're less then 32 characters
+    // behind we'll overwrite important parts of the input.
+    let src: &[u8] = unsafe { &data.get_unchecked(idx..) };
+    let dst: &mut [u8] = unsafe { input.get_unchecked_mut(*offset..) };
+
+    let mut src_i: usize = 0;
+    let mut dst_i: usize = 0;
+    loop {
+        let v: __m256i = if src.len() >= src_i + 32 {
+            // This is safe since we ensure src is at least 32 wide
+            #[allow(clippy::cast_ptr_alignment)]
+            unsafe {
+                _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i)
+            }
+        } else {
+            unsafe {
+                padding
+                    .get_unchecked_mut(..src.len() - src_i)
+                    .clone_from_slice(src.get_unchecked(src_i..));
+                // This is safe since we ensure src is at least 32 wide
+                #[allow(clippy::cast_ptr_alignment)]
+                _mm256_loadu_si256(padding.as_ptr() as *const __m256i)
+            }
+        };
+
+        #[allow(clippy::cast_ptr_alignment)]
+        unsafe {
+            _mm256_storeu_si256(dst.as_mut_ptr().add(dst_i) as *mut __m256i, v)
+        };
+
+        // store to dest unconditionally - we can overwrite the bits we don't like
+        // later
+        let bs_bits: u32 = unsafe {
+            static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
+                v,
+                _mm256_set1_epi8(b'\\' as i8)
+            )))
+        };
+        let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
+        let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
+        if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
+            // we encountered quotes first. Move dst to point to quotes and exit
+            // find out where the quote is...
+            let quote_dist: u32 = trailingzeroes(u64::from(quote_bits)) as u32;
+
+            ///////////////////////
+            // Above, check for overflow in case someone has a crazy string (>=4GB?)
+            // But only add the overflow check when the document itself exceeds 4GB
+            // Currently unneeded because we refuse to parse docs larger or equal to 4GB.
+            ////////////////////////
+
+            // we advance the point, accounting for the fact that we have a NULl termination
+
+            dst_i += quote_dist as usize;
+            *offset += dst_i as usize;
+
+            return Ok(dst_i);
+
+            // we compare the pointers since we care if they are 'at the same spot'
+            // not if they are the same value
+        }
+        if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
+            // find out where the backspace is
+            let bs_dist: u32 = trailingzeroes(u64::from(bs_bits));
+            let escape_char: u8 = unsafe { *src.get_unchecked(src_i + bs_dist as usize + 1) };
+            // we encountered backslash first. Handle backslash
+            if escape_char == b'u' {
+                // move src/dst up to the start; they will be further adjusted
+                // within the unicode codepoint handling code.
+                src_i += bs_dist as usize;
+                dst_i += bs_dist as usize;
+                let (o, s) = if let Ok(r) =
+                    handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, unsafe {
+                        dst.get_unchecked_mut(dst_i..)
+                    }) {
+                    r
+                } else {
+                    return Err(Error::generic(ErrorType::InvlaidUnicodeCodepoint));
+                };
+                if o == 0 {
+                    return Err(Error::generic(ErrorType::InvlaidUnicodeCodepoint));
+                };
+                // We moved o steps forword at the destiation and 6 on the source
+                src_i += s;
+                dst_i += o;
+            } else {
+                // simple 1:1 conversion. Will eat bs_dist+2 characters in input and
+                // write bs_dist+1 characters to output
+                // note this may reach beyond the part of the buffer we've actually
+                // seen. I think this is ok
+                let escape_result: u8 = unsafe { *ESCAPE_MAP.get_unchecked(escape_char as usize) };
+                if escape_result == 0 {
+                    return Err(Error::generic(ErrorType::InvalidEscape));
+                }
+                unsafe {
+                    *dst.get_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
+                }
+                src_i += bs_dist as usize + 2;
+                dst_i += bs_dist as usize + 1;
+            }
+        } else {
+            // they are the same. Since they can't co-occur, it means we encountered
+            // neither.
+            src_i += 32;
+            dst_i += 32;
+        }
+    }
+}
+
 impl<'de> Deserializer<'de> {
-    pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<usize>, usize)> {
+    pub fn validate(
+        data: &[u8],
+        input: &mut [u8],
+        structural_indexes: &[u32],
+    ) -> Result<(Vec<usize>, usize)> {
         let mut counts = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
         unsafe {
@@ -92,7 +274,7 @@ impl<'de> Deserializer<'de> {
         let mut depth = 0;
         let mut last_start = 1;
         let mut cnt = 0;
-        let mut str_len = 0;
+        let mut offset: usize = 0;
 
         // let mut i: usize = 0; // index of the structural character (0,1,2,3...)
         // location of the structural character in the input (buf)
@@ -108,7 +290,7 @@ impl<'de> Deserializer<'de> {
             () => {
                 idx = *stry!(si.next().ok_or_else(|| (Error::generic(ErrorType::Syntax)))) as usize;
                 i += 1;
-                c = unsafe { *input.get_unchecked(idx) };
+                c = unsafe { *data.get_unchecked(idx) };
             };
         }
 
@@ -156,13 +338,20 @@ impl<'de> Deserializer<'de> {
                                 (**next as usize) - idx
                             } else {
                                 // If we're the last element we count to the end
-                                input.len() - idx
+                                data.len() - idx
                             };
-                            if d > str_len {
-                                str_len = d;
-                            }
 
-                            unsafe { *counts.get_unchecked_mut(i) = d };
+                            if d < 32 {
+                                unsafe {
+                                    *counts.get_unchecked_mut(i) =
+                                        stry!(extract_str_short(data, input, &mut offset, idx))
+                                };
+                            } else {
+                                unsafe {
+                                    *counts.get_unchecked_mut(i) =
+                                        stry!(extract_str(data, input, &mut offset, idx))
+                                };
+                            }
                             goto!(ObjectKey);
                         }
                     }
@@ -196,12 +385,20 @@ impl<'de> Deserializer<'de> {
                             (**next as usize) - idx
                         } else {
                             // If we're the last element we count to the end
-                            input.len() - idx
+                            data.len() - idx
                         };
-                        if d > str_len {
-                            str_len = d;
+
+                        if d < 32 {
+                            unsafe {
+                                *counts.get_unchecked_mut(i) =
+                                    stry!(extract_str_short(data, input, &mut offset, idx))
+                            };
+                        } else {
+                            unsafe {
+                                *counts.get_unchecked_mut(i) =
+                                    stry!(extract_str(data, input, &mut offset, idx))
+                            };
                         }
-                        unsafe { *counts.get_unchecked_mut(i) = d };
                         goto!(ObjectKey);
                     }
                     b'}' => {
@@ -242,12 +439,20 @@ impl<'de> Deserializer<'de> {
                             (**next as usize) - idx
                         } else {
                             // If we're the last element we count to the end
-                            input.len() - idx
+                            data.len() - idx
                         };
-                        if d > str_len {
-                            str_len = d;
+
+                        if d < 32 {
+                            unsafe {
+                                *counts.get_unchecked_mut(i) =
+                                    stry!(extract_str_short(data, input, &mut offset, idx))
+                            };
+                        } else {
+                            unsafe {
+                                *counts.get_unchecked_mut(i) =
+                                    stry!(extract_str(data, input, &mut offset, idx))
+                            };
                         }
-                        unsafe { *counts.get_unchecked_mut(i) = d };
                         state = State::ObjectKey;
                     }
                     b'}' => {
@@ -280,66 +485,74 @@ impl<'de> Deserializer<'de> {
                     (**next as usize) - idx
                 } else {
                     // If we're the last element we count to the end
-                    input.len() - idx
+                    data.len() - idx
                 };
-                if d > str_len {
-                    str_len = d;
+
+                if d < 32 {
+                    unsafe {
+                        *counts.get_unchecked_mut(i) =
+                            stry!(extract_str_short(data, input, &mut offset, idx))
+                    };
+                } else {
+                    unsafe {
+                        *counts.get_unchecked_mut(i) =
+                            stry!(extract_str(data, input, &mut offset, idx))
+                    };
                 }
-                unsafe { *counts.get_unchecked_mut(i) = d };
                 if si.next().is_none() {
-                    return Ok((counts, str_len as usize));
+                    return Ok((counts, offset));
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
             }
             b't' => {
-                let len = input.len();
+                let len = data.len();
                 let mut copy = vec![0u8; len + SIMDJSON_PADDING];
                 unsafe {
-                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+                    copy.as_mut_ptr().copy_from(data.as_ptr(), len);
                     if !is_valid_true_atom(copy.get_unchecked(idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
                 if si.next().is_none() {
-                    return Ok((counts, str_len as usize));
+                    return Ok((counts, offset));
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
             }
             b'f' => {
-                let len = input.len();
+                let len = data.len();
                 let mut copy = vec![0u8; len + SIMDJSON_PADDING];
                 unsafe {
-                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+                    copy.as_mut_ptr().copy_from(data.as_ptr(), len);
                     if !is_valid_false_atom(copy.get_unchecked(idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
                 if si.next().is_none() {
-                    return Ok((counts, str_len as usize));
+                    return Ok((counts, offset));
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
             }
             b'n' => {
-                let len = input.len();
+                let len = data.len();
                 let mut copy = vec![0u8; len + SIMDJSON_PADDING];
                 unsafe {
-                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+                    copy.as_mut_ptr().copy_from(data.as_ptr(), len);
                     if !is_valid_null_atom(copy.get_unchecked(idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
                 if si.next().is_none() {
-                    return Ok((counts, str_len as usize));
+                    return Ok((counts, offset));
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
             }
             b'-' | b'0'...b'9' => {
                 if si.next().is_none() {
-                    return Ok((counts, str_len as usize));
+                    return Ok((counts, offset));
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -365,29 +578,36 @@ impl<'de> Deserializer<'de> {
                                 (**next as usize) - idx
                             } else {
                                 // If we're the last element we count to the end
-                                input.len() - idx
+                                data.len() - idx
                             };
-                            if d > str_len {
-                                str_len = d;
-                            }
 
-                            unsafe { *counts.get_unchecked_mut(i) = d };
+                            if d < 32 {
+                                unsafe {
+                                    *counts.get_unchecked_mut(i) =
+                                        stry!(extract_str_short(data, input, &mut offset, idx));
+                                }
+                            } else {
+                                unsafe {
+                                    *counts.get_unchecked_mut(i) =
+                                        stry!(extract_str(data, input, &mut offset, idx))
+                                };
+                            }
                             object_continue!();
                         }
                         b't' => {
-                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                            if !is_valid_true_atom(unsafe { data.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'f' => {
-                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                            if !is_valid_false_atom(unsafe { data.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'n' => {
-                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                            if !is_valid_null_atom(unsafe { data.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             object_continue!();
@@ -442,7 +662,7 @@ impl<'de> Deserializer<'de> {
                         StackState::Array => array_continue!(),
                         StackState::Start => {
                             if si.next().is_none() {
-                                return Ok((counts, str_len as usize));
+                                return Ok((counts, offset));
                             } else {
                                 fail!();
                             }
@@ -460,29 +680,36 @@ impl<'de> Deserializer<'de> {
                                 (**next as usize) - idx
                             } else {
                                 // If we're the last element we count to the end
-                                input.len() - idx
+                                data.len() - idx
                             };
-                            if d > str_len {
-                                str_len = d;
-                            }
 
-                            unsafe { *counts.get_unchecked_mut(i) = d };
+                            if d < 32 {
+                                unsafe {
+                                    *counts.get_unchecked_mut(i) =
+                                        stry!(extract_str_short(data, input, &mut offset, idx))
+                                };
+                            } else {
+                                unsafe {
+                                    *counts.get_unchecked_mut(i) =
+                                        stry!(extract_str(data, input, &mut offset, idx))
+                                };
+                            }
                             array_continue!();
                         }
                         b't' => {
-                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                            if !is_valid_true_atom(unsafe { data.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'f' => {
-                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                            if !is_valid_false_atom(unsafe { data.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'n' => {
-                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                            if !is_valid_null_atom(unsafe { data.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             array_continue!();

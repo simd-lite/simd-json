@@ -45,7 +45,7 @@ harness = false
 
 
 [features]
-default = ["swar-number-parsing"]
+default = ["swar-number-parsing", "serde_impl", "no-inline"]
 # use 8 number at once parsing strategy
 swar-number-parsing = []
 # serde compatibility
