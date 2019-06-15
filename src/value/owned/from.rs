@@ -21,9 +21,12 @@ impl From<crate::BorrowedValue<'_>> for Value {
             BorrowedValue::F64(f) => Value::F64(f),
             BorrowedValue::I64(i) => Value::I64(i),
             BorrowedValue::String(s) => Value::from(s.to_string()),
-            BorrowedValue::Array(a) => {
-                Value::Array(a.into_iter().map(|v| v.into()).collect::<Vec<Value>>())
-            }
+            BorrowedValue::Array(a) => Value::Array(
+                a.into_iter()
+                    .map(|v| v.into())
+                    .collect::<Vec<Value>>()
+                    .into(),
+            ),
             BorrowedValue::Object(m) => Value::Object(
                 m.into_iter()
                     .map(|(k, v)| (k.to_string(), v.into()))

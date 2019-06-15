@@ -4,7 +4,7 @@
 //! most of the design closely with a few exceptions to make it better
 //! fit into the rust ecosystem.
 //!
-//! Note: by default rustc will compile for compatibility, not 
+//! Note: by default rustc will compile for compatibility, not
 //! performance, to take advantage of the simd part of simd json. You
 //! have to use a native cpu target on a avx2 capable host system. An
 //! example how to do this can be found in the `.cargo` directory on

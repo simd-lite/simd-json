@@ -23,19 +23,74 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum MBV<'v> {
+    Vector(Vec<Value<'v>>),
+    Slice(&'v [Value<'v>]),
+}
+
+impl<'v> MBV<'v> {
+    pub fn new() -> Self {
+        MBV::from(vec![])
+    }
+    pub fn iter<'i>(&'i self) -> ::std::slice::Iter<'i, Value<'v>>
+    where
+        'v: 'i,
+    {
+        match self {
+            MBV::Vector(v) => v.iter(),
+            MBV::Slice(v) => v.iter(),
+        }
+    }
+
+    pub fn into_iter<'i>(&'i self) -> ::std::slice::Iter<'i, Value<'v>>
+    where
+        'v: 'i,
+    {
+        match self {
+            MBV::Vector(v) => v.iter(),
+            MBV::Slice(v) => v.iter(),
+        }
+    }
+}
+
+impl<'v> IntoIterator for MBV<'v> {
+    type Item = Value<'v>;
+    type IntoIter = ::std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            MBV::Vector(v) => v.into_iter(),
+            MBV::Slice(v) => v.to_vec().into_iter(),
+        }
+    }
+}
+
+impl<'v> From<Vec<Value<'v>>> for MBV<'v> {
+    fn from(v: Vec<Value<'v>>) -> Self {
+        MBV::Vector(v)
+    }
+}
+
+impl<'v> From<&'v [Value<'v>]> for MBV<'v> {
+    fn from(s: &'v [Value<'v>]) -> Self {
+        MBV::Slice(s)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value<'v> {
     Null,
     Bool(bool),
     F64(f64),
     I64(i64),
     String(Cow<'v, str>),
-    Array(Vec<Value<'v>>),
+    Array(MBV<'v>),
     Object(Map<'v>),
 }
 
 impl<'v> ValueTrait for Value<'v> {
     type Map = Map<'v>;
-    type Array = Vec<Value<'v>>;
+    type Array = MBV<'v>;
 
     fn get(&self, k: &str) -> Option<&Value<'v>> {
         match self {
@@ -113,14 +168,14 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
-    fn as_array(&self) -> Option<&Vec<Value<'v>>> {
+    fn as_array(&self) -> Option<&MBV<'v>> {
         match self {
             Value::Array(a) => Some(a),
             _ => None,
         }
     }
 
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
+    fn as_array_mut(&mut self) -> Option<&mut MBV<'v>> {
         match self {
             Value::Array(a) => Some(a),
             _ => None,
@@ -218,7 +273,7 @@ impl<'de> Deserializer<'de> {
         let es = self.count_elements();
         if unlikely!(es == 0) {
             self.skip();
-            return Ok(Value::Array(Vec::new()));
+            return Ok(Value::Array(MBV::new()));
         }
         let mut res = Vec::with_capacity(es);
 
@@ -226,7 +281,7 @@ impl<'de> Deserializer<'de> {
             res.push(stry!(self.parse_value_borrowed()));
             self.skip();
         }
-        Ok(Value::Array(res))
+        Ok(Value::Array(res.into()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]

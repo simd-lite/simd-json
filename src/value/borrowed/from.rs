@@ -22,9 +22,12 @@ impl<'a> From<OwnedValue> for Value<'a> {
             OwnedValue::F64(f) => Value::F64(f),
             OwnedValue::I64(i) => Value::I64(i),
             OwnedValue::String(s) => Value::from(s.to_string()),
-            OwnedValue::Array(a) => {
-                Value::Array(a.into_iter().map(|v| v.into()).collect::<Vec<Value>>())
-            }
+            OwnedValue::Array(a) => Value::Array(
+                a.into_iter()
+                    .map(|v| v.into())
+                    .collect::<Vec<Value>>()
+                    .into(),
+            ),
             OwnedValue::Object(m) => {
                 Value::Object(m.into_iter().map(|(k, v)| (k.into(), v.into())).collect())
             }
@@ -208,13 +211,23 @@ where
     Value<'v>: From<S>,
 {
     fn from(v: Vec<S>) -> Self {
-        Value::Array(v.into_iter().map(Value::from).collect())
+        Value::Array(
+            v.into_iter()
+                .map(Value::from)
+                .collect::<Vec<Value>>()
+                .into(),
+        )
     }
 }
 
 impl<'v, V: Into<Value<'v>>> FromIterator<V> for Value<'v> {
     fn from_iter<I: IntoIterator<Item = V>>(iter: I) -> Self {
-        Value::Array(iter.into_iter().map(Into::into).collect())
+        Value::Array(
+            iter.into_iter()
+                .map(Into::into)
+                .collect::<Vec<Value>>()
+                .into(),
+        )
     }
 }
 
