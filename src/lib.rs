@@ -4,7 +4,7 @@
 //! most of the design closely with a few exceptions to make it better
 //! fit into the rust ecosystem.
 //!
-//! Note: by default rustc will compile for compatibility, not 
+//! Note: by default rustc will compile for compatibility, not
 //! performance, to take advantage of the simd part of simd json. You
 //! have to use a native cpu target on a avx2 capable host system. An
 //! example how to do this can be found in the `.cargo` directory on
@@ -210,7 +210,7 @@ impl<'de> Deserializer<'de> {
     // fancy in it like object keys
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_short_str_(&mut self) -> Result<&'de str> {
-        let mut padding = [0u8; 32];
+        let mut padding: [u8; 32] = unsafe { mem::uninitialized() };
         let idx = self.iidx + 1;
         let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
 
@@ -1234,6 +1234,14 @@ mod tests {
         let mut bytes = s.as_bytes().to_vec();
         let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
         assert_eq!(v, parsed);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_size() {
+        dbg!(std::mem::size_of::<crate::BorrowedValue>());
+        dbg!(std::mem::size_of::<crate::OwnedValue>());
+        assert!(false);
     }
 
     //6.576692109929364e305

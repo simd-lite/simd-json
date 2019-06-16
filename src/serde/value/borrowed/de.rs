@@ -22,10 +22,9 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
             Value::Bool(b) => visitor.visit_bool(b),
             Value::I64(n) => visitor.visit_i64(n),
             Value::F64(n) => visitor.visit_f64(n),
-            Value::String(s) => match s {
-                Cow::Borrowed(s) => visitor.visit_borrowed_str(s),
-                Cow::Owned(s) => visitor.visit_string(s),
-            },
+            Value::String(Cow::Borrowed(s)) => visitor.visit_borrowed_str(s),
+            Value::String(Cow::Owned(s)) => visitor.visit_string(s),
+            Value::SmallString(s) => visitor.visit_string(s.to_string()),
             Value::Array(a) => visitor.visit_seq(Array(a.iter())),
             Value::Object(o) => visitor.visit_map(Object {
                 i: o.iter(),

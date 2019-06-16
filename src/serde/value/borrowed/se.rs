@@ -2,7 +2,7 @@ use crate::value::borrowed::Value;
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
 };
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 
 impl<'a> Serialize for Value<'a> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -16,6 +16,7 @@ impl<'a> Serialize for Value<'a> {
             Value::I64(i) => serializer.serialize_i64(*i),
             Value::String(Cow::Borrowed(s)) => serializer.serialize_str(s),
             Value::String(Cow::Owned(s)) => serializer.serialize_str(&s),
+            Value::SmallString(s) => serializer.serialize_str(s.borrow()),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
                 for e in v {

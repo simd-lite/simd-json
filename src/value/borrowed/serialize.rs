@@ -8,9 +8,9 @@ use super::{Map, Value};
 use crate::stry;
 use crate::value::generator::*;
 use crate::value::ValueTrait;
+use std::borrow::Borrow;
 use std::io;
 use std::io::Write;
-
 //use util::print_dec;
 
 impl<'value> Value<'value> {
@@ -80,6 +80,9 @@ trait Generator: BaseGenerator {
         match *json {
             Value::Null => self.write(b"null"),
             Value::String(ref string) => self.write_string(string),
+            Value::SmallString(ref s) => {
+                self.write_string(s.borrow()) // FIXME: small strings will always be w/o escapes?
+            }
             Value::I64(number) => self.write_int(number),
             Value::F64(number) => self.write_float(number),
             Value::Bool(true) => self.write(b"true"),
