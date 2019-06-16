@@ -54,19 +54,22 @@ impl fmt::Debug for SmallString {
 
 impl PartialEq for SmallString {
     fn eq(&self, other: &Self) -> bool {
-        self.len == other.len && self.data[..self.len()] == other.data[..self.len()]
+        unsafe {
+            self.len == other.len
+                && self.data.get_unchecked(..self.len()) == other.data.get_unchecked(..other.len())
+        }
     }
 }
 
 impl PartialEq<str> for SmallString {
     fn eq(&self, other: &str) -> bool {
-        &self.data[..self.len()] == other.as_bytes()
+        unsafe { self.data.get_unchecked(..self.len()) == other.as_bytes() }
     }
 }
 
 impl PartialEq<String> for SmallString {
     fn eq(&self, other: &String) -> bool {
-        &self.data[..self.len()] == other.as_str().as_bytes()
+        unsafe { self.data.get_unchecked(..self.len()) == other.as_str().as_bytes() }
     }
 }
 
