@@ -1206,6 +1206,14 @@ mod tests {
         assert_eq!(v, parsed);
     }
 
+    #[test]
+    #[ignore]
+    fn test_size() {
+        dbg!(std::mem::size_of::<crate::BorrowedValue>());
+        dbg!(std::mem::size_of::<crate::OwnedValue>());
+        assert!(false);
+    }
+
     //6.576692109929364e305
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
