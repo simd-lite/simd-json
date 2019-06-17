@@ -72,6 +72,10 @@ pass!(pass13);
 pass!(pass14);
 pass!(pass15);
 pass!(pass16);
+pass!(pass17_no_overflow);
+// We convert this to a flaot yay?
+pass!(pass18_not_toolarge);
+pass!(pass19);
 
 // fail!(fail01_EXCLUDED);
 fail!(fail02);
@@ -116,8 +120,6 @@ fail!(fail37);
 fail!(fail38);
 //fail!(fail39_EXCLUDED);
 
-fail!(fail40_s64boverflow);
-fail!(fail41_toolarge);
 fail!(fail42);
 fail!(fail43);
 fail!(fail44);
@@ -147,7 +149,6 @@ fail!(fail65);
 fail!(fail66);
 fail!(fail67);
 fail!(fail68);
-fail!(fail69);
 
 crash!(crash000000);
 crash!(crash000001);

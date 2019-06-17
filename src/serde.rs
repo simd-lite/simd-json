@@ -7,7 +7,6 @@
 /// directly to structs this is th4 place to go.
 mod de;
 mod value;
-use crate::numberparse::Number;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use serde_ext::Deserialize;
 use std::fmt;
@@ -80,12 +79,12 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_signed(&mut self) -> Result<i64> {
         match self.next_() {
-            b'-' => match stry!(self.parse_number(true)) {
-                Number::I64(n) => Ok(n),
+            b'-' => match stry!(self.parse_number(true)).as_i64() {
+                Some(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
-            b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Number::I64(n) => Ok(n),
+            b'0'...b'9' => match stry!(self.parse_number(false)).as_i64() {
+                Some(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
             _ => Err(self.error(ErrorType::ExpectedSigned)),
@@ -95,8 +94,8 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_unsigned(&mut self) -> Result<u64> {
         match self.next_() {
-            b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Number::I64(n) => Ok(n as u64),
+            b'0'...b'9' => match stry!(self.parse_number(false)).as_u64() {
+                Some(n) => Ok(n as u64),
                 _ => Err(self.error(ErrorType::ExpectedUnsigned)),
             },
             _ => Err(self.error(ErrorType::ExpectedUnsigned)),
@@ -105,13 +104,13 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_double(&mut self) -> Result<f64> {
         match self.next_() {
-            b'-' => match stry!(self.parse_number(true)) {
-                Number::F64(n) => Ok(n),
-                Number::I64(n) => Ok(n as f64),
+            b'-' => match stry!(self.parse_number(true)).as_f64() {
+                Some(n) => Ok(n),
+                _ => Err(self.error(ErrorType::ExpectedFloat)),
             },
-            b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Number::F64(n) => Ok(n),
-                Number::I64(n) => Ok(n as f64),
+            b'0'...b'9' => match stry!(self.parse_number(false)).as_f64() {
+                Some(n) => Ok(n),
+                _ => Err(self.error(ErrorType::ExpectedFloat)),
             },
             _ => Err(self.error(ErrorType::ExpectedFloat)),
         }

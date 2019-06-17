@@ -1,4 +1,3 @@
-use crate::numberparse::Number;
 use crate::*;
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
@@ -23,14 +22,29 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             b'n' => visitor.visit_unit(),
             b't' => visitor.visit_bool(true),
             b'f' => visitor.visit_bool(false),
-            b'-' => match stry!(self.parse_number(true)) {
-                Number::F64(n) => visitor.visit_f64(n),
-                Number::I64(n) => visitor.visit_i64(n),
-            },
-            b'0'...b'9' => match stry!(self.parse_number(false)) {
-                Number::F64(n) => visitor.visit_f64(n),
-                Number::I64(n) => visitor.visit_i64(n),
-            },
+            b'-' => {
+                let d = stry!(self.parse_number(true));
+                if let Some(n) = d.as_i64() {
+                    visitor.visit_i64(n)
+                } else if let Some(n) = d.as_f64() {
+                    dbg!(n);
+                    visitor.visit_f64(n)
+                } else {
+                    Err(self.error(ErrorType::InvalidNumber))
+                }
+            }
+            b'0'...b'9' => {
+                let d = stry!(self.parse_number(false));
+                dbg!(&d);
+                if let Some(n) = d.as_u64() {
+                    visitor.visit_u64(n)
+                } else if let Some(n) = d.as_f64() {
+                    dbg!(n);
+                    visitor.visit_f64(n)
+                } else {
+                    Err(self.error(ErrorType::InvalidNumber))
+                }
+            }
             b'[' => visitor.visit_seq(CommaSeparated::new(&mut self)),
             b'{' => visitor.visit_map(CommaSeparated::new(&mut self)),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),

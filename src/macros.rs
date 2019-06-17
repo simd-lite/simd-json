@@ -406,7 +406,7 @@ mod test {
     #[test]
     fn array() {
         let v: OwnedValue = json!(vec![1]);
-        assert_eq!(OwnedValue::Array(vec![OwnedValue::I64(1)]), v);
+        assert_eq!(OwnedValue::Array(vec![OwnedValue::from(1)]), v);
     }
 
     #[test]

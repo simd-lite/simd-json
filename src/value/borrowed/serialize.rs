@@ -83,8 +83,7 @@ trait Generator: BaseGenerator {
             Value::SmallString(ref s) => {
                 self.write_string(s.borrow()) // FIXME: small strings will always be w/o escapes?
             }
-            Value::I64(number) => self.write_int(number),
-            Value::F64(number) => self.write_float(number),
+            Value::Number(number) => self.write_number(&number),
             Value::Bool(true) => self.write(b"true"),
             Value::Bool(false) => self.write(b"false"),
             Value::Array(ref array) => {

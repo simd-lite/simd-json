@@ -14,8 +14,18 @@ impl Serialize for Value {
         match self {
             Value::Bool(b) => serializer.serialize_bool(*b),
             Value::Null => serializer.serialize_unit(),
-            Value::F64(f) => serializer.serialize_f64(*f),
-            Value::I64(i) => serializer.serialize_i64(*i),
+            Value::Number(n) => {
+                if let Some(n) = n.as_u64() {
+                    serializer.serialize_u64(n)
+                } else if let Some(n) = n.as_i64() {
+                    serializer.serialize_i64(n)
+                } else if let Some(n) = n.as_f64() {
+                    serializer.serialize_f64(n)
+                } else {
+                    // We serialize non as null
+                    serializer.serialize_unit()
+                }
+            }
             Value::String(s) => serializer.serialize_str(&s),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
@@ -75,7 +85,7 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_i64(self, value: i64) -> Result<Value> {
-        Ok(Value::I64(value))
+        Ok(Value::from(value))
     }
 
     #[cfg(feature = "arbitrary_precision")]
@@ -102,7 +112,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_u64(self, value: u64) -> Result<Value> {
-        Ok(Value::I64(value as i64))
+        Ok(Value::from(value as i64))
     }
 
     #[cfg(feature = "arbitrary_precision")]
@@ -119,7 +129,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_f64(self, value: f64) -> Result<Value> {
-        Ok(Value::F64(value))
+        Ok(Value::from(value))
     }
 
     #[inline]
@@ -135,7 +145,7 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Value> {
-        let vec = value.iter().map(|&b| Value::I64(b.into())).collect();
+        let vec = value.iter().map(|&b| Value::from(b)).collect();
         Ok(Value::Array(vec))
     }
 

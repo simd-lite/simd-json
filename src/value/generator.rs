@@ -4,7 +4,9 @@
 //
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
+use crate::number::Number;
 use crate::portability::trailingzeroes;
+use crate::util::print_dec;
 use crate::value::ValueTrait;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -201,6 +203,15 @@ pub trait BaseGenerator {
     fn write_int(&mut self, num: i64) -> io::Result<()> {
         itoa::write(self.get_writer(), num).map(|_| ())
         //self.write(num.to_string().as_bytes())
+    }
+
+    #[inline(always)]
+    fn write_number(&mut self, num: &Number) -> io::Result<()> {
+        if num.is_nan() {
+            return self.write(b"null");
+        }
+        let (positive, mantissa, exponent) = num.as_parts();
+        unsafe { print_dec::write(self.get_writer(), positive, mantissa, exponent) }
     }
 }
 

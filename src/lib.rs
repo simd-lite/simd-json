@@ -1,4 +1,4 @@
-#![deny(warnings)]
+//#![deny(warnings)]
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
 //! simdjson-rs is a rust port of the simejson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
@@ -78,6 +78,7 @@ mod charutils;
 #[macro_use]
 mod macros;
 mod error;
+pub mod number;
 mod numberparse;
 mod parsedjson;
 mod portability;
@@ -87,7 +88,7 @@ mod stringparse;
 mod utf8check;
 pub mod value;
 
-use crate::numberparse::Number;
+use crate::number::Number;
 use crate::portability::*;
 use crate::stringparse::*;
 #[cfg(target_arch = "x86")]
@@ -410,6 +411,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number(&mut self, minus: bool) -> Result<Number> {
+        dbg!(minus);
         let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {
@@ -428,6 +430,12 @@ impl<'de> Deserializer<'de> {
         let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         self.parse_number_int(input, minus)
     }
+}
+
+pub mod util {
+    pub mod diyfp;
+    pub mod grisu2;
+    pub mod print_dec;
 }
 
 #[cfg(test)]
@@ -580,15 +588,18 @@ mod tests {
     }
 
     #[test]
-    fn float() {
+    fn float0() {
         let mut d = String::from("23.0");
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d2 = d.clone();
+        let mut d2 = unsafe { d2.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
-        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::from(23.0)));
+        let v_owned = crate::to_owned_value(&mut d1);
+        let v_borrowed = crate::to_borrowed_value(&mut d2);
+        assert_eq!(v_owned, Ok(crate::OwnedValue::from(23)));
+        assert_eq!(v_borrowed, Ok(crate::BorrowedValue::from(23)));
+        // assert_eq!(v_simd, v_serde); We will parse the flaot differently
     }
 
     #[test]
@@ -753,7 +764,7 @@ mod tests {
 
     #[test]
     fn list() {
-        let mut d = String::from(r#"[42, 23.0, "snot badger"]"#);
+        let mut d = String::from(r#"[42, 23.1, "snot badger"]"#);
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
@@ -764,7 +775,7 @@ mod tests {
             to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::from(42),
-                Value::from(23.0),
+                Value::from(23.1),
                 Value::from("snot badger")
             ]))
         );
@@ -772,7 +783,7 @@ mod tests {
 
     #[test]
     fn nested_list1() {
-        let mut d = String::from(r#"[42, [23.0, "snot"], "bad", "ger"]"#);
+        let mut d = String::from(r#"[42, [23.1, "snot"], "bad", "ger"]"#);
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
@@ -780,7 +791,7 @@ mod tests {
             to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::from(42),
-                Value::Array(vec![Value::from(23.0), Value::from("snot")]),
+                Value::Array(vec![Value::from(23.1), Value::from("snot")]),
                 Value::from("bad"),
                 Value::from("ger")
             ]))
@@ -793,7 +804,7 @@ mod tests {
 
     #[test]
     fn nested_list2() {
-        let mut d = String::from(r#"[42, [23.0, "snot"], {"bad": "ger"}]"#);
+        let mut d = String::from(r#"[42, [23.1, "snot"], {"bad": "ger"}]"#);
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
@@ -1236,6 +1247,21 @@ mod tests {
         assert_eq!(v, parsed);
     }
 
+    //#[ignore]
+    #[test]
+    fn many_zeros() {
+        let v = -100000000000000000i64;
+        let mut d = String::from("-100000000000000000");
+        let mut d = unsafe { d.as_bytes_mut() };
+
+        dbg!(std::i64::MIN < -100000000000000000i64);
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        dbg!(&v_simd);
+        dbg!(&v_serde);
+        assert_eq!(v_simd, v_serde);
+    }
+
     #[test]
     #[ignore]
     fn test_size() {
@@ -1320,6 +1346,7 @@ mod tests {
 
         #[test]
         fn prop_json(d in arb_json()) {
+            println!("{}", d);
             if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
                 let mut d1 = d.clone();
                 let d1 = unsafe{ d1.as_bytes_mut()};

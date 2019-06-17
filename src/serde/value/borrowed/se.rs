@@ -12,8 +12,18 @@ impl<'a> Serialize for Value<'a> {
         match self {
             Value::Bool(b) => serializer.serialize_bool(*b),
             Value::Null => serializer.serialize_unit(),
-            Value::F64(f) => serializer.serialize_f64(*f),
-            Value::I64(i) => serializer.serialize_i64(*i),
+            Value::Number(n) => {
+                if let Some(n) = n.as_u64() {
+                    serializer.serialize_u64(n)
+                } else if let Some(n) = n.as_i64() {
+                    serializer.serialize_i64(n)
+                } else if let Some(n) = n.as_f64() {
+                    serializer.serialize_f64(n)
+                } else {
+                    // We serialize non as null
+                    serializer.serialize_unit()
+                }
+            }
             Value::String(Cow::Borrowed(s)) => serializer.serialize_str(s),
             Value::String(Cow::Owned(s)) => serializer.serialize_str(&s),
             Value::SmallString(s) => serializer.serialize_str(s.borrow()),

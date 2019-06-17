@@ -11,6 +11,7 @@ use std::fmt;
 use std::ops::Index;
 
 pub type Map = HashMap<String, Value>;
+use crate::number::Number;
 
 /// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
@@ -26,8 +27,9 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
 pub enum Value {
     Null,
     Bool(bool),
-    I64(i64),
-    F64(f64),
+    Number(Number),
+    //    I64(i64),
+    //    F64(f64),
     String(String),
     Array(Vec<Value>),
     Object(Map),
@@ -55,8 +57,7 @@ impl ValueTrait for Value {
         match self {
             Value::Null => ValueType::Null,
             Value::Bool(_) => ValueType::Bool,
-            Value::F64(_) => ValueType::F64,
-            Value::I64(_) => ValueType::I64,
+            Value::Number(_) => ValueType::F64,
             Value::String(_) => ValueType::String,
             Value::Array(_) => ValueType::Array,
             Value::Object(_) => ValueType::Object,
@@ -79,29 +80,28 @@ impl ValueTrait for Value {
 
     fn as_i64(&self) -> Option<i64> {
         match self {
-            Value::I64(i) => Some(*i),
+            Value::Number(n) => n.as_i64(),
             _ => None,
         }
     }
 
     fn as_u64(&self) -> Option<u64> {
         match self {
-            Value::I64(i) if *i >= 0 => Some(*i as u64),
+            Value::Number(n) => n.as_u64(),
             _ => None,
         }
     }
 
     fn as_f64(&self) -> Option<f64> {
         match self {
-            Value::F64(i) => Some(*i),
+            Value::Number(n) => n.as_f64(),
             _ => None,
         }
     }
 
     fn cast_f64(&self) -> Option<f64> {
         match self {
-            Value::F64(i) => Some(*i),
-            Value::I64(i) => Some(*i as f64),
+            Value::Number(n) => n.as_f64(),
             _ => None,
         }
     }
@@ -147,8 +147,7 @@ impl fmt::Display for Value {
             Value::Null => f.write_str("null"),
             Value::Bool(false) => f.write_str("false"),
             Value::Bool(true) => f.write_str("true"),
-            Value::I64(n) => f.write_str(&n.to_string()),
-            Value::F64(n) => f.write_str(&n.to_string()),
+            Value::Number(n) => write!(f, "{}", n),
             Value::String(s) => write!(f, "{}", s),
             Value::Array(a) => write!(f, "{:?}", a),
             Value::Object(o) => write!(f, "{:?}", o),
@@ -190,8 +189,8 @@ impl<'de> Deserializer<'de> {
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
-            b'-' => self.parse_number_root(true).map(Value::from),
-            b'0'...b'9' => self.parse_number_root(false).map(Value::from),
+            b'-' => self.parse_number_root(true).map(Value::Number),
+            b'0'...b'9' => self.parse_number_root(false).map(Value::Number),
             b'[' => self.parse_array_owned(),
             b'{' => self.parse_map_owned(),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
@@ -217,8 +216,8 @@ impl<'de> Deserializer<'de> {
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
-            b'-' => self.parse_number(true).map(Value::from),
-            b'0'...b'9' => self.parse_number(false).map(Value::from),
+            b'-' => self.parse_number(true).map(Value::Number),
+            b'0'...b'9' => self.parse_number(false).map(Value::Number),
             b'[' => self.parse_array_owned(),
             b'{' => self.parse_map_owned(),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),
