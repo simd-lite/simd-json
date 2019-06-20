@@ -103,8 +103,8 @@ impl Number {
     pub unsafe fn from_parts_unchecked(positive: bool, mantissa: u64, exponent: i16) -> Self {
         Number {
             category: positive as u8,
-            exponent: exponent,
-            mantissa: mantissa,
+            exponent,
+            mantissa,
         }
     }
 
@@ -246,7 +246,7 @@ impl PartialEq for Number {
         let e_diff = self.exponent - other.exponent;
 
         if e_diff == 0 {
-            return self.mantissa == other.mantissa;
+            self.mantissa == other.mantissa
         } else if e_diff > 0 {
             let power = decimal_power(e_diff as u16);
 
@@ -396,11 +396,11 @@ impl From<f32> for Number {
         }
 
         if !float.is_sign_positive() {
-            let (mantissa, exponent) = grisu2::convert(-float as f64);
+            let (mantissa, exponent) = grisu2::convert(-f64::from(float));
 
             Number::from_parts(false, mantissa, exponent)
         } else {
-            let (mantissa, exponent) = grisu2::convert(float as f64);
+            let (mantissa, exponent) = grisu2::convert(f64::from(float));
 
             Number::from_parts(true, mantissa, exponent)
         }
@@ -435,6 +435,7 @@ macro_rules! impl_unsigned {
     ($( $t:ty ),*) => ($(
         impl From<$t> for Number {
             #[inline]
+            #[allow(clippy::cast_lossless)]
             fn from(num: $t) -> Number {
                 Number {
                     category: POSITIVE,
@@ -566,21 +567,21 @@ fn decimal_power(mut e: u16) -> u64 {
         100,
         1000,
         10000,
-        100000,
-        1000000,
-        10000000,
-        100000000,
-        1000000000,
-        10000000000,
-        100000000000,
-        1000000000000,
-        10000000000000,
-        100000000000000,
-        1000000000000000,
-        10000000000000000,
-        100000000000000000,
-        1000000000000000000,
-        10000000000000000000,
+        100_000,
+        1_000_000,
+        10_000_000,
+        100_000_000,
+        1_000_000_000,
+        10_000_000_000,
+        100_000_000_000,
+        1_000_000_000_000,
+        10_000_000_000_000,
+        100_000_000_000_000,
+        1_000_000_000_000_000,
+        10_000_000_000_000_000,
+        100_000_000_000_000_000,
+        1_000_000_000_000_000_000,
+        10_000_000_000_000_000_000,
     ];
 
     if e < 20 {

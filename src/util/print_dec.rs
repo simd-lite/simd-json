@@ -9,13 +9,13 @@
 use crate::stry;
 use std::{io, mem, ptr, slice};
 
-const DEC_DIGITS_LUT: &'static [u8] = b"0001020304050607080910111213141516171819\
+const DEC_DIGITS_LUT: &[u8] = b"0001020304050607080910111213141516171819\
       2021222324252627282930313233343536373839\
       4041424344454647484950515253545556575859\
       6061626364656667686970717273747576777879\
       8081828384858687888990919293949596979899";
 
-const ZEROFILL: &'static [u8] = &[b'0'; 20];
+const ZEROFILL: &[u8] = &[b'0'; 20];
 
 #[inline(always)]
 unsafe fn write_num(n: &mut u64, curr: &mut isize, buf_ptr: *mut u8, lut_ptr: *const u8) {
@@ -132,9 +132,9 @@ pub unsafe fn write<W: io::Write>(
             *buf_ptr.offset(curr) = ((n % 10) as u8) + b'0';
         } else {
             // eagerly decode 4 digits at a time
-            while n >= 100000 {
-                let rem = (n % 10000) as isize;
-                n /= 10000;
+            while n >= 100_000 {
+                let rem = (n % 10_000) as isize;
+                n /= 10_000;
 
                 let d1 = (rem / 100) << 1;
                 let d2 = (rem % 100) << 1;
@@ -144,7 +144,7 @@ pub unsafe fn write<W: io::Write>(
             }
 
             // decode 2 more digits
-            if n >= 1000 {
+            if n >= 1_000 {
                 let d1 = ((n % 100) << 1) as isize;
                 n /= 100;
                 curr -= 2;
@@ -198,7 +198,7 @@ pub unsafe fn write<W: io::Write>(
         } else {
             wr.write_all(b"e-")?;
         }
-        return write(wr, true, e as u64, 0);
+        return write(wr, true, u64::from(e), 0);
     }
 
     // Exponent greater than 0

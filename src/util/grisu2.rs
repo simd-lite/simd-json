@@ -37,15 +37,15 @@ fn count_decimal_digit32(n: u32) -> i16 {
         2
     } else if n < 1000 {
         3
-    } else if n < 10000 {
+    } else if n < 10_000 {
         4
-    } else if n < 100000 {
+    } else if n < 100_000 {
         5
-    } else if n < 1000000 {
+    } else if n < 1_000_000 {
         6
-    } else if n < 10000000 {
+    } else if n < 10_000_000 {
         7
-    } else if n < 100000000 {
+    } else if n < 100_000_000 {
         8
     }
     // Will not reach 10 digits in digit_gen()
@@ -57,7 +57,16 @@ fn count_decimal_digit32(n: u32) -> i16 {
 #[inline]
 unsafe fn digit_gen(w: DiyFp, mp: DiyFp, mut delta: u64, mut k: i16) -> (u64, i16) {
     static POW10: [u32; 10] = [
-        1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000,
+        1,
+        10,
+        100,
+        1_000,
+        10_000,
+        100_000,
+        1_000_000,
+        10_000_000,
+        100_000_000,
+        1_000_000_000,
     ];
     let one = DiyFp::new(1u64 << -mp.e, mp.e);
     let wp_w = mp - w;
@@ -65,27 +74,27 @@ unsafe fn digit_gen(w: DiyFp, mp: DiyFp, mut delta: u64, mut k: i16) -> (u64, i1
     let mut p2 = mp.f & (one.f - 1);
     let mut kappa = count_decimal_digit32(p1); // kappa in [0, 9]
 
-    let mut buffer = p1 as u64;
+    let mut buffer = u64::from(p1);
 
     while kappa > 0 {
         match kappa {
             9 => {
-                p1 %= 100000000;
+                p1 %= 100_000_000;
             }
             8 => {
-                p1 %= 10000000;
+                p1 %= 10_000_000;
             }
             7 => {
-                p1 %= 1000000;
+                p1 %= 1_000_000;
             }
             6 => {
-                p1 %= 100000;
+                p1 %= 100_000;
             }
             5 => {
-                p1 %= 10000;
+                p1 %= 10_000;
             }
             4 => {
-                p1 %= 1000;
+                p1 %= 1_000;
             }
             3 => {
                 p1 %= 100;
@@ -99,10 +108,10 @@ unsafe fn digit_gen(w: DiyFp, mp: DiyFp, mut delta: u64, mut k: i16) -> (u64, i1
             _ => {}
         }
         kappa = kappa.wrapping_sub(1);
-        let tmp = ((p1 as u64) << -one.e) + p2;
+        let tmp = ((u64::from(p1)) << -one.e) + p2;
         if tmp <= delta {
             k += kappa;
-            let pow10 = POW10[kappa as usize] as u64;
+            let pow10 = u64::from(POW10[kappa as usize]);
             buffer /= pow10;
 
             grisu_round(&mut buffer, delta, tmp, pow10 << -one.e, wp_w.f);
@@ -115,7 +124,7 @@ unsafe fn digit_gen(w: DiyFp, mp: DiyFp, mut delta: u64, mut k: i16) -> (u64, i1
         delta *= 10;
         let d = (p2 >> -one.e) as u8;
         if d != 0 || buffer != 0 {
-            buffer = buffer * 10 + d as u64;
+            buffer = buffer * 10 + u64::from(d);
         }
         p2 &= one.f - 1;
         kappa = kappa.wrapping_sub(1);
@@ -130,7 +139,7 @@ unsafe fn digit_gen(w: DiyFp, mp: DiyFp, mut delta: u64, mut k: i16) -> (u64, i1
                 one.f,
                 wp_w.f
                     * if index < 9 {
-                        POW10[-(kappa as isize) as usize] as u64
+                        u64::from(POW10[-(kappa as isize) as usize])
                     } else {
                         0
                     },

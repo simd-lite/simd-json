@@ -15,9 +15,9 @@ const DIY_SIGNIFICAND_SIZE: isize = 64;
 const DP_SIGNIFICAND_SIZE: isize = 52;
 const DP_EXPONENT_BIAS: isize = 0x3FF + DP_SIGNIFICAND_SIZE;
 const DP_MIN_EXPONENT: isize = -DP_EXPONENT_BIAS;
-const DP_EXPONENT_MASK: u64 = 0x7FF0000000000000;
-const DP_SIGNIFICAND_MASK: u64 = 0x000FFFFFFFFFFFFF;
-const DP_HIDDEN_BIT: u64 = 0x0010000000000000;
+const DP_EXPONENT_MASK: u64 = 0x7FF0_0000_0000_0000;
+const DP_SIGNIFICAND_MASK: u64 = 0x000F_FFFF_FFFF_FFFF;
+const DP_HIDDEN_BIT: u64 = 0x0010_0000_0000_0000;
 
 #[derive(Copy, Clone, Debug)]
 pub struct DiyFp {
@@ -27,7 +27,7 @@ pub struct DiyFp {
 
 impl DiyFp {
     pub fn new(f: u64, e: isize) -> Self {
-        DiyFp { f: f, e: e }
+        DiyFp { f, e }
     }
 
     /*
@@ -144,8 +144,9 @@ impl ops::Sub for DiyFp {
 
 impl ops::Mul for DiyFp {
     type Output = DiyFp;
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn mul(self, rhs: DiyFp) -> DiyFp {
-        let m32 = 0xFFFFFFFFu64;
+        let m32 = 0xFFFF_FFFFu64;
         let a = self.f >> 32;
         let b = self.f & m32;
         let c = rhs.f >> 32;
@@ -166,93 +167,93 @@ impl ops::Mul for DiyFp {
 fn get_cached_power_by_index(index: usize) -> DiyFp {
     // 10^-348, 10^-340, ..., 10^340
     static CACHED_POWERS_F: [u64; 87] = [
-        0xfa8fd5a0081c0288,
-        0xbaaee17fa23ebf76,
-        0x8b16fb203055ac76,
-        0xcf42894a5dce35ea,
-        0x9a6bb0aa55653b2d,
-        0xe61acf033d1a45df,
-        0xab70fe17c79ac6ca,
-        0xff77b1fcbebcdc4f,
-        0xbe5691ef416bd60c,
-        0x8dd01fad907ffc3c,
-        0xd3515c2831559a83,
-        0x9d71ac8fada6c9b5,
-        0xea9c227723ee8bcb,
-        0xaecc49914078536d,
-        0x823c12795db6ce57,
-        0xc21094364dfb5637,
-        0x9096ea6f3848984f,
-        0xd77485cb25823ac7,
-        0xa086cfcd97bf97f4,
-        0xef340a98172aace5,
-        0xb23867fb2a35b28e,
-        0x84c8d4dfd2c63f3b,
-        0xc5dd44271ad3cdba,
-        0x936b9fcebb25c996,
-        0xdbac6c247d62a584,
-        0xa3ab66580d5fdaf6,
-        0xf3e2f893dec3f126,
-        0xb5b5ada8aaff80b8,
-        0x87625f056c7c4a8b,
-        0xc9bcff6034c13053,
-        0x964e858c91ba2655,
-        0xdff9772470297ebd,
-        0xa6dfbd9fb8e5b88f,
-        0xf8a95fcf88747d94,
-        0xb94470938fa89bcf,
-        0x8a08f0f8bf0f156b,
-        0xcdb02555653131b6,
-        0x993fe2c6d07b7fac,
-        0xe45c10c42a2b3b06,
-        0xaa242499697392d3,
-        0xfd87b5f28300ca0e,
-        0xbce5086492111aeb,
-        0x8cbccc096f5088cc,
-        0xd1b71758e219652c,
-        0x9c40000000000000,
-        0xe8d4a51000000000,
-        0xad78ebc5ac620000,
-        0x813f3978f8940984,
-        0xc097ce7bc90715b3,
-        0x8f7e32ce7bea5c70,
-        0xd5d238a4abe98068,
-        0x9f4f2726179a2245,
-        0xed63a231d4c4fb27,
-        0xb0de65388cc8ada8,
-        0x83c7088e1aab65db,
-        0xc45d1df942711d9a,
-        0x924d692ca61be758,
-        0xda01ee641a708dea,
-        0xa26da3999aef774a,
-        0xf209787bb47d6b85,
-        0xb454e4a179dd1877,
-        0x865b86925b9bc5c2,
-        0xc83553c5c8965d3d,
-        0x952ab45cfa97a0b3,
-        0xde469fbd99a05fe3,
-        0xa59bc234db398c25,
-        0xf6c69a72a3989f5c,
-        0xb7dcbf5354e9bece,
-        0x88fcf317f22241e2,
-        0xcc20ce9bd35c78a5,
-        0x98165af37b2153df,
-        0xe2a0b5dc971f303a,
-        0xa8d9d1535ce3b396,
-        0xfb9b7cd9a4a7443c,
-        0xbb764c4ca7a44410,
-        0x8bab8eefb6409c1a,
-        0xd01fef10a657842c,
-        0x9b10a4e5e9913129,
-        0xe7109bfba19c0c9d,
-        0xac2820d9623bf429,
-        0x80444b5e7aa7cf85,
-        0xbf21e44003acdd2d,
-        0x8e679c2f5e44ff8f,
-        0xd433179d9c8cb841,
-        0x9e19db92b4e31ba9,
-        0xeb96bf6ebadf77d9,
-        0xaf87023b9bf0ee6b,
+        0xfa8f_d5a0_081c_0288,
+        0xbaae_e17f_a23e_bf76,
+        0x8b16_fb20_3055_ac76,
+        0xcf42_894a_5dce_35ea,
+        0x9a6b_b0aa_5565_3b2d,
+        0xe61a_cf03_3d1a_45df,
+        0xab70_fe17_c79a_c6ca,
+        0xff77_b1fc_bebc_dc4f,
+        0xbe56_91ef_416b_d60c,
+        0x8dd0_1fad_907f_fc3c,
+        0xd351_5c28_3155_9a83,
+        0x9d71_ac8f_ada6_c9b5,
+        0xea9c_2277_23ee_8bcb,
+        0xaecc_4991_4078_536d,
+        0x823c_1279_5db6_ce57,
+        0xc210_9436_4dfb_5637,
+        0x9096_ea6f_3848_984f,
+        0xd774_85cb_2582_3ac7,
+        0xa086_cfcd_97bf_97f4,
+        0xef34_0a98_172a_ace5,
+        0xb238_67fb_2a35_b28e,
+        0x84c8_d4df_d2c6_3f3b,
+        0xc5dd_4427_1ad3_cdba,
+        0x936b_9fce_bb25_c996,
+        0xdbac_6c24_7d62_a584,
+        0xa3ab_6658_0d5f_daf6,
+        0xf3e2_f893_dec3_f126,
+        0xb5b5_ada8_aaff_80b8,
+        0x8762_5f05_6c7c_4a8b,
+        0xc9bc_ff60_34c1_3053,
+        0x964e_858c_91ba_2655,
+        0xdff9_7724_7029_7ebd,
+        0xa6df_bd9f_b8e5_b88f,
+        0xf8a9_5fcf_8874_7d94,
+        0xb944_7093_8fa8_9bcf,
+        0x8a08_f0f8_bf0f_156b,
+        0xcdb0_2555_6531_31b6,
+        0x993f_e2c6_d07b_7fac,
+        0xe45c_10c4_2a2b_3b06,
+        0xaa24_2499_6973_92d3,
+        0xfd87_b5f2_8300_ca0e,
+        0xbce5_0864_9211_1aeb,
+        0x8cbc_cc09_6f50_88cc,
+        0xd1b7_1758_e219_652c,
+        0x9c40_0000_0000_0000,
+        0xe8d4_a510_0000_0000,
+        0xad78_ebc5_ac62_0000,
+        0x813f_3978_f894_0984,
+        0xc097_ce7b_c907_15b3,
+        0x8f7e_32ce_7bea_5c70,
+        0xd5d2_38a4_abe9_8068,
+        0x9f4f_2726_179a_2245,
+        0xed63_a231_d4c4_fb27,
+        0xb0de_6538_8cc8_ada8,
+        0x83c7_088e_1aab_65db,
+        0xc45d_1df9_4271_1d9a,
+        0x924d_692c_a61b_e758,
+        0xda01_ee64_1a70_8dea,
+        0xa26d_a399_9aef_774a,
+        0xf209_787b_b47d_6b85,
+        0xb454_e4a1_79dd_1877,
+        0x865b_8692_5b9b_c5c2,
+        0xc835_53c5_c896_5d3d,
+        0x952a_b45c_fa97_a0b3,
+        0xde46_9fbd_99a0_5fe3,
+        0xa59b_c234_db39_8c25,
+        0xf6c6_9a72_a398_9f5c,
+        0xb7dc_bf53_54e9_bece,
+        0x88fc_f317_f222_41e2,
+        0xcc20_ce9b_d35c_78a5,
+        0x9816_5af3_7b21_53df,
+        0xe2a0_b5dc_971f_303a,
+        0xa8d9_d153_5ce3_b396,
+        0xfb9b_7cd9_a4a7_443c,
+        0xbb76_4c4c_a7a4_4410,
+        0x8bab_8eef_b640_9c1a,
+        0xd01f_ef10_a657_842c,
+        0x9b10_a4e5_e991_3129,
+        0xe710_9bfb_a19c_0c9d,
+        0xac28_20d9_623b_f429,
+        0x8044_4b5e_7aa7_cf85,
+        0xbf21_e440_03ac_dd2d,
+        0x8e67_9c2f_5e44_ff8f,
+        0xd433_179d_9c8c_b841,
+        0x9e19_db92_b4e3_1ba9,
+        0xeb96_bf6e_badf_77d9,
+        0xaf87_023b_9bf0_ee6b,
     ];
     static CACHED_POWERS_E: [i16; 87] = [
         -1220, -1193, -1166, -1140, -1113, -1087, -1060, -1034, -1007, -980, -954, -927, -901,
@@ -281,7 +282,7 @@ inline DiyFp GetCachedPower(int e, int* K) {
 */
 #[inline]
 pub fn get_cached_power(e: isize) -> (DiyFp, isize) {
-    let dk = (-61 - e) as f64 * 0.30102999566398114f64 + 347f64; // dk must be positive, so can do ceiling in positive
+    let dk = (-61 - e) as f64 * 0.301_029_995_663_981_14f64 + 347f64; // dk must be positive, so can do ceiling in positive
     let mut k = dk as isize;
     if dk - k as f64 > 0.0 {
         k += 1;

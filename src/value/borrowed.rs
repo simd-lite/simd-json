@@ -42,9 +42,14 @@ impl SmallString {
     pub fn len(&self) -> usize {
         self.len as usize
     }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
-        &self.data.get_unchecked(..self.len())
+        unsafe { self.data.get_unchecked(..self.len()) }
     }
 }
 

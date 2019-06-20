@@ -279,6 +279,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
+    /*
     /// called by parse_number when we know that the output is an integer,
     /// but where there might be some integer overflow.
     /// we want to catch overflows!
@@ -326,6 +327,7 @@ impl<'de> Deserializer<'de> {
             Err(self.error(ErrorType::InvalidNumber))
         }
     }
+    */
 
     // parse the number at buf + offset
     // define JSON_TEST_NUMBERS for unit testing
