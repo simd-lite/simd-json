@@ -81,7 +81,9 @@ trait Generator: BaseGenerator {
             Value::Null => self.write(b"null"),
             Value::String(ref string) => self.write_string(string),
             Value::SmallString(ref s) => {
-                self.write_string(s.borrow()) // FIXME: small strings will always be w/o escapes?
+                stry!(self.write_char(b'"'));
+                stry!(self.write(s.borrow()));
+                self.write_char(b'"')
             }
             Value::Number(number) => self.write_number(&number),
             Value::Bool(true) => self.write(b"true"),

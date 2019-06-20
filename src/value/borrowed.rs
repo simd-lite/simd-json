@@ -4,8 +4,8 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::portability::trailingzeroes;
 use crate::number::Number;
+use crate::portability::trailingzeroes;
 use crate::value::{ValueTrait, ValueType};
 use crate::{static_cast_u32, stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
@@ -17,6 +17,8 @@ use std::borrow::{Borrow, Cow};
 use std::fmt;
 use std::mem;
 use std::ops::Index;
+
+const SMALL_STR_LEN: usize = 54;
 
 pub type Map<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 
@@ -31,7 +33,7 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
 
 #[derive(Clone)]
 pub struct SmallString {
-    data: [u8; 54],
+    data: [u8; SMALL_STR_LEN],
     len: u8,
 }
 
@@ -42,7 +44,7 @@ impl SmallString {
     }
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
-        &self.data[..self.len()]
+        &self.data.get_unchecked(..self.len())
     }
 }
 
@@ -54,6 +56,7 @@ impl fmt::Debug for SmallString {
 }
 
 impl PartialEq for SmallString {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         unsafe {
             self.len == other.len
@@ -63,12 +66,14 @@ impl PartialEq for SmallString {
 }
 
 impl PartialEq<str> for SmallString {
+    #[inline]
     fn eq(&self, other: &str) -> bool {
         unsafe { self.data.get_unchecked(..self.len()) == other.as_bytes() }
     }
 }
 
 impl PartialEq<String> for SmallString {
+    #[inline]
     fn eq(&self, other: &String) -> bool {
         unsafe { self.data.get_unchecked(..self.len()) == other.as_str().as_bytes() }
     }
@@ -77,7 +82,14 @@ impl PartialEq<String> for SmallString {
 impl Borrow<str> for SmallString {
     #[inline]
     fn borrow(&self) -> &str {
-        unsafe { std::str::from_utf8_unchecked(&self.data[..self.len()]) }
+        unsafe { std::str::from_utf8_unchecked(&self.data.get_unchecked(..self.len())) }
+    }
+}
+
+impl Borrow<[u8]> for SmallString {
+    #[inline]
+    fn borrow(&self) -> &[u8] {
+        unsafe { &self.data.get_unchecked(..self.len()) }
     }
 }
 
@@ -92,8 +104,6 @@ pub enum Value<'v> {
     Null,
     Bool(bool),
     Number(Number),
-    //    F64(f64),
-    //    I64(i64),
     String(Cow<'v, str>),
     Array(Vec<Value<'v>>),
     Object(Map<'v>),
@@ -123,8 +133,6 @@ impl<'v> ValueTrait for Value<'v> {
             Value::Null => ValueType::Null,
             Value::Bool(_) => ValueType::Bool,
             Value::Number(_) => ValueType::I64,
-            //            Value::F64(_) => ValueType::F64,
-            //            Value::I64(_) => ValueType::I64,
             Value::String(_) => ValueType::String,
             Value::SmallString { .. } => ValueType::String,
             Value::Array(_) => ValueType::Array,
@@ -216,7 +224,6 @@ impl<'v> fmt::Display for Value<'v> {
             Value::Null => write!(f, "null"),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Number(n) => write!(f, "{}", n),
-            //Value::F64(n) => write!(f, "{}", n),
             Value::String(s) => write!(f, "{}", s),
             Value::SmallString(s) => write!(f, "{}", s.to_string()),
             Value::Array(a) => write!(f, "{:?}", a),
@@ -240,55 +247,12 @@ impl<'v> Default for Value<'v> {
 }
 
 impl<'de> Deserializer<'de> {
-    // We parse a string that's likely to be less then 32 characters and without any
-    // fancy in it like object keys
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_small_str_(&mut self) -> Result<Value<'de>> {
-        let mut res = SmallString {
-            len: 0,
-            data: unsafe { mem::uninitialized() },
-        };
-        let idx = self.iidx + 1;
-        let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
-
-        //short strings are very common for IDs
-        if src.len() >= 32 {
-            unsafe {
-                res.data
-                    .get_unchecked_mut(..32)
-                    .clone_from_slice(src.get_unchecked(..32));
-            }
-        } else {
-            unsafe {
-                res.data
-                    .get_unchecked_mut(..src.len())
-                    .clone_from_slice(&src);
-            }
-        };
-        #[allow(clippy::cast_ptr_alignment)]
-        let v: __m256i =
-            unsafe { _mm256_loadu_si256(res.data.get_unchecked(..32).as_ptr() as *const __m256i) };
-        let bs_bits: u32 = unsafe {
-            static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
-                v,
-                _mm256_set1_epi8(b'\\' as i8)
-            )))
-        };
-        let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
-        let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
-        if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
-            let quote_dist: u8 = trailingzeroes(u64::from(quote_bits)) as u8;
-            res.len = quote_dist;
-            return Ok(Value::SmallString(res));
-        }
-        self.parse_str_().map(Value::from)
-    }
-
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_value_borrowed_root(&mut self) -> Result<Value<'de>> {
         match self.next_() {
             b'"' => {
-                if self.count_elements() < 32 {
+                if self.count_elements() <= SMALL_STR_LEN + 2 {
+                    // two for the quotes we don't need to store
                     return self.parse_small_str_().map(Value::from);
                 }
                 self.parse_str_().map(Value::from)
@@ -310,7 +274,8 @@ impl<'de> Deserializer<'de> {
             b'"' => {
                 // We can only have entered this by being in an object so we know there is
                 // something following as we made sure during checking for sizes.;
-                if self.count_elements() < 32 {
+                if self.count_elements() <= SMALL_STR_LEN + 2 {
+                    // two for the quotes we don't need to store
                     return self.parse_small_str_().map(Value::from);
                 }
                 self.parse_str_().map(Value::from)
@@ -367,5 +332,64 @@ impl<'de> Deserializer<'de> {
             self.skip();
         }
         Ok(Value::Object(res))
+    }
+    // We parse a string that's likely to be less then 54 characters and without any
+    // fancy in it like object keys
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_small_str_(&mut self) -> Result<Value<'de>> {
+        let mut res = SmallString {
+            len: 0,
+            data: unsafe { mem::uninitialized() },
+        };
+        let idx = self.iidx + 1;
+        let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
+
+        //short strings are very common for IDs
+        unsafe {
+            res.data
+                .get_unchecked_mut(..32)
+                .clone_from_slice(src.get_unchecked(..32));
+        };
+        #[allow(clippy::cast_ptr_alignment)]
+        let v: __m256i = unsafe { _mm256_loadu_si256(src.as_ptr() as *const __m256i) };
+        let bs_bits: u32 = unsafe {
+            static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
+                v,
+                _mm256_set1_epi8(b'\\' as i8)
+            )))
+        };
+        let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
+        let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
+        if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
+            let quote_dist: u8 = trailingzeroes(u64::from(quote_bits)) as u8;
+            res.len = quote_dist;
+            return Ok(Value::SmallString(res));
+        } else if (quote_bits.wrapping_sub(1) & bs_bits) == 0 {
+            // Nothing bad so far we can do another 22 characters
+            unsafe {
+                res.data
+                    .get_unchecked_mut(32..=SMALL_STR_LEN)
+                    .clone_from_slice(src.get_unchecked(32..=SMALL_STR_LEN));
+            };
+            #[allow(clippy::cast_ptr_alignment)]
+            let v: __m256i =
+                unsafe { _mm256_loadu_si256(src.get_unchecked(32..).as_ptr() as *const __m256i) };
+            let bs_bits: u32 = unsafe {
+                static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
+                    v,
+                    _mm256_set1_epi8(b'\\' as i8)
+                )))
+            };
+            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
+            let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
+            if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
+                let quote_dist: u8 = trailingzeroes(u64::from(quote_bits)) as u8;
+                if quote_dist <= 22 {
+                    res.len = quote_dist + 32;
+                    return Ok(Value::SmallString(res));
+                }
+            }
+        }
+        self.parse_str_().map(Value::from)
     }
 }
