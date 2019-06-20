@@ -53,11 +53,8 @@ impl SmallString {
     }
 
     #[inline]
-    pub fn as_str(&self) -> &[u8] {
-        unsafe {
-            self.data
-                .get_unchecked(self.data.get_unchecked(..self.len()))
-        }
+    pub fn as_str(&self) -> &str {
+        unsafe { std::str::from_utf8_unchecked(self.data.get_unchecked(..self.len())) }
     }
 }
 
