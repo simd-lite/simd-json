@@ -51,6 +51,14 @@ impl SmallString {
     pub fn as_bytes(&self) -> &[u8] {
         unsafe { self.data.get_unchecked(..self.len()) }
     }
+
+    #[inline]
+    pub fn as_str(&self) -> &[u8] {
+        unsafe {
+            self.data
+                .get_unchecked(self.data.get_unchecked(..self.len()))
+        }
+    }
 }
 
 impl fmt::Debug for SmallString {
@@ -100,7 +108,7 @@ impl Borrow<[u8]> for SmallString {
 
 impl ToString for SmallString {
     fn to_string(&self) -> String {
-        String::from(self.borrow())
+        String::from(self.as_str())
     }
 }
 
