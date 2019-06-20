@@ -404,7 +404,6 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number(&mut self, minus: bool) -> Result<Number> {
-        dbg!(minus);
         let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {

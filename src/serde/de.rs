@@ -27,7 +27,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 if let Some(n) = d.as_i64() {
                     visitor.visit_i64(n)
                 } else if let Some(n) = d.as_f64() {
-                    dbg!(n);
                     visitor.visit_f64(n)
                 } else {
                     Err(self.error(ErrorType::InvalidNumber))
@@ -35,11 +34,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             }
             b'0'..=b'9' => {
                 let d = stry!(self.parse_number(false));
-                dbg!(&d);
                 if let Some(n) = d.as_u64() {
                     visitor.visit_u64(n)
                 } else if let Some(n) = d.as_f64() {
-                    dbg!(n);
                     visitor.visit_f64(n)
                 } else {
                     Err(self.error(ErrorType::InvalidNumber))
