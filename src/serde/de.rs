@@ -33,7 +33,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                     Err(self.error(ErrorType::InvalidNumber))
                 }
             }
-            b'0'...b'9' => {
+            b'0'..=b'9' => {
                 let d = stry!(self.parse_number(false));
                 dbg!(&d);
                 if let Some(n) = d.as_u64() {

@@ -83,7 +83,7 @@ impl<'de> Deserializer<'de> {
                 Some(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
-            b'0'...b'9' => match stry!(self.parse_number(false)).as_i64() {
+            b'0'..=b'9' => match stry!(self.parse_number(false)).as_i64() {
                 Some(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
@@ -94,7 +94,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_unsigned(&mut self) -> Result<u64> {
         match self.next_() {
-            b'0'...b'9' => match stry!(self.parse_number(false)).as_u64() {
+            b'0'..=b'9' => match stry!(self.parse_number(false)).as_u64() {
                 Some(n) => Ok(n as u64),
                 _ => Err(self.error(ErrorType::ExpectedUnsigned)),
             },
@@ -108,7 +108,7 @@ impl<'de> Deserializer<'de> {
                 Some(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedFloat)),
             },
-            b'0'...b'9' => match stry!(self.parse_number(false)).as_f64() {
+            b'0'..=b'9' => match stry!(self.parse_number(false)).as_f64() {
                 Some(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedFloat)),
             },
