@@ -19,7 +19,7 @@ For taking advantage of simdjson your system needs to be SIMD compatible. This m
 
 ### jemalloc
 
-If you are writing perormance centric code, make sure to use jemalloc and not the system allocator (that has now become default in rust), it gives an very noticable boost imperformance.
+If you are writing performance centric code, make sure to use jemalloc and not the system allocator (that has now become default in rust), it gives an very noticable boost in performance.
 
 ## serde
 
@@ -41,7 +41,7 @@ simd-json.rs uses **a lot** of unsafe code first of all since all SIMD-intrinsic
 * Property based testing on random byte sequences - make sure that no random set of bytes will crash the parser
 * Fuzzing (using afl) - fuzz based on upstream simd pass/fail cases
 
-This sure doens't ensure complete safetly but it does go a long way.
+This sure doesn't ensure complete safetly but it does go a long way.
 
 ## Other interesting things
 
