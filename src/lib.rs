@@ -108,7 +108,7 @@ pub struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
     // the beginning as data is parsed.
     input: &'de mut [u8],
-    //data: Vec<u8>,
+    data: Vec<u8>,
     strings: Vec<u8>,
     structural_indexes: Vec<u32>,
     idx: usize,
@@ -133,23 +133,16 @@ impl<'de> Deserializer<'de> {
 
         let len = input.len();
 
-        let buf_start: usize = input.as_ptr() as *const () as usize;
-        let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
-
-        let s1_result: std::result::Result<Vec<u32>, ErrorType> = if needs_relocation {
-            let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
-            unsafe {
-                data.set_len(len + 1);
-                data.as_mut_slice()
-                    .get_unchecked_mut(0..len)
-                    .clone_from_slice(input);
-                *(data.get_unchecked_mut(len)) = 0;
-                data.set_len(len);
-                Deserializer::find_structural_bits(&data)
-            }
-        } else {
-            unsafe { Deserializer::find_structural_bits(input) }
+        let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
+        let s1_result = unsafe {
+            data.as_mut_slice()
+                .get_unchecked_mut(0..len)
+                .clone_from_slice(input);
+            *(data.get_unchecked_mut(len)) = 0;
+            data.set_len(len);
+            Deserializer::find_structural_bits(&data)
         };
+
         let structural_indexes = match s1_result {
             Ok(i) => i,
             Err(t) => {
@@ -168,6 +161,7 @@ impl<'de> Deserializer<'de> {
             counts,
             structural_indexes,
             input,
+            data,
             idx: 0,
             strings: v,
             str_offset: 0,
@@ -197,7 +191,7 @@ impl<'de> Deserializer<'de> {
         unsafe {
             self.idx += 1;
             self.iidx = *self.structural_indexes.get_unchecked(self.idx) as usize;
-            *self.input.get_unchecked(self.iidx)
+            *self.data.get_unchecked(self.iidx)
         }
     }
 
@@ -211,7 +205,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_short_str_(&mut self) -> Result<&'de str> {
         let idx = self.iidx + 1;
-        let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
+        let src: &[u8] = unsafe { &self.data.get_unchecked(idx..) };
 
         //short strings are very common for IDs
         #[allow(clippy::cast_ptr_alignment)]
@@ -260,10 +254,10 @@ impl<'de> Deserializer<'de> {
         } else {
             let ptr = self.input.as_mut_ptr();
             unsafe {
-                from_raw_parts_mut(ptr.add(self.str_offset), self.input.len() - self.str_offset)
+                from_raw_parts_mut(ptr.add(self.str_offset), self.data.len() - self.str_offset)
             }
         };
-        let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
+        let src: &[u8] = unsafe { &self.data.get_unchecked(idx..) };
         let mut src_i: usize = 0;
         let mut dst_i: usize = 0;
         loop {
@@ -368,7 +362,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+        let input = unsafe { &self.data.get_unchecked(self.iidx..) };
         let len = input.len();
         let mut copy = vec![0u8; len + SIMDJSON_PADDING];
         copy[len] = 0;
@@ -380,7 +374,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+        let input = unsafe { &self.data.get_unchecked(self.iidx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0u8; len + SIMDJSON_PADDING];
@@ -395,7 +389,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_number_(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+        let input = unsafe { &self.data.get_unchecked(self.iidx..) };
         self.parse_number_int(input, minus)
     }
 }
