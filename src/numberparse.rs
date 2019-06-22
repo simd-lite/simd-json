@@ -406,14 +406,12 @@ impl<'de> Deserializer<'de> {
                         parse_eight_digits_unrolled(unsafe { buf.get_unchecked(byte_count..) }),
                     ));
                     byte_count += 8;
-                    // exponent -= 8;
                 }
             }
             d = unsafe { *buf.get_unchecked(byte_count) };
             while is_integer(d) {
                 digit = d - b'0';
                 i = i.wrapping_mul(10).wrapping_add(u64::from(digit));
-                //i = i * 10 + ; // in rare cases, this will overflow, but that's ok because we have parse_highprecision_float later.
                 byte_count += 1;
                 d = unsafe { *buf.get_unchecked(byte_count) };
             }
