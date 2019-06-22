@@ -181,7 +181,7 @@ impl<'de> Deserializer<'de> {
                 self.parse_str_().map(Value::from)
             }
             b'-' => self.parse_number_root(true).map(Value::from),
-            b'0'...b'9' => self.parse_number_root(false).map(Value::from),
+            b'0'..=b'9' => self.parse_number_root(false).map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
@@ -203,7 +203,7 @@ impl<'de> Deserializer<'de> {
                 self.parse_str_().map(Value::from)
             }
             b'-' => self.parse_number_(true).map(Value::from),
-            b'0'...b'9' => self.parse_number_(false).map(Value::from),
+            b'0'..=b'9' => self.parse_number_(false).map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),

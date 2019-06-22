@@ -337,7 +337,7 @@ impl<'de> Deserializer<'de> {
                     fail!(ErrorType::TrailingCharacters);
                 }
             }
-            b'-' | b'0'...b'9' => {
+            b'-' | b'0'..=b'9' => {
                 if si.next().is_none() {
                     return Ok((counts, str_len as usize));
                 } else {
@@ -392,7 +392,7 @@ impl<'de> Deserializer<'de> {
                             }
                             object_continue!();
                         }
-                        b'-' | b'0'...b'9' => {
+                        b'-' | b'0'..=b'9' => {
                             object_continue!();
                         }
                         b'{' => {
@@ -487,7 +487,7 @@ impl<'de> Deserializer<'de> {
                             }
                             array_continue!();
                         }
-                        b'-' | b'0'...b'9' => {
+                        b'-' | b'0'..=b'9' => {
                             array_continue!();
                         }
                         b'{' => {
