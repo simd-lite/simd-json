@@ -29,7 +29,7 @@ That said serde is contained in the `serde_impl` feature which is part of the de
 
 ### serializing
 
-simsjson-rs is not capable of serializing JSON data as there would be very little gain by re-implementing it. For serialization, we recommend serde-json.
+simdjson-rs is not capable of serializing JSON data as there would be very little gain by re-implementing it. For serialization, we recommend serde-json.
 
 
 ### unsafe
