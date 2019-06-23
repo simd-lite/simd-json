@@ -34,11 +34,11 @@ simsjson-rs is not capable of serializing JSON data as there would be very littl
 
 ### unsafe
 
-simdjson-rs uses **a lot** of unsafe code first of all since all SIMD-intrinsics are inherently unsafe and also to work around some bottlenecks introduced by rust's safe nature. So this requires extra scrutiny and to do this diligently testing takes 5 shapes:
+simdjson-rs uses **a lot** of unsafe code first of all since all SIMD-intrinsics are inherently unsafe and also to work around some bottlenecks introduced by rust's safe nature. This requires extra scrutiny and thus needs to be diligently tested according to these 5 steps:
 
 * Poor old unit tests - to test general 'obvious' cases and edge cases as well as regressions
-* Property based testing on valid json - tests if valid but random generated json parses the same in simd-json and in serde-json (floats here are excloded since slighty different parsing algorihtms lead to slighty different results)
-* Property based testing on random 'human readable' data - make sure that randomly generated sequences of pritnable characters don't panic or crash the parser (they might and often error so - they are not valid json!)
+* Property based testing on valid json - tests if valid but random generated json parses the same in simd-json and in serde-json (floats here are excluded since slighty different parsing algorihtms lead to slighty different results)
+* Property based testing on random 'human readable' data - make sure that randomly generated sequences of printable characters don't panic or crash the parser (they might and often error so - they are not valid json!)
 * Property based testing on random byte sequences - make sure that no random set of bytes will crash the parser
 * Fuzzing (using afl) - fuzz based on upstream simd pass/fail cases
 
