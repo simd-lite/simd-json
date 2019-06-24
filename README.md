@@ -15,33 +15,34 @@
 
 ### CPU target
 
-For taking advantage of simdjson your system needs to be SIMD compatible. This means to compile with native cpu support and the given features. Look at [The cargo config in this repository](.cargo/config) to get an example.
+To be able to take advantage of simdjson your system needs to be SIMD compatible. This means to compile with native cpu support and the given features. Look at [The cargo config in this repository](.cargo/config) to get an example.
 
 ### jemalloc
 
-If you are writing performance centric code, make sure to use jemalloc and not the system allocator (that has now become default in rust), it gives an very noticable boost in performance.
+If you are writing performance centric code, make sure to use jemalloc and not the system allocator (which has now become default in rust), it gives a very noticeable boost in performance.
 
 ## serde
 
-simd-json.rs is compatible with serde and serde-json. The Value types provided implement serializers and deserialisers. In addition to that simd-json.rs implements the Deserializer for the parser so it can deserialize anything that implements the serde Deserialize trait.
+simdjson-rs is compatible with serde and serde-json. The Value types provided implement serializers and deserializers. In addition to that simdjson-rs implements the Deserializer for the parser so it can deserialize anything that implements the serde Deserialize trait.
 
 That said serde is contained in the `serde_impl` feature which is part of the default feature set, but it can be disabled.
 
 ### serializing
 
-sims-json.rs does not provide capabiltiy to serialize JSON data, serde-json does a good job at this and there would be very little won by re-implementing it.
+simdjson-rs is not capable of serializing JSON data as there would be very little gain by re-implementing it. For serialization, we recommend serde-json.
+
 
 ### unsafe
 
-simd-json.rs uses **a lot** of unsafe code first of all since all SIMD-intrinsics are inherently unsafe and also to work around some bottlenecks safe rust code. So this requires extra scrutiny and do to this diligently testing takes 5 shapes:
+simdjson-rs uses **a lot** of unsafe code first of all since all SIMD-intrinsics are inherently unsafe and also to work around some bottlenecks introduced by rust's safe nature. This requires extra scrutiny and thus needs to be diligently tested according to these 5 steps:
 
 * Poor old unit tests - to test general 'obvious' cases and edge cases as well as regressions
-* Property based testing on valid json - tests if valid but random generated json parses the same in simd-json and in serde-json (floats here are excloded since slighty different parsing algorihtms lead to slighty different results)
-* Property based testing on random 'human readable' data - make sure that randomly generated sequences of pritnable characters don't panic or crash the parser (they might and often error so - they are not valid json!)
+* Property based testing on valid json - tests if valid but random generated json parses the same in simd-json and in serde-json (floats here are excluded since slighty different parsing algorihtms lead to slighty different results)
+* Property based testing on random 'human readable' data - make sure that randomly generated sequences of printable characters don't panic or crash the parser (they might and often error so - they are not valid json!)
 * Property based testing on random byte sequences - make sure that no random set of bytes will crash the parser
 * Fuzzing (using afl) - fuzz based on upstream simd pass/fail cases
 
-This sure doesn't ensure complete safetly but it does go a long way.
+This certainly doesn't ensure complete safety but it does go a long way.
 
 ## Other interesting things
 
