@@ -4,7 +4,7 @@
 //! most of the design closely with a few exceptions to make it better
 //! fit into the rust ecosystem.
 //!
-//! Note: by default rustc will compile for compatibility, not
+//! Note: by default rustc will compile for compatibility, not 
 //! performance, to take advantage of the simd part of simd json. You
 //! have to use a native cpu target on a avx2 capable host system. An
 //! example how to do this can be found in the `.cargo` directory on
@@ -210,13 +210,27 @@ impl<'de> Deserializer<'de> {
     // fancy in it like object keys
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_short_str_(&mut self) -> Result<&'de str> {
+        let mut padding = [0u8; 32];
         let idx = self.iidx + 1;
         let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
 
         //short strings are very common for IDs
-        #[allow(clippy::cast_ptr_alignment)]
-        let v: __m256i =
-            unsafe { _mm256_loadu_si256(src.get_unchecked(..32).as_ptr() as *const __m256i) };
+        let v: __m256i = if src.len() >= 32 {
+            // This is safe since we ensure src is at least 32 wide
+            #[allow(clippy::cast_ptr_alignment)]
+            unsafe {
+                _mm256_loadu_si256(src.get_unchecked(..32).as_ptr() as *const __m256i)
+            }
+        } else {
+            unsafe {
+                padding
+                    .get_unchecked_mut(..src.len())
+                    .clone_from_slice(&src);
+                // This is safe since we ensure src is at least 32 wide
+                #[allow(clippy::cast_ptr_alignment)]
+                _mm256_loadu_si256(padding.get_unchecked(..32).as_ptr() as *const __m256i)
+            }
+        };
         let bs_bits: u32 = unsafe {
             static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                 v,
@@ -227,15 +241,17 @@ impl<'de> Deserializer<'de> {
         let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
         if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
             let quote_dist: u32 = trailingzeroes(u64::from(quote_bits)) as u32;
+            let v = unsafe {
+                self.input.get_unchecked(idx..idx + quote_dist as usize) as *const [u8]
+                    as *const str
+            };
             self.str_offset = idx + quote_dist as usize;
+
             unsafe {
-                let v = self.input.get_unchecked(idx..idx + quote_dist as usize) as *const [u8]
-                    as *const str;
-                Ok(&*v)
+                return Ok(&*v);
             }
-        } else {
-            self.parse_str_()
         }
+        self.parse_str_()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -243,6 +259,7 @@ impl<'de> Deserializer<'de> {
         use std::slice::from_raw_parts_mut;
         // Add 1 to skip the initial "
         let idx = self.iidx + 1;
+        let mut padding = [0u8; 32];
         //let mut read: usize = 0;
 
         let needs_relocation = idx - self.str_offset <= 32;
@@ -267,9 +284,22 @@ impl<'de> Deserializer<'de> {
         let mut src_i: usize = 0;
         let mut dst_i: usize = 0;
         loop {
-            #[allow(clippy::cast_ptr_alignment)]
-            let v: __m256i =
-                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) };
+            let v: __m256i = if src.len() >= src_i + 32 {
+                // This is safe since we ensure src is at least 32 wide
+                #[allow(clippy::cast_ptr_alignment)]
+                unsafe {
+                    _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i)
+                }
+            } else {
+                unsafe {
+                    padding
+                        .get_unchecked_mut(..src.len() - src_i)
+                        .clone_from_slice(src.get_unchecked(src_i..));
+                    // This is safe since we ensure src is at least 32 wide
+                    #[allow(clippy::cast_ptr_alignment)]
+                    _mm256_loadu_si256(padding.as_ptr() as *const __m256i)
+                }
+            };
 
             #[allow(clippy::cast_ptr_alignment)]
             unsafe {
