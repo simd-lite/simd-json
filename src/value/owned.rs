@@ -181,14 +181,7 @@ impl<'de> OwnedDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Result<Value> {
         match self.de.next_() {
-            b'"' => {
-                let next =
-                    unsafe { *self.de.structural_indexes.get_unchecked(self.de.idx + 1) as usize };
-                if next - self.de.iidx < 32 {
-                    return self.de.parse_short_str_().map(Value::from);
-                }
-                self.de.parse_str_().map(Value::from)
-            }
+            b'"' => self.de.parse_str_().map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
@@ -203,14 +196,7 @@ impl<'de> OwnedDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_value(&mut self) -> Result<Value> {
         match self.de.next_() {
-            b'"' => {
-                let next =
-                    unsafe { *self.de.structural_indexes.get_unchecked(self.de.idx + 1) as usize };
-                if next - self.de.iidx < 32 {
-                    return self.de.parse_short_str_().map(Value::from);
-                }
-                self.de.parse_str_().map(Value::from)
-            }
+            b'"' => self.parse_str_().map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
@@ -255,7 +241,7 @@ impl<'de> OwnedDeserializer<'de> {
 
         for _ in 0..es {
             self.de.skip();
-            let key = stry!(self.de.parse_short_str_());
+            let key = stry!(self.de.parse_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
             self.de.skip();
