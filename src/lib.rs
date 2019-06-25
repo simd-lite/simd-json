@@ -157,19 +157,16 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let (counts, str_len) = Deserializer::validate(input, &structural_indexes)?;
+        let counts = Deserializer::validate(input, &structural_indexes)?;
 
-        let mut v = Vec::with_capacity(str_len + SIMDJSON_PADDING);
-        unsafe {
-            v.set_len(str_len + SIMDJSON_PADDING);
-        };
+        let strings = Vec::with_capacity(len + SIMDJSON_PADDING);
 
         Ok(Deserializer {
             counts,
             structural_indexes,
             input,
             idx: 0,
-            strings: v,
+            strings,
             str_offset: 0,
             iidx: 0,
         })
