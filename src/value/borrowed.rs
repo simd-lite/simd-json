@@ -18,8 +18,8 @@ pub type Map<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 /// As we reference parts of the input slice the resulting dom
 /// has the dame lifetime as the slice it was created from.
 pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
-    let mut deserializer = stry!(Deserializer::from_slice(s));
-    deserializer.parse_value_borrowed_root()
+    let de = stry!(Deserializer::from_slice(s));
+    BorrowDeserializer::from_deserializer(de).parse()
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -170,72 +170,79 @@ impl<'v> Default for Value<'v> {
     }
 }
 
-impl<'de> Deserializer<'de> {
+struct BorrowDeserializer<'de> {
+    de: Deserializer<'de>,
+}
+impl<'de> BorrowDeserializer<'de> {
+    pub fn from_deserializer(de: Deserializer<'de>) -> Self {
+        Self { de }
+    }
+
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_value_borrowed_root(&mut self) -> Result<Value<'de>> {
-        match self.next_() {
+    pub fn parse(&mut self) -> Result<Value<'de>> {
+        match self.de.next_() {
             b'"' => {
-                if self.count_elements() < 32 {
-                    return self.parse_short_str_().map(Value::from);
+                if self.de.count_elements() < 32 {
+                    return self.de.parse_short_str_().map(Value::from);
                 }
-                self.parse_str_().map(Value::from)
+                self.de.parse_str_().map(Value::from)
             }
-            b'-' => self.parse_number_root(true).map(Value::from),
-            b'0'..=b'9' => self.parse_number_root(false).map(Value::from),
+            b'-' => self.de.parse_number_root(true).map(Value::from),
+            b'0'..=b'9' => self.de.parse_number_root(false).map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
-            b'[' => self.parse_array_borrowed(),
-            b'{' => self.parse_map_borrowed(),
-            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
+            b'[' => self.parse_array(),
+            b'{' => self.parse_map(),
+            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_value_borrowed(&mut self) -> Result<Value<'de>> {
-        match self.next_() {
+    fn parse_value(&mut self) -> Result<Value<'de>> {
+        match self.de.next_() {
             b'"' => {
                 // We can only have entered this by being in an object so we know there is
                 // something following as we made sure during checking for sizes.;
-                if self.count_elements() < 32 {
-                    return self.parse_short_str_().map(Value::from);
+                if self.de.count_elements() < 32 {
+                    return self.de.parse_short_str_().map(Value::from);
                 }
-                self.parse_str_().map(Value::from)
+                self.de.parse_str_().map(Value::from)
             }
-            b'-' => self.parse_number_(true).map(Value::from),
-            b'0'..=b'9' => self.parse_number_(false).map(Value::from),
+            b'-' => self.de.parse_number_(true).map(Value::from),
+            b'0'..=b'9' => self.de.parse_number_(false).map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
-            b'[' => self.parse_array_borrowed(),
-            b'{' => self.parse_map_borrowed(),
-            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
+            b'[' => self.parse_array(),
+            b'{' => self.parse_map(),
+            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array_borrowed(&mut self) -> Result<Value<'de>> {
-        let es = self.count_elements();
+    fn parse_array(&mut self) -> Result<Value<'de>> {
+        let es = self.de.count_elements();
         if unlikely!(es == 0) {
-            self.skip();
+            self.de.skip();
             return Ok(Value::Array(Vec::new()));
         }
         let mut res = Vec::with_capacity(es);
 
         for _i in 0..es {
-            res.push(stry!(self.parse_value_borrowed()));
-            self.skip();
+            res.push(stry!(self.parse_value()));
+            self.de.skip();
         }
         Ok(Value::Array(res))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map_borrowed(&mut self) -> Result<Value<'de>> {
+    fn parse_map(&mut self) -> Result<Value<'de>> {
         // We short cut for empty arrays
-        let es = self.count_elements();
+        let es = self.de.count_elements();
 
         if unlikely!(es == 0) {
-            self.skip();
+            self.de.skip();
             return Ok(Value::Object(Map::new()));
         }
 
@@ -245,13 +252,13 @@ impl<'de> Deserializer<'de> {
         // element so we eat this
 
         for _ in 0..es {
-            self.skip();
-            let key = stry!(self.parse_short_str_());
+            self.de.skip();
+            let key = stry!(self.de.parse_short_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
-            self.skip();
-            res.insert_nocheck(key.into(), stry!(self.parse_value_borrowed()));
-            self.skip();
+            self.de.skip();
+            res.insert_nocheck(key.into(), stry!(self.parse_value()));
+            self.de.skip();
         }
         Ok(Value::Object(res))
     }
