@@ -336,8 +336,6 @@ impl<'de> Deserializer<'de> {
             }
         }
 
-        dbg!(len);
-        dbg!(src_i);
         let mut dst_i: usize = 0;
         let dst: &mut [u8] = &mut self.strings;
 
@@ -389,7 +387,6 @@ impl<'de> Deserializer<'de> {
 
                 dst_i += quote_dist as usize;
                 unsafe {
-                    dbg!(idx + len..idx + len + dst_i as usize);
                     self.input
                         .get_unchecked_mut(idx + len..idx + len + dst_i)
                         .clone_from_slice(&self.strings.get_unchecked(..dst_i));
