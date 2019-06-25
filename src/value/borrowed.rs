@@ -174,12 +174,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_value_borrowed_root(&mut self) -> Result<Value<'de>> {
         match self.next_() {
-            b'"' => {
-                if self.count_elements() < 32 {
-                    return self.parse_short_str_().map(Value::from);
-                }
-                self.parse_str_().map(Value::from)
-            }
+            b'"' => self.parse_str_().map(Value::from),
             b'-' => self.parse_number_root(true).map(Value::from),
             b'0'..=b'9' => self.parse_number_root(false).map(Value::from),
             b'n' => Ok(Value::Null),
@@ -194,14 +189,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_value_borrowed(&mut self) -> Result<Value<'de>> {
         match self.next_() {
-            b'"' => {
-                // We can only have entered this by being in an object so we know there is
-                // something following as we made sure during checking for sizes.;
-                if self.count_elements() < 32 {
-                    return self.parse_short_str_().map(Value::from);
-                }
-                self.parse_str_().map(Value::from)
-            }
+            b'"' => self.parse_str_().map(Value::from),
             b'-' => self.parse_number_(true).map(Value::from),
             b'0'..=b'9' => self.parse_number_(false).map(Value::from),
             b'n' => Ok(Value::Null),
@@ -246,7 +234,7 @@ impl<'de> Deserializer<'de> {
 
         for _ in 0..es {
             self.skip();
-            let key = stry!(self.parse_short_str_());
+            let key = stry!(self.parse_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
             self.skip();

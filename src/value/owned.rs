@@ -180,13 +180,7 @@ impl<'de> Deserializer<'de> {
             }
         }
         match self.next_() {
-            b'"' => {
-                let next = unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) as usize };
-                if next - self.iidx < 32 {
-                    return self.parse_short_str_().map(Value::from);
-                }
-                self.parse_str_().map(Value::from)
-            }
+            b'"' => self.parse_str_().map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
@@ -207,13 +201,7 @@ impl<'de> Deserializer<'de> {
             }
         }
         match self.next_() {
-            b'"' => {
-                let next = unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) as usize };
-                if next - self.iidx < 32 {
-                    return self.parse_short_str_().map(Value::from);
-                }
-                self.parse_str_().map(Value::from)
-            }
+            b'"' => self.parse_str_().map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
@@ -258,7 +246,7 @@ impl<'de> Deserializer<'de> {
 
         for _ in 0..es {
             self.skip();
-            let key = stry!(self.parse_short_str_());
+            let key = stry!(self.parse_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
             self.skip();

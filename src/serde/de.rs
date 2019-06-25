@@ -75,7 +75,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
         if let Some(next) = self.structural_indexes.get(self.idx + 1) {
             if *next as usize - self.iidx < 32 {
-                return visitor.visit_borrowed_str(stry!(self.parse_short_str_()));
+                return visitor.visit_borrowed_str(stry!(self.parse_str_()));
             }
         }
         visitor.visit_borrowed_str(stry!(self.parse_str_()))
@@ -91,7 +91,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
         if let Some(next) = self.structural_indexes.get(self.idx + 1) {
             if *next as usize - self.iidx < 32 {
-                return visitor.visit_str(stry!(self.parse_short_str_()));
+                return visitor.visit_str(stry!(self.parse_str_()));
             }
         }
         visitor.visit_str(stry!(self.parse_str_()))
