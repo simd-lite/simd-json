@@ -19,7 +19,7 @@ pub type Map = HashMap<String, Value>;
 /// a lifetime.
 pub fn to_value(s: &mut [u8]) -> Result<Value> {
     let mut deserializer = stry!(Deserializer::from_slice(s));
-    deserializer.parse_value_owned_root()
+    deserializer.parse_value_owned()
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -172,27 +172,6 @@ impl Default for Value {
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_value_owned_root(&mut self) -> Result<Value> {
-        #[cfg(feature = "paranoid")]
-        {
-            if self.idx + 1 > self.structural_indexes.len() {
-                return Err(self.error(ErrorType::UnexpectedEnd));
-            }
-        }
-        match self.next_() {
-            b'"' => self.parse_str_().map(Value::from),
-            b'n' => Ok(Value::Null),
-            b't' => Ok(Value::Bool(true)),
-            b'f' => Ok(Value::Bool(false)),
-            b'-' => self.parse_number_root(true).map(Value::from),
-            b'0'..=b'9' => self.parse_number_root(false).map(Value::from),
-            b'[' => self.parse_array_owned(),
-            b'{' => self.parse_map_owned(),
-            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_value_owned(&mut self) -> Result<Value> {
         #[cfg(feature = "paranoid")]
         {
@@ -205,8 +184,8 @@ impl<'de> Deserializer<'de> {
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
-            b'-' => self.parse_number(true).map(Value::from),
-            b'0'..=b'9' => self.parse_number(false).map(Value::from),
+            b'-' => self.parse_number_(true).map(Value::from),
+            b'0'..=b'9' => self.parse_number_(false).map(Value::from),
             b'[' => self.parse_array_owned(),
             b'{' => self.parse_map_owned(),
             _c => Err(self.error(ErrorType::UnexpectedCharacter)),

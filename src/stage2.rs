@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::charutils::*;
-use crate::{Deserializer, Error, ErrorType, Result, SIMDJSON_PADDING};
+use crate::{Deserializer, Error, ErrorType, Result};
 //use crate::portability::*;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -249,48 +249,36 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b't' => {
-                let len = input.len();
-                let mut copy = vec![0u8; len + SIMDJSON_PADDING];
                 unsafe {
-                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_true_atom(copy.get_unchecked(idx..)) {
+                    if !is_valid_true_atom(input.get_unchecked(idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
+                    } else if si.next().is_none() {
+                        return Ok(counts);
+                    } else {
+                        fail!(ErrorType::TrailingCharacters);
                     }
                 };
-                if si.next().is_none() {
-                    return Ok(counts);
-                } else {
-                    fail!(ErrorType::TrailingCharacters);
-                }
             }
             b'f' => {
-                let len = input.len();
-                let mut copy = vec![0u8; len + SIMDJSON_PADDING];
                 unsafe {
-                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_false_atom(copy.get_unchecked(idx..)) {
+                    if !is_valid_false_atom(input.get_unchecked(idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
+                    } else if si.next().is_none() {
+                        return Ok(counts);
+                    } else {
+                        fail!(ErrorType::TrailingCharacters);
                     }
                 };
-                if si.next().is_none() {
-                    return Ok(counts);
-                } else {
-                    fail!(ErrorType::TrailingCharacters);
-                }
             }
             b'n' => {
-                let len = input.len();
-                let mut copy = vec![0u8; len + SIMDJSON_PADDING];
                 unsafe {
-                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_null_atom(copy.get_unchecked(idx..)) {
+                    if !is_valid_null_atom(input.get_unchecked(idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
+                    } else if si.next().is_none() {
+                        return Ok(counts);
+                    } else {
+                        fail!(ErrorType::TrailingCharacters);
                     }
-                };
-                if si.next().is_none() {
-                    return Ok(counts);
-                } else {
-                    fail!(ErrorType::TrailingCharacters);
                 }
             }
             b'-' | b'0'..=b'9' => {

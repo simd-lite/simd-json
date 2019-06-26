@@ -134,6 +134,7 @@ impl<'de> Deserializer<'de> {
         let len = input.len();
 
         let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
+        let strings = Vec::with_capacity(len + SIMDJSON_PADDING);
         let s1_result: std::result::Result<Vec<u32>, ErrorType> = unsafe {
             data.as_mut_slice()
                 .get_unchecked_mut(0..len)
@@ -150,8 +151,6 @@ impl<'de> Deserializer<'de> {
         };
 
         let counts = Deserializer::validate(&data, &structural_indexes)?;
-
-        let strings = Vec::with_capacity(len + SIMDJSON_PADDING);
 
         Ok(Deserializer {
             counts,
@@ -357,18 +356,6 @@ impl<'de> Deserializer<'de> {
                 dst_i += 32;
             }
         }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.data.get_unchecked(self.iidx..) };
-        self.parse_number_int(&input, minus)
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.data.get_unchecked(self.iidx..) };
-        self.parse_number_int(input, minus)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]

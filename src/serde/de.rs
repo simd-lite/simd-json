@@ -23,11 +23,11 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             b'n' => visitor.visit_unit(),
             b't' => visitor.visit_bool(true),
             b'f' => visitor.visit_bool(false),
-            b'-' => match stry!(self.parse_number(true)) {
+            b'-' => match stry!(self.parse_number_(true)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
             },
-            b'0'..=b'9' => match stry!(self.parse_number(false)) {
+            b'0'..=b'9' => match stry!(self.parse_number_(false)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
             },
