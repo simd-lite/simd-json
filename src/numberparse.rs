@@ -112,7 +112,7 @@ fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
     //  && (( (val + 0x0606060606060606) & 0xF0F0F0F0F0F0F0F0 ) ==
     //  0x3030303030303030);
     (((val & 0xF0F0_F0F0_F0F0_F0F0)
-        | (((val.wrapping_add(0x0606_0606_0606_0606)) & 0xF0F0_F0F0_F0F0_F0F0) >> 4))
+        | (((val + 0x0606_0606_0606_0606) & 0xF0F0_F0F0_F0F0_F0F0) >> 4))
         == 0x3333_3333_3333_3333)
 }
 /*

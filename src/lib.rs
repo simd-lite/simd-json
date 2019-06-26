@@ -262,40 +262,6 @@ impl<'de> Deserializer<'de> {
         let mut dst_i: usize = 0;
         let dst: &mut [u8] = &mut self.strings;
 
-        // We know we hit a excape so we write it that will save us one loop
-
-        let escape_char: u8 = unsafe { *src.get_unchecked(src_i + 1) };
-        // we encountered backslash first. Handle backslash
-        if escape_char == b'u' {
-            let (o, s) = if let Ok(r) = unsafe {
-                handle_unicode_codepoint(src.get_unchecked(src_i..), dst.get_unchecked_mut(dst_i..))
-            } {
-                if r.0 == 0 {
-                    return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
-                };
-                r
-            } else {
-                return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
-            };
-            // We moved o steps forword at the destiation and 6 on the source
-            src_i += s;
-            dst_i += o;
-        } else {
-            // simple 1:1 conversion. Will eat bs_dist+2 characters in input and
-            // write bs_dist+1 characters to output
-            // note this may reach beyond the part of the buffer we've actually
-            // seen. I think this is ok
-            let escape_result: u8 = unsafe { *ESCAPE_MAP.get_unchecked(escape_char as usize) };
-            if escape_result == 0 {
-                return Err(self.error(ErrorType::InvalidEscape));
-            }
-            unsafe {
-                *dst.get_unchecked_mut(dst_i as usize) = escape_result;
-            }
-            src_i += 2;
-            dst_i += 1;
-        }
-        // Second loop now we got to relocate all data
         loop {
             #[allow(clippy::cast_ptr_alignment)]
             let v: __m256i =
