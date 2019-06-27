@@ -196,7 +196,7 @@ impl<'de> OwnedDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_value(&mut self) -> Result<Value> {
         match self.de.next_() {
-            b'"' => self.parse_str_().map(Value::from),
+            b'"' => self.de.parse_str_().map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
