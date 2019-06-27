@@ -18,8 +18,8 @@ pub type Map = HashMap<String, Value>;
 /// owned memory whereever required thus returning a value without
 /// a lifetime.
 pub fn to_value(s: &mut [u8]) -> Result<Value> {
-    let mut deserializer = stry!(Deserializer::from_slice(s));
-    deserializer.parse_value_owned_root()
+    let de = stry!(Deserializer::from_slice(s));
+    OwnedDeserializer::from_deserializer(de).parse()
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -170,84 +170,81 @@ impl Default for Value {
     }
 }
 
-impl<'de> Deserializer<'de> {
+struct OwnedDeserializer<'de> {
+    de: Deserializer<'de>,
+}
+
+impl<'de> OwnedDeserializer<'de> {
+    pub fn from_deserializer(de: Deserializer<'de>) -> Self {
+        Self { de }
+    }
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_value_owned_root(&mut self) -> Result<Value> {
-        #[cfg(feature = "paranoid")]
-        {
-            if self.idx + 1 > self.structural_indexes.len() {
-                return Err(self.error(ErrorType::UnexpectedEnd));
-            }
-        }
-        match self.next_() {
+    pub fn parse(&mut self) -> Result<Value> {
+        match self.de.next_() {
             b'"' => {
-                let next = unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) as usize };
-                if next - self.iidx < 32 {
-                    return self.parse_short_str_().map(Value::from);
+                let next =
+                    unsafe { *self.de.structural_indexes.get_unchecked(self.de.idx + 1) as usize };
+                if next - self.de.iidx < 32 {
+                    return self.de.parse_short_str_().map(Value::from);
                 }
-                self.parse_str_().map(Value::from)
+                self.de.parse_str_().map(Value::from)
             }
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
-            b'-' => self.parse_number_root(true).map(Value::from),
-            b'0'..=b'9' => self.parse_number_root(false).map(Value::from),
-            b'[' => self.parse_array_owned(),
-            b'{' => self.parse_map_owned(),
-            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
+            b'-' => self.de.parse_number_root(true).map(Value::from),
+            b'0'..=b'9' => self.de.parse_number_root(false).map(Value::from),
+            b'[' => self.parse_array(),
+            b'{' => self.parse_map(),
+            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_value_owned(&mut self) -> Result<Value> {
-        #[cfg(feature = "paranoid")]
-        {
-            if self.idx + 1 > self.structural_indexes.len() {
-                return Err(self.error(ErrorType::UnexpectedEnd));
-            }
-        }
-        match self.next_() {
+    fn parse_value(&mut self) -> Result<Value> {
+        match self.de.next_() {
             b'"' => {
-                let next = unsafe { *self.structural_indexes.get_unchecked(self.idx + 1) as usize };
-                if next - self.iidx < 32 {
-                    return self.parse_short_str_().map(Value::from);
+                let next =
+                    unsafe { *self.de.structural_indexes.get_unchecked(self.de.idx + 1) as usize };
+                if next - self.de.iidx < 32 {
+                    return self.de.parse_short_str_().map(Value::from);
                 }
-                self.parse_str_().map(Value::from)
+                self.de.parse_str_().map(Value::from)
             }
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
-            b'-' => self.parse_number(true).map(Value::from),
-            b'0'..=b'9' => self.parse_number(false).map(Value::from),
-            b'[' => self.parse_array_owned(),
-            b'{' => self.parse_map_owned(),
-            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
+            b'-' => self.de.parse_number(true).map(Value::from),
+            b'0'..=b'9' => self.de.parse_number(false).map(Value::from),
+            b'[' => self.parse_array(),
+            b'{' => self.parse_map(),
+            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array_owned(&mut self) -> Result<Value> {
-        let es = self.count_elements();
+    fn parse_array(&mut self) -> Result<Value> {
+        let es = self.de.count_elements();
         if unlikely!(es == 0) {
-            self.skip();
+            self.de.skip();
             return Ok(Value::Array(Vec::new()));
         }
         let mut res = Vec::with_capacity(es);
 
         for _i in 0..es {
-            res.push(stry!(self.parse_value_owned()));
-            self.skip();
+            res.push(stry!(self.parse_value()));
+            self.de.skip();
         }
         Ok(Value::Array(res))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map_owned(&mut self) -> Result<Value> {
+    fn parse_map(&mut self) -> Result<Value> {
         // We short cut for empty arrays
-        let es = self.count_elements();
+        let es = self.de.count_elements();
 
         if unlikely!(es == 0) {
-            self.skip();
+            self.de.skip();
             return Ok(Value::Object(Map::new()));
         }
 
@@ -257,13 +254,13 @@ impl<'de> Deserializer<'de> {
         // element so we eat this
 
         for _ in 0..es {
-            self.skip();
-            let key = stry!(self.parse_short_str_());
+            self.de.skip();
+            let key = stry!(self.de.parse_short_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
-            self.skip();
-            res.insert_nocheck(key.into(), stry!(self.parse_value_owned()));
-            self.skip();
+            self.de.skip();
+            res.insert_nocheck(key.into(), stry!(self.parse_value()));
+            self.de.skip();
         }
         Ok(Value::Object(res))
     }
