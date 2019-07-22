@@ -1,1 +1,1 @@
-src/lib_avx2.rs
+lib_avx2.rs
