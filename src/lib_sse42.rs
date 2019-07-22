@@ -100,7 +100,7 @@ use std::str;
 pub use crate::error::{Error, ErrorType};
 pub use crate::value::*;
 
-const SIMDJSON_PADDING: usize = mem::size_of::<__m128i>();
+const SIMDJSON_PADDING: usize = mem::size_of::<__m128i>() * 2;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
