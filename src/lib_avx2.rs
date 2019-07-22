@@ -81,10 +81,10 @@ mod error;
 mod numberparse;
 mod parsedjson;
 mod portability;
-mod stage1;
+mod stage1_avx2;
 mod stage2;
 mod stringparse;
-mod utf8check;
+mod utf8check_avx2;
 pub mod value;
 
 use crate::numberparse::Number;
