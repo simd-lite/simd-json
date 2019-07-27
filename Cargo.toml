@@ -46,6 +46,10 @@ harness = false
 
 [features]
 default = ["swar-number-parsing", "serde_impl"]
+# AVX2 compatibility -- TODO, figure out default
+avx2 = []
+# pre-AVX2 x64 SSE42 compatibility -- TODO, figure out default
+sse42 = []
 # use 8 number at once parsing strategy
 swar-number-parsing = []
 # serde compatibility

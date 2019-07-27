@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::portability::*;
-use crate::utf8check_avx2::*;
+use crate::avx2_utf8check::*;
 use crate::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
