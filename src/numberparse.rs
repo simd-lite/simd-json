@@ -319,10 +319,11 @@ impl<'de> Deserializer<'de> {
         }
 
         if negative {
-            if i > 0x8000_0000_0000_0000 {
+            if i >= 9_223_372_036_854_775_808 {
+                //i64::min_value() * -1
                 return Err(self.error(ErrorType::Overflow));
             }
-        } else if i >= 0x8000_0000_0000_0000 {
+        } else if i > i64::max_value() as u64 {
             return Err(self.error(ErrorType::Overflow));
         }
 
