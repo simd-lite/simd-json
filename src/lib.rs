@@ -83,27 +83,19 @@ mod numberparse;
 mod parsedjson;
 mod portability;
 
-//#[cfg(target_feature = "avx2")]
-mod avx2_stage1;
-//#[cfg(target_feature = "avx2")]
-mod avx2_utf8check;
-//#[cfg(target_feature = "avx2")]
-mod avx2_deser;
-//#[cfg(target_feature = "avx2")]
-const SIMDJSON_PADDING : usize = crate::avx2_stage1::SIMDJSON_PADDING;
-//#[cfg(target_feature = "avx2")]
-pub use crate::avx2_deser::*;
+#[cfg(target_feature = "avx2")]
+mod avx2;
+#[cfg(target_feature = "avx2")]
+const SIMDJSON_PADDING : usize = crate::avx2::stage1::SIMDJSON_PADDING;
+#[cfg(target_feature = "avx2")]
+pub use crate::avx2::deser::*;
 
-//#[cfg(all(target_feature = "sse42", not(target_feature = "avx2")))]
-//mod sse42_stage1;
-//#[cfg(all(target_feature = "sse42", not(target_feature = "avx2")))]
-//mod sse42_utf8check;
-//#[cfg(all(target_feature = "sse42", not(target_feature = "avx2")))]
-//mod sse42_deser;
-//#[cfg(all(target_feature = "sse42", not(target_feature = "avx2")))]
-//const SIMDJSON_PADDING : usize = crate::sse42_stage1::SIMDJSON_PADDING;
-//#[cfg(all(target_feature = "sse42", not(target_feature = "avx2")))]
-//pub use crate::sse42_deser::*;
+#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+mod sse42;
+#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+const SIMDJSON_PADDING : usize = crate::sse42::stage1::SIMDJSON_PADDING;
+#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+pub use crate::sse42::deser::*;
 
 mod stage2;
 pub mod value;

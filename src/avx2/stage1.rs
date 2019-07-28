@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::portability::*;
-use crate::sse42_utf8check::*;
+use crate::avx2::utf8check::*;
 use crate::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -9,24 +9,20 @@ use std::arch::x86_64::*;
 
 use std::mem;
 
-pub const SIMDJSON_PADDING: usize = mem::size_of::<__m128i>() * 2;
+pub const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 
 #[derive(Debug)]
 struct SimdInput {
-    v0: __m128i,
-    v1: __m128i,
-    v2: __m128i,
-    v3: __m128i,
+    lo: __m256i,
+    hi: __m256i,
 }
 
 fn fill_input(ptr: &[u8]) -> SimdInput {
     unsafe {
         #[allow(clippy::cast_ptr_alignment)]
         SimdInput {
-            v0: _mm_loadu_si128(ptr.as_ptr() as *const __m128i),
-            v1: _mm_loadu_si128(ptr.as_ptr().add(16) as *const __m128i),
-            v2: _mm_loadu_si128(ptr.as_ptr().add(32) as *const __m128i),
-            v3: _mm_loadu_si128(ptr.as_ptr().add(48) as *const __m128i),
+            lo: _mm256_loadu_si256(ptr.as_ptr() as *const __m256i),
+            hi: _mm256_loadu_si256(ptr.as_ptr().add(32) as *const __m256i),
         }
     }
 }
@@ -34,42 +30,26 @@ fn fill_input(ptr: &[u8]) -> SimdInput {
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn check_utf8(
     input: &SimdInput,
-    has_error: &mut __m128i,
+    has_error: &mut __m256i,
     previous: &mut AvxProcessedUtfBytes,
 ) {
-    let highbit: __m128i = _mm_set1_epi8(static_cast_i8!(0x80u8));
-    if (_mm_testz_si128(_mm_or_si128(input.v0, input.v1), highbit)) == 1 {
+    let highbit: __m256i = _mm256_set1_epi8(static_cast_i8!(0x80u8));
+    if (_mm256_testz_si256(_mm256_or_si256(input.lo, input.hi), highbit)) == 1 {
         // it is ascii, we just check continuation
-        *has_error = _mm_or_si128(
-            _mm_cmpgt_epi8(
+        *has_error = _mm256_or_si256(
+            _mm256_cmpgt_epi8(
                 previous.carried_continuations,
-                _mm_setr_epi8(
-                    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1,
+                _mm256_setr_epi8(
+                    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+                    9, 9, 9, 9, 9, 1,
                 ),
             ),
             *has_error,
         );
     } else {
         // it is not ascii so we have to do heavy work
-        *previous = avxcheck_utf8_bytes(input.v0, &previous, has_error);
-        *previous = avxcheck_utf8_bytes(input.v1, &previous, has_error);
-    }
-
-    if (_mm_testz_si128(_mm_or_si128(input.v2, input.v3), highbit)) == 1 {
-        // it is ascii, we just check continuation
-        *has_error = _mm_or_si128(
-            _mm_cmpgt_epi8(
-                previous.carried_continuations,
-                _mm_setr_epi8(
-                    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1,
-                ),
-            ),
-            *has_error,
-        );
-    } else {
-        // it is not ascii so we have to do heavy work
-        *previous = avxcheck_utf8_bytes(input.v2, &previous, has_error);
-        *previous = avxcheck_utf8_bytes(input.v3, &previous, has_error);
+        *previous = avxcheck_utf8_bytes(input.lo, &previous, has_error);
+        *previous = avxcheck_utf8_bytes(input.hi, &previous, has_error);
     }
 }
 
@@ -78,32 +58,25 @@ unsafe fn check_utf8(
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
     unsafe {
-        let mask: __m128i = _mm_set1_epi8(m as i8);
-        let cmp_res_0: __m128i = _mm_cmpeq_epi8(input.v0, mask);
-        let res_0: u64 = u64::from(static_cast_u32!(_mm_movemask_epi8(cmp_res_0)));
-        let cmp_res_1: __m128i = _mm_cmpeq_epi8(input.v1, mask);
-        let res_1: u64 = _mm_movemask_epi8(cmp_res_1) as u64;
-        let cmp_res_2: __m128i = _mm_cmpeq_epi8(input.v2, mask);
-        let res_2: u64 = _mm_movemask_epi8(cmp_res_2) as u64;
-        let cmp_res_3: __m128i = _mm_cmpeq_epi8(input.v3, mask);
-        let res_3: u64 = _mm_movemask_epi8(cmp_res_3) as u64;
-        res_0 | (res_1 << 16) | (res_2 << 32) | (res_3 << 48)
+        let mask: __m256i = _mm256_set1_epi8(m as i8);
+        let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.lo, mask);
+        let res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)));
+        let cmp_res_1: __m256i = _mm256_cmpeq_epi8(input.hi, mask);
+        let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
+        res_0 | (res_1 << 32)
     }
 }
 
 // find all values less than or equal than the content of maxval (using unsigned arithmetic)
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m128i) -> u64 {
+fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
     unsafe {
-        let cmp_res_0: __m128i = _mm_cmpeq_epi8(_mm_max_epu8(maxval, input.v0), maxval);
-        let res_0: u64 = u64::from(static_cast_u32!(_mm_movemask_epi8(cmp_res_0)));
-        let cmp_res_1: __m128i = _mm_cmpeq_epi8(_mm_max_epu8(maxval, input.v1), maxval);
-        let res_1: u64 = _mm_movemask_epi8(cmp_res_1) as u64;
-        let cmp_res_2: __m128i = _mm_cmpeq_epi8(_mm_max_epu8(maxval, input.v2), maxval);
-        let res_2: u64 = _mm_movemask_epi8(cmp_res_2) as u64;
-        let cmp_res_3: __m128i = _mm_cmpeq_epi8(_mm_max_epu8(maxval, input.v3), maxval);
-        let res_3: u64 = _mm_movemask_epi8(cmp_res_3) as u64;
-        res_0 | (res_1 << 16) | (res_2 << 32) | (res_3 << 48)
+        let cmp_res_0: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
+        // TODO: c++ uses static cast, here what are the implications?
+        let res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)));
+        let cmp_res_1: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval);
+        let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
+        res_0 | (res_1 << 32)
     }
 }
 
@@ -182,7 +155,7 @@ unsafe fn find_quote_mask_and_bits(
     // quotation mark, reverse solidus, and the control characters (U+0000
     //through U+001F).
     // https://tools.ietf.org/html/rfc8259
-    let unescaped: u64 = unsigned_lteq_against_input(&input, _mm_set1_epi8(0x1F));
+    let unescaped: u64 = unsigned_lteq_against_input(&input, _mm256_set1_epi8(0x1F));
     *error_mask |= quote_mask & unescaped;
     // right shift of a signed value expected to be well-defined and standard
     // compliant as of C++20,
@@ -215,93 +188,59 @@ unsafe fn find_whitespace_and_structurals(
     // these go into the next 2 buckets of the comparison (8/16)
 
     // TODO: const?
-    let low_nibble_mask: __m128i = _mm_setr_epi8(
-        16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0,
+    let low_nibble_mask: __m256i = _mm256_setr_epi8(
+        16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2,
+        9, 0, 0,
     );
     // TODO: const?
-    let high_nibble_mask: __m128i = _mm_setr_epi8(
-        8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0,
+    let high_nibble_mask: __m256i = _mm256_setr_epi8(
+        8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1,
+        0, 0,
     );
 
-    let structural_shufti_mask: __m128i = _mm_set1_epi8(0x7);
-    let whitespace_shufti_mask: __m128i = _mm_set1_epi8(0x18);
+    let structural_shufti_mask: __m256i = _mm256_set1_epi8(0x7);
+    let whitespace_shufti_mask: __m256i = _mm256_set1_epi8(0x18);
 
-    let v_v0: __m128i = _mm_and_si128(
-        _mm_shuffle_epi8(low_nibble_mask, input.v0),
-        _mm_shuffle_epi8(
+    let v_lo: __m256i = _mm256_and_si256(
+        _mm256_shuffle_epi8(low_nibble_mask, input.lo),
+        _mm256_shuffle_epi8(
             high_nibble_mask,
-            _mm_and_si128(_mm_srli_epi32(input.v0, 4), _mm_set1_epi8(0x7f)),
-        ),
-    );
-    let v_v1: __m128i = _mm_and_si128(
-        _mm_shuffle_epi8(low_nibble_mask, input.v1),
-        _mm_shuffle_epi8(
-            high_nibble_mask,
-            _mm_and_si128(_mm_srli_epi32(input.v1, 4), _mm_set1_epi8(0x7f)),
-        ),
-    );
-    let v_v2: __m128i = _mm_and_si128(
-        _mm_shuffle_epi8(low_nibble_mask, input.v2),
-        _mm_shuffle_epi8(
-            high_nibble_mask,
-            _mm_and_si128(_mm_srli_epi32(input.v2, 4), _mm_set1_epi8(0x7f)),
-        ),
-    );
-    let v_v3: __m128i = _mm_and_si128(
-        _mm_shuffle_epi8(low_nibble_mask, input.v3),
-        _mm_shuffle_epi8(
-            high_nibble_mask,
-            _mm_and_si128(_mm_srli_epi32(input.v3, 4), _mm_set1_epi8(0x7f)),
+            _mm256_and_si256(_mm256_srli_epi32(input.lo, 4), _mm256_set1_epi8(0x7f)),
         ),
     );
 
-    let tmp_v0: __m128i = _mm_cmpeq_epi8(
-        _mm_and_si128(v_v0, structural_shufti_mask),
-        _mm_set1_epi8(0),
+    let v_hi: __m256i = _mm256_and_si256(
+        _mm256_shuffle_epi8(low_nibble_mask, input.hi),
+        _mm256_shuffle_epi8(
+            high_nibble_mask,
+            _mm256_and_si256(_mm256_srli_epi32(input.hi, 4), _mm256_set1_epi8(0x7f)),
+        ),
     );
-    let tmp_v1: __m128i = _mm_cmpeq_epi8(
-        _mm_and_si128(v_v1, structural_shufti_mask),
-        _mm_set1_epi8(0),
+    let tmp_lo: __m256i = _mm256_cmpeq_epi8(
+        _mm256_and_si256(v_lo, structural_shufti_mask),
+        _mm256_set1_epi8(0),
     );
-    let tmp_v2: __m128i = _mm_cmpeq_epi8(
-        _mm_and_si128(v_v2, structural_shufti_mask),
-        _mm_set1_epi8(0),
-    );
-    let tmp_v3: __m128i = _mm_cmpeq_epi8(
-        _mm_and_si128(v_v3, structural_shufti_mask),
-        _mm_set1_epi8(0),
-    );
-
-    let structural_res_0: u64 = u64::from(static_cast_u32!(_mm_movemask_epi8(tmp_v0)));
-    let structural_res_1: u64 = _mm_movemask_epi8(tmp_v1) as u64;
-    let structural_res_2: u64 = _mm_movemask_epi8(tmp_v2) as u64;
-    let structural_res_3: u64 = _mm_movemask_epi8(tmp_v3) as u64;
-
-    *structurals = !(structural_res_0 | (structural_res_1 << 16) | (structural_res_2 << 32) | (structural_res_3 << 48));
-
-    let tmp_ws_v0: __m128i = _mm_cmpeq_epi8(
-        _mm_and_si128(v_v0, whitespace_shufti_mask),
-        _mm_set1_epi8(0),
-    );
-    let tmp_ws_v1: __m128i = _mm_cmpeq_epi8(
-        _mm_and_si128(v_v1, whitespace_shufti_mask),
-        _mm_set1_epi8(0),
-    );
-    let tmp_ws_v2: __m128i = _mm_cmpeq_epi8(
-        _mm_and_si128(v_v2, whitespace_shufti_mask),
-        _mm_set1_epi8(0),
-    );
-    let tmp_ws_v3: __m128i = _mm_cmpeq_epi8(
-        _mm_and_si128(v_v3, whitespace_shufti_mask),
-        _mm_set1_epi8(0),
+    let tmp_hi: __m256i = _mm256_cmpeq_epi8(
+        _mm256_and_si256(v_hi, structural_shufti_mask),
+        _mm256_set1_epi8(0),
     );
 
-    let ws_res_0: u64 = u64::from(static_cast_u32!(_mm_movemask_epi8(tmp_ws_v0)));
-    let ws_res_1: u64 = _mm_movemask_epi8(tmp_ws_v1) as u64;
-    let ws_res_2: u64 = _mm_movemask_epi8(tmp_ws_v2) as u64;
-    let ws_res_3: u64 = _mm_movemask_epi8(tmp_ws_v3) as u64;
+    let structural_res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_lo)));
+    let structural_res_1: u64 = _mm256_movemask_epi8(tmp_hi) as u64;
+    *structurals = !(structural_res_0 | (structural_res_1 << 32));
 
-    *whitespace = !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48));
+    let tmp_ws_lo: __m256i = _mm256_cmpeq_epi8(
+        _mm256_and_si256(v_lo, whitespace_shufti_mask),
+        _mm256_set1_epi8(0),
+    );
+    let tmp_ws_hi: __m256i = _mm256_cmpeq_epi8(
+        _mm256_and_si256(v_hi, whitespace_shufti_mask),
+        _mm256_set1_epi8(0),
+    );
+
+    let ws_res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_ws_lo)));
+    let ws_res_1: u64 = _mm256_movemask_epi8(tmp_ws_hi) as u64;
+    *whitespace = !(ws_res_0 | (ws_res_1 << 32));
 }
 
 // flatten out values in 'bits' assuming that they are are to have values of idx
@@ -316,7 +255,11 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     let mut l = base.len();
     let idx_minus_64 = idx.wrapping_sub(64);
     let idx_64_v = unsafe {
-        _mm_set_epi32(
+        _mm256_set_epi32(
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
             static_cast_i32!(idx_minus_64),
             static_cast_i32!(idx_minus_64),
             static_cast_i32!(idx_minus_64),
@@ -344,13 +287,21 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
             bits &= bits.wrapping_sub(1);
             let v3 = static_cast_i32!(trailingzeroes(bits));
             bits &= bits.wrapping_sub(1);
+            let v4 = static_cast_i32!(trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v5 = static_cast_i32!(trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v6 = static_cast_i32!(trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
+            let v7 = static_cast_i32!(trailingzeroes(bits));
+            bits &= bits.wrapping_sub(1);
 
-            let v: __m128i = _mm_set_epi32(v3, v2, v1, v0);
-            let v: __m128i = _mm_add_epi32(idx_64_v, v);
+            let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
+            let v: __m256i = _mm256_add_epi32(idx_64_v, v);
             #[allow(clippy::cast_ptr_alignment)]
-            _mm_storeu_si128(base.as_mut_ptr().add(l) as *mut __m128i, v);
+            _mm256_storeu_si256(base.as_mut_ptr().add(l) as *mut __m256i, v);
         }
-        l += 4;
+        l += 8;
     }
 }
 
@@ -408,7 +359,7 @@ impl<'de> Deserializer<'de> {
         let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
-        let mut has_error: __m128i = _mm_setzero_si128();
+        let mut has_error: __m256i = _mm256_setzero_si256();
         let mut previous = AvxProcessedUtfBytes::default();
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
@@ -544,7 +495,7 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        if _mm_testz_si128(has_error, has_error) != 0 {
+        if _mm256_testz_si256(has_error, has_error) != 0 {
             Ok(structural_indexes)
         } else {
             Err(ErrorType::InvalidUTF8)

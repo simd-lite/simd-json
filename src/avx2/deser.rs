@@ -1,5 +1,3 @@
-#![deny(warnings)]
-
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -10,7 +8,7 @@ use std::mem;
 pub use crate::error::{Error, ErrorType};
 pub use crate::Deserializer;
 pub use crate::Result;
-pub use crate::sse42_utf8check::*;
+pub use crate::avx2::utf8check::*;
 pub use crate::stringparse::*;
 
 use crate::portability::trailingzeroes;
@@ -32,11 +30,11 @@ impl<'de> Deserializer<'de> {
         let mut src_i: usize = 0;
         let mut len = src_i;
         loop {
-            let v: __m128i = if src.len() >= src_i + 16 {
-                // This is safe since we ensure src is at least 16 wide
+            let v: __m256i = if src.len() >= src_i + 32 {
+                // This is safe since we ensure src is at least 32 wide
                 #[allow(clippy::cast_ptr_alignment)]
                 unsafe {
-                    _mm_loadu_si128(src.as_ptr().add(src_i) as *const __m128i)
+                    _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i)
                 }
             } else {
                 unsafe {
@@ -45,20 +43,20 @@ impl<'de> Deserializer<'de> {
                         .clone_from_slice(src.get_unchecked(src_i..));
                     // This is safe since we ensure src is at least 32 wide
                     #[allow(clippy::cast_ptr_alignment)]
-                    _mm_loadu_si128(padding.as_ptr() as *const __m128i)
+                    _mm256_loadu_si256(padding.as_ptr() as *const __m256i)
                 }
             };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
             let bs_bits: u32 = unsafe {
-                static_cast_u32!(_mm_movemask_epi8(_mm_cmpeq_epi8(
+                static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                     v,
-                    _mm_set1_epi8(b'\\' as i8)
+                    _mm256_set1_epi8(b'\\' as i8)
                 )))
             };
-            let quote_mask = unsafe { _mm_cmpeq_epi8(v, _mm_set1_epi8(b'"' as i8)) };
-            let quote_bits = unsafe { static_cast_u32!(_mm_movemask_epi8(quote_mask)) };
+            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
+            let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
                 // find out where the quote is...
@@ -90,8 +88,8 @@ impl<'de> Deserializer<'de> {
             } else {
                 // they are the same. Since they can't co-occur, it means we encountered
                 // neither.
-                src_i += 16;
-                len += 16;
+                src_i += 32;
+                len += 32;
             }
         }
 
@@ -99,38 +97,38 @@ impl<'de> Deserializer<'de> {
         let dst: &mut [u8] = &mut self.strings;
 
         loop {
-            let v: __m128i = if src.len() >= src_i + 16 {
-                // This is safe since we ensure src is at least 16 wide
+            let v: __m256i = if src.len() >= src_i + 32 {
+                // This is safe since we ensure src is at least 32 wide
                 #[allow(clippy::cast_ptr_alignment)]
                 unsafe {
-                    _mm_loadu_si128(src.as_ptr().add(src_i) as *const __m128i)
+                    _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i)
                 }
             } else {
                 unsafe {
                     padding
                         .get_unchecked_mut(..src.len() - src_i)
                         .clone_from_slice(src.get_unchecked(src_i..));
-                    // This is safe since we ensure src is at least 16 wide
+                    // This is safe since we ensure src is at least 32 wide
                     #[allow(clippy::cast_ptr_alignment)]
-                    _mm_loadu_si128(padding.as_ptr() as *const __m128i)
+                    _mm256_loadu_si256(padding.as_ptr() as *const __m256i)
                 }
             };
 
             #[allow(clippy::cast_ptr_alignment)]
             unsafe {
-                _mm_storeu_si128(dst.as_mut_ptr().add(dst_i) as *mut __m128i, v)
+                _mm256_storeu_si256(dst.as_mut_ptr().add(dst_i) as *mut __m256i, v)
             };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
             let bs_bits: u32 = unsafe {
-                static_cast_u32!(_mm_movemask_epi8(_mm_cmpeq_epi8(
+                static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                     v,
-                    _mm_set1_epi8(b'\\' as i8)
+                    _mm256_set1_epi8(b'\\' as i8)
                 )))
             };
-            let quote_mask = unsafe { _mm_cmpeq_epi8(v, _mm_set1_epi8(b'"' as i8)) };
-            let quote_bits = unsafe { static_cast_u32!(_mm_movemask_epi8(quote_mask)) };
+            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
+            let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
                 // find out where the quote is...
@@ -201,8 +199,8 @@ impl<'de> Deserializer<'de> {
             } else {
                 // they are the same. Since they can't co-occur, it means we encountered
                 // neither.
-                src_i += 16;
-                dst_i += 16;
+                src_i += 32;
+                dst_i += 32;
             }
         }
     }
