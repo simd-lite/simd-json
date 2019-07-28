@@ -14,7 +14,11 @@ use std::io;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::ptr;
-use std::is_x86_feature_detected;
+
+#[cfg(target_feature = "avx2")]
+const AVX2_PRESENT : bool = true;
+#[cfg(not(target_feature = "avx2"))]
+const AVX2_PRESENT : bool = false;
 
 const QU: u8 = b'"';
 const BS: u8 = b'\\';
@@ -90,6 +94,7 @@ pub trait BaseGenerator {
         }
         self.write(&string[start..])
     }
+
     #[inline(always)]
     fn write_string(&mut self, string: &str) -> io::Result<()> {
         stry!(self.write_char(b'"'));
@@ -102,7 +107,7 @@ pub trait BaseGenerator {
             // quote characters that gives us a bitmask of 0x1f for that
             // region, only quote (`"`) and backslash (`\`) are not in
             // this range.
-            if is_x86_feature_detected!("avx2") {
+            if AVX2_PRESENT {
                 let zero = _mm256_set1_epi8(0);
                 let lower_quote_range = _mm256_set1_epi8(0x1F as i8);
                 let quote = _mm256_set1_epi8(b'"' as i8);
