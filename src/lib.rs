@@ -78,31 +78,31 @@ mod charutils;
 #[macro_use]
 mod macros;
 mod error;
-mod stringparse;
 mod numberparse;
 mod parsedjson;
 mod portability;
+mod stringparse;
 
 #[cfg(target_feature = "avx2")]
 mod avx2;
 #[cfg(target_feature = "avx2")]
-const SIMDJSON_PADDING : usize = crate::avx2::stage1::SIMDJSON_PADDING;
-#[cfg(target_feature = "avx2")]
 pub use crate::avx2::deser::*;
+#[cfg(target_feature = "avx2")]
+use crate::avx2::stage1::SIMDJSON_PADDING;
 
 #[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
 mod sse42;
 #[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
-const SIMDJSON_PADDING : usize = crate::sse42::stage1::SIMDJSON_PADDING;
-#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
 pub use crate::sse42::deser::*;
+#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+use crate::sse42::stage1::SIMDJSON_PADDING;
 
 mod stage2;
 pub mod value;
 
 use crate::numberparse::Number;
-use std::str;
 use std::mem;
+use std::str;
 
 pub use crate::error::{Error, ErrorType};
 pub use crate::value::*;
