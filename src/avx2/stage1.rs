@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::portability::*;
-use crate::utf8check::*;
+use crate::avx2::utf8check::*;
 use crate::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -8,6 +8,8 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 use std::mem;
+
+pub const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 
 #[derive(Debug)]
 struct SimdInput {
