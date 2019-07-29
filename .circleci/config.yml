@@ -3,28 +3,10 @@ version: 2.1
 #orbs:
 #  codecov: codecov/codecov@1.0.4
 
-jobs:
-  test:
-    docker:
-      - image: rust:1
-    steps:
-      - checkout
-        # - run:
-        #   name: Install CMAKE
-        #   command: 'apt-get update && apt-get install -y cmake'
-        # - restore_cache:
-        #   keys:
-        #   key: v4-cmake-{{ arch }}-3.14.1
-        # - run:
-        #   name: Fetch newer CMAKE ...
-        #   command: 'wget https://github.com/Kitware/CMake/releases/download/v3.14.1/cmake-3.14.1.tar.gz && tar zxf cmake-3.14.1.tar.gz && cd cmake-3.14.1 && cmake . && make'
-        # - save_cache:
-        #   paths:
-        #     - cmake-3.14.1
-        #   key: v4-cmake-{{ arch }}-3.14.1
-        # - run:
-        #   name: install newer CMAKE ...
-        #   command: 'cd cmake-3.14.1 && make install'
+commands:
+  run_tests:
+    description: "A very simple command for demonstration purposes"
+    steps:     
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
@@ -47,6 +29,30 @@ jobs:
       - run:
           name: Run all tests
           command: cargo test --all
+
+jobs:
+  test:
+    docker:
+      - image: rust:1
+    steps:
+      - checkout
+        # - run:
+        #   name: Install CMAKE
+        #   command: 'apt-get update && apt-get install -y cmake'
+        # - restore_cache:
+        #   keys:
+        #   key: v4-cmake-{{ arch }}-3.14.1
+        # - run:
+        #   name: Fetch newer CMAKE ...
+        #   command: 'wget https://github.com/Kitware/CMake/releases/download/v3.14.1/cmake-3.14.1.tar.gz && tar zxf cmake-3.14.1.tar.gz && cd cmake-3.14.1 && cmake . && make'
+        # - save_cache:
+        #   paths:
+        #     - cmake-3.14.1
+        #   key: v4-cmake-{{ arch }}-3.14.1
+        # - run:
+        #   name: install newer CMAKE ...
+        #   command: 'cd cmake-3.14.1 && make install'
+      - run_tests: {}
       #- run:
       #    name: Install nightly
       #    command: rustup install nightly
