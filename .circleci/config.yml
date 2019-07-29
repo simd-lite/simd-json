@@ -3,11 +3,10 @@ version: 2.1
 #orbs:
 #  codecov: codecov/codecov@1.0.4
 
-jobs:
-  test:
-    docker:
-      - image: rust:1
-    steps:
+commands:
+  run_tests:
+    description: "A very simple command for demonstration purposes"
+    steps:     
       - checkout
         # - run:
         #   name: Install CMAKE
@@ -55,8 +54,25 @@ jobs:
       #    name: Run cycle benchmarks
       #     command: make perf
 
+jobs:
+  test:
+    docker:
+      - image: rust:1
+    environment:
+      RUSTFLAGS: '-C target-cpu=native'
+    steps:
+      - run_tests: {}
+  test-sse:
+    docker:
+      - image: rust:1
+    environment:
+      RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
+    steps:
+      - run_tests: {}
+
 workflows:
   version: 2
   workflow:
     jobs:
     - test
+    - test-sse
