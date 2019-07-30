@@ -17,6 +17,8 @@
 
 To be able to take advantage of simdjson your system needs to be SIMD compatible. This means to compile with native cpu support and the given features. Look at [The cargo config in this repository](.cargo/config) to get an example.
 
+simd-json.rs supports AVX2, SSE4.2 and NEON.
+
 ### jemalloc
 
 If you are writing performance centric code, make sure to use jemalloc and not the system allocator (which has now become default in rust), it gives a very noticeable boost in performance.
