@@ -2,7 +2,7 @@
 #[cfg(target_feature = "avx2")]
 use crate::avx2::stage1::SIMDJSON_PADDING;
 use crate::charutils::*;
-#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+#[cfg(not(target_feature = "avx2"))]
 use crate::sse42::stage1::SIMDJSON_PADDING;
 use crate::{Deserializer, Error, ErrorType, Result};
 

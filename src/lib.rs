@@ -89,11 +89,11 @@ pub use crate::avx2::deser::*;
 #[cfg(target_feature = "avx2")]
 use crate::avx2::stage1::SIMDJSON_PADDING;
 
-#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+#[cfg(not(target_feature = "avx2"))]
 mod sse42;
-#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+#[cfg(not(target_feature = "avx2"))]
 pub use crate::sse42::deser::*;
-#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+#[cfg(not(target_feature = "avx2"))]
 use crate::sse42::stage1::SIMDJSON_PADDING;
 
 mod stage2;
