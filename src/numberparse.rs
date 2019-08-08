@@ -1,10 +1,6 @@
 use crate::charutils::*;
 use crate::unlikely;
 use crate::*;
-#[cfg(target_arch = "x86")]
-use std::arch::x86::*;
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
 
 const POWER_OF_TEN: [f64; 617] = [
     1e-308, 1e-307, 1e-306, 1e-305, 1e-304, 1e-303, 1e-302, 1e-301, 1e-300, 1e-299, 1e-298, 1e-297,
@@ -133,26 +129,14 @@ pub enum Number {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(target_arch = "aarch64")]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
-    unsafe {
-        // this actually computes *16* values so we are being wasteful.
-        let ascii0: __m128i = _mm_set1_epi8(b'0' as i8);
-        let mul_1_10: __m128i =
-            _mm_setr_epi8(10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1);
-        let mul_1_100: __m128i = _mm_setr_epi16(100, 1, 100, 1, 100, 1, 100, 1);
-        let mul_1_10000: __m128i = _mm_setr_epi16(10000, 1, 10000, 1, 10000, 1, 10000, 1);
-        // We know what we're doing right? :P
-        #[allow(clippy::cast_ptr_alignment)]
-        let input: __m128i = _mm_sub_epi8(
-            _mm_loadu_si128(chars.get_unchecked(0..16).as_ptr() as *const __m128i),
-            ascii0,
-        );
-        let t1: __m128i = _mm_maddubs_epi16(input, mul_1_10);
-        let t2: __m128i = _mm_madd_epi16(t1, mul_1_100);
-        let t3: __m128i = _mm_packus_epi32(t2, t2);
-        let t4: __m128i = _mm_madd_epi16(t3, mul_1_10000);
-        _mm_cvtsi128_si32(t4) as u32 // only captures the sum of the first 8 digits, drop the rest
-    }
+    let val: u64 = unsafe { *(chars.as_ptr() as *const u64) };
+    //    memcpy(&val, chars, sizeof(u64));
+    let val = (val & 0x0F0F0F0F0F0F0F0F) * 2561 >> 8;
+    let val = (val & 0x00FF00FF00FF00FF) * 6553601 >> 16;
+
+    return ((val & 0x0000FFFF0000FFFF) * 42949672960001 >> 32) as u32;
 }
 
 impl<'de> Deserializer<'de> {

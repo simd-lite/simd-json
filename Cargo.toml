@@ -13,6 +13,7 @@ halfbrown = "0.1"
 page_size = "0.4"
 itoa = "0.4"
 ryu = "1"
+core_arch = "0.1.5"
 
 # serde compatibilty
 serde = { version = "1", features = ["derive"], optional = true}
