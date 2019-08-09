@@ -1,10 +1,10 @@
 //use std::arch::
 
 use crate::neon::simd_llvm;
-use crate::neon::simd;
 
 use std::mem;
 use std::hint::unreachable_unchecked;
+use core;
 
 #[allow(unused)]
 macro_rules! types {
@@ -21,19 +21,42 @@ macro_rules! types {
     )*)
 }
 
-pub type poly64_t = i64;
-
 extern "C" {
     #[link_name = "llvm.aarch64.neon.pmull64"]
     fn vmull_p64_(a: i64, b: i64) -> int8x16_t;
+    #[link_name = "llvm.aarch64.neon.vshrq"]
+    fn vshrq_n_u8_(a: uint8x16_t, b: u8) -> uint8x16_t;
+    #[link_name = "llvm.aarch64.neon.addp.v16i8"]
+    fn vpaddq_u8_(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t;
+    #[link_name = "llvm.aarch64.neon.addp.v16i8"]
+    fn vaddq_s8_(a: int8x16_t, b: int8x16_t) -> int8x16_t;
+    #[link_name = "llvm.aarch64.neon.addp.v16i32"]
+    fn vaddq_s32_(a: int32x4_t, b: int32x4_t) -> int32x4_t;
+    #[link_name = "llvm.aarch64.neon.vextq.v16s8"]
+    fn vextq_s8_(a: int8x16_t, b: int8x16_t, n:u8) -> int8x16_t;
+    #[link_name = "llvm.aarch64.neon.vtstq.v16u8"]
+    fn vtstq_u8_(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t;
+    #[link_name = "llvm.aarch64.neon.vtstq.v16s8"]
+    fn vtstq_s8_(a: int8x16_t, b: int8x16_t) -> int8x16_t;
+    #[link_name = "llvm.ctpop.u64"]
+    fn ctpop_u64_(a: u64) -> u32;
+    #[link_name = "llvm.ctlz.u64"]
+    fn ctlz_u64_(a: u64) -> u32;
+    #[link_name = "llvm.cttz.u64"]
+    fn cttz_u64_(a: u64) -> u32;
 }
 
-//poly128_t vmull_p64 (poly64_t a, poly64_t b)
 #[inline]
-#[target_feature(enable = "neon")]
 #[cfg_attr(test, assert_instr(pmull))]
-pub unsafe fn vmull_p64(a: poly64_t, b: poly64_t) -> poly128_t {
+pub unsafe fn vmull_p64(a: i64, b: i64) -> uint8x16_t {
     mem::transmute(vmull_p64_(mem::transmute(a), mem::transmute(b)))
+}
+
+
+#[inline]
+pub unsafe fn vshrq_n_u8(a: uint8x16_t, b: u8) -> uint8x16_t {
+    // FIXME?
+    vshrq_n_u8_(a, b)
 }
 
 types! {
@@ -47,8 +70,6 @@ types! {
     pub struct int16x4_t(i16, i16, i16, i16);
     /// ARM-specific 64-bit wide vector of four packed `u16`.
     pub struct uint16x4_t(u16, u16, u16, u16);
-    // FIXME: ARM-specific 64-bit wide vector of four packed `f16`.
-    // pub struct float16x4_t(f16, f16, f16, f16);
     /// ARM-specific 64-bit wide vector of four packed `u16`.
     pub struct poly16x4_t(u16, u16, u16, u16);
     /// ARM-specific 64-bit wide vector of two packed `i32`.
@@ -61,7 +82,6 @@ types! {
     pub struct int64x1_t(i64);
     /// ARM-specific 64-bit wide vector of one packed `u64`.
     pub struct uint64x1_t(u64);
-
     /// ARM-specific 128-bit wide vector of sixteen packed `i8`.
     pub struct int8x16_t(
         i8, i8 ,i8, i8, i8, i8 ,i8, i8,
@@ -81,8 +101,6 @@ types! {
     pub struct int16x8_t(i16, i16, i16, i16, i16, i16, i16, i16);
     /// ARM-specific 128-bit wide vector of eight packed `u16`.
     pub struct uint16x8_t(u16, u16, u16, u16, u16, u16, u16, u16);
-    // FIXME: ARM-specific 128-bit wide vector of eight packed `f16`.
-    // pub struct float16x8_t(f16, f16, f16, f16, f16, f16, f16);
     /// ARM-specific 128-bit wide vector of eight packed `u16`.
     pub struct poly16x8_t(u16, u16, u16, u16, u16, u16, u16, u16);
     /// ARM-specific 128-bit wide vector of four packed `i32`.
@@ -95,8 +113,6 @@ types! {
     pub struct int64x2_t(i64, i64);
     /// ARM-specific 128-bit wide vector of two packed `u64`.
     pub struct uint64x2_t(u64, u64);
-    /// ARM-specific 128-bit wide vector of one packed `i128`
-    pub struct poly128_t(i128);
 }
 
 impl uint8x16_t {
@@ -109,6 +125,33 @@ impl int8x16_t {
     pub fn new(a:i8,b:i8,c:i8,d:i8,e:i8,f:i8,g:i8,h:i8,i:i8,j:i8,k:i8,l:i8,m:i8,n:i8,o:i8,p:i8) -> int8x16_t {
         int8x16_t(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
     }
+}
+
+impl int32x4_t {
+    pub fn new(a:i32,b:i32,c:i32,d:i32) -> int32x4_t {
+        int32x4_t(a, b, c, d)
+    }
+}
+
+#[inline]
+pub fn add_overflow(a: u64, b: u64, out: &mut u64) -> bool {
+    let (carry, did_carry) = a.overflowing_add(b);
+
+    if did_carry {
+        *out = carry;
+    };
+
+    did_carry
+}
+
+#[inline]
+pub unsafe fn vld1q_s8(addr: *const i8) -> int8x16_t {
+    *(addr as *const int8x16_t)
+}
+
+#[inline]
+pub unsafe fn vld1q_u8(addr: *const u8) -> uint8x16_t {
+    *(addr as *const uint8x16_t)
 }
 
 macro_rules! aarch64_simd_2 {
@@ -135,6 +178,8 @@ aarch64_simd_ceq!(vceq_u64, uint64x1_t);
 aarch64_simd_ceq!(vceqq_u64, uint64x2_t);
 aarch64_simd_ceq!(vceq_p64, uint64x1_t);
 aarch64_simd_ceq!(vceqq_p64, uint64x2_t);
+
+aarch64_simd_ceq!(vceqq_s8, int8x16_t);
 
 macro_rules! aarch64_simd_cgt {
     ($name:ident, $type:ty) => {
@@ -209,20 +254,58 @@ aarch64_simd_cle!(vcleq_s64, int64x2_t);
 aarch64_simd_cleu!(vcle_u64, uint64x1_t);
 aarch64_simd_cleu!(vcleq_u64, uint64x2_t);
 
+aarch64_simd_cleu!(vcgtq_s8, int8x16_t);
 
+#[inline]
+pub fn vdupq_n_s8(a:i8) -> int8x16_t {
+    int8x16_t(a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a)
+}
+
+#[inline]
+pub fn zeroi8x16() -> int8x16_t {
+    int8x16_t(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
+}
+
+#[inline]
 pub fn vdupq_n_u8(a:u8) -> uint8x16_t {
     uint8x16_t(a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a)
 }
 
-pub fn zero8x16() -> uint8x16_t {
+#[inline]
+pub fn vmovq_n_u8(a:u8) -> uint8x16_t {
+    uint8x16_t(a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a)
+}
+
+#[inline]
+pub fn zerou8x16() -> uint8x16_t {
     uint8x16_t(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
 }
 
-pub unsafe fn vpaddq_u8(a:uint8x16_t, b: uint8x16_t) -> uint8x16_t { simd_llvm::simd_add(a, b) }
+#[inline]
+pub unsafe fn vpaddq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
+    vpaddq_u8_(a, b)
+}
 
+#[inline]
+pub unsafe fn vaddq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t {
+    vaddq_s8_(a, b)
+}
+
+#[inline]
+pub unsafe fn vaddq_s32(a: int32x4_t, b: int32x4_t) -> int32x4_t {
+    vaddq_s32_(a, b)
+}
+
+#[inline]
 pub unsafe fn vandq_u8(a:uint8x16_t, b: uint8x16_t) -> uint8x16_t { simd_llvm::simd_and(a, b) }
+
+#[inline]
 pub unsafe fn vorrq_u8(a:uint8x16_t, b: uint8x16_t) -> uint8x16_t { simd_llvm::simd_or(a, b) }
+
+#[inline]
 pub unsafe fn vandq_s8(a:int8x16_t, b: int8x16_t) -> int8x16_t { simd_llvm::simd_and(a, b) }
+
+#[inline]
 pub unsafe fn vorrq_s8(a:int8x16_t, b: int8x16_t) -> int8x16_t { simd_llvm::simd_or(a, b) }
 
 macro_rules! arm_reinterpret {
@@ -257,31 +340,56 @@ macro_rules! arm_vget_lane {
     };
 }
 
-arm_vget_lane!(vgetq_lane_u16, u16, uint8x16_t, 7);
+arm_vget_lane!(vgetq_lane_u16, u16, uint16x8_t, 7);
 arm_vget_lane!(vgetq_lane_u64, u64, uint64x2_t, 1);
 arm_vget_lane!(vget_lane_u64, u64, uint64x1_t, 0);
 
+pub unsafe fn vextq_s8(a:int8x16_t, b:int8x16_t, n:u8) -> int8x16_t {
+    vextq_s8_(a, b, n)
+}
+
+#[inline]
 pub fn vqmovn_u64(a:uint64x2_t) -> uint32x2_t {
     uint32x2_t(a.0 as u32, a.1 as u32)
 }
 
-//fn vaddq_s8() -> u16 { 0 }
-//fn vceqq_s8() -> u16 { 0 }
-//fn vceqq_u8() -> u16 { 0 }
-//fn vcgtq_s8() -> u16 { 0 }
-//fn vcleq_u8() -> u16 { 0 }
-//fn vdupq_n_s8() -> u16 { 0 }
-//fn vextq_s8() -> u16 { 0 }
-//fn vget_lane_u64() -> u16 { 0 }
-//fn vgetq_lane_u32() -> u16 { 0 }
-//fn vgetq_lane_u64() -> u16 { 0 }
-//fn vld1q_s8() -> u16 { 0 }
-//fn vld1q_u8() -> u16 { 0 }
-//fn vmovq_n_u8() -> u16 { 0 }
-//fn vmull_p64() -> u16 { 0 }
-//fn vorrq_s8() -> u16 { 0 }
-//fn vqsubq_u8() -> u16 { 0 }
-//fn vqtbl1q_s8() -> u16 { 0 }
-//fn vqtbl1q_u8() -> u16 { 0 }
-//fn vshrq_n_u8() -> u16 { 0 }
-//fn vst1q_u8() -> u16 { 0 }
+#[inline]
+pub unsafe fn vqtbl1q_s8(t: int8x16_t, idx: uint8x16_t) -> int8x16_t {
+    mem::transmute(core::arch::aarch64::vqtbl1q_s8(mem::transmute(t), mem::transmute(idx)))
+}
+
+#[inline]
+pub unsafe fn vqtbl1q_u8(t: uint8x16_t, idx: uint8x16_t) -> uint8x16_t {
+    mem::transmute(core::arch::aarch64::vqtbl1q_s8(mem::transmute(t), mem::transmute(idx)))
+}
+
+#[inline]
+pub unsafe fn vqsubq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
+    // FIXME?
+    simd_llvm::simd_sub(mem::transmute(a), mem::transmute(b))
+}
+
+#[inline]
+pub unsafe fn vtstq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
+    vtstq_u8_(a, b)
+}
+
+#[inline]
+pub unsafe fn vtstq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t {
+    vtstq_s8_(a, b)
+}
+
+#[inline]
+pub unsafe fn hamming(a:u64) -> u32 {
+    ctpop_u64_(a)
+}
+
+#[inline]
+pub unsafe fn trailingzeroes(a:u64) -> u32 {
+    cttz_u64_(a)
+}
+
+#[inline]
+pub unsafe fn vst1q_u32(addr: *mut u8, val : uint32x4_t) {
+    std::ptr::write(addr as *mut uint32x4_t, val)
+}

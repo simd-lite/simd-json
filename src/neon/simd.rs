@@ -1,4 +1,5 @@
 #![allow(non_camel_case_types)]
+#![allow(unused)]
 
 use crate::neon::simd_llvm;
 
