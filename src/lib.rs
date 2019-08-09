@@ -257,954 +257,954 @@ impl<'de> Deserializer<'de> {
         self.parse_number_int(input, minus)
     }
 }
-//
-//#[cfg(test)]
-//mod tests {
-//    use super::serde::from_slice;
-//    use super::{
-//        owned::to_value, owned::Map, owned::Value, to_borrowed_value, to_owned_value, Deserializer,
-//    };
-//    use halfbrown::HashMap;
-//    use proptest::prelude::*;
-//    use serde::Deserialize;
-//    use serde_json;
-//
-//    #[test]
-//    fn count1() {
-//        let mut d = String::from("[]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let simd = Deserializer::from_slice(&mut d).expect("");
-//        assert_eq!(simd.counts[1], 0);
-//    }
-//
-//    #[test]
-//    fn count2() {
-//        let mut d = String::from("[1]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let simd = Deserializer::from_slice(&mut d).expect("");
-//        assert_eq!(simd.counts[1], 1);
-//    }
-//
-//    #[test]
-//    fn count3() {
-//        let mut d = String::from("[1,2]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let simd = Deserializer::from_slice(&mut d).expect("");
-//        assert_eq!(simd.counts[1], 2);
-//    }
-//
-//    #[test]
-//    fn count4() {
-//        let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let simd = Deserializer::from_slice(&mut d).expect("");
-//        assert_eq!(simd.counts[1], 3);
-//        assert_eq!(simd.counts[4], 1);
-//    }
-//
-//    #[test]
-//    fn count5() {
-//        let mut d = String::from("[[],null,null]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let simd = Deserializer::from_slice(&mut d).expect("");
-//        assert_eq!(simd.counts[1], 3);
-//        assert_eq!(simd.counts[2], 0);
-//    }
-//
-//    #[test]
-//    fn empty() {
-//        let mut d = String::from("");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_simd = from_slice::<Value>(&mut d);
-//        let v_serde = serde_json::from_slice::<Value>(d);
-//        assert!(v_simd.is_err());
-//        assert!(v_serde.is_err());
-//    }
-//
-//    #[test]
-//    fn bool_true() {
-//        let mut d = String::from("true");
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(to_value(&mut d1), Ok(Value::from(true)));
-//    }
-//
-//    #[test]
-//    fn bool_false() {
-//        let mut d = String::from("false");
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(to_value(&mut d1), Ok(Value::from(false)));
-//        //assert!(false)
-//    }
-//
-//    #[test]
-//    fn union() {
-//        let mut d = String::from("null");
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(to_value(&mut d1), Ok(Value::Null));
-//    }
-//
-//    #[test]
-//    fn int() {
-//        let mut d = String::from("42");
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(to_value(&mut d1), Ok(Value::from(42)));
-//    }
-//
-//    #[test]
-//    fn zero() {
-//        let mut d = String::from("0");
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(to_value(&mut d1), Ok(Value::from(0)));
-//    }
-//
-//    #[test]
-//    fn one() {
-//        let mut d = String::from("1");
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(to_value(&mut d1), Ok(Value::from(1)));
-//    }
-//
-//    #[test]
-//    fn minus_one() {
-//        let mut d = String::from("-1");
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(to_value(&mut d1), Ok(Value::from(-1)));
-//    }
-//
-//    #[test]
-//    fn float() {
-//        let mut d = String::from("23.0");
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(to_value(&mut d1), Ok(Value::from(23.0)));
-//    }
-//
-//    #[test]
-//    fn string() {
-//        let mut d = String::from(r#""snot""#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(to_value(&mut d1), Ok(Value::from("snot")));
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn lonely_quote() {
-//        let mut d = String::from(r#"""#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
-//        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
-//        assert!(v_simd);
-//        assert!(v_serde);
-//    }
-//
-//    #[test]
-//    fn lonely_quote1() {
-//        let mut d = String::from(r#"["]"#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
-//        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
-//        assert!(v_simd);
-//        assert!(v_serde);
-//    }
-//    #[test]
-//    fn lonely_quote2() {
-//        let mut d = String::from(r#"[1, "]"#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
-//        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
-//        assert!(v_simd);
-//        assert!(v_serde);
-//    }
-//
-//    #[test]
-//    fn lonely_quote3() {
-//        let mut d = String::from(r#"{": 1}"#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
-//        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
-//        assert!(v_simd);
-//        assert!(v_serde);
-//    }
-//
-//    #[test]
-//    fn empty_string() {
-//        let mut d = String::from(r#""""#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(to_value(&mut d1), Ok(Value::from("")));
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn empty_array() {
-//        let mut d = String::from(r#"[]"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
-//        assert_eq!(to_value(&mut d1), Ok(Value::Array(vec![])));
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn malformed_array() {
-//        let mut d = String::from(r#"[["#);
-//        let mut d1 = d.clone();
-//        let mut d2 = d.clone();
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d2 = unsafe { d2.as_bytes_mut() };
-//        let v_serde: Result<serde_json::Value, _> = serde_json::from_slice(d);
-//        let v_simd_ov = to_owned_value(&mut d);
-//        let v_simd_bv = to_borrowed_value(&mut d1);
-//        let v_simd: Result<serde_json::Value, _> = from_slice(&mut d2);
-//        assert!(v_simd_ov.is_err());
-//        assert!(v_simd_bv.is_err());
-//        assert!(v_simd.is_err());
-//        assert!(v_serde.is_err());
-//    }
-//
-//    #[test]
-//    fn double_array() {
-//        let mut d = String::from(r#"[[]]"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
-//        assert_eq!(
-//            to_value(&mut d1),
-//            Ok(Value::Array(vec![Value::Array(vec![])]))
-//        );
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn null_null_array() {
-//        let mut d = String::from(r#"[[],null,null]"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
-//        assert_eq!(
-//            to_value(&mut d1),
-//            Ok(Value::Array(vec![
-//                Value::Array(vec![]),
-//                Value::Null,
-//                Value::Null,
-//            ]))
-//        );
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn one_element_array() {
-//        let mut d = String::from(r#"["snot"]"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        assert_eq!(
-//            to_value(&mut d1),
-//            Ok(Value::Array(vec![Value::from("snot")]))
-//        );
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn two_element_array() {
-//        let mut d = String::from(r#"["snot", "badger"]"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        assert_eq!(
-//            to_value(&mut d1),
-//            Ok(Value::Array(vec![
-//                Value::from("snot"),
-//                Value::from("badger")
-//            ]))
-//        );
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn list() {
-//        let mut d = String::from(r#"[42, 23.0, "snot badger"]"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(
-//            to_value(&mut d1),
-//            Ok(Value::Array(vec![
-//                Value::from(42),
-//                Value::from(23.0),
-//                Value::from("snot badger")
-//            ]))
-//        );
-//    }
-//
-//    #[test]
-//    fn nested_list1() {
-//        let mut d = String::from(r#"[42, [23.0, "snot"], "bad", "ger"]"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        assert_eq!(
-//            to_value(&mut d1),
-//            Ok(Value::Array(vec![
-//                Value::from(42),
-//                Value::Array(vec![Value::from(23.0), Value::from("snot")]),
-//                Value::from("bad"),
-//                Value::from("ger")
-//            ]))
-//        );
-//
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn nested_list2() {
-//        let mut d = String::from(r#"[42, [23.0, "snot"], {"bad": "ger"}]"#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn utf8() {
-//        let mut d = String::from(r#""\u000e""#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, "\u{e}");
-//        // NOTE: serde is broken for this
-//        //assert_eq!(v_serde, "\u{e}");
-//        //assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn unicode() {
-//        let mut d = String::from(r#""¡\"""#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn odd_array() {
-//        let mut d = String::from("[{},null]");
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(
-//            to_value(&mut d1),
-//            Ok(Value::Array(vec![Value::Object(Map::new()), Value::Null]))
-//        );
-//    }
-//
-//    #[test]
-//    fn map2() {
-//        let mut d = String::from(r#"[{"\u0000":null}]"#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn null() {
-//        let mut d = String::from(r#"null"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        assert_eq!(to_value(&mut d1), Ok(Value::Null));
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//    }
-//    #[test]
-//    fn null_null() {
-//        let mut d = String::from(r#"[null, null]"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        assert_eq!(
-//            to_value(&mut d1),
-//            Ok(Value::Array(vec![Value::Null, Value::Null,]))
-//        );
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn nested_null() {
-//        let mut d = String::from(r#"[[null, null]]"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        assert_eq!(
-//            to_value(&mut d1),
-//            Ok(Value::Array(vec![Value::Array(vec![
-//                Value::Null,
-//                Value::Null,
-//            ])]))
-//        );
-//
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//    }
-//
-//    #[test]
-//    fn nestednested_null() {
-//        let mut d = String::from(r#"[[[null, null]]]"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        assert_eq!(
-//            to_value(&mut d1),
-//            Ok(Value::Array(vec![Value::Array(vec![Value::Array(vec![
-//                Value::Null,
-//                Value::Null,
-//            ])])]))
-//        );
-//    }
-//
-//    #[test]
-//    fn odd_array2() {
-//        let mut d = String::from("[[\"\\u0000\\\"\"]]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn odd_array3() {
-//        let mut d = String::from("[{\"\\u0000\\u0000\":null}]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn odd_array4() {
-//        let mut d = String::from("[{\"\\u0000𐀀a\":null}]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn float1() {
-//        let mut d = String::from("2.3250706903316115e307");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    // We ignore this since serde is less percise on this test
-//    #[ignore]
-//    #[test]
-//    fn float2() {
-//        let mut d = String::from("-4.5512678569607477e306");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn map0() {
-//        let mut d = String::from(r#"{"snot": "badger"}"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        let mut h = Map::new();
-//        h.insert("snot".into(), Value::from("badger"));
-//        assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
-//    }
-//
-//    #[test]
-//    fn map1() {
-//        let mut d = String::from(r#"{"snot": "badger", "badger": "snot"}"#);
-//        let mut d1 = d.clone();
-//        let mut d1 = unsafe { d1.as_bytes_mut() };
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-//        assert_eq!(v_simd, v_serde);
-//        let mut h = Map::new();
-//        h.insert("snot".into(), Value::from("badger"));
-//        h.insert("badger".into(), Value::from("snot"));
-//        assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
-//    }
-//
-//    #[test]
-//    fn tpl1() {
-//        let mut d = String::from("[-65.613616999999977, 43.420273000000009]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: (f32, f32) = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: (f32, f32) = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn tpl2() {
-//        let mut d = String::from("[[-65.613616999999977, 43.420273000000009]]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: Vec<(f32, f32)> = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: Vec<(f32, f32)> = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn tpl3() {
-//        let mut d = String::from(
-//            "[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]",
-//        );
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: Vec<(f32, f32)> = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: Vec<(f32, f32)> = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//    #[test]
-//    fn tpl4() {
-//        let mut d = String::from("[[[-65.613616999999977,43.420273000000009]]]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//    #[test]
-//    fn tpl5() {
-//        let mut d = String::from("[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn tpl6() {
-//        let mut d = String::from("[[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: Vec<Vec<Vec<(f32, f32)>>> = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: Vec<Vec<Vec<(f32, f32)>>> = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn tpl7() {
-//        let mut d = String::from("[[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: Vec<Vec<Vec<[f32; 2]>>> = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: Vec<Vec<Vec<[f32; 2]>>> = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[derive(Deserialize, PartialEq, Debug)]
-//    struct Obj {
-//        a: u64,
-//        b: u64,
-//    }
-//
-//    #[derive(Deserialize, PartialEq, Debug)]
-//    struct Obj1 {
-//        a: Obj,
-//    }
-//
-//    #[test]
-//    fn obj() {
-//        let mut d = String::from(r#"{"a": 1, "b":1}"#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: Obj = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: Obj = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn obj2() {
-//        let mut d =
-//            String::from(r#"{"a": {"a": 1, "b":1}, "b": {"a": 1, "b":1}, "c": {"a": 1, "b": 1}}"#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: HashMap<String, Obj> = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: HashMap<String, Obj> = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn obj3() {
-//        let mut d = String::from(
-//            r#"{"c": {"a": {"a": 1, "b":1}, "b": {"a": 1, "b":1}, "c": {"a": 1, "b": 1}}}"#,
-//        );
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: HashMap<String, HashMap<String, Obj>> =
-//            serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: HashMap<String, HashMap<String, Obj>> = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn obj4() {
-//        let mut d = String::from(r#"{"c": {"a": {"a": 1, "b":1}}}"#);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: HashMap<String, Obj1> = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: HashMap<String, Obj1> = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn vecvec() {
-//        let mut d = String::from("[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]], [[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]");
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn crazy_string() {
-//        // there is unicode in here!
-//        let d = "\"𐀀𐀀  𐀀𐀀0 𐀀A\\u00000A0 A \\u000b\"";
-//        let mut d = String::from(d);
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    #[test]
-//    fn event() {
-//        #[derive(Deserialize, Debug, PartialEq)]
-//        #[serde(deny_unknown_fields, rename_all = "camelCase")]
-//        pub struct CitmCatalog {
-//            pub area_names: HashMap<String, String>,
-//            pub audience_sub_category_names: HashMap<String, String>,
-//            pub block_names: HashMap<String, String>,
-//            pub events: HashMap<String, Event>,
-//        }
-//        pub type Id = u32;
-//        #[derive(Deserialize, Debug, PartialEq)]
-//        #[serde(deny_unknown_fields, rename_all = "camelCase")]
-//        pub struct Event {
-//            pub description: (),
-//            pub id: Id,
-//            pub logo: Option<String>,
-//            pub name: String,
-//            pub sub_topic_ids: Vec<Id>,
-//            pub subject_code: (),
-//            pub subtitle: (),
-//            pub topic_ids: Vec<Id>,
-//        }
-//
-//        let mut d = String::from(
-//            r#"
-//{
-//    "areaNames": {
-//        "205705993": "Arrière-scène central",
-//        "205705994": "1er balcon central",
-//        "205705995": "2ème balcon bergerie cour",
-//        "205705996": "2ème balcon bergerie jardin",
-//        "205705998": "1er balcon bergerie jardin",
-//        "205705999": "1er balcon bergerie cour",
-//        "205706000": "Arrière-scène jardin",
-//        "205706001": "Arrière-scène cour",
-//        "205706002": "2ème balcon jardin",
-//        "205706003": "2ème balcon cour",
-//        "205706004": "2ème Balcon central",
-//        "205706005": "1er balcon jardin",
-//        "205706006": "1er balcon cour",
-//        "205706007": "Orchestre central",
-//        "205706008": "Orchestre jardin",
-//        "205706009": "Orchestre cour",
-//        "342752287": "Zone physique secrète"
-//    },
-//    "audienceSubCategoryNames": {
-//        "337100890": "Abonné"
-//    },
-//    "blockNames": {},
-//  "events": {
-//    "138586341": {
-//      "description": null,
-//      "id": 138586341,
-//      "logo": null,
-//      "name": "30th Anniversary Tour",
-//      "subTopicIds": [
-//        337184269,
-//        337184283
-//      ],
-//      "subjectCode": null,
-//      "subtitle": null,
-//      "topicIds": [
-//        324846099,
-//        107888604
-//      ]
-//    },
-//    "138586345": {
-//      "description": null,
-//      "id": 138586345,
-//      "logo": "/images/UE0AAAAACEKo6QAAAAZDSVRN",
-//      "name": "Berliner Philharmoniker",
-//      "subTopicIds": [
-//        337184268,
-//        337184283,
-//        337184275
-//      ],
-//      "subjectCode": null,
-//      "subtitle": null,
-//      "topicIds": [
-//        324846099,
-//        107888604,
-//        324846100
-//      ]
-//    }
-//  }
-//}
-//"#,
-//        );
-//        let mut d = unsafe { d.as_bytes_mut() };
-//        let v_serde: CitmCatalog = serde_json::from_slice(d).expect("serde_json");
-//        let v_simd: CitmCatalog = from_slice(&mut d).expect("simd_json");
-//        assert_eq!(v_simd, v_serde)
-//    }
-//
-//    // How much do we care about this, it's within the same range and
-//    // based on floating point math inprecisions during parsing.
-//    // Is this a real issue worth improving?
-//    #[test]
-//    fn silly_float1() {
-//        let v = Value::from(3.0901448042322017e305);
-//        let s = v.to_string();
-//        dbg!(&s);
-//        let mut bytes = s.as_bytes().to_vec();
-//        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
-//        assert_eq!(v, parsed);
-//    }
-//
-//    #[test]
-//    #[ignore]
-//    fn silly_float2() {
-//        let v = Value::from(-6.990585694841803e305);
-//        let s = v.to_string();
-//        dbg!(&s);
-//        let mut bytes = s.as_bytes().to_vec();
-//        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
-//        assert_eq!(v, parsed);
-//    }
-//
-//    //6.576692109929364e305
-//    fn arb_json() -> BoxedStrategy<String> {
-//        let leaf = prop_oneof![
-//            Just(Value::Null),
-//            any::<bool>().prop_map(Value::Bool),
-//            // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // The float parsing of simd and serde are too different
-//            any::<i64>().prop_map(|i| json!(i)),
-//            ".*".prop_map(Value::from),
-//        ];
-//        leaf.prop_recursive(
-//            8,   // 8 levels deep
-//            256, // Shoot for maximum size of 256 nodes
-//            10,  // We put up to 10 items per collection
-//            |inner| {
-//                prop_oneof![
-//                    // Take the inner strategy and make the two recursive cases.
-//                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| json!(v)),
-//                    prop::collection::hash_map(".*", inner, 0..10).prop_map(|m| json!(m)),
-//                ]
-//            },
-//        )
-//        .prop_map(|v| serde_json::to_string(&v).expect("").to_string())
-//        .boxed()
-//    }
-//
-//    fn arb_json_value() -> BoxedStrategy<Value> {
-//        let leaf = prop_oneof![
-//            Just(Value::Null),
-//            any::<bool>().prop_map(Value::Bool),
-//            //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
-//            any::<i64>().prop_map(|i| json!(i)),
-//            ".*".prop_map(Value::from),
-//        ];
-//        leaf.prop_recursive(
-//            8,   // 8 levels deep
-//            256, // Shoot for maximum size of 256 nodes
-//            10,  // We put up to 10 items per collection
-//            |inner| {
-//                prop_oneof![
-//                    // Take the inner strategy and make the two recursive cases.
-//                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| json!(v)),
-//                    prop::collection::hash_map(".*", inner, 0..10).prop_map(|m| json!(m)),
-//                ]
-//            },
-//        )
-//        .boxed()
-//    }
-//
-//    proptest! {
-//        #![proptest_config(ProptestConfig {
-//            // Setting both fork and timeout is redundant since timeout implies
-//            // fork, but both are shown for clarity.
-//            fork: true,
-//            .. ProptestConfig::default()
-//        })]
-//
-//        #[test]
-//        fn prop_json_encode_decode(val in arb_json_value()) {
-//            let mut encoded: Vec<u8> = Vec::new();
-//            let _ = val.write(&mut encoded);
-//            println!("{}", String::from_utf8(encoded.clone()).unwrap());
-//            let res = to_owned_value(&mut encoded).unwrap();
-//            assert_eq!(val, res);
-//        }
-//
-//    }
-//    proptest! {
-//        #![proptest_config(ProptestConfig {
-//            // Setting both fork and timeout is redundant since timeout implies
-//            // fork, but both are shown for clarity.
-//            fork: true,
-//            .. ProptestConfig::default()
-//        })]
-//
-//        #[test]
-//        fn prop_json(d in arb_json()) {
-//            if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
-//                let mut d1 = d.clone();
-//                let d1 = unsafe{ d1.as_bytes_mut()};
-//                let v_simd_serde: serde_json::Value = from_slice(d1).expect("");
-//                // We add our own encoder in here.
-//                let mut d2 = v_simd_serde.to_string();
-//                let d2 = unsafe{ d2.as_bytes_mut()};
-//                let mut d3 = d.clone();
-//                let d3 = unsafe{ d3.as_bytes_mut()};
-//                assert_eq!(v_simd_serde, v_serde);
-//                let v_simd_owned = to_owned_value(d2);
-//                assert!(v_simd_owned.is_ok());
-//                let v_simd_borrowed = to_borrowed_value(d3);
-//                dbg!(&v_simd_borrowed);
-//                assert!(v_simd_borrowed.is_ok());
-//                assert_eq!(v_simd_owned.unwrap(), super::OwnedValue::from(v_simd_borrowed.unwrap()));
-//            }
-//
-//        }
-//
-//    }
-//
-//    fn arb_junk() -> BoxedStrategy<Vec<u8>> {
-//        prop::collection::vec(any::<u8>(), 0..(1024 * 8)).boxed()
-//    }
-//    proptest! {
-//        #![proptest_config(ProptestConfig {
-//            // Setting both fork and timeout is redundant since timeout implies
-//            // fork, but both are shown for clarity.
-//            fork: true,
-//            .. ProptestConfig::default()
-//        })]
-//        #[test]
-//        fn prop_junk(d in arb_junk()) {
-//            let mut d1 = d.clone();
-//            let mut d2 = d.clone();
-//            let mut d3 = d.clone();
-//
-//            let _ = from_slice::<serde_json::Value>(&mut d1);
-//            let _ = to_borrowed_value(&mut d2);
-//            let _ = to_owned_value(&mut d3);
-//
-//        }
-//    }
-//
-//    proptest! {
-//        #![proptest_config(ProptestConfig {
-//            // Setting both fork and timeout is redundant since timeout implies
-//            // fork, but both are shown for clarity.
-//            fork: true,
-//            .. ProptestConfig::default()
-//        })]
-//
-//        #[test]
-//        fn prop_string(d in "\\PC*") {
-//            let mut d1 = d.clone();
-//            let mut d1 = unsafe{ d1.as_bytes_mut()};
-//            let mut d2 = d.clone();
-//            let mut d2 = unsafe{ d2.as_bytes_mut()};
-//            let mut d3 = d.clone();
-//            let mut d3 = unsafe{ d3.as_bytes_mut()};
-//            let _ = from_slice::<serde_json::Value>(&mut d1);
-//            let _ = to_borrowed_value(&mut d2);
-//            let _ = to_owned_value(&mut d3);
-//
-//        }
-//    }
-//}
+
+#[cfg(test)]
+mod tests {
+    use super::serde::from_slice;
+    use super::{
+        owned::to_value, owned::Map, owned::Value, to_borrowed_value, to_owned_value, Deserializer,
+    };
+    use halfbrown::HashMap;
+    use proptest::prelude::*;
+    use serde::Deserialize;
+    use serde_json;
+
+    #[test]
+    fn count1() {
+        let mut d = String::from("[]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        assert_eq!(simd.counts[1], 0);
+    }
+
+    #[test]
+    fn count2() {
+        let mut d = String::from("[1]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        assert_eq!(simd.counts[1], 1);
+    }
+
+    #[test]
+    fn count3() {
+        let mut d = String::from("[1,2]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        assert_eq!(simd.counts[1], 2);
+    }
+
+    #[test]
+    fn count4() {
+        let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        assert_eq!(simd.counts[1], 3);
+        assert_eq!(simd.counts[4], 1);
+    }
+
+    #[test]
+    fn count5() {
+        let mut d = String::from("[[],null,null]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(&mut d).expect("");
+        assert_eq!(simd.counts[1], 3);
+        assert_eq!(simd.counts[2], 0);
+    }
+
+    #[test]
+    fn empty() {
+        let mut d = String::from("");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_simd = from_slice::<Value>(&mut d);
+        let v_serde = serde_json::from_slice::<Value>(d);
+        assert!(v_simd.is_err());
+        assert!(v_serde.is_err());
+    }
+
+    #[test]
+    fn bool_true() {
+        let mut d = String::from("true");
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(to_value(&mut d1), Ok(Value::from(true)));
+    }
+
+    #[test]
+    fn bool_false() {
+        let mut d = String::from("false");
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(to_value(&mut d1), Ok(Value::from(false)));
+        //assert!(false)
+    }
+
+    #[test]
+    fn union() {
+        let mut d = String::from("null");
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(to_value(&mut d1), Ok(Value::Null));
+    }
+
+    #[test]
+    fn int() {
+        let mut d = String::from("42");
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(to_value(&mut d1), Ok(Value::from(42)));
+    }
+
+    #[test]
+    fn zero() {
+        let mut d = String::from("0");
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(to_value(&mut d1), Ok(Value::from(0)));
+    }
+
+    #[test]
+    fn one() {
+        let mut d = String::from("1");
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(to_value(&mut d1), Ok(Value::from(1)));
+    }
+
+    #[test]
+    fn minus_one() {
+        let mut d = String::from("-1");
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(to_value(&mut d1), Ok(Value::from(-1)));
+    }
+
+    #[test]
+    fn float() {
+        let mut d = String::from("23.0");
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(to_value(&mut d1), Ok(Value::from(23.0)));
+    }
+
+    #[test]
+    fn string() {
+        let mut d = String::from(r#""snot""#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(to_value(&mut d1), Ok(Value::from("snot")));
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn lonely_quote() {
+        let mut d = String::from(r#"""#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
+        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
+        assert!(v_simd);
+        assert!(v_serde);
+    }
+
+    #[test]
+    fn lonely_quote1() {
+        let mut d = String::from(r#"["]"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
+        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
+        assert!(v_simd);
+        assert!(v_serde);
+    }
+    #[test]
+    fn lonely_quote2() {
+        let mut d = String::from(r#"[1, "]"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
+        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
+        assert!(v_simd);
+        assert!(v_serde);
+    }
+
+    #[test]
+    fn lonely_quote3() {
+        let mut d = String::from(r#"{": 1}"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde = serde_json::from_slice::<serde_json::Value>(d).is_err();
+        let v_simd = from_slice::<serde_json::Value>(&mut d).is_err();
+        assert!(v_simd);
+        assert!(v_serde);
+    }
+
+    #[test]
+    fn empty_string() {
+        let mut d = String::from(r#""""#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(to_value(&mut d1), Ok(Value::from("")));
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn empty_array() {
+        let mut d = String::from(r#"[]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
+        assert_eq!(to_value(&mut d1), Ok(Value::Array(vec![])));
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn malformed_array() {
+        let mut d = String::from(r#"[["#);
+        let mut d1 = d.clone();
+        let mut d2 = d.clone();
+        let mut d = unsafe { d.as_bytes_mut() };
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d2 = unsafe { d2.as_bytes_mut() };
+        let v_serde: Result<serde_json::Value, _> = serde_json::from_slice(d);
+        let v_simd_ov = to_owned_value(&mut d);
+        let v_simd_bv = to_borrowed_value(&mut d1);
+        let v_simd: Result<serde_json::Value, _> = from_slice(&mut d2);
+        assert!(v_simd_ov.is_err());
+        assert!(v_simd_bv.is_err());
+        assert!(v_simd.is_err());
+        assert!(v_serde.is_err());
+    }
+
+    #[test]
+    fn double_array() {
+        let mut d = String::from(r#"[[]]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![Value::Array(vec![])]))
+        );
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn null_null_array() {
+        let mut d = String::from(r#"[[],null,null]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![
+                Value::Array(vec![]),
+                Value::Null,
+                Value::Null,
+            ]))
+        );
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn one_element_array() {
+        let mut d = String::from(r#"["snot"]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![Value::from("snot")]))
+        );
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn two_element_array() {
+        let mut d = String::from(r#"["snot", "badger"]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![
+                Value::from("snot"),
+                Value::from("badger")
+            ]))
+        );
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn list() {
+        let mut d = String::from(r#"[42, 23.0, "snot badger"]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![
+                Value::from(42),
+                Value::from(23.0),
+                Value::from("snot badger")
+            ]))
+        );
+    }
+
+    #[test]
+    fn nested_list1() {
+        let mut d = String::from(r#"[42, [23.0, "snot"], "bad", "ger"]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![
+                Value::from(42),
+                Value::Array(vec![Value::from(23.0), Value::from("snot")]),
+                Value::from("bad"),
+                Value::from("ger")
+            ]))
+        );
+
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn nested_list2() {
+        let mut d = String::from(r#"[42, [23.0, "snot"], {"bad": "ger"}]"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn utf8() {
+        let mut d = String::from(r#""\u000e""#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, "\u{e}");
+        // NOTE: serde is broken for this
+        //assert_eq!(v_serde, "\u{e}");
+        //assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn unicode() {
+        let mut d = String::from(r#""¡\"""#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn odd_array() {
+        let mut d = String::from("[{},null]");
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![Value::Object(Map::new()), Value::Null]))
+        );
+    }
+
+    #[test]
+    fn map2() {
+        let mut d = String::from(r#"[{"\u0000":null}]"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn null() {
+        let mut d = String::from(r#"null"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        assert_eq!(to_value(&mut d1), Ok(Value::Null));
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+    }
+    #[test]
+    fn null_null() {
+        let mut d = String::from(r#"[null, null]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![Value::Null, Value::Null,]))
+        );
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn nested_null() {
+        let mut d = String::from(r#"[[null, null]]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![Value::Array(vec![
+                Value::Null,
+                Value::Null,
+            ])]))
+        );
+
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
+    fn nestednested_null() {
+        let mut d = String::from(r#"[[[null, null]]]"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        assert_eq!(
+            to_value(&mut d1),
+            Ok(Value::Array(vec![Value::Array(vec![Value::Array(vec![
+                Value::Null,
+                Value::Null,
+            ])])]))
+        );
+    }
+
+    #[test]
+    fn odd_array2() {
+        let mut d = String::from("[[\"\\u0000\\\"\"]]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn odd_array3() {
+        let mut d = String::from("[{\"\\u0000\\u0000\":null}]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn odd_array4() {
+        let mut d = String::from("[{\"\\u0000𐀀a\":null}]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn float1() {
+        let mut d = String::from("2.3250706903316115e307");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    // We ignore this since serde is less percise on this test
+    #[ignore]
+    #[test]
+    fn float2() {
+        let mut d = String::from("-4.5512678569607477e306");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn map0() {
+        let mut d = String::from(r#"{"snot": "badger"}"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        let mut h = Map::new();
+        h.insert("snot".into(), Value::from("badger"));
+        assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
+    }
+
+    #[test]
+    fn map1() {
+        let mut d = String::from(r#"{"snot": "badger", "badger": "snot"}"#);
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        let mut h = Map::new();
+        h.insert("snot".into(), Value::from("badger"));
+        h.insert("badger".into(), Value::from("snot"));
+        assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
+    }
+
+    #[test]
+    fn tpl1() {
+        let mut d = String::from("[-65.613616999999977, 43.420273000000009]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: (f32, f32) = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: (f32, f32) = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn tpl2() {
+        let mut d = String::from("[[-65.613616999999977, 43.420273000000009]]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Vec<(f32, f32)> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: Vec<(f32, f32)> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn tpl3() {
+        let mut d = String::from(
+            "[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]",
+        );
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Vec<(f32, f32)> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: Vec<(f32, f32)> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+    #[test]
+    fn tpl4() {
+        let mut d = String::from("[[[-65.613616999999977,43.420273000000009]]]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+    #[test]
+    fn tpl5() {
+        let mut d = String::from("[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn tpl6() {
+        let mut d = String::from("[[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Vec<Vec<Vec<(f32, f32)>>> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: Vec<Vec<Vec<(f32, f32)>>> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn tpl7() {
+        let mut d = String::from("[[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Vec<Vec<Vec<[f32; 2]>>> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: Vec<Vec<Vec<[f32; 2]>>> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct Obj {
+        a: u64,
+        b: u64,
+    }
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct Obj1 {
+        a: Obj,
+    }
+
+    #[test]
+    fn obj() {
+        let mut d = String::from(r#"{"a": 1, "b":1}"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Obj = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: Obj = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn obj2() {
+        let mut d =
+            String::from(r#"{"a": {"a": 1, "b":1}, "b": {"a": 1, "b":1}, "c": {"a": 1, "b": 1}}"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: HashMap<String, Obj> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: HashMap<String, Obj> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn obj3() {
+        let mut d = String::from(
+            r#"{"c": {"a": {"a": 1, "b":1}, "b": {"a": 1, "b":1}, "c": {"a": 1, "b": 1}}}"#,
+        );
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: HashMap<String, HashMap<String, Obj>> =
+            serde_json::from_slice(d).expect("serde_json");
+        let v_simd: HashMap<String, HashMap<String, Obj>> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn obj4() {
+        let mut d = String::from(r#"{"c": {"a": {"a": 1, "b":1}}}"#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: HashMap<String, Obj1> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: HashMap<String, Obj1> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn vecvec() {
+        let mut d = String::from("[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]], [[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn crazy_string() {
+        // there is unicode in here!
+        let d = "\"𐀀𐀀  𐀀𐀀0 𐀀A\\u00000A0 A \\u000b\"";
+        let mut d = String::from(d);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    #[test]
+    fn event() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        #[serde(deny_unknown_fields, rename_all = "camelCase")]
+        pub struct CitmCatalog {
+            pub area_names: HashMap<String, String>,
+            pub audience_sub_category_names: HashMap<String, String>,
+            pub block_names: HashMap<String, String>,
+            pub events: HashMap<String, Event>,
+        }
+        pub type Id = u32;
+        #[derive(Deserialize, Debug, PartialEq)]
+        #[serde(deny_unknown_fields, rename_all = "camelCase")]
+        pub struct Event {
+            pub description: (),
+            pub id: Id,
+            pub logo: Option<String>,
+            pub name: String,
+            pub sub_topic_ids: Vec<Id>,
+            pub subject_code: (),
+            pub subtitle: (),
+            pub topic_ids: Vec<Id>,
+        }
+
+        let mut d = String::from(
+            r#"
+{
+    "areaNames": {
+        "205705993": "Arrière-scène central",
+        "205705994": "1er balcon central",
+        "205705995": "2ème balcon bergerie cour",
+        "205705996": "2ème balcon bergerie jardin",
+        "205705998": "1er balcon bergerie jardin",
+        "205705999": "1er balcon bergerie cour",
+        "205706000": "Arrière-scène jardin",
+        "205706001": "Arrière-scène cour",
+        "205706002": "2ème balcon jardin",
+        "205706003": "2ème balcon cour",
+        "205706004": "2ème Balcon central",
+        "205706005": "1er balcon jardin",
+        "205706006": "1er balcon cour",
+        "205706007": "Orchestre central",
+        "205706008": "Orchestre jardin",
+        "205706009": "Orchestre cour",
+        "342752287": "Zone physique secrète"
+    },
+    "audienceSubCategoryNames": {
+        "337100890": "Abonné"
+    },
+    "blockNames": {},
+  "events": {
+    "138586341": {
+      "description": null,
+      "id": 138586341,
+      "logo": null,
+      "name": "30th Anniversary Tour",
+      "subTopicIds": [
+        337184269,
+        337184283
+      ],
+      "subjectCode": null,
+      "subtitle": null,
+      "topicIds": [
+        324846099,
+        107888604
+      ]
+    },
+    "138586345": {
+      "description": null,
+      "id": 138586345,
+      "logo": "/images/UE0AAAAACEKo6QAAAAZDSVRN",
+      "name": "Berliner Philharmoniker",
+      "subTopicIds": [
+        337184268,
+        337184283,
+        337184275
+      ],
+      "subjectCode": null,
+      "subtitle": null,
+      "topicIds": [
+        324846099,
+        107888604,
+        324846100
+      ]
+    }
+  }
+}
+"#,
+        );
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: CitmCatalog = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: CitmCatalog = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde)
+    }
+
+    // How much do we care about this, it's within the same range and
+    // based on floating point math inprecisions during parsing.
+    // Is this a real issue worth improving?
+    #[test]
+    fn silly_float1() {
+        let v = Value::from(3.0901448042322017e305);
+        let s = v.to_string();
+        dbg!(&s);
+        let mut bytes = s.as_bytes().to_vec();
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        assert_eq!(v, parsed);
+    }
+
+    #[test]
+    #[ignore]
+    fn silly_float2() {
+        let v = Value::from(-6.990585694841803e305);
+        let s = v.to_string();
+        dbg!(&s);
+        let mut bytes = s.as_bytes().to_vec();
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        assert_eq!(v, parsed);
+    }
+
+    //6.576692109929364e305
+    fn arb_json() -> BoxedStrategy<String> {
+        let leaf = prop_oneof![
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
+            // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // The float parsing of simd and serde are too different
+            any::<i64>().prop_map(|i| json!(i)),
+            ".*".prop_map(Value::from),
+        ];
+        leaf.prop_recursive(
+            8,   // 8 levels deep
+            256, // Shoot for maximum size of 256 nodes
+            10,  // We put up to 10 items per collection
+            |inner| {
+                prop_oneof![
+                    // Take the inner strategy and make the two recursive cases.
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| json!(v)),
+                    prop::collection::hash_map(".*", inner, 0..10).prop_map(|m| json!(m)),
+                ]
+            },
+        )
+        .prop_map(|v| serde_json::to_string(&v).expect("").to_string())
+        .boxed()
+    }
+
+    fn arb_json_value() -> BoxedStrategy<Value> {
+        let leaf = prop_oneof![
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
+            //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
+            any::<i64>().prop_map(|i| json!(i)),
+            ".*".prop_map(Value::from),
+        ];
+        leaf.prop_recursive(
+            8,   // 8 levels deep
+            256, // Shoot for maximum size of 256 nodes
+            10,  // We put up to 10 items per collection
+            |inner| {
+                prop_oneof![
+                    // Take the inner strategy and make the two recursive cases.
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| json!(v)),
+                    prop::collection::hash_map(".*", inner, 0..10).prop_map(|m| json!(m)),
+                ]
+            },
+        )
+        .boxed()
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            // Setting both fork and timeout is redundant since timeout implies
+            // fork, but both are shown for clarity.
+            fork: true,
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_json_encode_decode(val in arb_json_value()) {
+            let mut encoded: Vec<u8> = Vec::new();
+            let _ = val.write(&mut encoded);
+            println!("{}", String::from_utf8(encoded.clone()).unwrap());
+            let res = to_owned_value(&mut encoded).unwrap();
+            assert_eq!(val, res);
+        }
+
+    }
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            // Setting both fork and timeout is redundant since timeout implies
+            // fork, but both are shown for clarity.
+            fork: true,
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_json(d in arb_json()) {
+            if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
+                let mut d1 = d.clone();
+                let d1 = unsafe{ d1.as_bytes_mut()};
+                let v_simd_serde: serde_json::Value = from_slice(d1).expect("");
+                // We add our own encoder in here.
+                let mut d2 = v_simd_serde.to_string();
+                let d2 = unsafe{ d2.as_bytes_mut()};
+                let mut d3 = d.clone();
+                let d3 = unsafe{ d3.as_bytes_mut()};
+                assert_eq!(v_simd_serde, v_serde);
+                let v_simd_owned = to_owned_value(d2);
+                assert!(v_simd_owned.is_ok());
+                let v_simd_borrowed = to_borrowed_value(d3);
+                dbg!(&v_simd_borrowed);
+                assert!(v_simd_borrowed.is_ok());
+                assert_eq!(v_simd_owned.unwrap(), super::OwnedValue::from(v_simd_borrowed.unwrap()));
+            }
+
+        }
+
+    }
+
+    fn arb_junk() -> BoxedStrategy<Vec<u8>> {
+        prop::collection::vec(any::<u8>(), 0..(1024 * 8)).boxed()
+    }
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            // Setting both fork and timeout is redundant since timeout implies
+            // fork, but both are shown for clarity.
+            fork: true,
+            .. ProptestConfig::default()
+        })]
+        #[test]
+        fn prop_junk(d in arb_junk()) {
+            let mut d1 = d.clone();
+            let mut d2 = d.clone();
+            let mut d3 = d.clone();
+
+            let _ = from_slice::<serde_json::Value>(&mut d1);
+            let _ = to_borrowed_value(&mut d2);
+            let _ = to_owned_value(&mut d3);
+
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            // Setting both fork and timeout is redundant since timeout implies
+            // fork, but both are shown for clarity.
+            fork: true,
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_string(d in "\\PC*") {
+            let mut d1 = d.clone();
+            let mut d1 = unsafe{ d1.as_bytes_mut()};
+            let mut d2 = d.clone();
+            let mut d2 = unsafe{ d2.as_bytes_mut()};
+            let mut d3 = d.clone();
+            let mut d3 = unsafe{ d3.as_bytes_mut()};
+            let _ = from_slice::<serde_json::Value>(&mut d1);
+            let _ = to_borrowed_value(&mut d2);
+            let _ = to_owned_value(&mut d3);
+
+        }
+    }
+}
