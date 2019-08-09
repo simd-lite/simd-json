@@ -79,16 +79,16 @@
 //! let v: Value = simd_json::serde::from_slice(&mut d).unwrap();
 //! ```
 
-//#[cfg(feature = "serde_impl")]
-//extern crate serde as serde_ext;
-//#[cfg(feature = "serde_impl")]
-//pub mod serde;
+#[cfg(feature = "serde_impl")]
+extern crate serde as serde_ext;
+#[cfg(feature = "serde_impl")]
+pub mod serde;
 
 mod charutils;
 #[macro_use]
 mod macros;
 mod error;
-//mod numberparse;
+mod numberparse;
 mod parsedjson;
 mod stringparse;
 
@@ -109,19 +109,19 @@ use crate::sse42::stage1::SIMDJSON_PADDING;
 //#[cfg(target_feature = "neon")]
 mod neon;
 //#[cfg(target_feature = "neon")]
-//pub use crate::neon::deser::*;
+pub use crate::neon::deser::*;
 //#[cfg(target_feature = "neon")]
-//use crate::neon::stage1::SIMDJSON_PADDING;
+use crate::neon::stage1::SIMDJSON_PADDING;
 
-//mod stage2;
-//pub mod value;
+mod stage2;
+pub mod value;
 
-//use crate::numberparse::Number;
+use crate::numberparse::Number;
 //use std::mem;
 //use std::str;
 
 pub use crate::error::{Error, ErrorType};
-//pub use crate::value::*;
+pub use crate::value::*;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -137,126 +137,126 @@ pub struct Deserializer<'de> {
     str_offset: usize,
     iidx: usize,
 }
-//
-//impl<'de> Deserializer<'de> {
-//    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-//    fn error(&self, error: ErrorType) -> Error {
-//        Error::new(self.idx, self.iidx, self.c() as char, error)
-//    }
-//    // By convention, `Deserializer` constructors are named like `from_xyz`.
-//    // That way basic use cases are satisfied by something like
-//    // `serde_json::from_str(...)` while advanced use cases that require a
-//    // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
-//    pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
-//        // We have to pick an initial size of the structural indexes.
-//        // 6 is a heuristic that seems to work well for the benchmark
-//        // data and limit re-allocation frequency.
-//
-//        let len = input.len();
-//
-//        let buf_start: usize = input.as_ptr() as *const () as usize;
-//        let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
-//
-//        let s1_result: std::result::Result<Vec<u32>, ErrorType> = if needs_relocation {
-//            let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
-//            unsafe {
-//                data.set_len(len + 1);
-//                data.as_mut_slice()
-//                    .get_unchecked_mut(0..len)
-//                    .clone_from_slice(input);
-//                *(data.get_unchecked_mut(len)) = 0;
-//                data.set_len(len);
-//                Deserializer::find_structural_bits(&data)
-//            }
-//        } else {
-//            unsafe { Deserializer::find_structural_bits(input) }
-//        };
-//        let structural_indexes = match s1_result {
-//            Ok(i) => i,
-//            Err(t) => {
-//                return Err(Error::generic(t));
-//            }
-//        };
-//
-//        let counts = Deserializer::validate(input, &structural_indexes)?;
-//
-//        let strings = Vec::with_capacity(len + SIMDJSON_PADDING);
-//
-//        Ok(Deserializer {
-//            counts,
-//            structural_indexes,
-//            input,
-//            idx: 0,
-//            strings,
-//            str_offset: 0,
-//            iidx: 0,
-//        })
-//    }
-//
-//    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-//    fn skip(&mut self) {
-//        self.idx += 1;
-//        self.iidx = unsafe { *self.structural_indexes.get_unchecked(self.idx) as usize };
-//    }
-//
-//    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-//    fn c(&self) -> u8 {
-//        unsafe {
-//            *self
-//                .input
-//                .get_unchecked(*self.structural_indexes.get_unchecked(self.idx) as usize)
-//        }
-//    }
-//
-//    // pull out the check so we don't need to
-//    // stry every time
-//    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-//    fn next_(&mut self) -> u8 {
-//        unsafe {
-//            self.idx += 1;
-//            self.iidx = *self.structural_indexes.get_unchecked(self.idx) as usize;
-//            *self.input.get_unchecked(self.iidx)
-//        }
-//    }
-//
-//    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-//    fn count_elements(&self) -> usize {
-//        unsafe { *self.counts.get_unchecked(self.idx) }
-//    }
-//
-//    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-//    fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
-//        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-//        let len = input.len();
-//        let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-//        copy[len] = 0;
-//        unsafe {
-//            copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-//        };
-//        self.parse_number_int(&copy, minus)
-//    }
-//
-//    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-//    fn parse_number(&mut self, minus: bool) -> Result<Number> {
-//        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-//        let len = input.len();
-//        if len < SIMDJSON_PADDING {
-//            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
-//            unsafe {
-//                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-//            };
-//            self.parse_number_int(&copy, minus)
-//        } else {
-//            self.parse_number_int(input, minus)
-//        }
-//    }
-//
-//    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-//    fn parse_number_(&mut self, minus: bool) -> Result<Number> {
-//        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-//        self.parse_number_int(input, minus)
-//    }
-//}
+
+impl<'de> Deserializer<'de> {
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn error(&self, error: ErrorType) -> Error {
+        Error::new(self.idx, self.iidx, self.c() as char, error)
+    }
+    // By convention, `Deserializer` constructors are named like `from_xyz`.
+    // That way basic use cases are satisfied by something like
+    // `serde_json::from_str(...)` while advanced use cases that require a
+    // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
+    pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
+        // We have to pick an initial size of the structural indexes.
+        // 6 is a heuristic that seems to work well for the benchmark
+        // data and limit re-allocation frequency.
+
+        let len = input.len();
+
+        let buf_start: usize = input.as_ptr() as *const () as usize;
+        let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
+
+        let s1_result: std::result::Result<Vec<u32>, ErrorType> = if needs_relocation {
+            let mut data: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
+            unsafe {
+                data.set_len(len + 1);
+                data.as_mut_slice()
+                    .get_unchecked_mut(0..len)
+                    .clone_from_slice(input);
+                *(data.get_unchecked_mut(len)) = 0;
+                data.set_len(len);
+                Deserializer::find_structural_bits(&data)
+            }
+        } else {
+            unsafe { Deserializer::find_structural_bits(input) }
+        };
+        let structural_indexes = match s1_result {
+            Ok(i) => i,
+            Err(t) => {
+                return Err(Error::generic(t));
+            }
+        };
+
+        let counts = Deserializer::validate(input, &structural_indexes)?;
+
+        let strings = Vec::with_capacity(len + SIMDJSON_PADDING);
+
+        Ok(Deserializer {
+            counts,
+            structural_indexes,
+            input,
+            idx: 0,
+            strings,
+            str_offset: 0,
+            iidx: 0,
+        })
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn skip(&mut self) {
+        self.idx += 1;
+        self.iidx = unsafe { *self.structural_indexes.get_unchecked(self.idx) as usize };
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn c(&self) -> u8 {
+        unsafe {
+            *self
+                .input
+                .get_unchecked(*self.structural_indexes.get_unchecked(self.idx) as usize)
+        }
+    }
+
+    // pull out the check so we don't need to
+    // stry every time
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn next_(&mut self) -> u8 {
+        unsafe {
+            self.idx += 1;
+            self.iidx = *self.structural_indexes.get_unchecked(self.idx) as usize;
+            *self.input.get_unchecked(self.iidx)
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn count_elements(&self) -> usize {
+        unsafe { *self.counts.get_unchecked(self.idx) }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+        let len = input.len();
+        let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+        copy[len] = 0;
+        unsafe {
+            copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+        };
+        self.parse_number_int(&copy, minus)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_number(&mut self, minus: bool) -> Result<Number> {
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+        let len = input.len();
+        if len < SIMDJSON_PADDING {
+            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+            unsafe {
+                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+            };
+            self.parse_number_int(&copy, minus)
+        } else {
+            self.parse_number_int(input, minus)
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_number_(&mut self, minus: bool) -> Result<Number> {
+        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+        self.parse_number_int(input, minus)
+    }
+}
 //
 //#[cfg(test)]
 //mod tests {
