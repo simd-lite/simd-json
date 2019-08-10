@@ -97,9 +97,10 @@ pub trait BaseGenerator {
     #[inline(always)]
     fn write_string(&mut self, string: &str) -> io::Result<()> {
         stry!(self.write_char(b'"'));
-        let mut string = string.as_bytes();
-        let mut len = string.len();
-        let mut idx = 0;
+        let string = string.as_bytes();
+//        let mut string = string.as_bytes();
+//        let mut len = string.len();
+//        let mut idx = 0;
 
 //        unsafe {
             // Looking at the table above the lower 5 bits are entirely

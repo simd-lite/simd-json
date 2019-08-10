@@ -154,6 +154,11 @@ pub unsafe fn vld1q_u8(addr: *const u8) -> uint8x16_t {
     *(addr as *const uint8x16_t)
 }
 
+#[inline]
+pub unsafe fn vst1q_u8(addr: *mut u8, val: uint8x16_t) {
+    std::ptr::write(addr as *mut uint8x16_t, val);
+}
+
 macro_rules! aarch64_simd_2 {
     ($name:ident, $type:ty, $simd_fn:ident, $intr:ident) => {
         #[inline]
@@ -341,6 +346,7 @@ macro_rules! arm_vget_lane {
 }
 
 arm_vget_lane!(vgetq_lane_u16, u16, uint16x8_t, 7);
+arm_vget_lane!(vgetq_lane_u32, u32, uint32x4_t, 3);
 arm_vget_lane!(vgetq_lane_u64, u64, uint64x2_t, 1);
 arm_vget_lane!(vget_lane_u64, u64, uint64x1_t, 0);
 
@@ -385,8 +391,8 @@ pub unsafe fn hamming(a:u64) -> u32 {
 }
 
 #[inline]
-pub unsafe fn trailingzeroes(a:u64) -> u32 {
-    cttz_u64_(a)
+pub fn trailingzeroes(a:u64) -> u32 {
+    unsafe { cttz_u64_(a) }
 }
 
 #[inline]
