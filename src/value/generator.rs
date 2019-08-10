@@ -14,10 +14,10 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::ptr;
 
-#[cfg(target_feature = "avx2")]
-const AVX2_PRESENT : bool = true;
-#[cfg(not(target_feature = "avx2"))]
-const AVX2_PRESENT : bool = false;
+//#[cfg(target_feature = "avx2")]
+//const AVX2_PRESENT : bool = true;
+//#[cfg(not(target_feature = "avx2"))]
+//const AVX2_PRESENT : bool = false;
 
 const QU: u8 = b'"';
 const BS: u8 = b'\\';

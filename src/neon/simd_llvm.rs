@@ -19,7 +19,7 @@ extern "platform-intrinsic" {
 //
 //    pub fn simd_cast<T, U>(x: T) -> U;
 //
-    pub fn simd_add<T>(x: T, y: T) -> T;
+//    pub fn simd_add<T>(x: T, y: T) -> T;
     pub fn simd_sub<T>(x: T, y: T) -> T;
 //    pub fn simd_mul<T>(x: T, y: T) -> T;
 //    pub fn simd_div<T>(x: T, y: T) -> T;

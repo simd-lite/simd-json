@@ -57,11 +57,11 @@ unsafe fn neon_movemask_bulk(p0: uint8x16_t, p1: uint8x16_t, p2: uint8x16_t, p3:
 }
 
 unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
-    vgetq_lane_u64(vreinterpretq_u64_u8(vmull_p64(-1, quote_bits as i64)), 0)
+    vgetq_lane_s64(vreinterpretq_s64_s8(vmull_p64(-1, quote_bits as i64)), 0) as u64
 }
 
 struct Utf8CheckingState {
-    has_error: int8x16_t,
+    has_error: uint8x16_t,
     previous: ProcessedUtfBytes,
 }
 
@@ -69,7 +69,7 @@ impl Default for Utf8CheckingState {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         Utf8CheckingState {
-            has_error: vdupq_n_s8(0),
+            has_error: vdupq_n_u8(0),
             previous:ProcessedUtfBytes::default()
         }
     }
@@ -99,20 +99,20 @@ unsafe fn check_utf8(
         // All bytes are ascii. Therefore the byte that was just before must be
         // ascii too. We only check the byte that was just before simd_input. Nines
         // are arbitrary values.
-        let VERROR: int8x16_t =
-            int8x16_t::new(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1);
+        let verror: uint8x16_t =
+            uint8x16_t::new(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1);
         state.has_error =
-            vorrq_s8(vcgtq_s8(state.previous.carried_continuations, VERROR),
+            vorrq_u8(vcgtq_u8(state.previous.carried_continuations, verror),
                      state.has_error);
     } else {
         // it is not ascii so we have to do heavy work
-        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v0),
+        state.previous = check_utf8_bytes(input.v0,
                                           &(state.previous), &mut (state.has_error));
-        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v1),
+        state.previous = check_utf8_bytes(input.v1,
                                           &(state.previous), &mut (state.has_error));
-        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v2),
+        state.previous = check_utf8_bytes(input.v2,
                                           &(state.previous), &mut (state.has_error));
-        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v3),
+        state.previous = check_utf8_bytes(input.v3,
                                           &(state.previous), &mut (state.has_error));
     }
 }
@@ -497,7 +497,7 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        let err: i128 = mem::transmute(vtstq_s8(previous.has_error, previous.has_error));
+        let err: i128 = mem::transmute(vtstq_u8(previous.has_error, previous.has_error));
 
         if err != 0 {
             Ok(structural_indexes)
