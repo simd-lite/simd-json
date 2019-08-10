@@ -57,7 +57,7 @@ unsafe fn neon_movemask_bulk(p0: uint8x16_t, p1: uint8x16_t, p2: uint8x16_t, p3:
 }
 
 unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
-    vgetq_lane_s64(vreinterpretq_s64_s8(vmull_p64(-1, quote_bits as i64)), 0) as u64
+    vgetq_lane_u64(vreinterpretq_u64_u8(mem::transmute(vmull_p64(-1, quote_bits as i64))), 0)
 }
 
 struct Utf8CheckingState {

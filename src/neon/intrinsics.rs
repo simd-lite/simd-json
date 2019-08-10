@@ -22,40 +22,43 @@ macro_rules! types {
 }
 
 #[allow(non_camel_case_types)]
-type poly128 = [u8; 16];
+pub type poly64_t = i64;
+//#[allow(non_camel_case_types)]
+//type poly128_t = [u8; 16];
 
+#[allow(improper_ctypes)]
 extern "C" {
     #[link_name = "llvm.aarch64.neon.pmull64"]
-    fn vmull_p64_(a: i64, b: i64) -> poly128;
+    fn vmull_p64_(a: i64, b: i64) -> int8x16_t;
     #[link_name = "llvm.aarch64.neon.vshrq"]
-    fn vshrq_n_u8_(a: poly128, b: u8) -> poly128;
+    fn vshrq_n_u8_(a: poly128_t, b: u8) -> poly128_t;
     #[link_name = "llvm.aarch64.neon.addp.v16i8"]
-    fn vpaddq_u8_(a: poly128, b: poly128) -> poly128;
+    fn vpaddq_u8_(a: poly128_t, b: poly128_t) -> poly128_t;
     #[link_name = "llvm.aarch64.neon.addp.v16u8"]
-    fn vaddq_u8_(a: poly128, b: poly128) -> poly128;
+    fn vaddq_u8_(a: poly128_t, b: poly128_t) -> poly128_t;
     #[link_name = "llvm.aarch64.neon.addp.v16i8"]
-    fn vaddq_s8_(a: poly128, b: poly128) -> poly128;
+    fn vaddq_s8_(a: poly128_t, b: poly128_t) -> poly128_t;
     #[link_name = "llvm.aarch64.neon.addp.v16i32"]
-    fn vaddq_s32_(a: poly128, b: poly128) -> poly128;
+    fn vaddq_s32_(a: poly128_t, b: poly128_t) -> poly128_t;
     #[link_name = "llvm.aarch64.neon.vextq.v16u8"]
-    fn vextq_u8_(a: poly128, b: poly128, n: u8) -> poly128;
+    fn vextq_u8_(a: poly128_t, b: poly128_t, n: u8) -> poly128_t;
     #[link_name = "llvm.aarch64.neon.vextq.v16s8"]
-    fn vextq_s8_(a: poly128, b: poly128, n: u8) -> poly128;
+    fn vextq_s8_(a: poly128_t, b: poly128_t, n: u8) -> poly128_t;
     #[link_name = "llvm.aarch64.neon.vtstq.v16u8"]
-    fn vtstq_u8_(a: poly128, b: poly128) -> poly128;
+    fn vtstq_u8_(a: poly128_t, b: poly128_t) -> poly128_t;
     #[link_name = "llvm.aarch64.neon.vtstq.v16s8"]
-    fn vtstq_s8_(a: poly128, b: poly128) -> poly128;
-    #[link_name = "llvm.ctpop.u64"]
-    fn ctpop_u64_(a: u64) -> u32;
+    fn vtstq_s8_(a: poly128_t, b: poly128_t) -> poly128_t;
+    #[link_name = "llvm.ctpop.i64"]
+    fn ctpop_s64_(a: i64) -> i64;
     //    #[link_name = "llvm.ctlz.u64"]
-//    fn ctlz_u64_(a: u64) -> u32;
-    #[link_name = "llvm.cttz.u64"]
-    fn cttz_u64_(a: u64) -> u32;
+    //    fn ctlz_u64_(a: u64) -> u32;
+    #[link_name = "llvm.cttz.i64"]
+    fn cttz_u64_(a: i64) -> i64;
 }
 
 #[inline]
-pub unsafe fn vmull_p64(a: i64, b: i64) -> int8x16_t {
-    mem::transmute(vmull_p64_(a, b))
+pub unsafe fn vmull_p64(a: poly64_t, b: poly64_t) -> poly128_t {
+    mem::transmute(vmull_p64_(mem::transmute(a), mem::transmute(b)))
 }
 
 
@@ -119,6 +122,8 @@ types! {
     pub struct int64x2_t(i64, i64);
     /// ARM-specific 128-bit wide vector of two packed `u64`.
     pub struct uint64x2_t(u64, u64);
+    /// ARM-specific 128-bit wide vector of one packed `i128`.
+    pub struct poly128_t(i128); // FIXME: check this!
 }
 
 impl uint8x16_t {
@@ -411,12 +416,12 @@ pub unsafe fn vtstq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t {
 
 #[inline]
 pub unsafe fn hamming(a: u64) -> u32 {
-    ctpop_u64_(a)
+    ctpop_s64_(a as i64) as u32
 }
 
 #[inline]
 pub fn trailingzeroes(a: u64) -> u32 {
-    unsafe { cttz_u64_(a) }
+    unsafe { cttz_u64_(a as i64) as u32 }
 }
 
 #[inline]
