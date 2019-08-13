@@ -109,13 +109,13 @@ unsafe fn check_utf8(
     } else {
         // it is not ascii so we have to do heavy work
         state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v0),
-                                          &(state.previous), &mut (state.has_error));
+                                          &mut (state.previous), &mut (state.has_error));
         state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v1),
-                                          &(state.previous), &mut (state.has_error));
+                                          &mut (state.previous), &mut (state.has_error));
         state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v2),
-                                          &(state.previous), &mut (state.has_error));
+                                          &mut (state.previous), &mut (state.has_error));
         state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v3),
-                                          &(state.previous), &mut (state.has_error));
+                                          &mut (state.previous), &mut (state.has_error));
     }
 }
 

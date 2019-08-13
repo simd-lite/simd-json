@@ -56,7 +56,7 @@ impl<'de> Deserializer<'de> {
     pub fn parse_str_(&mut self) -> Result<&'de str> {
         // Add 1 to skip the initial "
         let idx = self.iidx + 1;
-//        let mut padding = [0u8; 32];
+        let mut padding = [0u8; 32];
         //let mut read: usize = 0;
 
         // we include the terminal '"' so we know where to end
@@ -69,7 +69,19 @@ impl<'de> Deserializer<'de> {
         loop {
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
-            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&src[src_i..], None) };
+
+            let srcx = if src.len() >= src_i + 32 {
+                &src[src_i..]
+            } else {
+                unsafe {
+                    padding
+                        .get_unchecked_mut(..src.len() - src_i)
+                        .clone_from_slice(src.get_unchecked(src_i..));
+                    &padding
+                }
+            };
+
+            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&srcx, None) };
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
@@ -111,9 +123,20 @@ impl<'de> Deserializer<'de> {
         let dst: &mut [u8] = &mut self.strings;
 
         loop {
+            let srcx = if src.len() >= src_i + 32 {
+                &src[src_i..]
+            } else {
+                unsafe {
+                    padding
+                        .get_unchecked_mut(..src.len() - src_i)
+                        .clone_from_slice(src.get_unchecked(src_i..));
+                    &padding
+                }
+            };
+
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
-            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&src[src_i..], Some(&mut dst[dst_i..])) };
+            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&srcx, Some(dst)) };
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit

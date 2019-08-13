@@ -162,7 +162,7 @@ unsafe fn count_nibbles(bytes: int8x16_t, answer: &mut ProcessedUtfBytes) {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn check_utf8_bytes(
     current_bytes: int8x16_t,
-    previous: &ProcessedUtfBytes,
+    previous: &mut ProcessedUtfBytes,
     has_error: &mut int8x16_t,
 ) -> ProcessedUtfBytes {
     let mut pb = ProcessedUtfBytes::default();
