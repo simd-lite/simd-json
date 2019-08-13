@@ -9,6 +9,7 @@ pub use crate::neon::utf8check::*;
 pub use crate::stringparse::*;
 
 pub use crate::neon::intrinsics::*;
+use std::io::Write;
 
 unsafe fn find_bs_bits_and_quote_bits(src: &[u8], dstx: Option<&mut [u8]>) -> ParseStringHelper {
     // this can read up to 31 bytes beyond the buffer size, but we require
@@ -17,9 +18,11 @@ unsafe fn find_bs_bits_and_quote_bits(src: &[u8], dstx: Option<&mut [u8]>) -> Pa
     let v1 : uint8x16_t = vld1q_u8(src.as_ptr().add(16));
 
     match dstx {
-        Some(dst) => {
-            vst1q_u8(dst.as_mut_ptr(), v0);
-            vst1q_u8(dst.as_mut_ptr().add(16), v1);
+        Some(mut dst) => {
+//          vst1q_u8(dst.as_mut_ptr(), v0);
+//          vst1q_u8(dst.as_mut_ptr().add(16), v1);
+            dst.write(&src[0..16]).unwrap();
+            dst.write(&src[16..32]).unwrap();
         },
         _ => ()
     }
