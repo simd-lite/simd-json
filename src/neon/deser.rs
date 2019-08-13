@@ -3,20 +3,26 @@
 pub use crate::error::{Error, ErrorType};
 pub use crate::Deserializer;
 pub use crate::Result;
-pub use crate::neon::stage1::SIMDJSON_PADDING;
+pub use crate::neon::stage1::*;
 pub use crate::neon::intrinsics::*;
 pub use crate::neon::utf8check::*;
 pub use crate::stringparse::*;
 
 pub use crate::neon::intrinsics::*;
 
-unsafe fn find_bs_bits_and_quote_bits(src: &[u8], dst: &mut [u8]) -> ParseStringHelper {
+unsafe fn find_bs_bits_and_quote_bits(src: &[u8], dstx: Option<&mut [u8]>) -> ParseStringHelper {
     // this can read up to 31 bytes beyond the buffer size, but we require
     // SIMDJSON_PADDING of padding
     let v0 : uint8x16_t = vld1q_u8(src.as_ptr());
     let v1 : uint8x16_t = vld1q_u8(src.as_ptr().add(16));
-    vst1q_u8(dst.as_mut_ptr(), v0);
-    vst1q_u8(dst.as_mut_ptr().add(16), v1);
+
+    match dstx {
+        Some(dst) => {
+            vst1q_u8(dst.as_mut_ptr(), v0);
+            vst1q_u8(dst.as_mut_ptr().add(16), v1);
+        },
+        _ => ()
+    }
 
     let bs_mask : uint8x16_t = vmovq_n_u8('\\' as u8);
     let qt_mask : uint8x16_t = vmovq_n_u8('"' as u8);
@@ -50,7 +56,7 @@ impl<'de> Deserializer<'de> {
     pub fn parse_str_(&mut self) -> Result<&'de str> {
         // Add 1 to skip the initial "
         let idx = self.iidx + 1;
-//        let padding = [0u8; 32];
+//        let mut padding = [0u8; 32];
         //let mut read: usize = 0;
 
         // we include the terminal '"' so we know where to end
@@ -59,14 +65,55 @@ impl<'de> Deserializer<'de> {
 
         let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
         let mut src_i: usize = 0;
-        let len = src_i;
+        let mut len = src_i;
+        loop {
+            // store to dest unconditionally - we can overwrite the bits we don't like
+            // later
+            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&src[src_i..], None) };
+
+            if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
+                // we encountered quotes first. Move dst to point to quotes and exit
+                // find out where the quote is...
+                let quote_dist: u32 = trailingzeroes(u64::from(quote_bits)) as u32;
+
+                ///////////////////////
+                // Above, check for overflow in case someone has a crazy string (>=4GB?)
+                // But only add the overflow check when the document itself exceeds 4GB
+                // Currently unneeded because we refuse to parse docs larger or equal to 4GB.
+                ////////////////////////
+
+                // we advance the point, accounting for the fact that we have a NULl termination
+
+                len += quote_dist as usize;
+                unsafe {
+                    let v = self.input.get_unchecked(idx..idx + len) as *const [u8] as *const str;
+                    return Ok(&*v);
+                }
+
+                // we compare the pointers since we care if they are 'at the same spot'
+                // not if they are the same value
+            }
+            if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
+                // Move to the 'bad' character
+                let bs_dist: u32 = trailingzeroes(u64::from(bs_bits));
+                len += bs_dist as usize;
+                src_i += bs_dist as usize;
+                break;
+            } else {
+                // they are the same. Since they can't co-occur, it means we encountered
+                // neither.
+                src_i += 32;
+                len += 32;
+            }
+        }
+
         let mut dst_i: usize = 0;
         let dst: &mut [u8] = &mut self.strings;
 
         loop {
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
-            let ParseStringHelper {bs_bits, quote_bits} = unsafe { find_bs_bits_and_quote_bits(src, dst) };
+            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&src[src_i..], Some(&mut dst[dst_i..])) };
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
