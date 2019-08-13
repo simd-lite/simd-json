@@ -9,23 +9,12 @@ pub use crate::neon::utf8check::*;
 pub use crate::stringparse::*;
 
 pub use crate::neon::intrinsics::*;
-use std::io::Write;
 
-unsafe fn find_bs_bits_and_quote_bits(src: &[u8], dstx: Option<&mut [u8]>) -> ParseStringHelper {
+unsafe fn find_bs_bits_and_quote_bits(src: &[u8]) -> ParseStringHelper {
     // this can read up to 31 bytes beyond the buffer size, but we require
     // SIMDJSON_PADDING of padding
     let v0 : uint8x16_t = vld1q_u8(src.as_ptr());
     let v1 : uint8x16_t = vld1q_u8(src.as_ptr().add(16));
-
-    match dstx {
-        Some(mut dst) => {
-//          vst1q_u8(dst.as_mut_ptr(), v0);
-//          vst1q_u8(dst.as_mut_ptr().add(16), v1);
-            dst.write(&src[0..16]).unwrap();
-            dst.write(&src[16..32]).unwrap();
-        },
-        _ => ()
-    }
 
     let bs_mask : uint8x16_t = vmovq_n_u8('\\' as u8);
     let qt_mask : uint8x16_t = vmovq_n_u8('"' as u8);
@@ -84,7 +73,7 @@ impl<'de> Deserializer<'de> {
                 }
             };
 
-            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&srcx, None) };
+            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&srcx) };
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
@@ -123,7 +112,7 @@ impl<'de> Deserializer<'de> {
         }
 
         let mut dst_i: usize = 0;
-        let dst: &mut [u8] = &mut self.strings;
+        let dst: &mut [u8] = self.strings.as_mut_slice();
 
         loop {
             let srcx = if src.len() >= src_i + 32 {
@@ -137,9 +126,11 @@ impl<'de> Deserializer<'de> {
                 }
             };
 
+            dst[dst_i..dst_i + 32].copy_from_slice(&srcx[..32]);
+
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
-            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&srcx, Some(dst)) };
+            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&srcx) };
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
