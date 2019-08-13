@@ -332,7 +332,7 @@ unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         let v3: i32 = static_cast_i32!(trailingzeroes(bits));
         bits &= bits.wrapping_sub(1);
 
-        let v: int32x4_t = int32x4_t::new(v3, v2, v1, v0);
+        let v: int32x4_t = int32x4_t::new(v0, v1, v2, v3);
         let v: int32x4_t = vaddq_s32(idx_64_v, v);
 
         std::ptr::write(base.as_mut_ptr().add(l) as *mut int32x4_t, v);
