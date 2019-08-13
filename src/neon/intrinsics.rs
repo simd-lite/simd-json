@@ -28,15 +28,19 @@ pub type poly64_t = i64;
 
 #[allow(improper_ctypes)]
 extern "C" {
+    #[link_name = "llvm.aarch64.neon.addp.v16u8"]
+    fn vpaddq_u8_(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t;
     #[link_name = "llvm.aarch64.neon.pmull64"]
     fn vmull_p64_(a: i64, b: i64) -> int8x16_t;
     #[link_name = "llvm.ctpop.i64"]
     fn ctpop_s64_(a: i64) -> i64;
     #[link_name = "llvm.cttz.i64"]
     fn cttz_u64_(a: i64) -> i64;
+    #[link_name = "llvm.aarch64.neon.uqxtn.v2u32"]
+    fn vqmovn_u64_(a: uint64x2_t) -> uint32x2_t;
+    #[link_name = "llvm.aarch64.neon.uqsub.v16u8"]
+    fn vqsubq_u8_(a: uint8x16_t, a: uint8x16_t) -> uint8x16_t;
 }
-
-//unsafe fn vpaddq_u8_(_a: poly128_t, _b: poly128_t) -> poly128_t { mem::transmute(vdupq_n_u8(0)) }
 
 unsafe fn vaddq_u8_(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { simd_llvm::simd_add(mem::transmute(a), mem::transmute(b)) }
 unsafe fn vaddq_s8_(a: int8x16_t, b: int8x16_t) -> int8x16_t { simd_llvm::simd_add(mem::transmute(a), mem::transmute(b)) }
@@ -153,6 +157,10 @@ pub unsafe fn vmull_p64(a: poly64_t, b: poly64_t) -> poly128_t {
     mem::transmute(vmull_p64_(mem::transmute(a), mem::transmute(b)))
 }
 
+#[inline]
+pub unsafe fn vpaddq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
+    vpaddq_u8_(a, b)
+}
 
 #[inline]
 pub unsafe fn vshrq_n_u8(a: uint8x16_t, n: u8) -> uint8x16_t {
@@ -294,6 +302,7 @@ macro_rules! aarch64_simd_ceq {
 }
 
 aarch64_simd_ceq!(vceqq_u8, uint8x16_t);
+
 aarch64_simd_ceq!(vceq_s64, int64x1_t);
 aarch64_simd_ceq!(vceqq_s64, int64x2_t);
 aarch64_simd_ceq!(vceq_u64, uint64x1_t);
@@ -406,11 +415,6 @@ pub fn zerou8x16() -> uint8x16_t {
 }
 
 #[inline]
-pub unsafe fn vpaddq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
-    mem::transmute(vaddq_u8_(mem::transmute(a), mem::transmute(b)))
-}
-
-#[inline]
 pub unsafe fn vaddq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
     mem::transmute(vaddq_u8_(mem::transmute(a), mem::transmute(b)))
 }
@@ -441,8 +445,6 @@ macro_rules! arm_reinterpret {
     ($name:ident, $from:ty, $to:ty) => {
         // Vector reinterpret cast operation
         #[inline]
-        #[target_feature(enable = "neon")]
-        #[cfg_attr(target_arch = "arm", target_feature(enable = "v7"))]
         pub unsafe fn $name(a: $from) -> $to {
             mem::transmute(a)
         }
@@ -462,7 +464,6 @@ macro_rules! arm_vget_lane {
     ($name:ident, $to:ty, $from:ty, $lanes:literal) => {
         #[inline]
         pub unsafe fn $name(v: $from, lane: u32) -> $to {
-            if lane > $lanes { unreachable_unchecked() }
             simd_llvm::simd_extract(v, lane)
         }
     };
@@ -487,8 +488,8 @@ pub unsafe fn vextq_s8(a: int8x16_t, b: int8x16_t, n: u8) -> int8x16_t {
 }
 
 #[inline]
-pub fn vqmovn_u64(a: uint64x2_t) -> uint32x2_t {
-    uint32x2_t(a.0 as u32, a.1 as u32)
+pub unsafe fn vqmovn_u64(a: uint64x2_t) -> uint32x2_t {
+    vqmovn_u64_(a)
 }
 
 #[inline]
@@ -503,8 +504,7 @@ pub unsafe fn vqtbl1q_u8(t: uint8x16_t, idx: uint8x16_t) -> uint8x16_t {
 
 #[inline]
 pub unsafe fn vqsubq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
-    // FIXME?
-    simd_llvm::simd_sub(mem::transmute(a), mem::transmute(b))
+    vqsubq_u8_(a, b)
 }
 
 #[inline]
@@ -582,4 +582,46 @@ pub fn trailingzeroes(a: u64) -> u32 {
 #[inline]
 pub unsafe fn vst1q_u32(addr: *mut u8, val: uint32x4_t) {
     std::ptr::write(addr as *mut uint32x4_t, val)
+}
+
+
+#[allow(unused)]
+macro_rules! constify_imm5 {
+    ($imm8:expr, $expand:ident) => {
+        #[allow(overflowing_literals)]
+        match ($imm8) & 0b1_1111 {
+            0 => $expand!(0),
+            1 => $expand!(1),
+            2 => $expand!(2),
+            3 => $expand!(3),
+            4 => $expand!(4),
+            5 => $expand!(5),
+            6 => $expand!(6),
+            7 => $expand!(7),
+            8 => $expand!(8),
+            9 => $expand!(9),
+            10 => $expand!(10),
+            11 => $expand!(11),
+            12 => $expand!(12),
+            13 => $expand!(13),
+            14 => $expand!(14),
+            15 => $expand!(15),
+            16 => $expand!(16),
+            17 => $expand!(17),
+            18 => $expand!(18),
+            19 => $expand!(19),
+            20 => $expand!(20),
+            21 => $expand!(21),
+            22 => $expand!(22),
+            23 => $expand!(23),
+            24 => $expand!(24),
+            25 => $expand!(25),
+            26 => $expand!(26),
+            27 => $expand!(27),
+            28 => $expand!(28),
+            29 => $expand!(29),
+            30 => $expand!(30),
+            _ => $expand!(31),
+        }
+    };
 }

@@ -57,11 +57,13 @@ unsafe fn neon_movemask_bulk(p0: uint8x16_t, p1: uint8x16_t, p2: uint8x16_t, p3:
 }
 
 unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
-    vgetq_lane_u64(vreinterpretq_u64_u8(mem::transmute(vmull_p64(-1, quote_bits as i64))), 0)
+    vgetq_lane_u64(
+        vreinterpretq_u64_u8(
+            mem::transmute(vmull_p64(-1, quote_bits as i64))), 0)
 }
 
 struct Utf8CheckingState {
-    has_error: uint8x16_t,
+    has_error: int8x16_t,
     previous: ProcessedUtfBytes,
 }
 
@@ -69,8 +71,8 @@ impl Default for Utf8CheckingState {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         Utf8CheckingState {
-            has_error: vdupq_n_u8(0),
-            previous:ProcessedUtfBytes::default()
+            has_error: vdupq_n_s8(0),
+            previous: ProcessedUtfBytes::default(),
         }
     }
 }
@@ -99,20 +101,20 @@ unsafe fn check_utf8(
         // All bytes are ascii. Therefore the byte that was just before must be
         // ascii too. We only check the byte that was just before simd_input. Nines
         // are arbitrary values.
-        let verror: uint8x16_t =
-            uint8x16_t::new(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1);
+        let verror: int8x16_t =
+            int8x16_t::new(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1);
         state.has_error =
-            vorrq_u8(vcgtq_u8(state.previous.carried_continuations, verror),
+            vorrq_s8(vcgtq_s8(state.previous.carried_continuations, verror),
                      state.has_error);
     } else {
         // it is not ascii so we have to do heavy work
-        state.previous = check_utf8_bytes(input.v0,
+        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v0),
                                           &(state.previous), &mut (state.has_error));
-        state.previous = check_utf8_bytes(input.v1,
+        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v1),
                                           &(state.previous), &mut (state.has_error));
-        state.previous = check_utf8_bytes(input.v2,
+        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v2),
                                           &(state.previous), &mut (state.has_error));
-        state.previous = check_utf8_bytes(input.v3,
+        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v3),
                                           &(state.previous), &mut (state.has_error));
     }
 }
@@ -122,7 +124,7 @@ unsafe fn check_utf8(
 unsafe fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
     macro_rules! call {
         ($imm8:expr) => {
-            vdupq_n_u8($imm8)
+            vmovq_n_u8($imm8)
         };
     };
     let mask: uint8x16_t = constify_imm8!(m, call);
@@ -140,7 +142,7 @@ unsafe fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
 unsafe fn unsigned_lteq_against_input(input: &SimdInput, maxval: u8) -> u64 {
     macro_rules! call {
         ($imm8:expr) => {
-            vdupq_n_u8($imm8)
+            vmovq_n_u8($imm8)
         };
     };
     let mask: uint8x16_t = constify_imm8!(maxval, call);
@@ -153,7 +155,94 @@ unsafe fn unsigned_lteq_against_input(input: &SimdInput, maxval: u8) -> u64 {
     neon_movemask_bulk(cmp_res_0, cmp_res_1, cmp_res_2, cmp_res_3)
 }
 
-unsafe fn find_whitespace_and_structurals(input: &SimdInput, whitespace: &mut u64, structurals: &mut u64) {
+// return a bitvector indicating where we have characters that end an odd-length
+// sequence of backslashes (and thus change the behavior of the next character
+// to follow). A even-length sequence of backslashes, and, for that matter, the
+// largest even-length prefix of our odd-length sequence of backslashes, simply
+// modify the behavior of the backslashes themselves.
+// We also update the prev_iter_ends_odd_backslash reference parameter to
+// indicate whether we end an iteration on an odd-length sequence of
+// backslashes, which modifies our subsequent search for odd-length
+// sequences of backslashes in an obvious way.
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
+unsafe fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
+    const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
+    const ODD_BITS: u64 = !EVEN_BITS;
+
+    let bs_bits: u64 = cmp_mask_against_input(input, b'\\');
+    let start_edges: u64 = bs_bits & !(bs_bits << 1);
+    // flip lowest if we have an odd-length run at the end of the prior
+    // iteration
+    let even_start_mask: u64 = EVEN_BITS ^ *prev_iter_ends_odd_backslash;
+    let even_starts: u64 = start_edges & even_start_mask;
+    let odd_starts: u64 = start_edges & !even_start_mask;
+    let even_carries: u64 = bs_bits.wrapping_add(even_starts);
+
+    let mut odd_carries: u64 = 0;
+    // must record the carry-out of our odd-carries out of bit 63; this
+    // indicates whether the sense of any edge going to the next iteration
+    // should be flipped
+    let iter_ends_odd_backslash: bool = add_overflow(bs_bits, odd_starts, &mut odd_carries);
+
+    odd_carries |= *prev_iter_ends_odd_backslash; // push in bit zero as a potential end
+    // if we had an odd-numbered run at the
+    // end of the previous iteration
+    *prev_iter_ends_odd_backslash = if iter_ends_odd_backslash { 0x1 } else { 0x0 };
+    let even_carry_ends: u64 = even_carries & !bs_bits;
+    let odd_carry_ends: u64 = odd_carries & !bs_bits;
+    let even_start_odd_end: u64 = even_carry_ends & ODD_BITS;
+    let odd_start_even_end: u64 = odd_carry_ends & EVEN_BITS;
+    let odd_ends: u64 = even_start_odd_end | odd_start_even_end;
+    odd_ends
+}
+
+// return both the quote mask (which is a half-open mask that covers the first
+// quote in an unescaped quote pair and everything in the quote pair) and the
+// quote bits, which are the simple unescaped quoted bits.
+//
+// We also update the prev_iter_inside_quote value to tell the next iteration
+// whether we finished the final iteration inside a quote pair; if so, this
+// inverts our behavior of whether we're inside quotes for the next iteration.
+//
+// Note that we don't do any error checking to see if we have backslash
+// sequences outside quotes; these
+// backslash sequences (of any length) will be detected elsewhere.
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
+unsafe fn find_quote_mask_and_bits(
+    input: &SimdInput,
+    odd_ends: u64,
+    prev_iter_inside_quote: &mut u64,
+    quote_bits: &mut u64,
+    error_mask: &mut u64
+) -> u64 {
+    *quote_bits = cmp_mask_against_input(input, b'"');
+    *quote_bits &= !odd_ends;
+
+    let mut quote_mask: u64 = compute_quote_mask(*quote_bits);
+
+    quote_mask ^= *prev_iter_inside_quote;
+
+    // All Unicode characters may be placed within the
+    // quotation marks, except for the characters that MUST be escaped:
+    // quotation mark, reverse solidus, and the control characters (U+0000
+    //through U+001F).
+    // https://tools.ietf.org/html/rfc8259
+    let unescaped: u64 = unsigned_lteq_against_input(input, 0x1F);
+    *error_mask |= quote_mask & unescaped;
+
+    // right shift of a signed value expected to be well-defined and standard
+    // compliant as of C++20,
+    // John Regher from Utah U. says this is fine code
+    *prev_iter_inside_quote = (quote_mask as i64 >> 63) as u64;
+    quote_mask
+}
+
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
+unsafe fn find_whitespace_and_structurals(
+    input: &SimdInput,
+    whitespace: &mut u64,
+    structurals: &mut u64,
+) {
     let low_nibble_mask: uint8x16_t = uint8x16_t::new(16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0);
     let high_nibble_mask: uint8x16_t = uint8x16_t::new(8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0);
     let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);
@@ -197,38 +286,6 @@ unsafe fn find_whitespace_and_structurals(input: &SimdInput, whitespace: &mut u6
     *whitespace = neon_movemask_bulk(tmp_ws_0, tmp_ws_1, tmp_ws_2, tmp_ws_3);
 }
 
-
-unsafe fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
-    const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
-    const ODD_BITS: u64 = !EVEN_BITS;
-
-    let bs_bits: u64 = cmp_mask_against_input(input, b'\\');
-    let start_edges: u64 = bs_bits & !(bs_bits << 1);
-    // flip lowest if we have an odd-length run at the end of the prior
-    // iteration
-    let even_start_mask: u64 = EVEN_BITS ^ *prev_iter_ends_odd_backslash;
-    let even_starts: u64 = start_edges & even_start_mask;
-    let odd_starts: u64 = start_edges & !even_start_mask;
-    let even_carries: u64 = bs_bits.wrapping_add(even_starts);
-
-    let mut odd_carries: u64 = 0;
-    // must record the carry-out of our odd-carries out of bit 63; this
-    // indicates whether the sense of any edge going to the next iteration
-    // should be flipped
-    let iter_ends_odd_backslash: bool = add_overflow(bs_bits, odd_starts, &mut odd_carries);
-
-    odd_carries |= *prev_iter_ends_odd_backslash; // push in bit zero as a potential end
-    // if we had an odd-numbered run at the
-    // end of the previous iteration
-    *prev_iter_ends_odd_backslash = if iter_ends_odd_backslash { 0x1 } else { 0x0 };
-    let even_carry_ends: u64 = even_carries & !bs_bits;
-    let odd_carry_ends: u64 = odd_carries & !bs_bits;
-    let even_start_odd_end: u64 = even_carry_ends & ODD_BITS;
-    let odd_start_even_end: u64 = odd_carry_ends & EVEN_BITS;
-    let odd_ends: u64 = even_start_odd_end | odd_start_even_end;
-    odd_ends
-}
-
 //template <>
 //really_inline ErrorValues check_utf8_errors<Architecture::ARM64>(
 //    utf8_checking_state<Architecture::ARM64> &state) {
@@ -238,31 +295,6 @@ unsafe fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_bac
 //  return vget_lane_u64(result, 0) != 0 ? simdjson::UTF8_ERROR
 //                                       : simdjson::SUCCESS;
 //}
-
-unsafe fn find_quote_mask_and_bits(input: &SimdInput, odd_ends: u64,
-                                   prev_iter_inside_quote: &mut u64, quote_bits: &mut u64, error_mask: &mut u64) -> u64 {
-    *quote_bits = cmp_mask_against_input(input, b'"');
-    *quote_bits &= !odd_ends;
-
-    let mut quote_mask: u64 = compute_quote_mask(*quote_bits);
-
-    quote_mask ^= *prev_iter_inside_quote;
-
-    // All Unicode characters may be placed within the
-    // quotation marks, except for the characters that MUST be escaped:
-    // quotation mark, reverse solidus, and the control characters (U+0000
-    //through U+001F).
-    // https://tools.ietf.org/html/rfc8259
-    let unescaped: u64 = unsigned_lteq_against_input(input, 0x1F);
-    *error_mask |= quote_mask & unescaped;
-
-    // right shift of a signed value expected to be well-defined and standard
-    // compliant as of C++20,
-    // John Regher from Utah U. says this is fine code
-    *prev_iter_inside_quote = quote_mask >> 63;
-
-    quote_mask
-}
 
 // flatten out values in 'bits' assuming that they are are to have values of idx
 // plus their position in the bitvector, and store these indexes at
@@ -291,13 +323,13 @@ unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     base.set_len(l + cnt);
 
     while bits != 0 {
-        let v0 : i32 = static_cast_i32!(trailingzeroes(bits));
+        let v0: i32 = static_cast_i32!(trailingzeroes(bits));
         bits &= bits.wrapping_sub(1);
-        let v1 : i32 = static_cast_i32!(trailingzeroes(bits));
+        let v1: i32 = static_cast_i32!(trailingzeroes(bits));
         bits &= bits.wrapping_sub(1);
-        let v2 : i32 = static_cast_i32!(trailingzeroes(bits));
+        let v2: i32 = static_cast_i32!(trailingzeroes(bits));
         bits &= bits.wrapping_sub(1);
-        let v3 : i32 = static_cast_i32!(trailingzeroes(bits));
+        let v3: i32 = static_cast_i32!(trailingzeroes(bits));
         bits &= bits.wrapping_sub(1);
 
         let v: int32x4_t = int32x4_t::new(v3, v2, v1, v0);
@@ -307,7 +339,6 @@ unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         l += 4;
     }
 }
-
 
 // return a updated structural bit vector with quoted contents cleared out and
 // pseudo-structural characters added to the mask
@@ -352,7 +383,7 @@ fn finalize_structurals(
 }
 
 impl<'de> Deserializer<'de> {
-    #[inline(never)]
+    //#[inline(never)]
     pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
         // 6 is a heuristic number to estimate it turns out a rate of 1/6 structural caracters lears
@@ -360,8 +391,8 @@ impl<'de> Deserializer<'de> {
         let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
-        // let mut has_error: uint8x16_t = vdupq_n_u8(0);
-        let mut previous = Utf8CheckingState::default();
+        let mut utf8_state : Utf8CheckingState = Utf8CheckingState::default();
+
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
 
@@ -397,7 +428,9 @@ impl<'de> Deserializer<'de> {
             #endif
              */
             let input: SimdInput = fill_input(input.get_unchecked(idx as usize..));
-            check_utf8(&input, &mut previous);
+
+            check_utf8(&input, &mut utf8_state);
+
             // detect odd sequences of backslashes
             let odd_ends: u64 =
                 find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
@@ -441,7 +474,7 @@ impl<'de> Deserializer<'de> {
                 .copy_from(input.as_ptr().add(idx), len as usize - idx);
             let input: SimdInput = fill_input(&tmpbuf);
 
-            check_utf8(&input, &mut previous);
+            check_utf8(&input, &mut utf8_state);
 
             // detect odd sequences of backslashes
             let odd_ends: u64 =
@@ -475,7 +508,6 @@ impl<'de> Deserializer<'de> {
             );
             idx += 64;
         }
-
         // This test isn't in upstream, for some reason the error mask is et for then.
         if prev_iter_inside_quote != 0 {
             return Err(ErrorType::Syntax);
@@ -497,9 +529,9 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        let err: i128 = mem::transmute(vtstq_u8(previous.has_error, previous.has_error));
+        let has_error : i128 = mem::transmute(utf8_state.has_error);
 
-        if err != 0 {
+        if has_error != 0 {
             Ok(structural_indexes)
         } else {
             Err(ErrorType::InvalidUTF8)
