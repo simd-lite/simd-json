@@ -129,14 +129,14 @@ pub enum Number {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-#[cfg(target_arch = "aarch64")]
+//#[cfg(target_arch = "aarch64")]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
     let val: u64 = unsafe { *(chars.as_ptr() as *const u64) };
     //    memcpy(&val, chars, sizeof(u64));
-    let val = (val & 0x0F0F0F0F0F0F0F0F) * 2561 >> 8;
-    let val = (val & 0x00FF00FF00FF00FF) * 6553601 >> 16;
+    let val = (val & 0x0F0F0F0F0F0F0F0F).wrapping_mul(2561) >> 8;
+    let val = (val & 0x00FF00FF00FF00FF).wrapping_mul(6553601) >> 16;
 
-    return ((val & 0x0000FFFF0000FFFF) * 42949672960001 >> 32) as u32;
+    return ((val & 0x0000FFFF0000FFFF).wrapping_mul(42949672960001) >> 32) as u32;
 }
 
 impl<'de> Deserializer<'de> {
