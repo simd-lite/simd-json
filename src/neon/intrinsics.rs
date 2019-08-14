@@ -263,11 +263,7 @@ impl int32x4_t {
 #[inline]
 pub fn add_overflow(a: u64, b: u64, out: &mut u64) -> bool {
     let (carry, did_carry) = a.overflowing_add(b);
-
-    if did_carry {
-        *out = carry;
-    };
-
+    *out = carry;
     did_carry
 }
 
