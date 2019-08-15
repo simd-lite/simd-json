@@ -27,15 +27,17 @@ unsafe fn check_smaller_than_0xf4(current_bytes: int8x16_t, has_error: &mut int8
             vqsubq_s8(current_bytes, vdupq_n_s8(-12 /* 0xF4 */)));
 }
 
+const NIBBLES_TBL: [i8; 16] = [
+    1, 1, 1, 1, 1, 1, 1, 1, // 0xxx (ASCII)
+    0, 0, 0, 0,             // 10xx (continuation)
+    2, 2,                   // 110x
+    3,                      // 1110
+    4,                      // 1111, next should be 0 (not checked here)
+];
+
 #[cfg_attr(not(feature = "no-inline"), inline)]
 unsafe fn continuation_lengths(high_nibbles: int8x16_t) -> int8x16_t {
-    let nibbles: int8x16_t = int8x16_t::new(
-        1, 1, 1, 1, 1, 1, 1, 1, // 0xxx (ASCII)
-        0, 0, 0, 0,             // 10xx (continuation)
-        2, 2,                   // 110x
-        3,                      // 1110
-        4,                      // 1111, next should be 0 (not checked here)
-    );
+    let nibbles: int8x16_t = vld1q_s8(NIBBLES_TBL.as_ptr());
 
     vreinterpretq_s8_u8(vqtbl1q_u8(vreinterpretq_u8_s8(nibbles), vreinterpretq_u8_s8(high_nibbles)))
 }
@@ -90,6 +92,21 @@ unsafe fn check_first_continuation_max(
         *has_error, vreinterpretq_s8_u8(vorrq_u8(badfollow_ed, badfollow_f4)));
 }
 
+const INITIAL_MINS_TBL: [i8; 16] = [
+    -128, -128, -128, -128, -128, -128,
+    -128, -128, -128, -128, -128, -128, // 10xx => false
+    -62 /* 0xC2 */, -128,                         // 110x
+    -31 /* 0xE1 */,                               // 1110
+    -15 /*0xF1 */];
+
+const SECOND_MINS_TBL: [i8; 16] = [
+    -128, -128, -128, -128, -128, -128,
+    -128, -128, -128, -128, -128, -128, // 10xx => false
+    127, 127,                          // 110x => true
+    -96 /* 0xA0 */,                               // 1110
+    -112 /* 0x90 */,
+];
+
 // map off1_hibits => error condition
 // hibits     off1    cur
 // C       => < C2 && true
@@ -104,21 +121,8 @@ unsafe fn check_overlong(
     previous_hibits: int8x16_t,
     has_error: &mut int8x16_t,
 ) {
-    let initial_mins_tbl: int8x16_t = int8x16_t::new(
-        -128, -128, -128, -128, -128, -128,
-        -128, -128, -128, -128, -128, -128, // 10xx => false
-        -62 /* 0xC2 */, -128,                         // 110x
-        -31 /* 0xE1 */,                               // 1110
-        -15 /*0xF1 */,
-    );
-
-    let second_mins_tbl: int8x16_t = int8x16_t::new(
-        -128, -128, -128, -128, -128, -128,
-        -128, -128, -128, -128, -128, -128, // 10xx => false
-        127, 127,                          // 110x => true
-        -96 /* 0xA0 */,                               // 1110
-        -112 /* 0x90 */,
-    );
+    let initial_mins_tbl: int8x16_t = vld1q_s8(INITIAL_MINS_TBL.as_ptr());
+    let second_mins_tbl: int8x16_t = vld1q_s8(SECOND_MINS_TBL.as_ptr());
 
     let off1_hibits: int8x16_t = vextq_s8(previous_hibits, hibits, 16 - 1);
     let initial_mins: int8x16_t =
