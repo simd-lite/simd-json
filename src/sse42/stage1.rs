@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-use crate::portability::*;
 use crate::sse42::utf8check::*;
 use crate::*;
 #[cfg(target_arch = "x86")]
@@ -130,11 +129,10 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
     let odd_starts: u64 = start_edges & !even_start_mask;
     let even_carries: u64 = bs_bits.wrapping_add(even_starts);
 
-    let mut odd_carries: u64 = 0;
     // must record the carry-out of our odd-carries out of bit 63; this
     // indicates whether the sense of any edge going to the next iteration
     // should be flipped
-    let iter_ends_odd_backslash: bool = add_overflow(bs_bits, odd_starts, &mut odd_carries);
+    let (mut odd_carries, iter_ends_odd_backslash) = bs_bits.overflowing_add(odd_starts);
 
     odd_carries |= *prev_iter_ends_odd_backslash; // push in bit zero as a potential end
                                                   // if we had an odd-numbered run at the
@@ -312,7 +310,7 @@ unsafe fn find_whitespace_and_structurals(
 //TODO: usize was u32 here does this matter?
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
-    let cnt: usize = hamming(bits) as usize;
+    let cnt: usize = bits.count_ones() as usize;
     let mut l = base.len();
     let idx_minus_64 = idx.wrapping_sub(64);
     let idx_64_v = unsafe {
@@ -336,13 +334,13 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
 
     while bits != 0 {
         unsafe {
-            let v0 = static_cast_i32!(trailingzeroes(bits));
+            let v0 = bits.trailing_zeros() as i32;
             bits &= bits.wrapping_sub(1);
-            let v1 = static_cast_i32!(trailingzeroes(bits));
+            let v1 = bits.trailing_zeros() as i32;
             bits &= bits.wrapping_sub(1);
-            let v2 = static_cast_i32!(trailingzeroes(bits));
+            let v2 = bits.trailing_zeros() as i32;
             bits &= bits.wrapping_sub(1);
-            let v3 = static_cast_i32!(trailingzeroes(bits));
+            let v3 = bits.trailing_zeros() as i32;
             bits &= bits.wrapping_sub(1);
 
             let v: __m128i = _mm_set_epi32(v3, v2, v1, v0);
