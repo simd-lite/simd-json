@@ -24,7 +24,7 @@ unsafe fn check_smaller_than_0xf4(current_bytes: int8x16_t, has_error: &mut int8
     *has_error =
         vorrq_s8(
             *has_error,
-            vreinterpretq_s8_u8(vqsubq_u8(vreinterpretq_u8_s8(current_bytes), vdupq_n_u8(0xF4))));
+            vqsubq_s8(current_bytes, vdupq_n_s8(-12 /* 0xF4 */)));
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -42,14 +42,15 @@ unsafe fn continuation_lengths(high_nibbles: int8x16_t) -> int8x16_t {
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
 unsafe fn carry_continuations(initial_lengths: int8x16_t, previous_carries: int8x16_t) -> int8x16_t {
-    let right1: int8x16_t = vreinterpretq_s8_u8(vqsubq_u8(
-        vreinterpretq_u8_s8(vextq_s8(previous_carries, initial_lengths, 16 - 1)),
-        vdupq_n_u8(1)));
+    let right1: int8x16_t = vqsubq_s8(
+        vextq_s8(previous_carries, initial_lengths, 16 - 1),
+        vdupq_n_s8(1));
+
     let sum: int8x16_t = vaddq_s8(initial_lengths, right1);
 
-    let right2: int8x16_t = vreinterpretq_s8_u8(vqsubq_u8(
-        vreinterpretq_u8_s8(vextq_s8(previous_carries, sum, 16 - 2)),
-        vdupq_n_u8(2)));
+    let right2: int8x16_t = vqsubq_s8(
+        vextq_s8(previous_carries, sum, 16 - 2),
+        vdupq_n_s8(2));
 
     vaddq_s8(sum, right2)
 }
@@ -61,8 +62,8 @@ unsafe fn check_continuations(initial_lengths: int8x16_t, carries: int8x16_t, ha
     // (carries > length) == (lengths > 0)
 
     let overunder: uint8x16_t = vceqq_u8(
-        vreinterpretq_u8_s8(vcgtq_s8(carries, initial_lengths)),
-        vreinterpretq_u8_s8(vcgtq_s8(initial_lengths, vdupq_n_s8(0))));
+        vcgtq_s8(carries, initial_lengths),
+        vcgtq_s8(initial_lengths, vdupq_n_s8(0)));
 
     *has_error = vorrq_s8(*has_error, vreinterpretq_s8_u8(overunder));
 }
@@ -76,14 +77,14 @@ unsafe fn check_first_continuation_max(
     off1_current_bytes: int8x16_t,
     has_error: &mut int8x16_t,
 ) {
-    let mask_ed: uint8x16_t = vreinterpretq_u8_s8(vceqq_s8(off1_current_bytes, vdupq_n_s8(-19 /* 0xED */)));
-    let mask_f4: uint8x16_t = vreinterpretq_u8_s8(vceqq_s8(off1_current_bytes, vdupq_n_s8(-12 /* 0xF4 */)));
+    let mask_ed: uint8x16_t = vceqq_s8(off1_current_bytes, vdupq_n_s8(-19 /* 0xED */));
+    let mask_f4: uint8x16_t = vceqq_s8(off1_current_bytes, vdupq_n_s8(-12 /* 0xF4 */));
 
     // FIXME: was vandq_u8?
     let badfollow_ed: uint8x16_t =
-        vandq_u8(vreinterpretq_u8_s8(vcgtq_s8(current_bytes, vdupq_n_s8(-97 /* 0x9F */))), mask_ed);
+        vandq_u8(vcgtq_s8(current_bytes, vdupq_n_s8(-97 /* 0x9F */)), mask_ed);
     let badfollow_f4: uint8x16_t =
-        vandq_u8(vreinterpretq_u8_s8(vcgtq_s8(current_bytes, vdupq_n_s8(-113 /* 0x8F */))), mask_f4);
+        vandq_u8(vcgtq_s8(current_bytes, vdupq_n_s8(-113 /* 0x8F */)), mask_f4);
 
     *has_error = vorrq_s8(
         *has_error, vreinterpretq_s8_u8(vorrq_u8(badfollow_ed, badfollow_f4)));
@@ -123,12 +124,12 @@ unsafe fn check_overlong(
     let initial_mins: int8x16_t =
         vqtbl1q_s8(_initial_mins, vreinterpretq_u8_s8(off1_hibits));
 
-    let initial_under: uint8x16_t = vreinterpretq_u8_s8(vcgtq_s8(initial_mins, off1_current_bytes));
+    let initial_under: uint8x16_t = vcgtq_s8(initial_mins, off1_current_bytes);
 
     let second_mins: int8x16_t =
         vqtbl1q_s8(_second_mins, vreinterpretq_u8_s8(off1_hibits));
 
-    let second_under: uint8x16_t = vreinterpretq_u8_s8(vcgtq_s8(second_mins, current_bytes));
+    let second_under: uint8x16_t = vcgtq_s8(second_mins, current_bytes);
 
     *has_error = vorrq_s8(
         *has_error, vreinterpretq_s8_u8(vandq_u8(initial_under, second_under)));

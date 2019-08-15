@@ -104,8 +104,8 @@ unsafe fn check_utf8(
         let verror: int8x16_t =
             int8x16_t::new(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1);
         state.has_error =
-            vorrq_s8(vcgtq_s8(state.previous.carried_continuations, verror),
-                     state.has_error);
+            vreinterpretq_s8_u8(vorrq_u8(vcgtq_s8(state.previous.carried_continuations, verror),
+                                         vreinterpretq_u8_s8(state.has_error)));
     } else {
         // it is not ascii so we have to do heavy work
         state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v0),
@@ -213,7 +213,7 @@ unsafe fn find_quote_mask_and_bits(
     odd_ends: u64,
     prev_iter_inside_quote: &mut u64,
     quote_bits: &mut u64,
-    error_mask: &mut u64
+    error_mask: &mut u64,
 ) -> u64 {
     *quote_bits = cmp_mask_against_input(input, b'"');
     *quote_bits &= !odd_ends;
@@ -285,16 +285,6 @@ unsafe fn find_whitespace_and_structurals(
     let tmp_ws_3: uint8x16_t = vtstq_u8(v_3, whitespace_shufti_mask);
     *whitespace = neon_movemask_bulk(tmp_ws_0, tmp_ws_1, tmp_ws_2, tmp_ws_3);
 }
-
-//template <>
-//really_inline ErrorValues check_utf8_errors<Architecture::ARM64>(
-//    utf8_checking_state<Architecture::ARM64> &state) {
-//  uint64x2_t v64 = vreinterpretq_u64_s8(state.has_error);
-//  uint32x2_t v32 = vqmovn_u64(v64);
-//  uint64x1_t result = vreinterpret_u64_u32(v32);
-//  return vget_lane_u64(result, 0) != 0 ? simdjson::UTF8_ERROR
-//                                       : simdjson::SUCCESS;
-//}
 
 // flatten out values in 'bits' assuming that they are are to have values of idx
 // plus their position in the bitvector, and store these indexes at
@@ -391,7 +381,7 @@ impl<'de> Deserializer<'de> {
         let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
-        let mut utf8_state : Utf8CheckingState = Utf8CheckingState::default();
+        let mut utf8_state: Utf8CheckingState = Utf8CheckingState::default();
 
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
@@ -529,9 +519,10 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        let has_error : i128 = mem::transmute(utf8_state.has_error);
+        let utf8_error_bits: u128 = mem::transmute(vandq_s16(mem::transmute(utf8_state.has_error), mem::transmute(utf8_state.has_error)));
+        let utf8_error: u16 = utf8_error_bits as u16;
 
-        if has_error != 0 {
+        if utf8_error != 0 {
             Ok(structural_indexes)
         } else {
             Err(ErrorType::InvalidUTF8)

@@ -3,7 +3,6 @@
 use crate::neon::simd_llvm;
 
 use std::mem;
-use std::hint::unreachable_unchecked;
 use core;
 
 #[allow(unused)]
@@ -23,8 +22,6 @@ macro_rules! types {
 
 #[allow(non_camel_case_types)]
 pub type poly64_t = i64;
-//#[allow(non_camel_case_types)]
-//type poly128_t = [u8; 16];
 
 #[allow(improper_ctypes)]
 extern "C" {
@@ -40,116 +37,55 @@ extern "C" {
     fn vqmovn_u64_(a: uint64x2_t) -> uint32x2_t;
     #[link_name = "llvm.aarch64.neon.uqsub.v16u8"]
     fn vqsubq_u8_(a: uint8x16_t, a: uint8x16_t) -> uint8x16_t;
+    #[link_name = "llvm.aarch64.neon.uqsub.v16i8"]
+    fn vqsubq_s8_(a: int8x16_t, a: int8x16_t) -> int8x16_t;
 }
 
-unsafe fn vaddq_u8_(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { simd_llvm::simd_add(mem::transmute(a), mem::transmute(b)) }
-unsafe fn vaddq_s8_(a: int8x16_t, b: int8x16_t) -> int8x16_t { simd_llvm::simd_add(mem::transmute(a), mem::transmute(b)) }
-unsafe fn vaddq_s32_(a: int32x4_t, b: int32x4_t) -> int32x4_t { simd_llvm::simd_add(mem::transmute(a), mem::transmute(b)) }
-
-unsafe fn vextq_u8_(a: uint8x16_t, b: uint8x16_t, n: u8) -> uint8x16_t {
-    match n {
-        0 => b,
-        1 => uint8x16_t(
-            a.0, b.1, b.2, b.3, b.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        2 => uint8x16_t(
-            a.0, a.1, b.2, b.3, b.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        3 => uint8x16_t(
-            a.0, a.1, a.2, b.3, b.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        4 => uint8x16_t(
-            a.0, a.1, a.2, a.3, b.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        5 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        6 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        7 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        8 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        9 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        10 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        11 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, a.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        12 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, a.10, a.11, b.12, b.13, b.14, b.15,
-        ),
-        13 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, a.10, a.11, a.12, b.13, b.14, b.15,
-        ),
-        14 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, a.10, a.11, a.12, a.13, b.14, b.15,
-        ),
-        15 => uint8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, a.10, a.11, a.12, a.13, a.14, b.15,
-        ),
-        16 => a,
-        _ => unreachable_unchecked(),
-    }
+#[inline]
+unsafe fn vaddq_u8_(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
+    simd_llvm::simd_add(mem::transmute(a), mem::transmute(b))
 }
 
-unsafe fn vextq_s8_(a: int8x16_t, b: int8x16_t, n: u8) -> int8x16_t {
-    match n {
-        0 => b,
-        1 => int8x16_t(
-            a.0, b.1, b.2, b.3, b.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        2 => int8x16_t(
-            a.0, a.1, b.2, b.3, b.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        3 => int8x16_t(
-            a.0, a.1, a.2, b.3, b.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        4 => int8x16_t(
-            a.0, a.1, a.2, a.3, b.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        5 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        6 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        7 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        8 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        9 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        10 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, b.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        11 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, a.10, b.11, b.12, b.13, b.14, b.15,
-        ),
-        12 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, a.10, a.11, b.12, b.13, b.14, b.15,
-        ),
-        13 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, a.10, a.11, a.12, b.13, b.14, b.15,
-        ),
-        14 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, a.10, a.11, a.12, a.13, b.14, b.15,
-        ),
-        15 => int8x16_t(
-            a.0, a.1, a.2, a.3, a.4, a.5, a.6, a.7, a.8, a.9, a.10, a.11, a.12, a.13, a.14, b.15,
-        ),
-        16 => a,
-        _ => unreachable_unchecked(),
-    }
+#[inline]
+unsafe fn vaddq_s8_(a: int8x16_t, b: int8x16_t) -> int8x16_t {
+    simd_llvm::simd_add(mem::transmute(a), mem::transmute(b))
+}
+
+#[inline]
+unsafe fn vaddq_s32_(a: int32x4_t, b: int32x4_t) -> int32x4_t {
+    simd_llvm::simd_add(mem::transmute(a), mem::transmute(b))
+}
+
+#[inline]
+pub unsafe fn vnegq_u8(a: uint8x16_t) -> uint8x16_t {
+    let x: u128 = mem::transmute(a);
+    let nx = !x;
+    mem::transmute(nx)
+}
+
+#[inline]
+pub unsafe fn vnegq_s8(a: int8x16_t) -> int8x16_t {
+    let x: u128 = mem::transmute(a);
+    let nx = !x;
+    mem::transmute(nx)
+}
+
+
+#[inline]
+fn rotate_(a: u128, b: u128, n: u128) -> u128 {
+    let az = a >> (n * 8);
+    let bz = b << (128 - (n * 8));
+    az | bz
+}
+
+#[inline]
+pub unsafe fn vextq_u8(a: uint8x16_t, b: uint8x16_t, n: u8) -> uint8x16_t {
+    mem::transmute(rotate_(mem::transmute(a), mem::transmute(b), n as u128))
+}
+
+#[inline]
+pub unsafe fn vextq_s8(a: int8x16_t, b: int8x16_t, n: u8) -> int8x16_t {
+    mem::transmute(rotate_(mem::transmute(a), mem::transmute(b), n as u128))
 }
 
 #[inline]
@@ -243,18 +179,21 @@ types! {
 }
 
 impl uint8x16_t {
+    #[inline]
     pub fn new(a: u8, b: u8, c: u8, d: u8, e: u8, f: u8, g: u8, h: u8, i: u8, j: u8, k: u8, l: u8, m: u8, n: u8, o: u8, p: u8) -> uint8x16_t {
         uint8x16_t(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
     }
 }
 
 impl int8x16_t {
+    #[inline]
     pub fn new(a: i8, b: i8, c: i8, d: i8, e: i8, f: i8, g: i8, h: i8, i: i8, j: i8, k: i8, l: i8, m: i8, n: i8, o: i8, p: i8) -> int8x16_t {
         int8x16_t(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
     }
 }
 
 impl int32x4_t {
+    #[inline]
     pub fn new(a: i32, b: i32, c: i32, d: i32) -> int32x4_t {
         int32x4_t(a, b, c, d)
     }
@@ -283,107 +222,149 @@ pub unsafe fn vst1q_u8(addr: *mut u8, val: uint8x16_t) {
 }
 
 macro_rules! aarch64_simd_2 {
-    ($name:ident, $type:ty, $simd_fn:ident, $intr:ident) => {
+    ($name: ident, $type: ty, $simd_fn: ident, $intrarm: ident, $intraarch: ident) => {
+        aarch64_simd_2!($name, $type, $type, $simd_fn, $intrarm, $intraarch);
+    };
+    ($name: ident, $type: ty, $res: ty, $simd_fn: ident, $intrarm: ident, $intraarch: ident) => {
         #[inline]
-        pub unsafe fn $name(a: $type, b: $type) -> $type {
+        pub unsafe fn $name(a: $type, b: $type) -> $res {
             simd_llvm::$simd_fn(a, b)
         }
-    };
+    }
 }
+
 macro_rules! aarch64_simd_ceq {
-    ($name:ident, $type:ty) => {
+    ($name: ident, $type: ty, $res: ty) => {
         /// Compare bitwise Equal (vector)
-        aarch64_simd_2!($name, $type, simd_eq, cmeq);
+        aarch64_simd_2!($name, $type, $res, simd_eq, cmeq, cmeq);
     };
 }
 
-aarch64_simd_ceq!(vceqq_u8, uint8x16_t);
-
-aarch64_simd_ceq!(vceq_s64, int64x1_t);
-aarch64_simd_ceq!(vceqq_s64, int64x2_t);
-aarch64_simd_ceq!(vceq_u64, uint64x1_t);
-aarch64_simd_ceq!(vceqq_u64, uint64x2_t);
-aarch64_simd_ceq!(vceq_p64, uint64x1_t);
-aarch64_simd_ceq!(vceqq_p64, uint64x2_t);
-
-aarch64_simd_ceq!(vceqq_s8, int8x16_t);
+aarch64_simd_ceq!(vceq_s8, int8x8_t, uint8x8_t);
+aarch64_simd_ceq!(vceqq_s8, int8x16_t, uint8x16_t);
+aarch64_simd_ceq!(vceq_s16, int16x4_t, uint16x4_t);
+aarch64_simd_ceq!(vceqq_s16, int16x8_t, uint16x8_t);
+aarch64_simd_ceq!(vceq_s32, int32x2_t, uint32x2_t);
+aarch64_simd_ceq!(vceqq_s32, int32x4_t, uint32x4_t);
+aarch64_simd_ceq!(vceq_u8, uint8x8_t, uint8x8_t);
+aarch64_simd_ceq!(vceqq_u8, uint8x16_t, uint8x16_t);
+aarch64_simd_ceq!(vceq_u16, uint16x4_t, uint16x4_t);
+aarch64_simd_ceq!(vceqq_u16, uint16x8_t, uint16x8_t);
+aarch64_simd_ceq!(vceq_u32, uint32x2_t, uint32x2_t);
+aarch64_simd_ceq!(vceqq_u32, uint32x4_t, uint32x4_t);
+aarch64_simd_2!(vceq_f32, float32x2_t, uint32x2_t, simd_eq, fcmeq, fcmeq);
+aarch64_simd_2!(vceqq_f32, float32x4_t, uint32x4_t, simd_eq, fcmeq, fcmeq);
+aarch64_simd_ceq!(vceq_p8, poly8x8_t, poly8x8_t);
+aarch64_simd_ceq!(vceqq_p8, poly8x16_t, poly8x16_t);
 
 macro_rules! aarch64_simd_cgt {
-    ($name:ident, $type:ty) => {
+    ($name:ident, $type:ty, $res:ty) => {
         /// Compare signed Greater than (vector)
-        aarch64_simd_2!($name, $type, simd_gt, cmgt);
-    };
-}
-macro_rules! aarch64_simd_cgtu {
-    ($name:ident, $type:ty) => {
-        /// Compare Greater than (vector)
-        aarch64_simd_2!($name, $type, simd_gt, cmhi);
+        aarch64_simd_2!($name, $type, $res, simd_gt, cmgt, cmgt);
     };
 }
 
-aarch64_simd_cgtu!(vcgtq_u8, uint8x16_t);
+//macro_rules! aarch64_simd_cgtu {
+//    ($name: ident, $type: ty) => {
+//        /// Compare Greater than (vector)
+//        aarch64_simd_2!($name, $type, simd_gt, cmhi);
+//    };
+//}
 
-aarch64_simd_cgt!(vcgt_s64, int64x1_t);
-aarch64_simd_cgt!(vcgtq_s64, int64x2_t);
-aarch64_simd_cgtu!(vcgt_u64, uint64x1_t);
-aarch64_simd_cgtu!(vcgtq_u64, uint64x2_t);
+aarch64_simd_cgt!(vcgt_s8, int8x8_t, uint8x8_t);
+aarch64_simd_cgt!(vcgtq_s8, int8x16_t, uint8x16_t);
+aarch64_simd_cgt!(vcgt_s16, int16x4_t, uint16x4_t);
+aarch64_simd_cgt!(vcgtq_s16, int16x8_t, uint16x8_t);
+aarch64_simd_cgt!(vcgt_s32, int32x2_t, uint32x2_t);
+aarch64_simd_cgt!(vcgtq_s32, int32x4_t, uint32x4_t);
+
+//aarch64_simd_cgtu!(vcgtq_u8, uint8x16_t);
+//aarch64_simd_cgt!(vcgt_s64, int64x1_t);
+//aarch64_simd_cgt!(vcgtq_s64, int64x2_t);
+//aarch64_simd_cgtu!(vcgt_u64, uint64x1_t);
+//aarch64_simd_cgtu!(vcgtq_u64, uint64x2_t);
 
 macro_rules! aarch64_simd_clt {
-    ($name:ident, $type:ty) => {
+    ($name:ident, $type:ty, $res:ty) => {
         /// Compare signed Lesser than (vector)
-        aarch64_simd_2!($name, $type, simd_lt, cmgt);
-    };
-}
-macro_rules! aarch64_simd_cltu {
-    ($name:ident, $type:ty) => {
-        /// Compare Lesser than (vector)
-        aarch64_simd_2!($name, $type, simd_lt, cmhi);
+        aarch64_simd_2!($name, $type, $res, simd_lt, cmgt, cmgt);
     };
 }
 
-aarch64_simd_clt!(vclt_s64, int64x1_t);
-aarch64_simd_clt!(vcltq_s64, int64x2_t);
-aarch64_simd_cltu!(vclt_u64, uint64x1_t);
-aarch64_simd_cltu!(vcltq_u64, uint64x2_t);
+//macro_rules! aarch64_simd_cltu {
+//( $ name: ident, $ type: ty) => {
+///// Compare Lesser than (vector)
+//aarch64_simd_2 ! ( $ name, $ type, simd_lt, cmhi);
+//};
+//}
+
+aarch64_simd_clt!(vclt_s8, int8x8_t, uint8x8_t);
+aarch64_simd_clt!(vcltq_s8, int8x16_t, uint8x16_t);
+aarch64_simd_clt!(vclt_s16, int16x4_t, uint16x4_t);
+aarch64_simd_clt!(vcltq_s16, int16x8_t, uint16x8_t);
+aarch64_simd_clt!(vclt_s32, int32x2_t, uint32x2_t);
+aarch64_simd_clt!(vcltq_s32, int32x4_t, uint32x4_t);
+
+//arm_simd_cltu!(vclt_u8, uint8x8_t);
+//arm_simd_cltu!(vcltq_u8, uint8x16_t);
+//arm_simd_cltu!(vclt_u16, uint16x4_t);
+//arm_simd_cltu!(vcltq_u16, uint16x8_t);
+//arm_simd_cltu!(vclt_u32, uint32x2_t);
+//arm_simd_cltu!(vcltq_u32, uint32x4_t);
 
 macro_rules! aarch64_simd_cge {
-    ($name:ident, $type:ty) => {
-        /// Compare signed Greater than (vector)
-        aarch64_simd_2!($name, $type, simd_ge, cmge);
-    };
-}
-macro_rules! aarch64_simd_cgeu {
-    ($name:ident, $type:ty) => {
-        /// Compare Greater than (vector)
-        aarch64_simd_2!($name, $type, simd_ge, cmhs);
+    ($name:ident, $type:ty, $res:ty) => {
+        /// Compare signed Greater than equals (vector)
+        aarch64_simd_2!($name, $type, $res, simd_ge, cmge, cmge);
     };
 }
 
-aarch64_simd_cge!(vcge_s64, int64x1_t);
-aarch64_simd_cge!(vcgeq_s64, int64x2_t);
-aarch64_simd_cgeu!(vcge_u64, uint64x1_t);
-aarch64_simd_cgeu!(vcgeq_u64, uint64x2_t);
+//macro_rules! aarch64_simd_cgeu {
+//( $ name: ident, $ type: ty) => {
+///// Compare Greater than (vector)
+//aarch64_simd_2 ! ( $ name, $ type, simd_ge, cmhs);
+//};
+//}
+
+aarch64_simd_cge!(vcge_s8, int8x8_t, uint8x8_t);
+aarch64_simd_cge!(vcgeq_s8, int8x16_t, uint8x16_t);
+aarch64_simd_cge!(vcge_s16, int16x4_t, uint16x4_t);
+aarch64_simd_cge!(vcgeq_s16, int16x8_t, uint16x8_t);
+aarch64_simd_cge!(vcge_s32, int32x2_t, uint32x2_t);
+aarch64_simd_cge!(vcgeq_s32, int32x4_t, uint32x4_t);
+//arm_simd_cgeu!(vcge_u8, uint8x8_t);
+//arm_simd_cgeu!(vcgeq_u8, uint8x16_t);
+//arm_simd_cgeu!(vcge_u16, uint16x4_t);
+//arm_simd_cgeu!(vcgeq_u16, uint16x8_t);
+//arm_simd_cgeu!(vcge_u32, uint32x2_t);
+//arm_simd_cgeu!(vcgeq_u32, uint32x4_t);
 
 macro_rules! aarch64_simd_cle {
-    ($name:ident, $type:ty) => {
-        /// Compare signed Lesser than (vector)
-        aarch64_simd_2!($name, $type, simd_le, cmge);
-    };
-}
-macro_rules! aarch64_simd_cleu {
-    ($name:ident, $type:ty) => {
-        /// Compare Lesser than (vector)
-        aarch64_simd_2!($name, $type, simd_le, cmhs);
+    ($name:ident, $type:ty, $res:ty) => {
+        /// Compare signed Lesser than equals (vector)
+        aarch64_simd_2!($name, $type, $res, simd_le, cmge, cmge);
     };
 }
 
-aarch64_simd_cleu!(vcleq_u8, uint8x16_t);
-aarch64_simd_cle!(vcle_s64, int64x1_t);
-aarch64_simd_cle!(vcleq_s64, int64x2_t);
-aarch64_simd_cleu!(vcle_u64, uint64x1_t);
-aarch64_simd_cleu!(vcleq_u64, uint64x2_t);
+//macro_rules! aarch64_simd_cleu {
+//( $ name: ident, $ type: ty) => {
+///// Compare Lesser than (vector)
+//aarch64_simd_2 ! ( $ name, $ type, simd_le, cmhs);
+//};
+//}
 
-aarch64_simd_cleu!(vcgtq_s8, int8x16_t);
+aarch64_simd_cle!(vcle_s8, int8x8_t, uint8x8_t);
+aarch64_simd_cle!(vcleq_s8, int8x16_t, uint8x16_t);
+aarch64_simd_cle!(vcle_s16, int16x4_t, uint16x4_t);
+aarch64_simd_cle!(vcleq_s16, int16x8_t, uint16x8_t);
+aarch64_simd_cle!(vcle_s32, int32x2_t, uint32x2_t);
+aarch64_simd_cle!(vcleq_s32, int32x4_t, uint32x4_t);
+//arm_simd_cleu!(vcle_u8, uint8x8_t);
+aarch64_simd_cle!(vcleq_u8, uint8x16_t, uint8x16_t);
+//arm_simd_cleu!(vcle_u16, uint16x4_t);
+//arm_simd_cleu!(vcleq_u16, uint16x8_t);
+//arm_simd_cleu!(vcle_u32, uint32x2_t);
+//arm_simd_cleu!(vcleq_u32, uint32x4_t);
 
 #[inline]
 pub fn vdupq_n_s8(a: i8) -> int8x16_t {
@@ -429,6 +410,30 @@ pub unsafe fn vaddq_s32(a: int32x4_t, b: int32x4_t) -> int32x4_t {
 pub unsafe fn vandq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { simd_llvm::simd_and(a, b) }
 
 #[inline]
+fn and16(a: i16, b: i16) -> i16 {
+    if (a & b) != 0 {
+        0
+    } else {
+        -1 /* 0xFFFF */
+    }
+}
+
+#[inline]
+pub unsafe fn vandq_s16(a: int16x8_t, b: int16x8_t) -> int16x8_t {
+//    simd_llvm::simd_and(a, b)
+    int16x8_t(
+        and16(a.0, b.0),
+        and16(a.1, b.1),
+        and16(a.2, b.2),
+        and16(a.3, b.3),
+        and16(a.4, b.4),
+        and16(a.5, b.5),
+        and16(a.6, b.6),
+        and16(a.7, b.7),
+    )
+}
+
+#[inline]
 pub unsafe fn vorrq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { simd_llvm::simd_or(a, b) }
 
 #[inline]
@@ -438,9 +443,9 @@ pub unsafe fn vandq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t { simd_llvm::sim
 pub unsafe fn vorrq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t { simd_llvm::simd_or(a, b) }
 
 macro_rules! arm_reinterpret {
-    ($name:ident, $from:ty, $to:ty) => {
+    ($name: ident, $from: ty, $to: ty) => {
         // Vector reinterpret cast operation
-        #[inline]
+        # [inline]
         pub unsafe fn $name(a: $from) -> $to {
             mem::transmute(a)
         }
@@ -448,18 +453,22 @@ macro_rules! arm_reinterpret {
 }
 
 arm_reinterpret!(vreinterpret_u64_u32, uint32x2_t, uint64x1_t);
+arm_reinterpret!(vreinterpretq_u64_u32, uint32x4_t, uint64x2_t);
 arm_reinterpret!(vreinterpretq_s8_u8, uint8x16_t, int8x16_t);
 arm_reinterpret!(vreinterpretq_u16_u8, uint8x16_t, uint16x8_t);
 arm_reinterpret!(vreinterpretq_u32_u8, uint8x16_t, uint32x4_t);
 arm_reinterpret!(vreinterpretq_u64_u8, uint8x16_t, uint64x2_t);
+arm_reinterpret!(vreinterpretq_u64_s8, int8x16_t, uint64x2_t);
 arm_reinterpret!(vreinterpretq_u8_s8, int8x16_t, uint8x16_t);
 
+arm_reinterpret!(vreinterpretq_s16_s8, int8x16_t, int16x8_t);
+arm_reinterpret!(vreinterpretq_s32_s8, int8x16_t, int32x4_t);
 arm_reinterpret!(vreinterpretq_s64_s8, int8x16_t, int64x2_t);
 
 macro_rules! arm_vget_lane {
-    ($name:ident, $to:ty, $from:ty, $lanes:literal) => {
+    ($name: ident, $to: ty, $from: ty, $lanes: literal) => {
         #[inline]
-        pub unsafe fn $name(v: $from, lane: u32) -> $to {
+        pub unsafe fn $ name(v: $from, lane: u32) -> $ to {
             simd_llvm::simd_extract(v, lane)
         }
     };
@@ -474,14 +483,6 @@ arm_vget_lane!(vgetq_lane_s16, i16, int16x8_t, 7);
 arm_vget_lane!(vgetq_lane_s32, i32, int32x4_t, 3);
 arm_vget_lane!(vgetq_lane_s64, i64, int64x2_t, 1);
 arm_vget_lane!(vget_lane_s64, i64, int64x1_t, 0);
-
-pub unsafe fn vextq_u8(a: uint8x16_t, b: uint8x16_t, n: u8) -> uint8x16_t {
-    mem::transmute(vextq_u8_(mem::transmute(a), mem::transmute(b), n))
-}
-
-pub unsafe fn vextq_s8(a: int8x16_t, b: int8x16_t, n: u8) -> int8x16_t {
-    mem::transmute(vextq_s8_(mem::transmute(a), mem::transmute(b), n))
-}
 
 #[inline]
 pub unsafe fn vqmovn_u64(a: uint64x2_t) -> uint32x2_t {
@@ -504,7 +505,12 @@ pub unsafe fn vqsubq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
 }
 
 #[inline]
-fn test_u8(a:u8,b:u8) -> u8 {
+pub unsafe fn vqsubq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t {
+    vqsubq_s8_(a, b)
+}
+
+#[inline]
+fn test_u8(a: u8, b: u8) -> u8 {
     if a & b != 0 {
         0xFF
     } else {
@@ -530,12 +536,12 @@ pub unsafe fn vtstq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
         test_u8(a.12, b.12),
         test_u8(a.13, b.13),
         test_u8(a.14, b.14),
-        test_u8(a.15, b.15)
+        test_u8(a.15, b.15),
     )
 }
 
 #[inline]
-fn test_s8(a:i8,b:i8) -> i8 {
+fn test_s8(a: i8, b: i8) -> i8 {
     if a & b != 0 {
         -1
     } else {
@@ -561,7 +567,7 @@ pub unsafe fn vtstq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t {
         test_s8(a.12, b.12),
         test_s8(a.13, b.13),
         test_s8(a.14, b.14),
-        test_s8(a.15, b.15)
+        test_s8(a.15, b.15),
     )
 }
 
@@ -578,46 +584,4 @@ pub fn trailingzeroes(a: u64) -> u32 {
 #[inline]
 pub unsafe fn vst1q_u32(addr: *mut u8, val: uint32x4_t) {
     std::ptr::write(addr as *mut uint32x4_t, val)
-}
-
-
-#[allow(unused)]
-macro_rules! constify_imm5 {
-    ($imm8:expr, $expand:ident) => {
-        #[allow(overflowing_literals)]
-        match ($imm8) & 0b1_1111 {
-            0 => $expand!(0),
-            1 => $expand!(1),
-            2 => $expand!(2),
-            3 => $expand!(3),
-            4 => $expand!(4),
-            5 => $expand!(5),
-            6 => $expand!(6),
-            7 => $expand!(7),
-            8 => $expand!(8),
-            9 => $expand!(9),
-            10 => $expand!(10),
-            11 => $expand!(11),
-            12 => $expand!(12),
-            13 => $expand!(13),
-            14 => $expand!(14),
-            15 => $expand!(15),
-            16 => $expand!(16),
-            17 => $expand!(17),
-            18 => $expand!(18),
-            19 => $expand!(19),
-            20 => $expand!(20),
-            21 => $expand!(21),
-            22 => $expand!(22),
-            23 => $expand!(23),
-            24 => $expand!(24),
-            25 => $expand!(25),
-            26 => $expand!(26),
-            27 => $expand!(27),
-            28 => $expand!(28),
-            29 => $expand!(29),
-            30 => $expand!(30),
-            _ => $expand!(31),
-        }
-    };
 }
