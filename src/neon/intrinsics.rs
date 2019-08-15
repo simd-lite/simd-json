@@ -29,10 +29,6 @@ extern "C" {
     fn vpaddq_u8_(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t;
     #[link_name = "llvm.aarch64.neon.pmull64"]
     fn vmull_p64_(a: i64, b: i64) -> int8x16_t;
-    #[link_name = "llvm.ctpop.i64"]
-    fn ctpop_s64_(a: i64) -> i64;
-    #[link_name = "llvm.cttz.i64"]
-    fn cttz_u64_(a: i64) -> i64;
     #[link_name = "llvm.aarch64.neon.uqxtn.v2u32"]
     fn vqmovn_u64_(a: uint64x2_t) -> uint32x2_t;
     #[link_name = "llvm.aarch64.neon.uqsub.v16u8"]
@@ -569,16 +565,6 @@ pub unsafe fn vtstq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t {
         test_s8(a.14, b.14),
         test_s8(a.15, b.15),
     )
-}
-
-#[inline]
-pub unsafe fn hamming(a: u64) -> u32 {
-    ctpop_s64_(a as i64) as u32
-}
-
-#[inline]
-pub fn trailingzeroes(a: u64) -> u32 {
-    unsafe { cttz_u64_(a as i64) as u32 }
 }
 
 #[inline]

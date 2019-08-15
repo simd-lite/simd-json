@@ -294,7 +294,7 @@ unsafe fn find_whitespace_and_structurals(
 //TODO: usize was u32 here does this matter?
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
-    let cnt: usize = hamming(bits) as usize;
+    let cnt: usize = bits.count_ones() as usize;
     let mut l = base.len();
     let idx_minus_64 = idx.wrapping_sub(64);
     let idx_64_v = int32x4_t::new(
@@ -313,13 +313,13 @@ unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     base.set_len(l + cnt);
 
     while bits != 0 {
-        let v0: i32 = static_cast_i32!(trailingzeroes(bits));
+        let v0: i32 = bits.trailing_zeros() as i32;
         bits &= bits.wrapping_sub(1);
-        let v1: i32 = static_cast_i32!(trailingzeroes(bits));
+        let v1: i32 = bits.trailing_zeros() as i32;
         bits &= bits.wrapping_sub(1);
-        let v2: i32 = static_cast_i32!(trailingzeroes(bits));
+        let v2: i32 = bits.trailing_zeros() as i32;
         bits &= bits.wrapping_sub(1);
-        let v3: i32 = static_cast_i32!(trailingzeroes(bits));
+        let v3: i32 = bits.trailing_zeros() as i32;
         bits &= bits.wrapping_sub(1);
 
         let v: int32x4_t = int32x4_t::new(v0, v1, v2, v3);

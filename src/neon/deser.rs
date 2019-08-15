@@ -78,7 +78,7 @@ impl<'de> Deserializer<'de> {
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
                 // find out where the quote is...
-                let quote_dist: u32 = trailingzeroes(u64::from(quote_bits)) as u32;
+                let quote_dist: u32 = quote_bits.trailing_zeros();
 
                 ///////////////////////
                 // Above, check for overflow in case someone has a crazy string (>=4GB?)
@@ -99,7 +99,7 @@ impl<'de> Deserializer<'de> {
             }
             if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
                 // Move to the 'bad' character
-                let bs_dist: u32 = trailingzeroes(u64::from(bs_bits));
+                let bs_dist: u32 = bs_bits.trailing_zeros();
                 len += bs_dist as usize;
                 src_i += bs_dist as usize;
                 break;
@@ -135,7 +135,7 @@ impl<'de> Deserializer<'de> {
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
                 // find out where the quote is...
-                let quote_dist: u32 = trailingzeroes(u64::from(quote_bits)) as u32;
+                let quote_dist: u32 = quote_bits.trailing_zeros();
 
                 ///////////////////////
                 // Above, check for overflow in case someone has a crazy string (>=4GB?)
@@ -161,7 +161,7 @@ impl<'de> Deserializer<'de> {
             }
             if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
                 // find out where the backspace is
-                let bs_dist: u32 = trailingzeroes(u64::from(bs_bits));
+                let bs_dist: u32 = bs_bits.trailing_zeros();
                 let escape_char: u8 = unsafe { *src.get_unchecked(src_i + bs_dist as usize + 1) };
                 // we encountered backslash first. Handle backslash
                 if escape_char == b'u' {

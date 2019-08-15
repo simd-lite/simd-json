@@ -99,26 +99,27 @@ pub use crate::avx2::deser::*;
 #[cfg(target_feature = "avx2")]
 use crate::avx2::stage1::SIMDJSON_PADDING;
 
-#[cfg(target_feature = "sse42")]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
 mod sse42;
-#[cfg(target_feature = "sse42")]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
 pub use crate::sse42::deser::*;
-#[cfg(target_feature = "sse42")]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
 use crate::sse42::stage1::SIMDJSON_PADDING;
 
-//#[cfg(target_feature = "neon")]
+#[cfg(target_feature = "neon")]
 mod neon;
-//#[cfg(target_feature = "neon")]
+#[cfg(target_feature = "neon")]
 pub use crate::neon::deser::*;
-//#[cfg(target_feature = "neon")]
+#[cfg(target_feature = "neon")]
 use crate::neon::stage1::SIMDJSON_PADDING;
 
 mod stage2;
 pub mod value;
 
 use crate::numberparse::Number;
-//use std::mem;
-//use std::str;
+#[cfg(not(target_feature = "neon"))]
+use std::mem;
+use std::str;
 
 pub use crate::error::{Error, ErrorType};
 pub use crate::value::*;

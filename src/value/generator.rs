@@ -5,10 +5,6 @@
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
 use crate::value::ValueTrait;
-#[cfg(target_arch = "x86")]
-use std::arch::x86::*;
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
 use std::io;
 use std::io::Write;
 use std::marker::PhantomData;
