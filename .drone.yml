@@ -58,5 +58,5 @@ steps:
 - name: test
   image: rust:1
   commands:
-  - cargo build --verbose --all
-  - cargo test --verbose --all
+  - cargo +nightly build --verbose --all
+  - cargo +nightly test --verbose --all
