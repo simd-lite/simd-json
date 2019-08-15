@@ -27,10 +27,12 @@ fn fill_input(ptr: &[u8]) -> SimdInput {
     }
 }
 
+const BIT_MASK: [u8; 16] = [0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
+    0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80];
+
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn neon_movemask(input: uint8x16_t) -> u16 {
-    let bit_mask: uint8x16_t = uint8x16_t::new(0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
-                                               0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80);
+    let bit_mask = vld1q_u8(BIT_MASK.as_ptr());
 
     let minput: uint8x16_t = vandq_u8(input, bit_mask);
     let tmp: uint8x16_t = vpaddq_u8(minput, minput);
@@ -42,8 +44,8 @@ unsafe fn neon_movemask(input: uint8x16_t) -> u16 {
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn neon_movemask_bulk(p0: uint8x16_t, p1: uint8x16_t, p2: uint8x16_t, p3: uint8x16_t) -> u64 {
-    let bit_mask: uint8x16_t = uint8x16_t::new(0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
-                                               0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80);
+    let bit_mask = vld1q_u8(BIT_MASK.as_ptr());
+
     let t0 = vandq_u8(p0, bit_mask);
     let t1 = vandq_u8(p1, bit_mask);
     let t2 = vandq_u8(p2, bit_mask);
@@ -370,6 +372,38 @@ fn finalize_structurals(
     // they will be off in the quote mask and on in quote bits.
     structurals &= !(quote_bits & !quote_mask);
     structurals
+}
+
+pub unsafe fn find_bs_bits_and_quote_bits(src: &[u8]) -> ParseStringHelper {
+    // this can read up to 31 bytes beyond the buffer size, but we require
+    // SIMDJSON_PADDING of padding
+    let v0 : uint8x16_t = vld1q_u8(src.as_ptr());
+    let v1 : uint8x16_t = vld1q_u8(src.as_ptr().add(16));
+
+    let bs_mask : uint8x16_t = vmovq_n_u8(b'\\');
+    let qt_mask : uint8x16_t = vmovq_n_u8(b'"');
+
+    let bit_mask = vld1q_u8(BIT_MASK.as_ptr());
+
+    let cmp_bs_0 : uint8x16_t = vceqq_u8(v0, bs_mask);
+    let cmp_bs_1 : uint8x16_t = vceqq_u8(v1, bs_mask);
+    let cmp_qt_0 : uint8x16_t = vceqq_u8(v0, qt_mask);
+    let cmp_qt_1 : uint8x16_t = vceqq_u8(v1, qt_mask);
+
+    let cmp_bs_0 = vandq_u8(cmp_bs_0, bit_mask);
+    let cmp_bs_1 = vandq_u8(cmp_bs_1, bit_mask);
+    let cmp_qt_0 = vandq_u8(cmp_qt_0, bit_mask);
+    let cmp_qt_1 = vandq_u8(cmp_qt_1, bit_mask);
+
+    let sum0 : uint8x16_t = vpaddq_u8(cmp_bs_0, cmp_bs_1);
+    let sum1 : uint8x16_t = vpaddq_u8(cmp_qt_0, cmp_qt_1);
+    let sum0 = vpaddq_u8(sum0, sum1);
+    let sum0 = vpaddq_u8(sum0, sum0);
+
+    ParseStringHelper {
+        bs_bits: vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0), // bs_bits
+        quote_bits: vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1)  // quote_bits
+    }
 }
 
 impl<'de> Deserializer<'de> {

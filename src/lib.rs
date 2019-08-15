@@ -181,6 +181,7 @@ impl<'de> Deserializer<'de> {
 
         let counts = Deserializer::validate(input, &structural_indexes)?;
 
+        // Set length to allow slice access in ARM code
         let mut strings = Vec::with_capacity(len + SIMDJSON_PADDING);
         unsafe {
             strings.set_len(len + SIMDJSON_PADDING);

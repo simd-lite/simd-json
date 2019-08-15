@@ -104,7 +104,7 @@ unsafe fn check_overlong(
     previous_hibits: int8x16_t,
     has_error: &mut int8x16_t,
 ) {
-    let _initial_mins: int8x16_t = int8x16_t::new(
+    let initial_mins_tbl: int8x16_t = int8x16_t::new(
         -128, -128, -128, -128, -128, -128,
         -128, -128, -128, -128, -128, -128, // 10xx => false
         -62 /* 0xC2 */, -128,                         // 110x
@@ -112,7 +112,7 @@ unsafe fn check_overlong(
         -15 /*0xF1 */,
     );
 
-    let _second_mins: int8x16_t = int8x16_t::new(
+    let second_mins_tbl: int8x16_t = int8x16_t::new(
         -128, -128, -128, -128, -128, -128,
         -128, -128, -128, -128, -128, -128, // 10xx => false
         127, 127,                          // 110x => true
@@ -122,12 +122,12 @@ unsafe fn check_overlong(
 
     let off1_hibits: int8x16_t = vextq_s8(previous_hibits, hibits, 16 - 1);
     let initial_mins: int8x16_t =
-        vqtbl1q_s8(_initial_mins, vreinterpretq_u8_s8(off1_hibits));
+        vqtbl1q_s8(initial_mins_tbl, vreinterpretq_u8_s8(off1_hibits));
 
     let initial_under: uint8x16_t = vcgtq_s8(initial_mins, off1_current_bytes);
 
     let second_mins: int8x16_t =
-        vqtbl1q_s8(_second_mins, vreinterpretq_u8_s8(off1_hibits));
+        vqtbl1q_s8(second_mins_tbl, vreinterpretq_u8_s8(off1_hibits));
 
     let second_under: uint8x16_t = vcgtq_s8(second_mins, current_bytes);
 

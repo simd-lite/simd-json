@@ -10,39 +10,6 @@ pub use crate::stringparse::*;
 
 pub use crate::neon::intrinsics::*;
 
-unsafe fn find_bs_bits_and_quote_bits(src: &[u8]) -> ParseStringHelper {
-    // this can read up to 31 bytes beyond the buffer size, but we require
-    // SIMDJSON_PADDING of padding
-    let v0 : uint8x16_t = vld1q_u8(src.as_ptr());
-    let v1 : uint8x16_t = vld1q_u8(src.as_ptr().add(16));
-
-    let bs_mask : uint8x16_t = vmovq_n_u8('\\' as u8);
-    let qt_mask : uint8x16_t = vmovq_n_u8('"' as u8);
-
-    let bit_mask = uint8x16_t::new(0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
-                                   0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80);
-
-    let cmp_bs_0 : uint8x16_t = vceqq_u8(v0, bs_mask);
-    let cmp_bs_1 : uint8x16_t = vceqq_u8(v1, bs_mask);
-    let cmp_qt_0 : uint8x16_t = vceqq_u8(v0, qt_mask);
-    let cmp_qt_1 : uint8x16_t = vceqq_u8(v1, qt_mask);
-
-    let cmp_bs_0 = vandq_u8(cmp_bs_0, bit_mask);
-    let cmp_bs_1 = vandq_u8(cmp_bs_1, bit_mask);
-    let cmp_qt_0 = vandq_u8(cmp_qt_0, bit_mask);
-    let cmp_qt_1 = vandq_u8(cmp_qt_1, bit_mask);
-
-    let sum0 : uint8x16_t = vpaddq_u8(cmp_bs_0, cmp_bs_1);
-    let sum1 : uint8x16_t = vpaddq_u8(cmp_qt_0, cmp_qt_1);
-    let sum0 = vpaddq_u8(sum0, sum1);
-    let sum0 = vpaddq_u8(sum0, sum0);
-
-    ParseStringHelper {
-        bs_bits: vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0), // bs_bits
-        quote_bits: vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1)  // quote_bits
-    }
-}
-
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_str_(&mut self) -> Result<&'de str> {
@@ -63,7 +30,7 @@ impl<'de> Deserializer<'de> {
             // later
 
             let srcx = if src.len() >= src_i + 32 {
-                &src[src_i..]
+                unsafe { src.get_unchecked(src_i..) }
             } else {
                 unsafe {
                     padding
@@ -116,7 +83,7 @@ impl<'de> Deserializer<'de> {
 
         loop {
             let srcx = if src.len() >= src_i + 32 {
-                &src[src_i..]
+                unsafe { src.get_unchecked(src_i..) }
             } else {
                 unsafe {
                     padding
@@ -126,7 +93,9 @@ impl<'de> Deserializer<'de> {
                 }
             };
 
-            dst[dst_i..dst_i + 32].copy_from_slice(&srcx[..32]);
+            unsafe {
+                dst.get_unchecked_mut(dst_i..dst_i + 32).copy_from_slice(srcx.get_unchecked(..32));
+            }
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
