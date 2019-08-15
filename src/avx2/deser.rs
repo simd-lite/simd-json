@@ -129,7 +129,7 @@ impl<'de> Deserializer<'de> {
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
                 // find out where the quote is...
-                let quote_dist: u32 = (u64::from(quote_bits)).trailing_zeros();
+                let quote_dist: u32 = quote_bits.trailing_zeros();
 
                 ///////////////////////
                 // Above, check for overflow in case someone has a crazy string (>=4GB?)

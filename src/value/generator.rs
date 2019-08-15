@@ -129,7 +129,7 @@ pub trait BaseGenerator {
                     let in_range = _mm256_cmpeq_epi8(is_unchanged, zero);
                     let quote_bits = _mm256_movemask_epi8(_mm256_or_si256(bs_or_quote, in_range));
                     if quote_bits != 0 {
-                        let quote_dist = (quote_bits as u64).trailing_zeros() as usize;
+                        let quote_dist = quote_bits.trailing_zeros() as usize;
                         stry!(self.get_writer().write_all(&string[0..idx + quote_dist]));
                         let ch = string[idx + quote_dist];
                         match ESCAPED[ch as usize] {
@@ -168,7 +168,7 @@ pub trait BaseGenerator {
                 let in_range = _mm_cmpeq_epi8(is_unchanged, zero);
                 let quote_bits = _mm_movemask_epi8(_mm_or_si128(bs_or_quote, in_range));
                 if quote_bits != 0 {
-                    let quote_dist = (quote_bits as u64).trailing_zeros() as usize;
+                    let quote_dist = quote_bits.trailing_zeros() as usize;
                     stry!(self.get_writer().write_all(&string[0..idx + quote_dist]));
                     let ch = string[idx + quote_dist];
                     match ESCAPED[ch as usize] {
