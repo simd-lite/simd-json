@@ -1,14 +1,11 @@
-//use std::mem;
 
 pub use crate::error::{Error, ErrorType};
 pub use crate::Deserializer;
 pub use crate::Result;
 pub use crate::neon::stage1::*;
-pub use crate::neon::intrinsics::*;
 pub use crate::neon::utf8check::*;
-pub use crate::stringparse::*;
-
 pub use crate::neon::intrinsics::*;
+pub use crate::stringparse::*;
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -29,18 +26,29 @@ impl<'de> Deserializer<'de> {
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
 
-            let srcx = if src.len() >= src_i + 32 {
-                unsafe { src.get_unchecked(src_i..) }
+            let (v0, v1) = if src.len() >= src_i + 32 {
+                // This is safe since we ensure src is at least 16 wide
+                #[allow(clippy::cast_ptr_alignment)]
+                unsafe {
+                    (
+                        vld1q_u8(src.get_unchecked(src_i..src_i + 16).as_ptr()),
+                        vld1q_u8(src.get_unchecked(src_i + 16..src_i + 32).as_ptr()),
+                    )
+                }
             } else {
                 unsafe {
                     padding
                         .get_unchecked_mut(..src.len() - src_i)
                         .clone_from_slice(src.get_unchecked(src_i..));
-                    &padding
+                    // This is safe since we ensure src is at least 32 wide
+                    (
+                        vld1q_u8(padding.get_unchecked(0..16).as_ptr()),
+                        vld1q_u8(padding.get_unchecked(16..32).as_ptr()),
+                    )
                 }
             };
 
-            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&srcx) };
+            let ParseStringHelper { bs_bits, quote_bits } = find_bs_bits_and_quote_bits(v0, v1);
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
@@ -82,24 +90,35 @@ impl<'de> Deserializer<'de> {
         let dst: &mut [u8] = self.strings.as_mut_slice();
 
         loop {
-            let srcx = if src.len() >= src_i + 32 {
-                unsafe { src.get_unchecked(src_i..) }
+            let (v0, v1) = if src.len() >= src_i + 32 {
+                // This is safe since we ensure src is at least 16 wide
+                #[allow(clippy::cast_ptr_alignment)]
+                    unsafe {
+                    (
+                        vld1q_u8(src.get_unchecked(src_i..src_i + 16).as_ptr()),
+                        vld1q_u8(src.get_unchecked(src_i + 16..src_i + 32).as_ptr()),
+                    )
+                }
             } else {
                 unsafe {
                     padding
                         .get_unchecked_mut(..src.len() - src_i)
                         .clone_from_slice(src.get_unchecked(src_i..));
-                    &padding
+                    // This is safe since we ensure src is at least 32 wide
+                    (
+                        vld1q_u8(padding.get_unchecked(0..16).as_ptr()),
+                        vld1q_u8(padding.get_unchecked(16..32).as_ptr()),
+                    )
                 }
             };
 
             unsafe {
-                dst.get_unchecked_mut(dst_i..dst_i + 32).copy_from_slice(srcx.get_unchecked(..32));
+                dst.get_unchecked_mut(dst_i..dst_i + 32).copy_from_slice(src.get_unchecked(src_i..src_i + 32));
             }
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
-            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(&srcx) };
+            let ParseStringHelper { bs_bits, quote_bits } = find_bs_bits_and_quote_bits(v0, v1);
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
@@ -138,10 +157,11 @@ impl<'de> Deserializer<'de> {
                     // within the unicode codepoint handling code.
                     src_i += bs_dist as usize;
                     dst_i += bs_dist as usize;
-                    let (o, s) = if let Ok(r) =
-                    handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, unsafe {
-                        dst.get_unchecked_mut(dst_i..)
-                    }) {
+                    let (o, s) = if let Ok(r) = handle_unicode_codepoint(
+                            unsafe { src.get_unchecked(src_i..) },
+                            unsafe { dst.get_unchecked_mut(dst_i..) }
+                    )
+                    {
                         r
                     } else {
                         return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));

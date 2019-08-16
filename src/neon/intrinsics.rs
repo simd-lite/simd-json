@@ -90,8 +90,8 @@ pub unsafe fn vmull_p64(a: poly64_t, b: poly64_t) -> poly128_t {
 }
 
 #[inline]
-pub unsafe fn vpaddq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
-    vpaddq_u8_(a, b)
+pub fn vpaddq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
+    unsafe { vpaddq_u8_(a, b) }
 }
 
 #[inline]
@@ -195,12 +195,12 @@ impl int32x4_t {
     }
 }
 
-#[inline]
-pub fn add_overflow(a: u64, b: u64, out: &mut u64) -> bool {
-    let (carry, did_carry) = a.overflowing_add(b);
-    *out = carry;
-    did_carry
-}
+//#[inline]
+//pub fn add_overflow(a: u64, b: u64, out: &mut u64) -> bool {
+//    let (carry, did_carry) = a.overflowing_add(b);
+//    *out = carry;
+//    did_carry
+//}
 
 #[inline]
 pub unsafe fn vld1q_s8(addr: *const i8) -> int8x16_t {
@@ -223,8 +223,8 @@ macro_rules! aarch64_simd_2 {
     };
     ($name: ident, $type: ty, $res: ty, $simd_fn: ident, $intrarm: ident, $intraarch: ident) => {
         #[inline]
-        pub unsafe fn $name(a: $type, b: $type) -> $res {
-            simd_llvm::$simd_fn(a, b)
+        pub fn $name(a: $type, b: $type) -> $res {
+            unsafe { simd_llvm::$simd_fn(a, b) }
         }
     }
 }
@@ -383,6 +383,11 @@ pub fn vmovq_n_u8(a: u8) -> uint8x16_t {
 }
 
 #[inline]
+pub fn vmovq_n_s8(a: i8) -> int8x16_t {
+    int8x16_t(a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a)
+}
+
+#[inline]
 pub fn zerou8x16() -> uint8x16_t {
     uint8x16_t(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
 }
@@ -403,47 +408,22 @@ pub unsafe fn vaddq_s32(a: int32x4_t, b: int32x4_t) -> int32x4_t {
 }
 
 #[inline]
-pub unsafe fn vandq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { simd_llvm::simd_and(a, b) }
-
+pub fn vandq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { unsafe { simd_llvm::simd_and(a, b) } }
 #[inline]
-fn and16(a: i16, b: i16) -> i16 {
-    if (a & b) != 0 {
-        0
-    } else {
-        -1 /* 0xFFFF */
-    }
-}
-
+pub fn vandq_s16(a: int16x8_t, b: int16x8_t) -> int16x8_t { unsafe { simd_llvm::simd_and(a, b) } }
 #[inline]
-pub unsafe fn vandq_s16(a: int16x8_t, b: int16x8_t) -> int16x8_t {
-//    simd_llvm::simd_and(a, b)
-    int16x8_t(
-        and16(a.0, b.0),
-        and16(a.1, b.1),
-        and16(a.2, b.2),
-        and16(a.3, b.3),
-        and16(a.4, b.4),
-        and16(a.5, b.5),
-        and16(a.6, b.6),
-        and16(a.7, b.7),
-    )
-}
-
+pub fn vorrq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { unsafe { simd_llvm::simd_or(a, b) } }
 #[inline]
-pub unsafe fn vorrq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { simd_llvm::simd_or(a, b) }
-
+pub fn vandq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t { unsafe { simd_llvm::simd_and(a, b) } }
 #[inline]
-pub unsafe fn vandq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t { simd_llvm::simd_and(a, b) }
-
-#[inline]
-pub unsafe fn vorrq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t { simd_llvm::simd_or(a, b) }
+pub fn vorrq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t { unsafe { simd_llvm::simd_or(a, b) } }
 
 macro_rules! arm_reinterpret {
     ($name: ident, $from: ty, $to: ty) => {
         // Vector reinterpret cast operation
-        # [inline]
-        pub unsafe fn $name(a: $from) -> $to {
-            mem::transmute(a)
+        #[inline]
+        pub fn $name(a: $from) -> $to {
+            unsafe { mem::transmute(a) }
         }
     };
 }
@@ -464,7 +444,7 @@ arm_reinterpret!(vreinterpretq_s64_s8, int8x16_t, int64x2_t);
 macro_rules! arm_vget_lane {
     ($name: ident, $to: ty, $from: ty, $lanes: literal) => {
         #[inline]
-        pub unsafe fn $ name(v: $from, lane: u32) -> $ to {
+        pub unsafe fn $name(v: $from, lane: u32) -> $ to {
             simd_llvm::simd_extract(v, lane)
         }
     };
