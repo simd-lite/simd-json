@@ -9,7 +9,8 @@
     platform_intrinsics,
     stmt_expr_attributes,
     simd_ffi,
-    link_llvm_intrinsics
+    link_llvm_intrinsics,
+    rustc_attrs
     )
 )]
 

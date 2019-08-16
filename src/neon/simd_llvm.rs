@@ -9,7 +9,7 @@ extern "platform-intrinsic" {
 //    pub fn simd_shuffle2<T, U>(x: T, y: T, idx: [u32; 2]) -> U;
 //    pub fn simd_shuffle4<T, U>(x: T, y: T, idx: [u32; 4]) -> U;
 //    pub fn simd_shuffle8<T, U>(x: T, y: T, idx: [u32; 8]) -> U;
-//    pub fn simd_shuffle16<T, U>(x: T, y: T, idx: [u32; 16]) -> U;
+    pub fn simd_shuffle16<T, U>(x: T, y: T, idx: [u32; 16]) -> U;
 //    pub fn simd_shuffle32<T, U>(x: T, y: T, idx: [u32; 32]) -> U;
 //    pub fn simd_shuffle64<T, U>(x: T, y: T, idx: [u32; 64]) -> U;
 //    pub fn simd_shuffle128<T, U>(x: T, y: T, idx: [u32; 128]) -> U;
