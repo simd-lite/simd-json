@@ -12,7 +12,7 @@ use std::ptr;
 
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_feature = "sse4.2", target_feature = "avx2"))]
 use std::arch::x86_64::*;
 #[cfg(target_feature = "neon")]
 use crate::*;
@@ -108,7 +108,6 @@ pub trait BaseGenerator {
     #[inline(always)]
     fn write_string(&mut self, string: &str) -> io::Result<()> {
         stry!(self.write_char(b'"'));
-//        let string = string.as_bytes();
         let mut string = string.as_bytes();
         let mut len = string.len();
         let mut idx = 0;
@@ -199,12 +198,6 @@ pub trait BaseGenerator {
         Ok(())
     }
 
-    #[cfg(not(target_feature = "avx2"))]
-    #[inline(always)]
-    fn process_32_bytes(&mut self, _string: &mut &[u8], _len: &mut usize, _idx: &mut usize) -> io::Result<()> {
-        Ok(())
-    }
-
     #[cfg(target_feature = "sse4.2")]
     #[inline(always)]
     unsafe fn process_16_bytes(&mut self, string: &mut &[u8], len: &mut usize, idx: &mut usize) -> io::Result<()> {
@@ -248,6 +241,18 @@ pub trait BaseGenerator {
         }
         stry!(self.get_writer().write_all(&string[0..*idx]));
         *string = &string[*idx..];
+        Ok(())
+    }
+
+    #[cfg(all(not(target_feature = "sse4.2"), not(target_feature = "neon")))]
+    #[inline(always)]
+    unsafe fn process_16_bytes(&mut self, _string: &mut &[u8], _len: &mut usize, _idx: &mut usize) -> io::Result<()> {
+        Ok(())
+    }
+
+    #[cfg(not(target_feature = "avx2"))]
+    #[inline(always)]
+    fn process_32_bytes(&mut self, _string: &mut &[u8], _len: &mut usize, _idx: &mut usize) -> io::Result<()> {
         Ok(())
     }
 
