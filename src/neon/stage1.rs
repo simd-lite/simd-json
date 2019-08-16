@@ -115,7 +115,7 @@ fn is_utf8_status_ok(has_error: int8x16_t) -> bool {
     unsafe {
         let has_error_128 : i128 = mem::transmute(has_error);
 
-        has_error_128 as u32 == 0
+        has_error_128 == 0
     }
 }
 
