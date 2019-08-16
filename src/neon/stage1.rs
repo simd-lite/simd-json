@@ -18,7 +18,7 @@ macro_rules! bit_mask {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-unsafe fn neon_movemask(input: uint8x16_t) -> u16 {
+pub(crate) unsafe fn neon_movemask(input: uint8x16_t) -> u16 {
     let minput: uint8x16_t = vandq_u8(input, bit_mask!());
     let tmp: uint8x16_t = vpaddq_u8(minput, minput);
     let tmp = vpaddq_u8(tmp, tmp);
@@ -28,7 +28,7 @@ unsafe fn neon_movemask(input: uint8x16_t) -> u16 {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-unsafe fn neon_movemask_bulk(p0: uint8x16_t, p1: uint8x16_t, p2: uint8x16_t, p3: uint8x16_t) -> u64 {
+pub unsafe fn neon_movemask_bulk(p0: uint8x16_t, p1: uint8x16_t, p2: uint8x16_t, p3: uint8x16_t) -> u64 {
     let bit_mask = bit_mask!();
 
     let t0 = vandq_u8(p0, bit_mask);

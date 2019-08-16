@@ -10,21 +10,16 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::ptr;
 
-#[cfg(target_arch = "x86")]
-use std::arch::x86::*;
-#[cfg(any(target_feature = "sse4.2", target_feature = "avx2"))]
-use std::arch::x86_64::*;
-
 use crate::*;
 
 #[cfg(target_feature = "avx2")]
-pub use crate::avx2::generator::*;
+use crate::avx2::generator::*;
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
-pub use crate::sse42::generator::*;
+use crate::sse42::generator::*;
 
 #[cfg(target_feature = "neon")]
-pub use crate::neon::generator::*;
+use crate::neon::generator::*;
 
 const QU: u8 = b'"';
 const BS: u8 = b'\\';
@@ -37,7 +32,7 @@ const UU: u8 = b'u';
 const __: u8 = 0;
 
 // Look up table for characters that need escaping in a product string
-static ESCAPED: [u8; 256] = [
+pub(crate) static ESCAPED: [u8; 256] = [
     // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
     UU, UU, UU, UU, UU, UU, UU, UU, BB, TT, NN, UU, FF, RR, UU, UU, // 0
     UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, // 1
@@ -113,8 +108,7 @@ pub trait BaseGenerator {
             // quote characters that gives us a bitmask of 0x1f for that
             // region, only quote (`"`) and backslash (`\`) are not in
             // this range.
-            stry!(self.process_32_bytes(&mut string, &mut len, &mut idx));
-            stry!(self.process_32_bytes(&mut string, &mut len, &mut idx));
+            stry!(write_str_simd(self.get_writer(), &mut string, &mut len, &mut idx));
         }
         // Legacy code to handle the remainder of the code
         for (index, ch) in string.iter().enumerate() {
@@ -126,12 +120,6 @@ pub trait BaseGenerator {
         stry!(self.write(string));
         self.write_char(b'"')
     }
-
-    // 32-byte generation implementation
-    process_32_bytes!();
-
-    // 16-byte generation implementation
-    process_16_bytes!();
 
     #[inline(always)]
     fn write_float(&mut self, num: f64) -> io::Result<()> {
