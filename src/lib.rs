@@ -1,13 +1,17 @@
 #![deny(warnings)]
-#![feature(asm)]
-#![feature(stdsimd)]
-#![feature(repr_simd)]
-#![feature(custom_inner_attributes)]
-#![feature(aarch64_target_feature)]
-#![feature(platform_intrinsics)]
-#![feature(stmt_expr_attributes)]
-#![feature(simd_ffi)]
-#![feature(link_llvm_intrinsics)]
+
+#![cfg_attr(target_feature = "neon", feature(
+    asm,
+    stdsimd,
+    repr_simd,
+    custom_inner_attributes,
+    aarch64_target_feature,
+    platform_intrinsics,
+    stmt_expr_attributes,
+    simd_ffi,
+    link_llvm_intrinsics
+    )
+)]
 
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
 //! simdjson-rs is a rust port of the simejson c++ library. It follows
