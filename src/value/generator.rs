@@ -14,21 +14,17 @@ use std::ptr;
 use std::arch::x86::*;
 #[cfg(any(target_feature = "sse4.2", target_feature = "avx2"))]
 use std::arch::x86_64::*;
-#[cfg(target_feature = "neon")]
+
 use crate::*;
 
 #[cfg(target_feature = "avx2")]
-const AVX2_PRESENT : bool = true;
-#[cfg(not(target_feature = "avx2"))]
-const AVX2_PRESENT : bool = false;
-#[cfg(target_feature = "sse4.2")]
-const SSE42_PRESENT : bool = true;
-#[cfg(not(target_feature = "sse4.2"))]
-const SSE42_PRESENT : bool = false;
+pub use crate::avx2::generator::*;
+
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
+pub use crate::sse42::generator::*;
+
 #[cfg(target_feature = "neon")]
-const NEON_PRESENT : bool = true;
-#[cfg(not(target_feature = "neon"))]
-const NEON_PRESENT : bool = false;
+pub use crate::neon::generator::*;
 
 const QU: u8 = b'"';
 const BS: u8 = b'\\';
@@ -117,12 +113,8 @@ pub trait BaseGenerator {
             // quote characters that gives us a bitmask of 0x1f for that
             // region, only quote (`"`) and backslash (`\`) are not in
             // this range.
-            if AVX2_PRESENT {
-                self.process_32_bytes(&mut string, &mut len, &mut idx).unwrap();
-            }
-            if SSE42_PRESENT || NEON_PRESENT {
-                self.process_16_bytes(&mut string, &mut len, &mut idx).unwrap();
-            }
+            stry!(self.process_32_bytes(&mut string, &mut len, &mut idx));
+            stry!(self.process_32_bytes(&mut string, &mut len, &mut idx));
         }
         // Legacy code to handle the remainder of the code
         for (index, ch) in string.iter().enumerate() {
@@ -135,169 +127,11 @@ pub trait BaseGenerator {
         self.write_char(b'"')
     }
 
-    #[cfg(target_feature = "neon")]
-    unsafe fn process_16_bytes(&mut self, string: &mut &[u8], len: &mut usize, idx: &mut usize) -> io::Result<()> {
-        macro_rules! bit_mask {
-            () => {
-                uint8x16_t::new(
-                    0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
-                    0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80
-                )
-            };
-        }
+    // 32-byte generation implementation
+    process_32_bytes!();
 
-        #[cfg_attr(not(feature = "no-inline"), inline(always))]
-        unsafe fn neon_movemask(input: uint8x16_t) -> u16 {
-            let minput: uint8x16_t = vandq_u8(input, bit_mask!());
-            let tmp: uint8x16_t = vpaddq_u8(minput, minput);
-            let tmp = vpaddq_u8(tmp, tmp);
-            let tmp = vpaddq_u8(tmp, tmp);
-
-            vgetq_lane_u16(vreinterpretq_u16_u8(tmp), 0)
-        }
-
-        // The case where we have a 16+ byte block
-        // we repeate the same logic as above but with
-        // only 16 bytes
-        let zero = vdupq_n_u8(0);
-        let lower_quote_range = vdupq_n_u8(0x1F);
-        let quote = vdupq_n_u8(b'"');
-        let backslash = vdupq_n_u8(b'\\');
-        while *len - *idx > 16 {
-            // Load 16 bytes of data;
-            let data: uint8x16_t = vld1q_u8(string.as_ptr().add(*idx));
-            // Test the data against being backslash and quote.
-            let bs_or_quote =
-                vorrq_u8(vceqq_u8(data, backslash), vceqq_u8(data, quote));
-            // Now mask the data with the quote range (0x1F).
-            let in_quote_range = vandq_u8(data, lower_quote_range);
-            // then test of the data is unchanged. aka: xor it with the
-            // Any field that was inside the quote range it will be zero
-            // now.
-            let is_unchanged = vxorrq_u8(data, in_quote_range);
-            let in_range = vceqq_u8(is_unchanged, zero);
-            let quote_bits = neon_movemask(vorrq_u8(bs_or_quote, in_range));
-            if quote_bits != 0 {
-                let quote_dist = quote_bits.trailing_zeros() as usize;
-                stry!(self.get_writer().write_all(&string[0..*idx + quote_dist]));
-                let ch = string[*idx + quote_dist];
-                match ESCAPED[ch as usize] {
-                    b'u' => stry!(write!(self.get_writer(), "\\u{:04x}", ch)),
-
-                    escape => stry!(self.write(&[b'\\', escape])),
-                };
-                *string = &string[*idx + quote_dist + 1..];
-                *idx = 0;
-                *len = string.len();
-            } else {
-                *idx += 16;
-            }
-        }
-        stry!(self.get_writer().write_all(&string[0..*idx]));
-        *string = &string[*idx..];
-        Ok(())
-    }
-
-    #[cfg(target_feature = "sse4.2")]
-    #[inline(always)]
-    unsafe fn process_16_bytes(&mut self, string: &mut &[u8], len: &mut usize, idx: &mut usize) -> io::Result<()> {
-        // The case where we have a 16+ byte block
-        // we repeate the same logic as above but with
-        // only 16 bytes
-        let zero = _mm_set1_epi8(0);
-        let lower_quote_range = _mm_set1_epi8(0x1F as i8);
-        let quote = _mm_set1_epi8(b'"' as i8);
-        let backslash = _mm_set1_epi8(b'\\' as i8);
-        while *len - *idx > 16 {
-            // Load 16 bytes of data;
-            #[allow(clippy::cast_ptr_alignment)]
-                let data: __m128i = _mm_loadu_si128(string.as_ptr().add(*idx) as *const __m128i);
-            // Test the data against being backslash and quote.
-            let bs_or_quote =
-                _mm_or_si128(_mm_cmpeq_epi8(data, backslash), _mm_cmpeq_epi8(data, quote));
-            // Now mask the data with the quote range (0x1F).
-            let in_quote_range = _mm_and_si128(data, lower_quote_range);
-            // then test of the data is unchanged. aka: xor it with the
-            // Any field that was inside the quote range it will be zero
-            // now.
-            let is_unchanged = _mm_xor_si128(data, in_quote_range);
-            let in_range = _mm_cmpeq_epi8(is_unchanged, zero);
-            let quote_bits = _mm_movemask_epi8(_mm_or_si128(bs_or_quote, in_range));
-            if quote_bits != 0 {
-                let quote_dist = quote_bits.trailing_zeros() as usize;
-                stry!(self.get_writer().write_all(&string[0..*idx + quote_dist]));
-                let ch = string[*idx + quote_dist];
-                match ESCAPED[ch as usize] {
-                    b'u' => stry!(write!(self.get_writer(), "\\u{:04x}", ch)),
-
-                    escape => stry!(self.write(&[b'\\', escape])),
-                };
-                *string = &string[*idx + quote_dist + 1..];
-                *idx = 0;
-                *len = string.len();
-            } else {
-                *idx += 16;
-            }
-        }
-        stry!(self.get_writer().write_all(&string[0..*idx]));
-        *string = &string[*idx..];
-        Ok(())
-    }
-
-    #[cfg(all(not(target_feature = "sse4.2"), not(target_feature = "neon")))]
-    #[inline(always)]
-    unsafe fn process_16_bytes(&mut self, _string: &mut &[u8], _len: &mut usize, _idx: &mut usize) -> io::Result<()> {
-        Ok(())
-    }
-
-    #[cfg(not(target_feature = "avx2"))]
-    #[inline(always)]
-    fn process_32_bytes(&mut self, _string: &mut &[u8], _len: &mut usize, _idx: &mut usize) -> io::Result<()> {
-        Ok(())
-    }
-
-    #[cfg(target_feature = "avx2")]
-    #[inline(always)]
-    unsafe fn process_32_bytes(&mut self, string: &mut &[u8], len: &mut usize, idx: &mut usize) -> io::Result<()> {
-        let zero = _mm256_set1_epi8(0);
-        let lower_quote_range = _mm256_set1_epi8(0x1F as i8);
-        let quote = _mm256_set1_epi8(b'"' as i8);
-        let backslash = _mm256_set1_epi8(b'\\' as i8);
-        while *len - *idx >= 32 {
-            // Load 32 bytes of data;
-            #[allow(clippy::cast_ptr_alignment)]
-                let data: __m256i = _mm256_loadu_si256(string.as_ptr().add(*idx) as *const __m256i);
-            // Test the data against being backslash and quote.
-            let bs_or_quote = _mm256_or_si256(
-                _mm256_cmpeq_epi8(data, backslash),
-                _mm256_cmpeq_epi8(data, quote),
-            );
-            // Now mask the data with the quote range (0x1F).
-            let in_quote_range = _mm256_and_si256(data, lower_quote_range);
-            // then test of the data is unchanged. aka: xor it with the
-            // Any field that was inside the quote range it will be zero
-            // now.
-            let is_unchanged = _mm256_xor_si256(data, in_quote_range);
-            let in_range = _mm256_cmpeq_epi8(is_unchanged, zero);
-            let quote_bits = _mm256_movemask_epi8(_mm256_or_si256(bs_or_quote, in_range));
-            if quote_bits != 0 {
-                let quote_dist = quote_bits.trailing_zeros() as usize;
-                stry!(self.get_writer().write_all(&string[0..*idx + quote_dist]));
-                let ch = string[*idx + quote_dist];
-                match ESCAPED[ch as usize] {
-                    b'u' => stry!(write!(self.get_writer(), "\\u{:04x}", ch)),
-
-                    escape => stry!(self.write(&[b'\\', escape])),
-                };
-                *string = &string[*idx + quote_dist + 1..];
-                *idx = 0;
-                *len = string.len();
-            } else {
-                *idx += 32;
-            }
-        }
-        Ok(())
-    }
+    // 16-byte generation implementation
+    process_16_bytes!();
 
     #[inline(always)]
     fn write_float(&mut self, num: f64) -> io::Result<()> {
