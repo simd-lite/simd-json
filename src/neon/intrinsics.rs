@@ -410,13 +410,17 @@ pub unsafe fn vaddq_s32(a: int32x4_t, b: int32x4_t) -> int32x4_t {
 #[inline]
 pub fn vandq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { unsafe { simd_llvm::simd_and(a, b) } }
 #[inline]
+pub fn vandq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t { unsafe { simd_llvm::simd_and(a, b) } }
+#[inline]
 pub fn vandq_s16(a: int16x8_t, b: int16x8_t) -> int16x8_t { unsafe { simd_llvm::simd_and(a, b) } }
 #[inline]
 pub fn vorrq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { unsafe { simd_llvm::simd_or(a, b) } }
 #[inline]
-pub fn vandq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t { unsafe { simd_llvm::simd_and(a, b) } }
-#[inline]
 pub fn vorrq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t { unsafe { simd_llvm::simd_or(a, b) } }
+#[inline]
+pub fn vxorrq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t { unsafe { simd_llvm::simd_xor(a, b) } }
+#[inline]
+pub fn vxorrq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t { unsafe { simd_llvm::simd_xor(a, b) } }
 
 macro_rules! arm_reinterpret {
     ($name: ident, $from: ty, $to: ty) => {

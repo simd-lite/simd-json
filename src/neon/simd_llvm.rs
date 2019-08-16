@@ -27,7 +27,7 @@ extern "platform-intrinsic" {
 //    pub fn simd_shr<T>(x: T, y: T) -> T;
     pub fn simd_and<T>(x: T, y: T) -> T;
     pub fn simd_or<T>(x: T, y: T) -> T;
-//    pub fn simd_xor<T>(x: T, y: T) -> T;
+    pub fn simd_xor<T>(x: T, y: T) -> T;
 //
 //    pub fn simd_reduce_add_unordered<T, U>(x: T) -> U;
 //    pub fn simd_reduce_mul_unordered<T, U>(x: T) -> U;
