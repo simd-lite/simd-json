@@ -149,6 +149,17 @@ fail!(fail67);
 fail!(fail68);
 fail!(fail69);
 
+fail!(fail70);
+fail!(fail71);
+fail!(fail72);
+fail!(fail73);
+fail!(fail74);
+fail!(fail75);
+fail!(fail76);
+//fail!(fail77);
+//fail!(fail78);
+//fail!(fail79);
+
 crash!(crash000000);
 crash!(crash000001);
 crash!(crash000002);
