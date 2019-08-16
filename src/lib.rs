@@ -1,4 +1,18 @@
 #![deny(warnings)]
+
+#![cfg_attr(target_feature = "neon", feature(
+    asm,
+    stdsimd,
+    repr_simd,
+    custom_inner_attributes,
+    aarch64_target_feature,
+    platform_intrinsics,
+    stmt_expr_attributes,
+    simd_ffi,
+    link_llvm_intrinsics
+    )
+)]
+
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
 //! simdjson-rs is a rust port of the simejson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
@@ -89,17 +103,25 @@ pub use crate::avx2::deser::*;
 #[cfg(target_feature = "avx2")]
 use crate::avx2::stage1::SIMDJSON_PADDING;
 
-#[cfg(not(target_feature = "avx2"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
 mod sse42;
-#[cfg(not(target_feature = "avx2"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
 pub use crate::sse42::deser::*;
-#[cfg(not(target_feature = "avx2"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
 use crate::sse42::stage1::SIMDJSON_PADDING;
+
+#[cfg(target_feature = "neon")]
+mod neon;
+#[cfg(target_feature = "neon")]
+pub use crate::neon::deser::*;
+#[cfg(target_feature = "neon")]
+use crate::neon::stage1::SIMDJSON_PADDING;
 
 mod stage2;
 pub mod value;
 
 use crate::numberparse::Number;
+#[cfg(not(target_feature = "neon"))]
 use std::mem;
 use std::str;
 
@@ -163,7 +185,11 @@ impl<'de> Deserializer<'de> {
 
         let counts = Deserializer::validate(input, &structural_indexes)?;
 
-        let strings = Vec::with_capacity(len + SIMDJSON_PADDING);
+        // Set length to allow slice access in ARM code
+        let mut strings = Vec::with_capacity(len + SIMDJSON_PADDING);
+        unsafe {
+            strings.set_len(len + SIMDJSON_PADDING);
+        }
 
         Ok(Deserializer {
             counts,

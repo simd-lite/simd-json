@@ -11,7 +11,7 @@
 /// we do not require prior knowledge sbout string comtent to to take advantage
 /// of it.
 pub mod borrowed;
-mod generator;
+pub(crate) mod generator;
 pub mod owned;
 
 pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
