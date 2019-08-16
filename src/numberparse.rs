@@ -228,7 +228,7 @@ impl<'de> Deserializer<'de> {
                 digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 digitcount += 1;
                 fraction_weight *= 10.0;
-                fraction += f64::from(digit) / fraction_weight;;
+                fraction += f64::from(digit) / fraction_weight;
             }
             i += fraction;
         }
