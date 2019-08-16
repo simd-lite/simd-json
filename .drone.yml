@@ -60,5 +60,5 @@ steps:
   commands:
   - rustup default nightly
   - rustup update
-  - cargo +nightly build --verbose --all
+  - cargo clean && cargo +nightly build --verbose --all
   - cargo +nightly test --verbose --all
