@@ -1,12 +1,12 @@
 [package]
 name = "simd-json"
 version = "0.1.17"
-authors = ["Heinz N. Gies <heinz@licenser.net>"]
+authors = ["Heinz N. Gies <heinz@licenser.net>", "Sunny Gleason"]
 edition = "2018"
 exclude = [ "data/*" ]
 license = "Apache-2.0/MIT"
 description = "High performance JSON parser based on a port of simdjson"
-repository = "https://github.com/Licenser/simdjson-rs"
+repository = "https://github.com/simd-lite/simdjson-rs"
 
 [dependencies]
 halfbrown = "0.1"
