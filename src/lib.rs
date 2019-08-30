@@ -10,7 +10,7 @@
     stmt_expr_attributes,
     simd_ffi,
     link_llvm_intrinsics,
-    rustc_attrs
+    rustc_attrs,
     )
 )]
 
@@ -111,11 +111,11 @@ pub use crate::sse42::deser::*;
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
 use crate::sse42::stage1::SIMDJSON_PADDING;
 
-#[cfg(target_feature = "neon")]
+#[cfg(all(target_feature = "neon", feature = "neon"))]
 mod neon;
-#[cfg(target_feature = "neon")]
+#[cfg(all(target_feature = "neon", feature = "neon"))]
 pub use crate::neon::deser::*;
-#[cfg(target_feature = "neon")]
+#[cfg(all(target_feature = "neon", feature = "neon"))]
 use crate::neon::stage1::SIMDJSON_PADDING;
 
 mod stage2;

@@ -1,7 +1,8 @@
 use crate::value::generator::ESCAPED;
 use std::io;
-use crate::neon::intrinsics::*;
 use crate::neon::stage1::neon_movemask;
+use std::arch::aarch64::*;
+use simd_lite::aarch64::*;
 
 #[inline(always)]
 pub unsafe fn write_str_simd<W>(writer: &mut W, string: &mut &[u8], len: &mut usize, idx: &mut usize) -> io::Result<()> where W: std::io::Write {
@@ -23,7 +24,7 @@ pub unsafe fn write_str_simd<W>(writer: &mut W, string: &mut &[u8], len: &mut us
         // then test of the data is unchanged. aka: xor it with the
         // Any field that was inside the quote range it will be zero
         // now.
-        let is_unchanged = vxorrq_u8(data, in_quote_range);
+        let is_unchanged = veorq_u8(data, in_quote_range);
         let in_range = vceqq_u8(is_unchanged, zero);
         let quote_bits = neon_movemask(vorrq_u8(bs_or_quote, in_range));
         if quote_bits != 0 {

@@ -24,6 +24,7 @@ jemallocator = { version = "0.3", optional = true }
 perfcnt = { version = "0.4", optional = true }
 getopts = { version = "0.2", optional = true }
 colored = { version = "1.7", optional = true }
+simd-lite = { git = "https://github.com/simd-lite/simd-lite", optional = true, branch = "simdjson" }
 
 
 
@@ -45,6 +46,8 @@ harness = false
 
 [features]
 default = ["swar-number-parsing", "serde_impl"]
+# Support for ARM NEON SIMD
+neon = ["simd-lite"]
 # use 8 number at once parsing strategy
 swar-number-parsing = []
 # serde compatibility
