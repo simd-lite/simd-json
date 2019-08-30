@@ -11,9 +11,9 @@ use std::mem;
 
 macro_rules! bit_mask {
     () => {
-       mem::transmute::<[u8;16],uint8x16_t>(
-           [0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
-            0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80]
+       vld1q_u8(
+           &[0x01u8, 0x02u8, 0x4u8, 0x8u8, 0x10u8, 0x20u8, 0x40u8, 0x80u8,
+            0x01u8, 0x02u8, 0x4u8, 0x8u8, 0x10u8, 0x20u8, 0x40u8, 0x80u8] as *const u8
         )
     };
 }
@@ -129,8 +129,8 @@ unsafe fn check_utf8(
         // All bytes are ascii. Therefore the byte that was just before must be
         // ascii too. We only check the byte that was just before simd_input. Nines
         // are arbitrary values.
-        let verror: int8x16_t = mem::transmute::<[i8;16], _>(
-            [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1,]
+        let verror: int8x16_t = vld1q_s8(
+            &[9i8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1,] as *const i8
         );
         state.has_error = vreinterpretq_s8_u8(vorrq_u8(
             vcgtq_s8(
@@ -278,12 +278,12 @@ unsafe fn find_whitespace_and_structurals(
     // these go into the next 2 buckets of the comparison (8/16)
 
     // TODO: const?
-    let low_nibble_mask: uint8x16_t = mem::transmute::<[u8;16], _>(
-        [16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0,]
+    let low_nibble_mask: uint8x16_t = vld1q_u8(
+        &[16u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 8u8, 12u8, 1u8, 2u8, 9u8, 0u8, 0u8] as *const u8
     );
     // TODO: const?
-    let high_nibble_mask: uint8x16_t = mem::transmute::<[u8;16], _>(
-        [8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0,]
+    let high_nibble_mask: uint8x16_t = vld1q_u8(
+        &[8u8, 0u8, 18u8, 4u8, 0u8, 1u8, 0u8, 1u8, 0u8, 0u8, 0u8, 3u8, 2u8, 1u8, 0u8, 0u8] as *const u8
     );
 
     let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);
