@@ -3,9 +3,11 @@ pub use crate::error::{Error, ErrorType};
 pub use crate::Deserializer;
 pub use crate::Result;
 pub use crate::neon::stage1::*;
+//use std::arch::aarch64::*;
 pub use crate::neon::utf8check::*;
-pub use crate::neon::intrinsics::*;
+//use crate::simd_lite::aarch64::*;
 pub use crate::stringparse::*;
+use crate::neon::intrinsics::*;
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -48,7 +50,7 @@ impl<'de> Deserializer<'de> {
                 }
             };
 
-            let ParseStringHelper { bs_bits, quote_bits } = find_bs_bits_and_quote_bits(v0, v1);
+            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(v0, v1) };
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
@@ -118,7 +120,7 @@ impl<'de> Deserializer<'de> {
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
-            let ParseStringHelper { bs_bits, quote_bits } = find_bs_bits_and_quote_bits(v0, v1);
+            let ParseStringHelper { bs_bits, quote_bits } = unsafe { find_bs_bits_and_quote_bits(v0, v1) };
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit

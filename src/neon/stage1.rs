@@ -1,9 +1,12 @@
 #![allow(dead_code)]
 
+//use std::arch::aarch64::*;
+//use crate::simd_lite::aarch64::*;
 use crate::neon::intrinsics::*;
 use crate::neon::utf8check::*;
 use crate::*;
 
+//use simd_lite::NeonInit;
 use std::mem;
 
 // NEON-SPECIFIC
@@ -52,8 +55,8 @@ unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
         vreinterpretq_u64_u8(
             mem::transmute(
                 vmull_p64(
-                    -1,
-                    quote_bits as i64)
+                    mem::transmute(-1i64),
+                    mem::transmute(quote_bits as i64))
             )
         ),
         0
@@ -104,7 +107,7 @@ impl Default for Utf8CheckingState {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         Utf8CheckingState {
-            has_error: vdupq_n_s8(0),
+            has_error: unsafe { vdupq_n_s8(0) },
             previous: ProcessedUtfBytes::default(),
         }
     }
@@ -113,7 +116,7 @@ impl Default for Utf8CheckingState {
 #[inline]
 fn is_utf8_status_ok(has_error: int8x16_t) -> bool {
     unsafe {
-        let has_error_128 : i128 = mem::transmute(has_error);
+        let has_error_128 : u128 = mem::transmute(has_error);
 
         has_error_128 == 0
     }
@@ -418,7 +421,7 @@ fn finalize_structurals(
     structurals
 }
 
-pub fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> ParseStringHelper {
+pub unsafe fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> ParseStringHelper {
     let quote_mask = vmovq_n_u8(b'"');
     let bs_mask = vmovq_n_u8(b'\\');
     let bit_mask = bit_mask!();
@@ -439,8 +442,8 @@ pub fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> ParseStrin
     let sum0 = vpaddq_u8(sum0, sum0);
 
     ParseStringHelper {
-        bs_bits: unsafe { vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0) },
-        quote_bits: unsafe { vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1) },
+        bs_bits: vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0),
+        quote_bits: vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1),
     }
 }
 

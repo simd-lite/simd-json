@@ -1,3 +1,8 @@
+//use std::arch::aarch64::*;
+//use crate::neon::intrinsics::*;
+//use crate::simd_lite::aarch64::*;
+//
+//use simd_lite::NeonInit;
 use crate::neon::intrinsics::*;
 
 /*
@@ -87,7 +92,7 @@ fn check_continuations(initial_lengths: int8x16_t, carries: int8x16_t, has_error
     // overlap || underlap
     // carry > length && length > 0 || !(carry > length) && !(length > 0)
     // (carries > length) == (lengths > 0)
-    {
+    unsafe {
         let overunder: uint8x16_t = vceqq_u8(
             vcgtq_s8(carries, initial_lengths),
             vcgtq_s8(initial_lengths, vdupq_n_s8(0)),
@@ -106,7 +111,7 @@ fn check_first_continuation_max(
     off1_current_bytes: int8x16_t,
     has_error: &mut int8x16_t,
 ) {
-    {
+    unsafe {
         let mask_ed: uint8x16_t = vceqq_s8(
             off1_current_bytes,
             vdupq_n_s8(-19 /* 0xED */),
@@ -201,9 +206,9 @@ impl Default for ProcessedUtfBytes {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         ProcessedUtfBytes {
-            rawbytes: vdupq_n_s8(0x00),
-            high_nibbles: vdupq_n_s8(0x00),
-            carried_continuations: vdupq_n_s8(0x00),
+            rawbytes: unsafe { vdupq_n_s8(0x00) },
+            high_nibbles: unsafe { vdupq_n_s8(0x00) },
+            carried_continuations: unsafe { vdupq_n_s8(0x00) },
         }
     }
 }

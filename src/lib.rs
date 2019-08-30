@@ -112,6 +112,8 @@ pub use crate::sse42::deser::*;
 use crate::sse42::stage1::SIMDJSON_PADDING;
 
 #[cfg(target_feature = "neon")]
+extern crate simd_lite;
+#[cfg(target_feature = "neon")]
 mod neon;
 #[cfg(target_feature = "neon")]
 pub use crate::neon::deser::*;

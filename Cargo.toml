@@ -13,6 +13,7 @@ halfbrown = "0.1"
 page_size = "0.4"
 itoa = "0.4"
 ryu = "1"
+simd-lite = { git = "https://github.com/simd-lite/simd-lite.git",  branch = "simdjson" }
 
 # serde compatibilty
 serde = { version = "1", features = ["derive"], optional = true}
