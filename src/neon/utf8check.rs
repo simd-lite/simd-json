@@ -41,7 +41,7 @@ fn check_smaller_than_0xf4(current_bytes: int8x16_t, has_error: &mut int8x16_t) 
     *has_error = unsafe {
         vorrq_s8(
             *has_error,
-            vqsubq_s8(current_bytes, vdupq_n_s8(-12 /* 0xF4 */))
+            vreinterpretq_s8_u8(vqsubq_u8(vreinterpretq_u8_s8(current_bytes), vdupq_n_u8(0xF4)))
         )
     };
 }
