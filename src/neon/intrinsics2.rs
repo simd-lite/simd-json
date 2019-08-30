@@ -5763,7 +5763,7 @@ pub unsafe fn vqsubq_s8(a: int8x16_t, b: int8x16_t) -> int8x16_t {
     #[allow(improper_ctypes)]
     extern "C" {
         #[cfg_attr(target_arch = "arm", link_name = "llvm.arm.neon.vqsubs.v16i8")]
-        #[cfg_attr(target_arch = "aarch64", link_name = "llvm.aarch64.neon.uqsub.v16i8")]
+        #[cfg_attr(target_arch = "aarch64", link_name = "llvm.aarch64.neon.sqsub.v16i8")]
         fn vqsubq_s8_(a: int8x16_t, b: int8x16_t) -> int8x16_t;
     }
     vqsubq_s8_(a, b)

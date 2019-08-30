@@ -44,7 +44,7 @@ fn check_smaller_than_0xf4(current_bytes: int8x16_t, has_error: &mut int8x16_t) 
     *has_error = unsafe {
         vorrq_s8(
             *has_error,
-            vqsubq_s8(current_bytes, vdupq_n_s8(-12 /* 0xF4 */))
+            vreinterpretq_s8_u8(vqsubq_u8(vreinterpretq_u8_s8(current_bytes), vdupq_n_u8(0xF4)))
         )
     };
 }
@@ -74,15 +74,15 @@ fn continuation_lengths(high_nibbles: int8x16_t) -> int8x16_t {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn carry_continuations(initial_lengths: int8x16_t, previous_carries: int8x16_t) -> int8x16_t {
     unsafe {
-        let right1: int8x16_t = vqsubq_s8(
-            push_last_byte_of_a_to_b(previous_carries, initial_lengths),
-            vdupq_n_s8(1),
-        );
+        let right1: int8x16_t = vreinterpretq_s8_u8(vqsubq_u8(
+            vreinterpretq_u8_s8(push_last_byte_of_a_to_b(previous_carries, initial_lengths)),
+            vdupq_n_u8(1),
+        ));
         let sum: int8x16_t = vaddq_s8(initial_lengths, right1);
-        let right2: int8x16_t = vqsubq_s8(
-            push_last_2bytes_of_a_to_b(previous_carries, sum),
-            vdupq_n_s8(2),
-        );
+        let right2: int8x16_t = vreinterpretq_s8_u8(vqsubq_u8(
+            vreinterpretq_u8_s8(push_last_2bytes_of_a_to_b(previous_carries, sum)),
+            vdupq_n_u8(2),
+        ));
         vaddq_s8(sum, right2)
     }
 }
