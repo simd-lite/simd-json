@@ -3,7 +3,7 @@
 
 [Build Status]: https://cloud.drone.io/api/badges/simd-lite/simdjson-rs/status.svg
 [drone.io]: https://cloud.drone.io/simd-lite/simdjson-rs
-[Windows Build Status]: https://ci.appveyor.com/api/projects/status/0kf0v6hj5v2gite9?svg=true
+[Windows Build Status]: https://ci.appveyor.com/api/projects/status/ffi2ese7dxse6pb8?svg=true
 [appveyor.com]: https://ci.appveyor.com/project/Licenser/simdjson-rs
 [Latest Version]: https://img.shields.io/crates/v/simd-json.svg
 [crates.io]: https://crates.io/crates/simd-json
