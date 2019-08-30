@@ -4,16 +4,16 @@ use crate::neon::utf8check::*;
 use crate::*;
 use std::arch::aarch64::*;
 use simd_lite::aarch64::*;
-
+use simd_lite::NeonInit;
 use std::mem;
 
 // NEON-SPECIFIC
 
 macro_rules! bit_mask {
     () => {
-       vld1q_u8(
-           &[0x01u8, 0x02u8, 0x4u8, 0x8u8, 0x10u8, 0x20u8, 0x40u8, 0x80u8,
-            0x01u8, 0x02u8, 0x4u8, 0x8u8, 0x10u8, 0x20u8, 0x40u8, 0x80u8] as *const u8
+       uint8x16_t::new(
+           [0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
+            0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80]
         )
     };
 }
@@ -129,8 +129,8 @@ unsafe fn check_utf8(
         // All bytes are ascii. Therefore the byte that was just before must be
         // ascii too. We only check the byte that was just before simd_input. Nines
         // are arbitrary values.
-        let verror: int8x16_t = vld1q_s8(
-            &[9i8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1,] as *const i8
+        let verror: int8x16_t = int8x16_t::new(
+            [9i8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1]
         );
         state.has_error = vreinterpretq_s8_u8(vorrq_u8(
             vcgtq_s8(
@@ -278,12 +278,12 @@ unsafe fn find_whitespace_and_structurals(
     // these go into the next 2 buckets of the comparison (8/16)
 
     // TODO: const?
-    let low_nibble_mask: uint8x16_t = vld1q_u8(
-        &[16u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 8u8, 12u8, 1u8, 2u8, 9u8, 0u8, 0u8] as *const u8
+    let low_nibble_mask: uint8x16_t = uint8x16_t::new(
+        [16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]
     );
     // TODO: const?
-    let high_nibble_mask: uint8x16_t = vld1q_u8(
-        &[8u8, 0u8, 18u8, 4u8, 0u8, 1u8, 0u8, 1u8, 0u8, 0u8, 0u8, 3u8, 2u8, 1u8, 0u8, 0u8] as *const u8
+    let high_nibble_mask: uint8x16_t = uint8x16_t::new(
+        [8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]
     );
 
     let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);

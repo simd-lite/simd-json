@@ -1,6 +1,6 @@
 use std::arch::aarch64::*;
 use simd_lite::aarch64::*;
-use std::mem;
+use simd_lite::NeonInit;
 
 /*
  * legal utf-8 byte sequence
@@ -48,13 +48,13 @@ fn check_smaller_than_0xf4(current_bytes: int8x16_t, has_error: &mut int8x16_t) 
 
 macro_rules! nibbles_tbl {
     () => {
-        vld1q_s8(&[
+       int8x16_t::new([
             1i8, 1, 1, 1, 1, 1, 1, 1, // 0xxx (ASCII)
             0, 0, 0, 0,             // 10xx (continuation)
             2, 2,                   // 110x
             3,                      // 1110
             4,                      // 1111, next should be 0 (not checked here)
-        ] as *const i8)
+        ])
     };
 }
 
@@ -130,25 +130,25 @@ fn check_first_continuation_max(
 
 macro_rules! initial_mins_tbl {
     () => {
-        vld1q_s8(&[
+        int8x16_t::new([
             -128i8, -128, -128, -128, -128, -128,
             -128, -128, -128, -128, -128, -128, // 10xx => false
             -62 /* 0xC2 */, -128,               // 110x
             -31 /* 0xE1 */,                     // 1110
             -15 /*0xF1 */,                      // 1111
-        ] as *const i8)
+        ])
     };
 }
 
 macro_rules! second_mins_tbl {
     () => {
-            vld1q_s8(&[
+            int8x16_t::new([
             -128i8, -128, -128, -128, -128, -128,
             -128, -128, -128, -128, -128, -128, // 10xx => false
             127, 127,                           // 110x => true
             -96 /* 0xA0 */,                     // 1110
             -112 /* 0x90 */,                    // 1111
-        ] as *const i8)
+        ])
     };
 }
 
