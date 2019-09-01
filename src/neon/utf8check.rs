@@ -1,4 +1,3 @@
-use std::arch::aarch64::*;
 use simd_lite::aarch64::*;
 use simd_lite::NeonInit;
 

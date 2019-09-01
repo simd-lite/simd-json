@@ -1,7 +1,6 @@
 use crate::value::generator::ESCAPED;
 use std::io;
 use crate::neon::stage1::neon_movemask;
-use std::arch::aarch64::*;
 use simd_lite::aarch64::*;
 
 #[inline(always)]
