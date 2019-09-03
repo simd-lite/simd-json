@@ -1,11 +1,10 @@
 
-pub use crate::error::{Error, ErrorType};
-pub use crate::Deserializer;
-pub use crate::Result;
-pub use crate::neon::stage1::*;
-pub use crate::neon::utf8check::*;
-pub use crate::neon::intrinsics::*;
-pub use crate::stringparse::*;
+use crate::error::{ErrorType};
+use crate::Deserializer;
+use crate::Result;
+use crate::stringparse::*;
+use simd_lite::aarch64::*;
+use crate::neon::stage1::*;
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]

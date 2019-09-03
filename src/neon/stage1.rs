@@ -1,18 +1,18 @@
 #![allow(dead_code)]
 
-use crate::neon::intrinsics::*;
 use crate::neon::utf8check::*;
 use crate::*;
-
+use simd_lite::aarch64::*;
+use simd_lite::NeonInit;
 use std::mem;
 
 // NEON-SPECIFIC
 
 macro_rules! bit_mask {
     () => {
-        uint8x16_t::new(
-            0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
-            0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80
+       uint8x16_t::new(
+           [0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
+            0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80]
         )
     };
 }
@@ -52,8 +52,8 @@ unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
         vreinterpretq_u64_u8(
             mem::transmute(
                 vmull_p64(
-                    -1,
-                    quote_bits as i64)
+                    mem::transmute(-1 as i64),
+                    mem::transmute(quote_bits as i64))
             )
         ),
         0
@@ -104,7 +104,7 @@ impl Default for Utf8CheckingState {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         Utf8CheckingState {
-            has_error: vdupq_n_s8(0),
+            has_error: unsafe{vdupq_n_s8(0)},
             previous: ProcessedUtfBytes::default(),
         }
     }
@@ -129,7 +129,7 @@ unsafe fn check_utf8(
         // ascii too. We only check the byte that was just before simd_input. Nines
         // are arbitrary values.
         let verror: int8x16_t = int8x16_t::new(
-            9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1,
+            [9i8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1]
         );
         state.has_error = vreinterpretq_s8_u8(vorrq_u8(
             vcgtq_s8(
@@ -278,11 +278,11 @@ unsafe fn find_whitespace_and_structurals(
 
     // TODO: const?
     let low_nibble_mask: uint8x16_t = uint8x16_t::new(
-        16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0,
+        [16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]
     );
     // TODO: const?
     let high_nibble_mask: uint8x16_t = uint8x16_t::new(
-        8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0,
+        [8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]
     );
 
     let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);
@@ -338,12 +338,12 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     let mut l = base.len();
     let idx_minus_64 = idx.wrapping_sub(64);
     let idx_64_v = unsafe {
-        int32x4_t::new(
+        mem::transmute::<_, int32x4_t>([
             static_cast_i32!(idx_minus_64),
             static_cast_i32!(idx_minus_64),
             static_cast_i32!(idx_minus_64),
             static_cast_i32!(idx_minus_64),
-        )
+        ])
     };
 
     // We're doing some trickery here.
@@ -367,7 +367,7 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
             let v3 = bits.trailing_zeros() as i32;
             bits &= bits.wrapping_sub(1);
 
-            let v: int32x4_t = int32x4_t::new(v0, v1, v2, v3);
+            let v: int32x4_t = mem::transmute([v0, v1, v2, v3]);
             let v: int32x4_t = vaddq_s32(idx_64_v, v);
             #[allow(clippy::cast_ptr_alignment)]
             std::ptr::write(base.as_mut_ptr().add(l) as *mut int32x4_t, v);
@@ -419,6 +419,7 @@ fn finalize_structurals(
 }
 
 pub fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> ParseStringHelper {
+    unsafe{
     let quote_mask = vmovq_n_u8(b'"');
     let bs_mask = vmovq_n_u8(b'\\');
     let bit_mask = bit_mask!();
@@ -439,8 +440,9 @@ pub fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> ParseStrin
     let sum0 = vpaddq_u8(sum0, sum0);
 
     ParseStringHelper {
-        bs_bits: unsafe { vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0) },
-        quote_bits: unsafe { vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1) },
+        bs_bits:  vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0) ,
+        quote_bits:  vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1) ,
+    }
     }
 }
 
@@ -595,4 +597,10 @@ impl<'de> Deserializer<'de> {
             Err(ErrorType::InvalidUTF8)
         }
     }
+}
+
+// Holds backslashes and quotes locations.
+pub struct ParseStringHelper {
+    pub bs_bits: u32,
+    pub quote_bits: u32,
 }

@@ -73,9 +73,3 @@ pub fn handle_unicode_codepoint(
     let offset: usize = codepoint_to_utf8(code_point, dst_ptr);
     Ok((offset, src_offset))
 }
-
-// Holds backslashes and quotes locations.
-pub struct ParseStringHelper {
-    pub bs_bits: u32,
-    pub quote_bits: u32,
-}

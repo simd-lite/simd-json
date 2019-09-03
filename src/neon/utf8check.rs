@@ -1,4 +1,5 @@
-use crate::neon::intrinsics::*;
+use simd_lite::aarch64::*;
+use simd_lite::NeonInit;
 
 /*
  * legal utf-8 byte sequence
@@ -39,62 +40,56 @@ fn check_smaller_than_0xf4(current_bytes: int8x16_t, has_error: &mut int8x16_t) 
     *has_error = unsafe {
         vorrq_s8(
             *has_error,
-            vqsubq_s8(current_bytes, vdupq_n_s8(-12 /* 0xF4 */))
+            vreinterpretq_s8_u8(vqsubq_u8(vreinterpretq_u8_s8(current_bytes), vdupq_n_u8(0xF4)))
         )
     };
 }
 
 macro_rules! nibbles_tbl {
     () => {
-        int8x16_t::new(
-            1, 1, 1, 1, 1, 1, 1, 1, // 0xxx (ASCII)
+       int8x16_t::new([
+            1i8, 1, 1, 1, 1, 1, 1, 1, // 0xxx (ASCII)
             0, 0, 0, 0,             // 10xx (continuation)
             2, 2,                   // 110x
             3,                      // 1110
             4,                      // 1111, next should be 0 (not checked here)
-        )
+        ])
     };
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn continuation_lengths(high_nibbles: int8x16_t) -> int8x16_t {
-    unsafe {
+unsafe fn continuation_lengths(high_nibbles: int8x16_t) -> int8x16_t {
         vqtbl1q_s8(
             nibbles_tbl!(),
             vreinterpretq_u8_s8(high_nibbles),
         )
-    }
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn carry_continuations(initial_lengths: int8x16_t, previous_carries: int8x16_t) -> int8x16_t {
-    unsafe {
-        let right1: int8x16_t = vqsubq_s8(
-            push_last_byte_of_a_to_b(previous_carries, initial_lengths),
-            vdupq_n_s8(1),
-        );
+unsafe fn carry_continuations(initial_lengths: int8x16_t, previous_carries: int8x16_t) -> int8x16_t {
+        let right1: int8x16_t = vreinterpretq_s8_u8(vqsubq_u8(
+            vreinterpretq_u8_s8(push_last_byte_of_a_to_b(previous_carries, initial_lengths)),
+            vdupq_n_u8(1),
+        ));
         let sum: int8x16_t = vaddq_s8(initial_lengths, right1);
-        let right2: int8x16_t = vqsubq_s8(
-            push_last_2bytes_of_a_to_b(previous_carries, sum),
-            vdupq_n_s8(2),
-        );
+        let right2: int8x16_t = vreinterpretq_s8_u8(vqsubq_u8(
+            vreinterpretq_u8_s8(push_last_2bytes_of_a_to_b(previous_carries, sum)),
+            vdupq_n_u8(2),
+        ));
         vaddq_s8(sum, right2)
-    }
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn check_continuations(initial_lengths: int8x16_t, carries: int8x16_t, has_error: &mut int8x16_t) {
+unsafe fn check_continuations(initial_lengths: int8x16_t, carries: int8x16_t, has_error: &mut int8x16_t) {
     // overlap || underlap
     // carry > length && length > 0 || !(carry > length) && !(length > 0)
     // (carries > length) == (lengths > 0)
-    {
         let overunder: uint8x16_t = vceqq_u8(
             vcgtq_s8(carries, initial_lengths),
             vcgtq_s8(initial_lengths, vdupq_n_s8(0)),
         );
 
         *has_error = vorrq_s8(*has_error, vreinterpretq_s8_u8(overunder));
-    }
 }
 
 // when 0xED is found, next byte must be no larger than 0x9F
@@ -106,7 +101,7 @@ fn check_first_continuation_max(
     off1_current_bytes: int8x16_t,
     has_error: &mut int8x16_t,
 ) {
-    {
+    unsafe {
         let mask_ed: uint8x16_t = vceqq_s8(
             off1_current_bytes,
             vdupq_n_s8(-19 /* 0xED */),
@@ -134,25 +129,25 @@ fn check_first_continuation_max(
 
 macro_rules! initial_mins_tbl {
     () => {
-        int8x16_t::new(
-            -128, -128, -128, -128, -128, -128,
+        int8x16_t::new([
+            -128i8, -128, -128, -128, -128, -128,
             -128, -128, -128, -128, -128, -128, // 10xx => false
             -62 /* 0xC2 */, -128,               // 110x
             -31 /* 0xE1 */,                     // 1110
             -15 /*0xF1 */,                      // 1111
-        )
+        ])
     };
 }
 
 macro_rules! second_mins_tbl {
     () => {
-        int8x16_t::new(
-            -128, -128, -128, -128, -128, -128,
+            int8x16_t::new([
+            -128i8, -128, -128, -128, -128, -128,
             -128, -128, -128, -128, -128, -128, // 10xx => false
             127, 127,                           // 110x => true
             -96 /* 0xA0 */,                     // 1110
             -112 /* 0x90 */,                    // 1111
-        )
+        ])
     };
 }
 
@@ -200,10 +195,12 @@ pub struct ProcessedUtfBytes {
 impl Default for ProcessedUtfBytes {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
+        unsafe{
         ProcessedUtfBytes {
             rawbytes: vdupq_n_s8(0x00),
             high_nibbles: vdupq_n_s8(0x00),
             carried_continuations: vdupq_n_s8(0x00),
+        }
         }
     }
 }
@@ -228,6 +225,7 @@ pub fn check_utf8_bytes(
     has_error: &mut int8x16_t,
 ) -> ProcessedUtfBytes {
     let mut pb = ProcessedUtfBytes::default();
+    unsafe {
     count_nibbles(current_bytes, &mut pb);
 
     check_smaller_than_0xf4(current_bytes, has_error);
@@ -249,5 +247,7 @@ pub fn check_utf8_bytes(
         previous.high_nibbles,
         has_error,
     );
+    }
     pb
+
 }
