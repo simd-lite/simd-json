@@ -1,8 +1,9 @@
-# SIMD Json for Rust &emsp; [![Build Status]][circleci.com] [![Windows Build Status]][appveyor.com] [![Latest Version]][crates.io]
+# SIMD Json for Rust &emsp; [![Build Status]][drone.io] [![Windows Build Status]][appveyor.com] [![Latest Version]][crates.io]
 
-[Build Status]: https://circleci.com/gh/Licenser/simdjson-rs/tree/master.svg?style=svg
-[circleci.com]: https://circleci.com/gh/Licenser/simdjson-rs/tree/master
-[Windows Build Status]: https://ci.appveyor.com/api/projects/status/0kf0v6hj5v2gite9?svg=true
+
+[Build Status]: https://cloud.drone.io/api/badges/simd-lite/simdjson-rs/status.svg
+[drone.io]: https://cloud.drone.io/simd-lite/simdjson-rs
+[Windows Build Status]: https://ci.appveyor.com/api/projects/status/ffi2ese7dxse6pb8?svg=true
 [appveyor.com]: https://ci.appveyor.com/project/Licenser/simdjson-rs
 [Latest Version]: https://img.shields.io/crates/v/simd-json.svg
 [crates.io]: https://crates.io/crates/simd-json
@@ -16,6 +17,8 @@
 ### CPU target
 
 To be able to take advantage of simdjson your system needs to be SIMD compatible. This means to compile with native cpu support and the given features. Look at [The cargo config in this repository](.cargo/config) to get an example.
+
+simd-json.rs supports AVX2, SSE4.2 and NEON.
 
 ### jemalloc
 

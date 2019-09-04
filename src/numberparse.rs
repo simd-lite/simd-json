@@ -1,6 +1,7 @@
 use crate::charutils::*;
 use crate::unlikely;
 use crate::*;
+
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -133,6 +134,7 @@ pub enum Number {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
     unsafe {
         // this actually computes *16* values so we are being wasteful.
@@ -143,7 +145,7 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
         let mul_1_10000: __m128i = _mm_setr_epi16(10000, 1, 10000, 1, 10000, 1, 10000, 1);
         // We know what we're doing right? :P
         #[allow(clippy::cast_ptr_alignment)]
-        let input: __m128i = _mm_sub_epi8(
+            let input: __m128i = _mm_sub_epi8(
             _mm_loadu_si128(chars.get_unchecked(0..16).as_ptr() as *const __m128i),
             ascii0,
         );
@@ -153,6 +155,17 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
         let t4: __m128i = _mm_madd_epi16(t3, mul_1_10000);
         _mm_cvtsi128_si32(t4) as u32 // only captures the sum of the first 8 digits, drop the rest
     }
+}
+
+#[cfg_attr(not(feature = "no-inline"), inline)]
+#[cfg(target_feature = "neon")]
+fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
+    let val: u64 = unsafe { *(chars.as_ptr() as *const u64) };
+    //    memcpy(&val, chars, sizeof(u64));
+    let val = (val & 0x0F0F0F0F0F0F0F0F).wrapping_mul(2561) >> 8;
+    let val = (val & 0x00FF00FF00FF00FF).wrapping_mul(6553601) >> 16;
+
+    return ((val & 0x0000FFFF0000FFFF).wrapping_mul(42949672960001) >> 32) as u32;
 }
 
 impl<'de> Deserializer<'de> {
@@ -215,7 +228,7 @@ impl<'de> Deserializer<'de> {
                 digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 digitcount += 1;
                 fraction_weight *= 10.0;
-                fraction += f64::from(digit) / fraction_weight;;
+                fraction += f64::from(digit) / fraction_weight;
             }
             i += fraction;
         }

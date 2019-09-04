@@ -1,9 +1,11 @@
 #![allow(dead_code)]
+use crate::charutils::*;
 #[cfg(target_feature = "avx2")]
 use crate::avx2::stage1::SIMDJSON_PADDING;
-use crate::charutils::*;
-#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
 use crate::sse42::stage1::SIMDJSON_PADDING;
+#[cfg(target_feature = "neon")]
+use crate::neon::stage1::SIMDJSON_PADDING;
 use crate::{Deserializer, Error, ErrorType, Result};
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
