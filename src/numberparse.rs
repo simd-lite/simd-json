@@ -93,14 +93,11 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
     unsafe { *STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED.get_unchecked(c as usize) }
 }
 
-//#define SWAR_NUMBER_PARSING
-
-//#ifdef SWAR_NUMBER_PARSING
-
 // #ifdef _MSC_VER
 // check quickly whether the next 8 chars are made of digits
 // at a glance, it looks better than Mula's
 // http://0x80.pl/articles/swar-digits-validate.html
+
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
     // We know what we're doing right? :P
@@ -113,21 +110,10 @@ fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
     //  && (( (val + 0x0606060606060606) & 0xF0F0F0F0F0F0F0F0 ) ==
     //  0x3030303030303030);
     (((val & 0xF0F0_F0F0_F0F0_F0F0)
-        | (((val + 0x0606_0606_0606_0606) & 0xF0F0_F0F0_F0F0_F0F0) >> 4))
+        | (((val.wrapping_add(0x0606_0606_0606_0606)) & 0xF0F0_F0F0_F0F0_F0F0) >> 4))
         == 0x3333_3333_3333_3333)
 }
-/*
-#else
-// this is more efficient apparently than the scalar code above (fewer instructions)
-    #[cfg_attr(not(feature = "no-inline"), inline)]
 
-unsafe fn is_made_of_eight_digits_fast(chars: *const u8) -> bool {
-    let val: __m64 = *(chars as *const __m64);
-    let base: __m64 = _mm_sub_pi8(val,_mm_set1_pi8(b'0' as i8));
-    let basecmp: __m64 = _mm_subs_pu8(base, _mm_set1_pi8(9));
-    _mm_cvtm64_si64(basecmp) == 0
-}
- */
 pub enum Number {
     F64(f64),
     I64(i64),
