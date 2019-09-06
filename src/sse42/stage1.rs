@@ -404,7 +404,7 @@ fn finalize_structurals(
     structurals
 }
 
-pub unsafe fn find_bs_bits_and_quote_bits(src: __m128i) -> ParseStringHelper {
+pub unsafe fn find_bs_bits_and_quote_bits(v: __m128i) -> ParseStringHelper {
     let quote_mask = unsafe { _mm_cmpeq_epi8(v, _mm_set1_epi8(b'"' as i8)) };
     let quote_bits = unsafe { static_cast_u32!(_mm_movemask_epi8(quote_mask)) };
     let bs_mask = unsafe { _mm_cmpeq_epi8(v, _mm_set1_epi8(b'\\' as i8)) };
