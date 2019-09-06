@@ -7,7 +7,15 @@ use crate::value::generator::ESCAPED;
 use std::io;
 
 #[inline(always)]
-pub unsafe fn write_str_simd<W>(writer: &mut W, string: &mut &[u8], len: &mut usize, idx: &mut usize) -> io::Result<()> where W: std::io::Write {
+pub unsafe fn write_str_simd<W>(
+    writer: &mut W,
+    string: &mut &[u8],
+    len: &mut usize,
+    idx: &mut usize,
+) -> io::Result<()>
+where
+    W: std::io::Write,
+{
     let zero = _mm_set1_epi8(0);
     let lower_quote_range = _mm_set1_epi8(0x1F as i8);
     let quote = _mm_set1_epi8(b'"' as i8);
@@ -15,12 +23,10 @@ pub unsafe fn write_str_simd<W>(writer: &mut W, string: &mut &[u8], len: &mut us
     while *len - *idx > 16 {
         // Load 16 bytes of data;
         #[allow(clippy::cast_ptr_alignment)]
-            let data: __m128i = _mm_loadu_si128(string.as_ptr().add(*idx) as *const __m128i);
+        let data: __m128i = _mm_loadu_si128(string.as_ptr().add(*idx) as *const __m128i);
         // Test the data against being backslash and quote.
-        let bs_or_quote = _mm_or_si128(
-            _mm_cmpeq_epi8(data, backslash),
-            _mm_cmpeq_epi8(data, quote)
-        );
+        let bs_or_quote =
+            _mm_or_si128(_mm_cmpeq_epi8(data, backslash), _mm_cmpeq_epi8(data, quote));
         // Now mask the data with the quote range (0x1F).
         let in_quote_range = _mm_and_si128(data, lower_quote_range);
         // then test of the data is unchanged. aka: xor it with the

@@ -145,7 +145,7 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
         let mul_1_10000: __m128i = _mm_setr_epi16(10000, 1, 10000, 1, 10000, 1, 10000, 1);
         // We know what we're doing right? :P
         #[allow(clippy::cast_ptr_alignment)]
-            let input: __m128i = _mm_sub_epi8(
+        let input: __m128i = _mm_sub_epi8(
             _mm_loadu_si128(chars.get_unchecked(0..16).as_ptr() as *const __m128i),
             ascii0,
         );

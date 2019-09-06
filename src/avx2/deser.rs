@@ -5,11 +5,11 @@ use std::arch::x86_64::*;
 
 use std::mem;
 
+pub use crate::avx2::utf8check::*;
 pub use crate::error::{Error, ErrorType};
+pub use crate::stringparse::*;
 pub use crate::Deserializer;
 pub use crate::Result;
-pub use crate::avx2::utf8check::*;
-pub use crate::stringparse::*;
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]

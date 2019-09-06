@@ -7,7 +7,15 @@ use crate::value::generator::ESCAPED;
 use std::io;
 
 #[inline(always)]
-pub unsafe fn write_str_simd<W>(writer: &mut W, string: &mut &[u8], len: &mut usize, idx: &mut usize) -> io::Result<()> where W: std::io::Write {
+pub unsafe fn write_str_simd<W>(
+    writer: &mut W,
+    string: &mut &[u8],
+    len: &mut usize,
+    idx: &mut usize,
+) -> io::Result<()>
+where
+    W: std::io::Write,
+{
     let zero = _mm256_set1_epi8(0);
     let lower_quote_range = _mm256_set1_epi8(0x1F as i8);
     let quote = _mm256_set1_epi8(b'"' as i8);
@@ -15,7 +23,7 @@ pub unsafe fn write_str_simd<W>(writer: &mut W, string: &mut &[u8], len: &mut us
     while *len - *idx >= 32 {
         // Load 32 bytes of data;
         #[allow(clippy::cast_ptr_alignment)]
-            let data: __m256i = _mm256_loadu_si256(string.as_ptr().add(*idx) as *const __m256i);
+        let data: __m256i = _mm256_loadu_si256(string.as_ptr().add(*idx) as *const __m256i);
         // Test the data against being backslash and quote.
         let bs_or_quote = _mm256_or_si256(
             _mm256_cmpeq_epi8(data, backslash),
