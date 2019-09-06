@@ -157,7 +157,8 @@ unsafe fn check_utf8(input: &SimdInput, state: &mut Utf8CheckingState) {
     }
 }
 
-// a straightforward comparison of a mask against input
+/// a straightforward comparison of a mask against input. 5 uops; would be
+/// cheaper in AVX512.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
     unsafe {

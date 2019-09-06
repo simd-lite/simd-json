@@ -13,9 +13,6 @@ pub unsafe fn write_str_simd<W>(
 where
     W: std::io::Write,
 {
-    // The case where we have a 16+ byte block
-    // we repeate the same logic as above but with
-    // only 16 bytes
     let zero = vdupq_n_u8(0);
     let lower_quote_range = vdupq_n_u8(0x1F);
     let quote = vdupq_n_u8(b'"');

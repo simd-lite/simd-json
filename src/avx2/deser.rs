@@ -3,10 +3,10 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-use std::mem;
-
+pub use crate::avx2::stage1::*;
 pub use crate::avx2::utf8check::*;
 pub use crate::error::{Error, ErrorType};
+pub use crate::stringparse::*;
 pub use crate::stringparse::*;
 pub use crate::Deserializer;
 pub use crate::Result;
@@ -27,7 +27,7 @@ impl<'de> Deserializer<'de> {
         let mut src_i: usize = 0;
         let mut len = src_i;
         loop {
-            let v: __m256i = if src.len() >= src_i + 32 {
+            let srcx: __m256i = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 32 wide
                 #[allow(clippy::cast_ptr_alignment)]
                 unsafe {
@@ -44,16 +44,11 @@ impl<'de> Deserializer<'de> {
                 }
             };
 
-            // store to dest unconditionally - we can overwrite the bits we don't like
-            // later
-            let bs_bits: u32 = unsafe {
-                static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
-                    v,
-                    _mm256_set1_epi8(b'\\' as i8)
-                )))
-            };
-            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
-            let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
+            let ParseStringHelper {
+                bs_bits,
+                quote_bits,
+            } = find_bs_bits_and_quote_bits(srcx);
+
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
                 // find out where the quote is...
@@ -94,7 +89,7 @@ impl<'de> Deserializer<'de> {
         let dst: &mut [u8] = &mut self.strings;
 
         loop {
-            let v: __m256i = if src.len() >= src_i + 32 {
+            let srcx: __m256i = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 32 wide
                 #[allow(clippy::cast_ptr_alignment)]
                 unsafe {
@@ -113,19 +108,16 @@ impl<'de> Deserializer<'de> {
 
             #[allow(clippy::cast_ptr_alignment)]
             unsafe {
-                _mm256_storeu_si256(dst.as_mut_ptr().add(dst_i) as *mut __m256i, v)
+                _mm256_storeu_si256(dst.as_mut_ptr().add(dst_i) as *mut __m256i, srcx)
             };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
-            let bs_bits: u32 = unsafe {
-                static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
-                    v,
-                    _mm256_set1_epi8(b'\\' as i8)
-                )))
-            };
-            let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
-            let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
+            let ParseStringHelper {
+                bs_bits,
+                quote_bits,
+            } = find_bs_bits_and_quote_bits(srcx);
+
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
                 // find out where the quote is...

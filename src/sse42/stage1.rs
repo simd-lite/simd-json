@@ -10,6 +10,23 @@ use std::mem;
 
 pub const SIMDJSON_PADDING: usize = mem::size_of::<__m128i>() * 2;
 
+unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
+    _mm_cvtsi128_si64(_mm_clmulepi64_si128(
+        _mm_set_epi64x(0, static_cast_i64!(quote_bits)),
+        _mm_set1_epi8(-1 /* 0xFF */),
+        0,
+    )) as u64
+}
+
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
+unsafe fn check_ascii(input: &SimdInput) -> bool {
+    let highbit: __m128i = _mm_set1_epi8(static_cast_i8!(0x80u8));
+    let test_v0v1 = _mm_testz_si128(_mm_or_si128(input.v0, input.v1), highbit);
+    let test_v2v3 = _mm_testz_si128(_mm_or_si128(input.v2, input.v3), highbit);
+
+    (test_v0v1 == 1) && (test_v2v3 == 1)
+}
+
 #[derive(Debug)]
 struct SimdInput {
     v0: __m128i,
@@ -30,41 +47,43 @@ fn fill_input(ptr: &[u8]) -> SimdInput {
     }
 }
 
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
-unsafe fn check_utf8(
-    input: &SimdInput,
-    has_error: &mut __m128i,
-    previous: &mut AvxProcessedUtfBytes,
-) {
-    let highbit: __m128i = _mm_set1_epi8(static_cast_i8!(0x80u8));
-    if (_mm_testz_si128(_mm_or_si128(input.v0, input.v1), highbit)) == 1 {
-        // it is ascii, we just check continuation
-        *has_error = _mm_or_si128(
-            _mm_cmpgt_epi8(
-                previous.carried_continuations,
-                _mm_setr_epi8(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1),
-            ),
-            *has_error,
-        );
-    } else {
-        // it is not ascii so we have to do heavy work
-        *previous = avxcheck_utf8_bytes(input.v0, &previous, has_error);
-        *previous = avxcheck_utf8_bytes(input.v1, &previous, has_error);
-    }
+struct Utf8CheckingState {
+    has_error: __m128i,
+    previous: ProcessedUtfBytes,
+}
 
-    if (_mm_testz_si128(_mm_or_si128(input.v2, input.v3), highbit)) == 1 {
-        // it is ascii, we just check continuation
-        *has_error = _mm_or_si128(
-            _mm_cmpgt_epi8(
-                previous.carried_continuations,
-                _mm_setr_epi8(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1),
-            ),
-            *has_error,
+impl Default for Utf8CheckingState {
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn default() -> Self {
+        Utf8CheckingState {
+            has_error: unsafe { _mm_setzero_si128() },
+            previous: ProcessedUtfBytes::default(),
+        }
+    }
+}
+
+#[inline]
+fn is_utf8_status_ok(has_error: __m128i) -> bool {
+    unsafe { _mm_testz_si128(has_error, has_error) != 0 }
+}
+
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
+unsafe fn check_utf8(input: &SimdInput, state: &mut Utf8CheckingState) {
+    if check_ascii(input) {
+        // All bytes are ascii. Therefore the byte that was just before must be
+        // ascii too. We only check the byte that was just before simd_input. Nines
+        // are arbitrary values.
+        let verror: __m128i = _mm_setr_epi8(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1);
+        state.has_error = _mm_or_si128(
+            _mm_cmpgt_epi8(state.previous.carried_continuations, verror),
+            state.has_error,
         );
     } else {
         // it is not ascii so we have to do heavy work
-        *previous = avxcheck_utf8_bytes(input.v2, &previous, has_error);
-        *previous = avxcheck_utf8_bytes(input.v3, &previous, has_error);
+        state.previous = check_utf8_bytes(input.v0, &mut state.previous, &mut state.has_error);
+        state.previous = check_utf8_bytes(input.v1, &mut state.previous, &mut state.has_error);
+        state.previous = check_utf8_bytes(input.v2, &mut state.previous, &mut state.has_error);
+        state.previous = check_utf8_bytes(input.v3, &mut state.previous, &mut state.has_error);
     }
 }
 
@@ -130,9 +149,10 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
     // should be flipped
     let (mut odd_carries, iter_ends_odd_backslash) = bs_bits.overflowing_add(odd_starts);
 
-    odd_carries |= *prev_iter_ends_odd_backslash; // push in bit zero as a potential end
-                                                  // if we had an odd-numbered run at the
-                                                  // end of the previous iteration
+    odd_carries |= *prev_iter_ends_odd_backslash;
+    // push in bit zero as a potential end
+    // if we had an odd-numbered run at the
+    // end of the previous iteration
     *prev_iter_ends_odd_backslash = if iter_ends_odd_backslash { 0x1 } else { 0x0 };
     let even_carry_ends: u64 = even_carries & !bs_bits;
     let odd_carry_ends: u64 = odd_carries & !bs_bits;
@@ -164,12 +184,8 @@ unsafe fn find_quote_mask_and_bits(
     *quote_bits = cmp_mask_against_input(&input, b'"');
     *quote_bits &= !odd_ends;
     // remove from the valid quoted region the unescapted characters.
-    #[allow(overflowing_literals)]
-    let mut quote_mask: u64 = _mm_cvtsi128_si64(_mm_clmulepi64_si128(
-        _mm_set_epi64x(0, static_cast_i64!(*quote_bits)),
-        _mm_set1_epi8(0xFF),
-        0,
-    )) as u64;
+    let mut quote_mask: u64 = compute_quote_mask(*quote_bits);
+
     quote_mask ^= *prev_iter_inside_quote;
     // All Unicode characters may be placed within the
     // quotation marks, except for the characters that MUST be escaped:
@@ -266,7 +282,6 @@ unsafe fn find_whitespace_and_structurals(
     let structural_res_1: u64 = _mm_movemask_epi8(tmp_v1) as u64;
     let structural_res_2: u64 = _mm_movemask_epi8(tmp_v2) as u64;
     let structural_res_3: u64 = _mm_movemask_epi8(tmp_v3) as u64;
-
     *structurals = !(structural_res_0
         | (structural_res_1 << 16)
         | (structural_res_2 << 32)
@@ -389,9 +404,18 @@ fn finalize_structurals(
     structurals
 }
 
-//WARN_UNUSED
-/*never_inline*/
-//#[inline(never)]
+pub unsafe fn find_bs_bits_and_quote_bits(src: __m128i) -> ParseStringHelper {
+    let quote_mask = unsafe { _mm_cmpeq_epi8(v, _mm_set1_epi8(b'"' as i8)) };
+    let quote_bits = unsafe { static_cast_u32!(_mm_movemask_epi8(quote_mask)) };
+    let bs_mask = unsafe { _mm_cmpeq_epi8(v, _mm_set1_epi8(b'\\' as i8)) };
+    let bs_bits = unsafe { static_cast_u32!(_mm_movemask_epi8(bs_mask)) };
+
+    ParseStringHelper {
+        bs_bits,
+        quote_bits,
+    }
+}
+
 impl<'de> Deserializer<'de> {
     //#[inline(never)]
     pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
@@ -401,8 +425,8 @@ impl<'de> Deserializer<'de> {
         let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
-        let mut has_error: __m128i = _mm_setzero_si128();
-        let mut previous = AvxProcessedUtfBytes::default();
+        let mut utf8_state: Utf8CheckingState = Utf8CheckingState::default();
+
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
 
@@ -438,7 +462,7 @@ impl<'de> Deserializer<'de> {
             #endif
              */
             let input: SimdInput = fill_input(input.get_unchecked(idx as usize..));
-            check_utf8(&input, &mut has_error, &mut previous);
+            check_utf8(&input, &mut utf8_state);
             // detect odd sequences of backslashes
             let odd_ends: u64 =
                 find_odd_backslash_sequences(&input, &mut prev_iter_ends_odd_backslash);
@@ -482,7 +506,7 @@ impl<'de> Deserializer<'de> {
                 .copy_from(input.as_ptr().add(idx), len as usize - idx);
             let input: SimdInput = fill_input(&tmpbuf);
 
-            check_utf8(&input, &mut has_error, &mut previous);
+            check_utf8(&input, &mut utf8_state);
 
             // detect odd sequences of backslashes
             let odd_ends: u64 =
@@ -537,10 +561,16 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        if _mm_testz_si128(has_error, has_error) != 0 {
+        if is_utf8_status_ok(utf8_state.has_error) {
             Ok(structural_indexes)
         } else {
             Err(ErrorType::InvalidUTF8)
         }
     }
+}
+
+// Holds backslashes and quotes locations.
+pub struct ParseStringHelper {
+    pub bs_bits: u32,
+    pub quote_bits: u32,
 }
