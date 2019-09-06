@@ -42,9 +42,7 @@ unsafe fn check_utf8(
         *has_error = _mm_or_si128(
             _mm_cmpgt_epi8(
                 previous.carried_continuations,
-                _mm_setr_epi8(
-                    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1,
-                ),
+                _mm_setr_epi8(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1),
             ),
             *has_error,
         );
@@ -59,9 +57,7 @@ unsafe fn check_utf8(
         *has_error = _mm_or_si128(
             _mm_cmpgt_epi8(
                 previous.carried_continuations,
-                _mm_setr_epi8(
-                    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1,
-                ),
+                _mm_setr_epi8(9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1),
             ),
             *has_error,
         );
@@ -213,13 +209,9 @@ unsafe fn find_whitespace_and_structurals(
     // these go into the next 2 buckets of the comparison (8/16)
 
     // TODO: const?
-    let low_nibble_mask: __m128i = _mm_setr_epi8(
-        16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0,
-    );
+    let low_nibble_mask: __m128i = _mm_setr_epi8(16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0);
     // TODO: const?
-    let high_nibble_mask: __m128i = _mm_setr_epi8(
-        8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0,
-    );
+    let high_nibble_mask: __m128i = _mm_setr_epi8(8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0);
 
     let structural_shufti_mask: __m128i = _mm_set1_epi8(0x7);
     let whitespace_shufti_mask: __m128i = _mm_set1_epi8(0x18);
@@ -275,7 +267,10 @@ unsafe fn find_whitespace_and_structurals(
     let structural_res_2: u64 = _mm_movemask_epi8(tmp_v2) as u64;
     let structural_res_3: u64 = _mm_movemask_epi8(tmp_v3) as u64;
 
-    *structurals = !(structural_res_0 | (structural_res_1 << 16) | (structural_res_2 << 32) | (structural_res_3 << 48));
+    *structurals = !(structural_res_0
+        | (structural_res_1 << 16)
+        | (structural_res_2 << 32)
+        | (structural_res_3 << 48));
 
     let tmp_ws_v0: __m128i = _mm_cmpeq_epi8(
         _mm_and_si128(v_v0, whitespace_shufti_mask),

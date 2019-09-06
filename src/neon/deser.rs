@@ -1,10 +1,9 @@
-
-use crate::error::{ErrorType};
+use crate::error::ErrorType;
+use crate::neon::stage1::*;
+use crate::stringparse::*;
 use crate::Deserializer;
 use crate::Result;
-use crate::stringparse::*;
 use simd_lite::aarch64::*;
-use crate::neon::stage1::*;
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -47,7 +46,10 @@ impl<'de> Deserializer<'de> {
                 }
             };
 
-            let ParseStringHelper { bs_bits, quote_bits } = find_bs_bits_and_quote_bits(v0, v1);
+            let ParseStringHelper {
+                bs_bits,
+                quote_bits,
+            } = find_bs_bits_and_quote_bits(v0, v1);
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
@@ -92,7 +94,7 @@ impl<'de> Deserializer<'de> {
             let (v0, v1) = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 16 wide
                 #[allow(clippy::cast_ptr_alignment)]
-                    unsafe {
+                unsafe {
                     (
                         vld1q_u8(src.get_unchecked(src_i..src_i + 16).as_ptr()),
                         vld1q_u8(src.get_unchecked(src_i + 16..src_i + 32).as_ptr()),
@@ -112,12 +114,16 @@ impl<'de> Deserializer<'de> {
             };
 
             unsafe {
-                dst.get_unchecked_mut(dst_i..dst_i + 32).copy_from_slice(src.get_unchecked(src_i..src_i + 32));
+                dst.get_unchecked_mut(dst_i..dst_i + 32)
+                    .copy_from_slice(src.get_unchecked(src_i..src_i + 32));
             }
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
-            let ParseStringHelper { bs_bits, quote_bits } = find_bs_bits_and_quote_bits(v0, v1);
+            let ParseStringHelper {
+                bs_bits,
+                quote_bits,
+            } = find_bs_bits_and_quote_bits(v0, v1);
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
@@ -156,11 +162,10 @@ impl<'de> Deserializer<'de> {
                     // within the unicode codepoint handling code.
                     src_i += bs_dist as usize;
                     dst_i += bs_dist as usize;
-                    let (o, s) = if let Ok(r) = handle_unicode_codepoint(
-                            unsafe { src.get_unchecked(src_i..) },
-                            unsafe { dst.get_unchecked_mut(dst_i..) }
-                    )
-                    {
+                    let (o, s) = if let Ok(r) =
+                        handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, unsafe {
+                            dst.get_unchecked_mut(dst_i..)
+                        }) {
                         r
                     } else {
                         return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));

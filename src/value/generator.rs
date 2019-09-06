@@ -15,7 +15,10 @@ use crate::*;
 #[cfg(target_feature = "avx2")]
 use crate::avx2::generator::*;
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "avx2")))]
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    not(target_feature = "avx2")
+))]
 use crate::sse42::generator::*;
 
 #[cfg(target_feature = "neon")]
@@ -108,7 +111,12 @@ pub trait BaseGenerator {
             // quote characters that gives us a bitmask of 0x1f for that
             // region, only quote (`"`) and backslash (`\`) are not in
             // this range.
-            stry!(write_str_simd(self.get_writer(), &mut string, &mut len, &mut idx));
+            stry!(write_str_simd(
+                self.get_writer(),
+                &mut string,
+                &mut len,
+                &mut idx
+            ));
         }
         // Legacy code to handle the remainder of the code
         for (index, ch) in string.iter().enumerate() {

@@ -103,14 +103,10 @@ fn avxcheck_first_continuation_max(
     has_error: &mut __m128i,
 ) {
     unsafe {
-        let mask_ed: __m128i = _mm_cmpeq_epi8(
-            off1_current_bytes,
-            _mm_set1_epi8(static_cast_i8!(0xEDu8)),
-        );
-        let mask_f4: __m128i = _mm_cmpeq_epi8(
-            off1_current_bytes,
-            _mm_set1_epi8(static_cast_i8!(0xF4u8)),
-        );
+        let mask_ed: __m128i =
+            _mm_cmpeq_epi8(off1_current_bytes, _mm_set1_epi8(static_cast_i8!(0xEDu8)));
+        let mask_f4: __m128i =
+            _mm_cmpeq_epi8(off1_current_bytes, _mm_set1_epi8(static_cast_i8!(0xF4u8)));
 
         let badfollow_ed: __m128i = _mm_and_si128(
             _mm_cmpgt_epi8(current_bytes, _mm_set1_epi8(static_cast_i8!(0x9Fu8))),
@@ -213,8 +209,7 @@ impl Default for AvxProcessedUtfBytes {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn avx_count_nibbles(bytes: __m128i, answer: &mut AvxProcessedUtfBytes) {
     answer.rawbytes = bytes;
-    answer.high_nibbles =
-        unsafe { _mm_and_si128(_mm_srli_epi16(bytes, 4), _mm_set1_epi8(0x0F)) };
+    answer.high_nibbles = unsafe { _mm_and_si128(_mm_srli_epi16(bytes, 4), _mm_set1_epi8(0x0F)) };
 }
 
 // check whether the current bytes are valid UTF-8

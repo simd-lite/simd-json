@@ -10,10 +10,10 @@ use std::mem;
 
 macro_rules! bit_mask {
     () => {
-       uint8x16_t::new(
-           [0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
-            0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80]
-        )
+        uint8x16_t::new([
+            0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40,
+            0x80,
+        ])
     };
 }
 
@@ -28,7 +28,12 @@ pub(crate) unsafe fn neon_movemask(input: uint8x16_t) -> u16 {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub unsafe fn neon_movemask_bulk(p0: uint8x16_t, p1: uint8x16_t, p2: uint8x16_t, p3: uint8x16_t) -> u64 {
+pub unsafe fn neon_movemask_bulk(
+    p0: uint8x16_t,
+    p1: uint8x16_t,
+    p2: uint8x16_t,
+    p3: uint8x16_t,
+) -> u64 {
     let bit_mask = bit_mask!();
 
     let t0 = vandq_u8(p0, bit_mask);
@@ -49,14 +54,11 @@ pub const SIMDJSON_PADDING: usize = mem::size_of::<uint8x16_t>() * 4;
 
 unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
     vgetq_lane_u64(
-        vreinterpretq_u64_u8(
-            mem::transmute(
-                vmull_p64(
-                    mem::transmute(-1 as i64),
-                    mem::transmute(quote_bits as i64))
-            )
-        ),
-        0
+        vreinterpretq_u64_u8(mem::transmute(vmull_p64(
+            mem::transmute(-1 as i64),
+            mem::transmute(quote_bits as i64),
+        ))),
+        0,
     )
 }
 
@@ -104,7 +106,7 @@ impl Default for Utf8CheckingState {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         Utf8CheckingState {
-            has_error: unsafe{vdupq_n_s8(0)},
+            has_error: unsafe { vdupq_n_s8(0) },
             previous: ProcessedUtfBytes::default(),
         }
     }
@@ -113,37 +115,45 @@ impl Default for Utf8CheckingState {
 #[inline]
 fn is_utf8_status_ok(has_error: int8x16_t) -> bool {
     unsafe {
-        let has_error_128 : i128 = mem::transmute(has_error);
+        let has_error_128: i128 = mem::transmute(has_error);
 
         has_error_128 == 0
     }
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-unsafe fn check_utf8(
-    input: &SimdInput,
-    state: &mut Utf8CheckingState,
-) {
+unsafe fn check_utf8(input: &SimdInput, state: &mut Utf8CheckingState) {
     if check_ascii(input) {
         // All bytes are ascii. Therefore the byte that was just before must be
         // ascii too. We only check the byte that was just before simd_input. Nines
         // are arbitrary values.
-        let verror: int8x16_t = int8x16_t::new(
-            [9i8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1]
-        );
+        let verror: int8x16_t = int8x16_t::new([9i8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1]);
         state.has_error = vreinterpretq_s8_u8(vorrq_u8(
-            vcgtq_s8(
-                state.previous.carried_continuations,
-                verror,
-            ),
-            vreinterpretq_u8_s8(state.has_error)),
-        );
+            vcgtq_s8(state.previous.carried_continuations, verror),
+            vreinterpretq_u8_s8(state.has_error),
+        ));
     } else {
         // it is not ascii so we have to do heavy work
-        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v0), &mut state.previous, &mut state.has_error);
-        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v1), &mut state.previous, &mut state.has_error);
-        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v2), &mut state.previous, &mut state.has_error);
-        state.previous = check_utf8_bytes(vreinterpretq_s8_u8(input.v3), &mut state.previous, &mut state.has_error);
+        state.previous = check_utf8_bytes(
+            vreinterpretq_s8_u8(input.v0),
+            &mut state.previous,
+            &mut state.has_error,
+        );
+        state.previous = check_utf8_bytes(
+            vreinterpretq_s8_u8(input.v1),
+            &mut state.previous,
+            &mut state.has_error,
+        );
+        state.previous = check_utf8_bytes(
+            vreinterpretq_s8_u8(input.v2),
+            &mut state.previous,
+            &mut state.has_error,
+        );
+        state.previous = check_utf8_bytes(
+            vreinterpretq_s8_u8(input.v3),
+            &mut state.previous,
+            &mut state.has_error,
+        );
     }
 }
 
@@ -183,7 +193,10 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: uint8x16_t) -> u64 {
 // backslashes, which modifies our subsequent search for odd-length
 // sequences of backslashes in an obvious way.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-unsafe fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
+unsafe fn find_odd_backslash_sequences(
+    input: &SimdInput,
+    prev_iter_ends_odd_backslash: &mut u64,
+) -> u64 {
     const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
     const ODD_BITS: u64 = !EVEN_BITS;
 
@@ -277,13 +290,11 @@ unsafe fn find_whitespace_and_structurals(
     // these go into the next 2 buckets of the comparison (8/16)
 
     // TODO: const?
-    let low_nibble_mask: uint8x16_t = uint8x16_t::new(
-        [16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]
-    );
+    let low_nibble_mask: uint8x16_t =
+        uint8x16_t::new([16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]);
     // TODO: const?
-    let high_nibble_mask: uint8x16_t = uint8x16_t::new(
-        [8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]
-    );
+    let high_nibble_mask: uint8x16_t =
+        uint8x16_t::new([8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]);
 
     let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);
     let whitespace_shufti_mask: uint8x16_t = vmovq_n_u8(0x18);
@@ -419,30 +430,30 @@ fn finalize_structurals(
 }
 
 pub fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> ParseStringHelper {
-    unsafe{
-    let quote_mask = vmovq_n_u8(b'"');
-    let bs_mask = vmovq_n_u8(b'\\');
-    let bit_mask = bit_mask!();
+    unsafe {
+        let quote_mask = vmovq_n_u8(b'"');
+        let bs_mask = vmovq_n_u8(b'\\');
+        let bit_mask = bit_mask!();
 
-    let cmp_bs_0 : uint8x16_t = vceqq_u8(v0, bs_mask);
-    let cmp_bs_1 : uint8x16_t = vceqq_u8(v1, bs_mask);
-    let cmp_qt_0 : uint8x16_t = vceqq_u8(v0, quote_mask);
-    let cmp_qt_1 : uint8x16_t = vceqq_u8(v1, quote_mask);
+        let cmp_bs_0: uint8x16_t = vceqq_u8(v0, bs_mask);
+        let cmp_bs_1: uint8x16_t = vceqq_u8(v1, bs_mask);
+        let cmp_qt_0: uint8x16_t = vceqq_u8(v0, quote_mask);
+        let cmp_qt_1: uint8x16_t = vceqq_u8(v1, quote_mask);
 
-    let cmp_bs_0 = vandq_u8(cmp_bs_0, bit_mask);
-    let cmp_bs_1 = vandq_u8(cmp_bs_1, bit_mask);
-    let cmp_qt_0 = vandq_u8(cmp_qt_0, bit_mask);
-    let cmp_qt_1 = vandq_u8(cmp_qt_1, bit_mask);
+        let cmp_bs_0 = vandq_u8(cmp_bs_0, bit_mask);
+        let cmp_bs_1 = vandq_u8(cmp_bs_1, bit_mask);
+        let cmp_qt_0 = vandq_u8(cmp_qt_0, bit_mask);
+        let cmp_qt_1 = vandq_u8(cmp_qt_1, bit_mask);
 
-    let sum0 : uint8x16_t = vpaddq_u8(cmp_bs_0, cmp_bs_1);
-    let sum1 : uint8x16_t = vpaddq_u8(cmp_qt_0, cmp_qt_1);
-    let sum0 = vpaddq_u8(sum0, sum1);
-    let sum0 = vpaddq_u8(sum0, sum0);
+        let sum0: uint8x16_t = vpaddq_u8(cmp_bs_0, cmp_bs_1);
+        let sum1: uint8x16_t = vpaddq_u8(cmp_qt_0, cmp_qt_1);
+        let sum0 = vpaddq_u8(sum0, sum1);
+        let sum0 = vpaddq_u8(sum0, sum0);
 
-    ParseStringHelper {
-        bs_bits:  vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0) ,
-        quote_bits:  vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1) ,
-    }
+        ParseStringHelper {
+            bs_bits: vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0),
+            quote_bits: vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1),
+        }
     }
 }
 

@@ -1,10 +1,18 @@
-use crate::value::generator::ESCAPED;
-use std::io;
 use crate::neon::stage1::neon_movemask;
+use crate::value::generator::ESCAPED;
 use simd_lite::aarch64::*;
+use std::io;
 
 #[inline(always)]
-pub unsafe fn write_str_simd<W>(writer: &mut W, string: &mut &[u8], len: &mut usize, idx: &mut usize) -> io::Result<()> where W: std::io::Write {
+pub unsafe fn write_str_simd<W>(
+    writer: &mut W,
+    string: &mut &[u8],
+    len: &mut usize,
+    idx: &mut usize,
+) -> io::Result<()>
+where
+    W: std::io::Write,
+{
     // The case where we have a 16+ byte block
     // we repeate the same logic as above but with
     // only 16 bytes
@@ -16,8 +24,7 @@ pub unsafe fn write_str_simd<W>(writer: &mut W, string: &mut &[u8], len: &mut us
         // Load 16 bytes of data;
         let data: uint8x16_t = vld1q_u8(string.as_ptr().add(*idx));
         // Test the data against being backslash and quote.
-        let bs_or_quote =
-            vorrq_u8(vceqq_u8(data, backslash), vceqq_u8(data, quote));
+        let bs_or_quote = vorrq_u8(vceqq_u8(data, backslash), vceqq_u8(data, quote));
         // Now mask the data with the quote range (0x1F).
         let in_quote_range = vandq_u8(data, lower_quote_range);
         // then test of the data is unchanged. aka: xor it with the

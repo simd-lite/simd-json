@@ -175,5 +175,4 @@ mod test {
             r#""this is a test a \\\"long\\\" test that should span the 32 byte boundary""#,
         );
     }
-
 }
