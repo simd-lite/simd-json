@@ -25,6 +25,9 @@ commands:
         #   name: install newer CMAKE ...
         #   command: 'cd cmake-3.14.1 && make install'
       - run:
+          name: Install rustfmt
+          command: rustup component add rustfmt
+      - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
       - run:
@@ -33,6 +36,9 @@ commands:
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Rustfmt Check
+          command: cargo fmt --all -- --check
       - run:
           name: Build all targets
           command: cargo build --all --all-targets
