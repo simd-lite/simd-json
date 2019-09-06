@@ -64,9 +64,11 @@ steps:
 - name: test
   image: rust:1
   commands:
-  - rustup default nightly
+  - rustup default stable
   - rustup update
   - rustup component add rustfmt
   - cargo fmt --all -- --check
+  - rustup default nightly
+  - rustup update
   - cargo clean && cargo +nightly build --verbose --all --features neon
   - cargo +nightly test --verbose --all --features neon
