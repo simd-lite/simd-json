@@ -46,7 +46,7 @@ impl<'de> Deserializer<'de> {
             let ParseStringHelper {
                 bs_bits,
                 quote_bits,
-            } = unsafe { find_bs_bits_and_quote_bits(srcx) };
+            } = find_bs_bits_and_quote_bits(srcx);
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
@@ -115,7 +115,7 @@ impl<'de> Deserializer<'de> {
             let ParseStringHelper {
                 bs_bits,
                 quote_bits,
-            } = unsafe { find_bs_bits_and_quote_bits(srcx) };
+            } = find_bs_bits_and_quote_bits(srcx);
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
