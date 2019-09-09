@@ -2,6 +2,8 @@ use std::env;
 
 #[cfg(feature = "perf")]
 mod int {
+    const ROUNDS: usize = 10000;
+    const WARMUP: usize = 2000;
     use colored::*;
     use perfcnt::linux::{HardwareEventType, PerfCounterBuilderLinux};
     use perfcnt::{AbstractPerfCounter, PerfCounter};
@@ -105,17 +107,22 @@ mod int {
                 ((cycles as f64) / bytes as f64)
             );
         }
-        pub fn print_diff(&self, baseline: &Stats, name: &str, _bytes: usize) {
+        pub fn print_diff(&self, baseline: &Stats, name: &str, bytes: usize) {
             let cycles = self.total.cycles / self.iters;
             let instructions = self.total.instructions / self.iters;
             let cache_misses = self.total.cache_misses / self.iters;
             let cache_references = self.total.cache_references / self.iters;
             let branch_instructions = self.total.branch_instructions / self.iters;
+            let best_cycles_per_byte = (self.best.cycles as f64) / bytes as f64;
+            let cycles_per_byte = cycles as f64 / bytes as f64;
+
             let cycles_b = baseline.total.cycles / baseline.iters;
             let instructions_b = baseline.total.instructions / baseline.iters;
             let cache_misses_b = baseline.total.cache_misses / baseline.iters;
             let cache_references_b = baseline.total.cache_references / baseline.iters;
             let branch_instructions_b = baseline.total.branch_instructions / baseline.iters;
+            let best_cycles_per_byte_b = (baseline.best.cycles as f64) / bytes as f64;
+            let cycles_per_byte_b = cycles_b as f64 / bytes as f64;
 
             fn d(d: f64) -> String {
                 if d < 1.0 && d > -1.0 {
@@ -127,31 +134,16 @@ mod int {
                 }
             }
 
-            /*
             println!(
-                "{:20} {:10} {:10} {:10} {:10} {:10} {:10.3} {:10.3}",
-                format!("{}(+/-)", name),
-                cycles_b,
-                instructions_b,
-                branch_instructions_b,
-                cache_misses_b,
-                cache_references_b,
-                ((baseline.best.cycles as f64) / bytes as f64),
-                ((cycles_b as f64) / bytes as f64)
-            );
-            */
-
-            println!(
-                //"{:20} {:>10} {:>10} {:>10} {:>10} {:>10} {:10.3} {:10.3}",
-                "{:20} {:>10} {:>10} {:>10} {:>10} {:>10}",
+                "{:20} {:>10} {:>10} {:>10} {:>10} {:>10} {:10} {:10}",
                 format!("{}(+/-)", name),
                 d((1.0 - cycles_b as f64 / cycles as f64) * 100.0),
                 d((1.0 - instructions_b as f64 / instructions as f64) * 100.0),
                 d((1.0 - branch_instructions_b as f64 / branch_instructions as f64) * 100.0),
                 d((1.0 - cache_misses_b as f64 / cache_misses as f64) * 100.0),
                 d((1.0 - cache_references_b as f64 / cache_references as f64) * 100.0),
-                // ((self.best.cycles as f64) / bytes as f64),
-                // ((cycles as f64) / bytes as f64)
+                d((1.0 - best_cycles_per_byte_b as f64 / best_cycles_per_byte as f64) * 100.0),
+                d((1.0 - cycles_per_byte_b as f64 / cycles_per_byte as f64) * 100.0),
             );
         }
     }
@@ -167,17 +159,15 @@ mod int {
         f.push_str(".json");
         File::open(f).unwrap().read_to_end(&mut vec).unwrap();
         let bytes = vec.len();
-        let rounds: u64 = 1000;
-        let warmup: u64 = 200;
         let mut data_entries: Vec<Vec<u8>> =
-            iter::repeat(vec).take((rounds + warmup) as usize).collect();
+            iter::repeat(vec).take((ROUNDS + WARMUP) as usize).collect();
         // Run some warmup;
 
-        for mut bytes in &mut data_entries[..warmup as usize] {
+        for mut bytes in &mut data_entries[..WARMUP as usize] {
             simd_json::to_borrowed_value(&mut bytes).unwrap();
         }
         let mut stats = Stats::default();
-        for mut bytes in &mut data_entries[warmup as usize..] {
+        for mut bytes in &mut data_entries[WARMUP as usize..] {
             // Set up counters
             let pc = stats.start();
 
@@ -203,7 +193,8 @@ mod int {
             fs::write(
                 format!(".current/{}.json", name),
                 serde_json::to_vec(&stats).expect("Failed to serialize"),
-            );
+            )
+            .expect("Unable to write file");
             let file =
                 File::open(format!(".baseline/{}.json", name)).expect("Could not open baseline");
             let reader = BufReader::new(file);
