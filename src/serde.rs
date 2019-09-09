@@ -284,7 +284,7 @@ mod test {
     fn convert_owned_value() {
         let v: OwnedValue = json!({
             "int": 42,
-            "float": 7,
+            "float": 7.2,
             "neg-int": -23,
             "string": "string",
             "bool": true,
@@ -296,7 +296,7 @@ mod test {
 
         let s: SerdeValue = sjson!({
             "int": 42,
-            "float": 7,
+            "float": 7.2,
             "neg-int": -23,
             "string": "string",
             "bool": true,
@@ -315,7 +315,7 @@ mod test {
     fn convert_borrowed_value() {
         let v: BorrowedValue = json!({
             "int": 42,
-            "float": 7,
+            "float": 7.2,
             "neg-int": -23,
             "string": "string",
             "bool": true,
@@ -328,7 +328,7 @@ mod test {
 
         let s: SerdeValue = sjson!({
             "int": 42,
-            "float": 7,
+            "float": 7.2,
             "neg-int": -23,
             "string": "string",
             "bool": true,
