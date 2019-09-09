@@ -7,12 +7,37 @@
 /// directly to structs this is th4 place to go.
 mod de;
 mod value;
+pub use self::value::*;
 use crate::numberparse::Number;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
+use crate::{BorrowedValue, OwnedValue};
 use serde_ext::Deserialize;
+use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
-pub use self::value::*;
+type ConvertResult<T> = std::result::Result<T, SerdeConversionError>;
+
+#[derive(Debug)]
+pub enum SerdeConversionError {
+    NanOrInfinity,
+    IntegerTooLarge,
+    Oops,
+}
+impl std::fmt::Display for SerdeConversionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use SerdeConversionError::*;
+        match self {
+            NanOrInfinity => write!(f, "JSON can not represent NAN or Infinity values"),
+            IntegerTooLarge => write!(f, "Integer value is too large to fit in a i64"),
+            Oops => write!(
+                f,
+                "Unreachable code is reachable, oops - please open a bug with simdjson-rs"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for SerdeConversionError {}
 
 /// parses a byte slice using a serde deserializer.
 /// note that the slice will be rewritten in the process.
@@ -115,5 +140,206 @@ impl<'de> Deserializer<'de> {
             },
             _ => Err(self.error(ErrorType::ExpectedFloat)),
         }
+    }
+}
+
+impl TryFrom<serde_json::Value> for OwnedValue {
+    type Error = SerdeConversionError;
+    fn try_from(item: serde_json::Value) -> ConvertResult<Self> {
+        use serde_json::Value;
+        Ok(match item {
+            Value::Null => OwnedValue::Null,
+            Value::Bool(b) => OwnedValue::Bool(b),
+            Value::Number(b) => {
+                if let Some(n) = b.as_i64() {
+                    OwnedValue::I64(n)
+                } else if let Some(n) = b.as_u64() {
+                    if n > std::i64::MAX as u64 {
+                        return Err(SerdeConversionError::IntegerTooLarge);
+                    }
+                    OwnedValue::I64(n as i64)
+                } else if let Some(n) = b.as_f64() {
+                    OwnedValue::F64(n)
+                } else {
+                    return Err(SerdeConversionError::Oops);
+                }
+            }
+            Value::String(b) => OwnedValue::String(b.into()),
+            Value::Array(a) => OwnedValue::Array(
+                a.into_iter()
+                    .map(|v| v.try_into())
+                    .collect::<ConvertResult<Vec<OwnedValue>>>()?,
+            ),
+            Value::Object(o) => OwnedValue::Object(
+                o.into_iter()
+                    .map(|(k, v)| Ok((k.into(), v.try_into()?)))
+                    .collect::<ConvertResult<crate::value::owned::Map>>()?,
+            ),
+        })
+    }
+}
+
+impl TryInto<serde_json::Value> for OwnedValue {
+    type Error = SerdeConversionError;
+    fn try_into(self) -> ConvertResult<serde_json::Value> {
+        use serde_json::Value;
+        Ok(match self {
+            OwnedValue::Null => Value::Null,
+            OwnedValue::Bool(b) => Value::Bool(b),
+            OwnedValue::I64(n) => Value::Number(n.into()),
+            OwnedValue::F64(n) => {
+                if let Some(n) = serde_json::Number::from_f64(n) {
+                    Value::Number(n)
+                } else {
+                    return Err(SerdeConversionError::NanOrInfinity);
+                }
+            }
+            OwnedValue::String(b) => Value::String(b.to_string()),
+            OwnedValue::Array(a) => Value::Array(
+                a.into_iter()
+                    .map(|v| v.try_into())
+                    .collect::<ConvertResult<Vec<Value>>>()?,
+            ),
+            OwnedValue::Object(o) => Value::Object(
+                o.into_iter()
+                    .map(|(k, v)| Ok((k.to_string(), v.try_into()?)))
+                    .collect::<ConvertResult<serde_json::map::Map<String, Value>>>()?,
+            ),
+        })
+    }
+}
+
+impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
+    type Error = SerdeConversionError;
+    fn try_from(item: serde_json::Value) -> ConvertResult<Self> {
+        use serde_json::Value;
+        Ok(match item {
+            Value::Null => BorrowedValue::Null,
+            Value::Bool(b) => BorrowedValue::Bool(b),
+            Value::Number(b) => {
+                if let Some(n) = b.as_i64() {
+                    BorrowedValue::I64(n)
+                } else if let Some(n) = b.as_u64() {
+                    if n > std::i64::MAX as u64 {
+                        return Err(SerdeConversionError::IntegerTooLarge);
+                    }
+                    BorrowedValue::I64(n as i64)
+                } else if let Some(n) = b.as_f64() {
+                    BorrowedValue::F64(n)
+                } else {
+                    return Err(SerdeConversionError::Oops);
+                }
+            }
+            Value::String(b) => BorrowedValue::String(b.into()),
+            Value::Array(a) => BorrowedValue::Array(
+                a.into_iter()
+                    .map(|v| v.try_into())
+                    .collect::<ConvertResult<Vec<BorrowedValue>>>()?,
+            ),
+            Value::Object(o) => BorrowedValue::Object(
+                o.into_iter()
+                    .map(|(k, v)| Ok((k.into(), v.try_into()?)))
+                    .collect::<ConvertResult<crate::value::borrowed::Map>>()?,
+            ),
+        })
+    }
+}
+
+impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
+    type Error = SerdeConversionError;
+    fn try_into(self) -> ConvertResult<serde_json::Value> {
+        use serde_json::Value;
+        Ok(match self {
+            BorrowedValue::Null => Value::Null,
+            BorrowedValue::Bool(b) => Value::Bool(b),
+            BorrowedValue::I64(n) => Value::Number(n.into()),
+            BorrowedValue::F64(n) => {
+                if let Some(n) = serde_json::Number::from_f64(n) {
+                    Value::Number(n)
+                } else {
+                    return Err(SerdeConversionError::NanOrInfinity);
+                }
+            }
+            BorrowedValue::String(b) => Value::String(b.to_string()),
+            BorrowedValue::Array(a) => Value::Array(
+                a.into_iter()
+                    .map(|v| v.try_into())
+                    .collect::<ConvertResult<Vec<Value>>>()?,
+            ),
+            BorrowedValue::Object(o) => Value::Object(
+                o.into_iter()
+                    .map(|(k, v)| Ok((k.to_string(), v.try_into()?)))
+                    .collect::<ConvertResult<serde_json::map::Map<String, Value>>>()?,
+            ),
+        })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{json, BorrowedValue, OwnedValue};
+    use serde_json::{json as sjson, Value as SerdeValue};
+    use std::convert::TryInto;
+    #[test]
+    fn convert_owned_value() {
+        let v: OwnedValue = json!({
+            "int": 42,
+            "float": 7.2,
+            "neg-int": -23,
+            "string": "string",
+            "bool": true,
+            "null": null,
+            "object": {
+            "array": [42, 7, -23, false, null, {"key": "value"}],
+            }
+        });
+
+        let s: SerdeValue = sjson!({
+            "int": 42,
+            "float": 7.2,
+            "neg-int": -23,
+            "string": "string",
+            "bool": true,
+            "null": null,
+            "object": {
+            "array": [42, 7, -23, false, null, {"key": "value"}],
+            }
+        });
+        let s_c: SerdeValue = v.clone().try_into().unwrap();
+        assert_eq!(s, s_c);
+        let v_c: OwnedValue = s.try_into().unwrap();
+        assert_eq!(v, v_c);
+    }
+
+    #[test]
+    fn convert_borrowed_value() {
+        let v: BorrowedValue = json!({
+            "int": 42,
+            "float": 7.2,
+            "neg-int": -23,
+            "string": "string",
+            "bool": true,
+            "null": null,
+            "object": {
+            "array": [42, 7, -23, false, null, {"key": "value"}],
+            }
+        })
+        .into();
+
+        let s: SerdeValue = sjson!({
+            "int": 42,
+            "float": 7.2,
+            "neg-int": -23,
+            "string": "string",
+            "bool": true,
+            "null": null,
+            "object": {
+            "array": [42, 7, -23, false, null, {"key": "value"}],
+            }
+        });
+        let s_c: SerdeValue = v.clone().try_into().unwrap();
+        assert_eq!(s, s_c);
+        let v_c: BorrowedValue = s.try_into().unwrap();
+        assert_eq!(v, v_c);
     }
 }
