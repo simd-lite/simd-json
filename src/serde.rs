@@ -274,3 +274,72 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
         })
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{json, BorrowedValue, OwnedValue};
+    use serde_json::{json as sjson, Value as SerdeValue};
+    use std::convert::TryInto;
+    #[test]
+    fn convert_owned_value() {
+        let v: OwnedValue = json!({
+            "int": 42,
+            "float": 7,
+            "neg-int": -23,
+            "string": "string",
+            "bool": true,
+            "null": null,
+            "object": {
+            "array": [42, 7, -23, false, null, {"key": "value"}],
+            }
+        });
+
+        let s: SerdeValue = sjson!({
+            "int": 42,
+            "float": 7,
+            "neg-int": -23,
+            "string": "string",
+            "bool": true,
+            "null": null,
+            "object": {
+            "array": [42, 7, -23, false, null, {"key": "value"}],
+            }
+        });
+        let s_c: SerdeValue = v.clone().try_into().unwrap();
+        assert_eq!(s, s_c);
+        let v_c: OwnedValue = s.try_into().unwrap();
+        assert_eq!(v, v_c);
+    }
+
+    #[test]
+    fn convert_borrowed_value() {
+        let v: BorrowedValue = json!({
+            "int": 42,
+            "float": 7,
+            "neg-int": -23,
+            "string": "string",
+            "bool": true,
+            "null": null,
+            "object": {
+            "array": [42, 7, -23, false, null, {"key": "value"}],
+            }
+        })
+        .into();
+
+        let s: SerdeValue = sjson!({
+            "int": 42,
+            "float": 7,
+            "neg-int": -23,
+            "string": "string",
+            "bool": true,
+            "null": null,
+            "object": {
+            "array": [42, 7, -23, false, null, {"key": "value"}],
+            }
+        });
+        let s_c: SerdeValue = v.clone().try_into().unwrap();
+        assert_eq!(s, s_c);
+        let v_c: BorrowedValue = s.try_into().unwrap();
+        assert_eq!(v, v_c);
+    }
+}
