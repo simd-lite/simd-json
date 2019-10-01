@@ -2,6 +2,7 @@ use super::Value;
 use crate::numberparse::Number;
 use crate::BorrowedValue;
 use std::iter::FromIterator;
+use std::borrow::Cow;
 
 impl From<Number> for Value {
     #[inline]
@@ -38,6 +39,12 @@ impl From<crate::BorrowedValue<'_>> for Value {
 impl From<&str> for Value {
     fn from(s: &str) -> Self {
         Value::String(s.to_owned())
+    }
+}
+
+impl<'v> From<Cow<'v, str>> for Value {
+    fn from(c: Cow<'v, str>) -> Self {
+        Value::String(c.to_string())
     }
 }
 

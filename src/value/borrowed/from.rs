@@ -40,6 +40,12 @@ impl<'v> From<&'v str> for Value<'v> {
     }
 }
 
+impl<'v> From<Cow<'v, str>> for Value<'v> {
+    fn from(c: Cow<'v, str>) -> Self {
+        Value::String(c)
+    }
+}
+
 impl<'v> From<String> for Value<'v> {
     #[inline]
     fn from(s: String) -> Self {
