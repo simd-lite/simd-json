@@ -53,6 +53,7 @@ pub fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
     // all these will sign-extend the chars looked up, placing 1-bits into the high 28 bits of every
     // invalid value. After the shifts, this will *still* result in the outcome that the high 16 bits of any
     // value with any invalid char will be all 1's. We check for this in the caller.
+        #[allow(clippy::cast_sign_loss)]
     unsafe {
         let v1: i32 = i32::from(*DIGITTOVAL.get_unchecked(*src.get_unchecked(0) as usize));
         let v2: i32 = i32::from(*DIGITTOVAL.get_unchecked(*src.get_unchecked(1) as usize));
@@ -76,6 +77,7 @@ pub fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
 //
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn codepoint_to_utf8(cp: u32, c: &mut [u8]) -> usize {
+    #[allow(clippy::cast_possible_truncation)]
     unsafe {
         if cp <= 0x7F {
             *c.get_unchecked_mut(0) = cp as u8;

@@ -41,7 +41,7 @@ fn avxcheck_smaller_than_0xf4(current_bytes: __m256i, has_error: &mut __m256i) {
     *has_error = unsafe {
         _mm256_or_si256(
             *has_error,
-            _mm256_subs_epu8(current_bytes, _mm256_set1_epi8(static_cast_i8!(0xF4u8))),
+            _mm256_subs_epu8(current_bytes, _mm256_set1_epi8(static_cast_i8!(0xF4_u8))),
         )
     };
 }
@@ -110,19 +110,19 @@ fn avxcheck_first_continuation_max(
     unsafe {
         let mask_ed: __m256i = _mm256_cmpeq_epi8(
             off1_current_bytes,
-            _mm256_set1_epi8(static_cast_i8!(0xEDu8)),
+            _mm256_set1_epi8(static_cast_i8!(0xED_u8)),
         );
         let mask_f4: __m256i = _mm256_cmpeq_epi8(
             off1_current_bytes,
-            _mm256_set1_epi8(static_cast_i8!(0xF4u8)),
+            _mm256_set1_epi8(static_cast_i8!(0xF4_u8)),
         );
 
         let badfollow_ed: __m256i = _mm256_and_si256(
-            _mm256_cmpgt_epi8(current_bytes, _mm256_set1_epi8(static_cast_i8!(0x9Fu8))),
+            _mm256_cmpgt_epi8(current_bytes, _mm256_set1_epi8(static_cast_i8!(0x9F_u8))),
             mask_ed,
         );
         let badfollow_f4: __m256i = _mm256_and_si256(
-            _mm256_cmpgt_epi8(current_bytes, _mm256_set1_epi8(static_cast_i8!(0x8Fu8))),
+            _mm256_cmpgt_epi8(current_bytes, _mm256_set1_epi8(static_cast_i8!(0x8F_u8))),
             mask_f4,
         );
 
@@ -160,10 +160,10 @@ fn avxcheck_overlong(
                 -128,
                 -128,
                 -128, // 10xx => false
-                static_cast_i8!(0xC2u8),
-                -128,                    // 110x
-                static_cast_i8!(0xE1u8), // 1110
-                static_cast_i8!(0xF1u8), // 1111
+                static_cast_i8!(0xC2_u8),
+                -128,                     // 110x
+                static_cast_i8!(0xE1_u8), // 1110
+                static_cast_i8!(0xF1_u8), // 1111
                 -128,
                 -128,
                 -128,
@@ -176,10 +176,10 @@ fn avxcheck_overlong(
                 -128,
                 -128,
                 -128, // 10xx => false
-                static_cast_i8!(0xC2u8),
-                -128,                    // 110x
-                static_cast_i8!(0xE1u8), // 1110
-                static_cast_i8!(0xF1u8),
+                static_cast_i8!(0xC2_u8),
+                -128,                     // 110x
+                static_cast_i8!(0xE1_u8), // 1110
+                static_cast_i8!(0xF1_u8),
             ), // 1111
             off1_hibits,
         );
@@ -201,9 +201,9 @@ fn avxcheck_overlong(
                 -128,
                 -128, // 10xx => false
                 127,
-                127,                     // 110x => true
-                static_cast_i8!(0xA0u8), // 1110
-                static_cast_i8!(0x90u8), // 1111
+                127,                      // 110x => true
+                static_cast_i8!(0xA0_u8), // 1110
+                static_cast_i8!(0x90_u8), // 1111
                 -128,
                 -128,
                 -128,
@@ -217,9 +217,9 @@ fn avxcheck_overlong(
                 -128,
                 -128, // 10xx => false
                 127,
-                127,                     // 110x => true
-                static_cast_i8!(0xA0u8), // 1110
-                static_cast_i8!(0x90u8),
+                127,                      // 110x => true
+                static_cast_i8!(0xA0_u8), // 1110
+                static_cast_i8!(0x90_u8),
             ), // 1111
             off1_hibits,
         );
@@ -238,7 +238,7 @@ impl Default for AvxProcessedUtfBytes {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         unsafe {
-            AvxProcessedUtfBytes {
+            Self {
                 rawbytes: _mm256_setzero_si256(),
                 high_nibbles: _mm256_setzero_si256(),
                 carried_continuations: _mm256_setzero_si256(),

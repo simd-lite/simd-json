@@ -176,9 +176,9 @@ fn avxcheck_overlong(
                 -128,
                 -128, // 10xx => false
                 127,
-                127,                     // 110x => true
-                static_cast_i8!(0xA0u8), // 1110
-                static_cast_i8!(0x90u8), // 1111
+                127,                      // 110x => true
+                static_cast_i8!(0xA0_u8), // 1110
+                static_cast_i8!(0x90_u8), // 1111
             ),
             off1_hibits,
         );

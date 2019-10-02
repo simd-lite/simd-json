@@ -105,6 +105,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let v: i64 = stry!(self.parse_signed());
+        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_i8(v as i8)
     }
 
@@ -114,6 +115,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let v: i64 = stry!(self.parse_signed());
+        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_i16(v as i16)
     }
 
@@ -123,6 +125,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let v: i64 = stry!(self.parse_signed());
+        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_i32(v as i32)
     }
 
@@ -140,6 +143,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let v: u64 = stry!(self.parse_unsigned());
+        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_u8(v as u8)
     }
 
@@ -149,6 +153,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let v: u64 = stry!(self.parse_unsigned());
+        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_u16(v as u16)
     }
 
@@ -158,6 +163,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let v: u64 = stry!(self.parse_unsigned());
+        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_u32(v as u32)
     }
 
@@ -175,6 +181,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let v: f64 = stry!(self.parse_double());
+        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_f32(v as f32)
     }
 
@@ -354,10 +361,10 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
             self.de.skip();
             Ok(None)
         } else {
-            if !self.first {
-                self.de.skip();
-            } else {
+            if self.first {
                 self.first = false;
+            } else {
+                self.de.skip();
             }
             self.len -= 1;
             seed.deserialize(&mut *self.de).map(Some)

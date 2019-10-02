@@ -156,10 +156,10 @@ impl<'de> Deserializer<'de> {
                     b',' => {
                         cnt += 1;
                         update_char!();
-                        if c != b'"' {
-                            fail!(ErrorType::ExpectedObjectKey);
-                        } else {
+                        if c == b'"' {
                             goto!(ObjectKey);
+                        } else {
+                            fail!(ErrorType::ExpectedObjectKey);
                         }
                     }
                     b'}' => {
@@ -249,16 +249,9 @@ impl<'de> Deserializer<'de> {
                     state = State::MainArraySwitch
                 }
             }
-            b'"' => {
-                if si.next().is_none() {
-                    return Ok(counts);
-                } else {
-                    fail!(ErrorType::TrailingCharacters);
-                }
-            }
             b't' => {
                 let len = input.len();
-                let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
                     if !is_valid_true_atom(copy.get_unchecked(idx..)) {
@@ -273,7 +266,7 @@ impl<'de> Deserializer<'de> {
             }
             b'f' => {
                 let len = input.len();
-                let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
                     if !is_valid_false_atom(copy.get_unchecked(idx..)) {
@@ -288,7 +281,7 @@ impl<'de> Deserializer<'de> {
             }
             b'n' => {
                 let len = input.len();
-                let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
                     if !is_valid_null_atom(copy.get_unchecked(idx..)) {
@@ -301,7 +294,7 @@ impl<'de> Deserializer<'de> {
                     fail!(ErrorType::TrailingCharacters);
                 }
             }
-            b'-' | b'0'..=b'9' => {
+            b'"' | b'-' | b'0'..=b'9' => {
                 if si.next().is_none() {
                     return Ok(counts);
                 } else {

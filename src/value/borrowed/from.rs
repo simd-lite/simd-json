@@ -148,6 +148,7 @@ impl<'v> From<u32> for Value<'v> {
 impl<'v> From<u64> for Value<'v> {
     #[inline]
     fn from(i: u64) -> Self {
+        #[allow(clippy::cast_possible_wrap)]
         Value::I64(i as i64)
     }
 }
@@ -176,6 +177,7 @@ impl<'v> From<&u32> for Value<'v> {
 impl<'v> From<&u64> for Value<'v> {
     #[inline]
     fn from(i: &u64) -> Self {
+        #[allow(clippy::cast_possible_wrap)]
         Value::I64(*i as i64)
     }
 }

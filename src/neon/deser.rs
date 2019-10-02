@@ -10,7 +10,7 @@ impl<'de> Deserializer<'de> {
     pub fn parse_str_(&mut self) -> Result<&'de str> {
         // Add 1 to skip the initial "
         let idx = self.iidx + 1;
-        let mut padding = [0u8; 32];
+        let mut padding = [0_u8; 32];
         //let mut read: usize = 0;
 
         // we include the terminal '"' so we know where to end

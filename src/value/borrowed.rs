@@ -92,6 +92,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     fn as_u64(&self) -> Option<u64> {
+        #[allow(clippy::cast_sign_loss)]
         match self {
             Value::I64(i) if *i >= 0 => Some(*i as u64),
             _ => None,
@@ -106,6 +107,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     fn cast_f64(&self) -> Option<f64> {
+        #[allow(clippy::cast_precision_loss)]
         match self {
             Value::F64(i) => Some(*i),
             Value::I64(i) => Some(*i as f64),

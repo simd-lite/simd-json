@@ -36,7 +36,7 @@ unsafe fn check_utf8(
     has_error: &mut __m128i,
     previous: &mut AvxProcessedUtfBytes,
 ) {
-    let highbit: __m128i = _mm_set1_epi8(static_cast_i8!(0x80u8));
+    let highbit: __m128i = _mm_set1_epi8(static_cast_i8!(0x80_u8));
     if (_mm_testz_si128(_mm_or_si128(input.v0, input.v1), highbit)) == 1 {
         // it is ascii, we just check continuation
         *has_error = _mm_or_si128(

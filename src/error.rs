@@ -52,7 +52,7 @@ pub struct Error {
 
 impl Error {
     pub fn new(structural: usize, index: usize, character: char, error: ErrorType) -> Self {
-        Error {
+        Self {
             structural,
             index,
             character,

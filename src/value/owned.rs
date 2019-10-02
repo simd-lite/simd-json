@@ -35,13 +35,13 @@ pub enum Value {
 
 impl ValueTrait for Value {
     type Map = Map;
-    type Array = Vec<Value>;
+    type Array = Vec<Self>;
 
-    fn get(&self, k: &str) -> Option<&Value> {
+    fn get(&self, k: &str) -> Option<&Self> {
         self.as_object().and_then(|a| a.get(k))
     }
 
-    fn get_mut(&mut self, k: &str) -> Option<&mut Value> {
+    fn get_mut(&mut self, k: &str) -> Option<&mut Self> {
         self.as_object_mut().and_then(|a| a.get_mut(k))
     }
 
@@ -54,96 +54,98 @@ impl ValueTrait for Value {
 
     fn kind(&self) -> ValueType {
         match self {
-            Value::Null => ValueType::Null,
-            Value::Bool(_) => ValueType::Bool,
-            Value::F64(_) => ValueType::F64,
-            Value::I64(_) => ValueType::I64,
-            Value::String(_) => ValueType::String,
-            Value::Array(_) => ValueType::Array,
-            Value::Object(_) => ValueType::Object,
+            Self::Null => ValueType::Null,
+            Self::Bool(_) => ValueType::Bool,
+            Self::F64(_) => ValueType::F64,
+            Self::I64(_) => ValueType::I64,
+            Self::String(_) => ValueType::String,
+            Self::Array(_) => ValueType::Array,
+            Self::Object(_) => ValueType::Object,
         }
     }
 
     fn is_null(&self) -> bool {
         match self {
-            Value::Null => true,
+            Self::Null => true,
             _ => false,
         }
     }
 
     fn as_bool(&self) -> Option<bool> {
         match self {
-            Value::Bool(b) => Some(*b),
+            Self::Bool(b) => Some(*b),
             _ => None,
         }
     }
 
     fn as_i64(&self) -> Option<i64> {
         match self {
-            Value::I64(i) => Some(*i),
+            Self::I64(i) => Some(*i),
             _ => None,
         }
     }
 
     fn as_u64(&self) -> Option<u64> {
+        #[allow(clippy::cast_sign_loss)]
         match self {
-            Value::I64(i) if *i >= 0 => Some(*i as u64),
+            Self::I64(i) if *i >= 0 => Some(*i as u64),
             _ => None,
         }
     }
 
     fn as_f64(&self) -> Option<f64> {
         match self {
-            Value::F64(i) => Some(*i),
+            Self::F64(i) => Some(*i),
             _ => None,
         }
     }
 
     fn cast_f64(&self) -> Option<f64> {
+        #[allow(clippy::cast_precision_loss)]
         match self {
-            Value::F64(i) => Some(*i),
-            Value::I64(i) => Some(*i as f64),
+            Self::F64(i) => Some(*i),
+            Self::I64(i) => Some(*i as f64),
             _ => None,
         }
     }
 
     fn as_string(&self) -> Option<String> {
         match self {
-            Value::String(s) => Some(s.clone()),
+            Self::String(s) => Some(s.clone()),
             _ => None,
         }
     }
 
     fn as_str(&self) -> Option<&str> {
         match self {
-            Value::String(s) => Some(s.as_str()),
+            Self::String(s) => Some(s.as_str()),
             _ => None,
         }
     }
 
-    fn as_array(&self) -> Option<&Vec<Value>> {
+    fn as_array(&self) -> Option<&Vec<Self>> {
         match self {
-            Value::Array(a) => Some(a),
+            Self::Array(a) => Some(a),
             _ => None,
         }
     }
 
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Value>> {
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
         match self {
-            Value::Array(a) => Some(a),
+            Self::Array(a) => Some(a),
             _ => None,
         }
     }
 
     fn as_object(&self) -> Option<&Map> {
         match self {
-            Value::Object(m) => Some(m),
+            Self::Object(m) => Some(m),
             _ => None,
         }
     }
     fn as_object_mut(&mut self) -> Option<&mut Self::Map> {
         match self {
-            Value::Object(m) => Some(m),
+            Self::Object(m) => Some(m),
             _ => None,
         }
     }
@@ -152,21 +154,21 @@ impl ValueTrait for Value {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::Null => f.write_str("null"),
-            Value::Bool(false) => f.write_str("false"),
-            Value::Bool(true) => f.write_str("true"),
-            Value::I64(n) => f.write_str(&n.to_string()),
-            Value::F64(n) => f.write_str(&n.to_string()),
-            Value::String(s) => write!(f, "{}", s),
-            Value::Array(a) => write!(f, "{:?}", a),
-            Value::Object(o) => write!(f, "{:?}", o),
+            Self::Null => f.write_str("null"),
+            Self::Bool(false) => f.write_str("false"),
+            Self::Bool(true) => f.write_str("true"),
+            Self::I64(n) => f.write_str(&n.to_string()),
+            Self::F64(n) => f.write_str(&n.to_string()),
+            Self::String(s) => write!(f, "{}", s),
+            Self::Array(a) => write!(f, "{:?}", a),
+            Self::Object(o) => write!(f, "{:?}", o),
         }
     }
 }
 
 impl Index<&str> for Value {
-    type Output = Value;
-    fn index(&self, index: &str) -> &Value {
+    type Output = Self;
+    fn index(&self, index: &str) -> &Self {
         static NULL: Value = Value::Null;
         self.get(index).unwrap_or(&NULL)
     }
@@ -174,7 +176,7 @@ impl Index<&str> for Value {
 
 impl Default for Value {
     fn default() -> Self {
-        Value::Null
+        Self::Null
     }
 }
 

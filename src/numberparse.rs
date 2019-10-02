@@ -122,6 +122,7 @@ pub enum Number {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
+    #[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
     unsafe {
         // this actually computes *16* values so we are being wasteful.
         let ascii0: __m128i = _mm_set1_epi8(b'0' as i8);
@@ -166,6 +167,7 @@ impl<'de> Deserializer<'de> {
     /// Note: a redesign could avoid this function entirely.
     ///
     #[inline(never)]
+    #[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_float(&self, p: &[u8], negative: bool) -> Result<Number> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: f64;
@@ -199,7 +201,7 @@ impl<'de> Deserializer<'de> {
             }
 
             while is_integer(unsafe { *p.get_unchecked(digitcount) })
-                && fraction_weight <= 10_000_000_000_000_000u64
+                && fraction_weight <= 10_000_000_000_000_000_u64
             {
                 digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
                 digitcount += 1;
@@ -269,10 +271,10 @@ impl<'de> Deserializer<'de> {
             return Err(self.error(ErrorType::Parser));
         }
 
-        if is_structural_or_whitespace(unsafe { *p.get_unchecked(digitcount) }) != 0 {
-            Ok(Number::F64(if negative { -i } else { i }))
-        } else {
+        if is_structural_or_whitespace(unsafe { *p.get_unchecked(digitcount) }) == 0 {
             Err(self.error(ErrorType::Parser))
+        } else {
+            Ok(Number::F64(if negative { -i } else { i }))
         }
     }
 
@@ -285,6 +287,7 @@ impl<'de> Deserializer<'de> {
     /// This function will almost never be called!!!
     ///
     #[inline(never)]
+    #[allow(clippy::cast_possible_wrap)]
     fn parse_large_integer(&self, buf: &[u8], negative: bool) -> Result<Number> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: u64;
@@ -326,20 +329,19 @@ impl<'de> Deserializer<'de> {
             return Err(self.error(ErrorType::Overflow));
         }
 
-        if is_structural_or_whitespace(d) != 0 {
-            if negative {
-                Ok(Number::I64(-(i as i64)))
-            } else {
-                Ok(Number::I64(i as i64))
-            }
-        } else {
+        if is_structural_or_whitespace(d) == 0 {
             Err(self.error(ErrorType::InvalidNumber))
+        } else if negative {
+            Ok(Number::I64(-(i as i64)))
+        } else {
+            Ok(Number::I64(i as i64))
         }
     }
 
     // parse the number at buf + offset
     // define JSON_TEST_NUMBERS for unit testing
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     pub fn parse_number_int(&self, buf: &[u8], negative: bool) -> Result<Number> {
         let mut byte_count = if negative { 1 } else { 0 };
         let mut ignore_count: u8 = 0;
@@ -481,21 +483,23 @@ impl<'de> Deserializer<'de> {
                     return Err(self.error(ErrorType::InvalidExponent));
                 }
 
-                let mut d: f64 = i as f64;
-                d *= POWER_OF_TEN[(308 + exponent) as usize];
-                Number::F64(if negative { d * -1.0 } else { d })
+                #[allow(clippy::cast_precision_loss)]
+                let mut d1: f64 = i as f64;
+                d1 *= POWER_OF_TEN[(308 + exponent) as usize];
+                Number::F64(if negative { d1 * -1.0 } else { d1 })
             }
         } else {
             if unlikely!(byte_count >= 18) {
                 // this is uncommon!!!
                 return self.parse_large_integer(buf, negative);
             }
+            #[allow(clippy::cast_possible_wrap)]
             Number::I64((if negative { i.wrapping_neg() } else { i }) as i64)
         };
-        if is_structural_or_whitespace(d) != 0 {
-            Ok(v)
-        } else {
+        if is_structural_or_whitespace(d) == 0 {
             Err(self.error(ErrorType::InvalidNumber))
+        } else {
+            Ok(v)
         }
     }
 }

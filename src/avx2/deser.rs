@@ -12,11 +12,13 @@ pub use crate::Deserializer;
 pub use crate::Result;
 
 impl<'de> Deserializer<'de> {
+    // Allow it to keep in sync with upstream
+    #[allow(clippy::if_not_else)]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_str_(&mut self) -> Result<&'de str> {
         // Add 1 to skip the initial "
         let idx = self.iidx + 1;
-        let mut padding = [0u8; 32];
+        let mut padding = [0_u8; 32];
         //let mut read: usize = 0;
 
         // we include the terminal '"' so we know where to end
@@ -49,9 +51,11 @@ impl<'de> Deserializer<'de> {
             let bs_bits: u32 = unsafe {
                 static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                     v,
+            #[allow(clippy::cast_possible_wrap)]
                     _mm256_set1_epi8(b'\\' as i8)
                 )))
             };
+        #[allow(clippy::cast_possible_wrap)]
             let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
             let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
@@ -119,11 +123,13 @@ impl<'de> Deserializer<'de> {
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
             let bs_bits: u32 = unsafe {
-                static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
+            static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                     v,
+                    #[allow(clippy::cast_possible_wrap)]
                     _mm256_set1_epi8(b'\\' as i8)
                 )))
             };
+            #[allow(clippy::cast_possible_wrap)]
             let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
             let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {

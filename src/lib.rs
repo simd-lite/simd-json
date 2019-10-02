@@ -15,6 +15,20 @@
     )
 )]
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
+#![forbid(warnings)]
+#![warn(unused_extern_crates)]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    deny(
+        clippy::all,
+        clippy::result_unwrap_used,
+        clippy::unnecessary_unwrap,
+        clippy::pedantic
+    ),
+    // We might want to revisit inline_always
+    allow(clippy::module_name_repetitions, clippy::inline_always)
+)]
+
 //! simdjson-rs is a rust port of the simejson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
 //! fit into the rust ecosystem.
@@ -247,7 +261,7 @@ impl<'de> Deserializer<'de> {
     fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
         let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         let len = input.len();
-        let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+        let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
         copy[len] = 0;
         unsafe {
             copy.as_mut_ptr().copy_from(input.as_ptr(), len);
@@ -260,7 +274,7 @@ impl<'de> Deserializer<'de> {
         let input = unsafe { &self.input.get_unchecked(self.iidx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {
-            let mut copy = vec![0u8; len + SIMDJSON_PADDING];
+            let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
             unsafe {
                 copy.as_mut_ptr().copy_from(input.as_ptr(), len);
             };
@@ -1065,7 +1079,7 @@ mod tests {
     #[test]
     fn silly_float1() {
         let v = Value::from(3.0901448042322017e305);
-        let s = v.to_string();
+        let s = v.encode();
         dbg!(&s);
         let mut bytes = s.as_bytes().to_vec();
         let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
@@ -1076,7 +1090,7 @@ mod tests {
     #[ignore]
     fn silly_float2() {
         let v = Value::from(-6.990585694841803e305);
-        let s = v.to_string();
+        let s = v.encode();
         dbg!(&s);
         let mut bytes = s.as_bytes().to_vec();
         let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");

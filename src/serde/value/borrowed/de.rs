@@ -6,6 +6,7 @@ use serde_ext::de::{
 use serde_ext::forward_to_deserialize_any;
 use std::borrow::Cow;
 use std::fmt;
+use std::convert::TryInto;
 
 impl<'de> de::Deserializer<'de> for Value<'de> {
     type Error = Error;
@@ -206,9 +207,8 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        use std::i64;
-        if value <= i64::MAX as u64 {
-            Ok(Value::I64(value as i64))
+        if let Ok(value) = value.try_into() {
+            Ok(Value::I64(value))
         } else {
             Err(E::custom(format!("Integer out of range: {}", value)))
         }

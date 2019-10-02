@@ -12,19 +12,19 @@ impl Serialize for Value {
         S: ser::Serializer,
     {
         match self {
-            Value::Bool(b) => serializer.serialize_bool(*b),
-            Value::Null => serializer.serialize_unit(),
-            Value::F64(f) => serializer.serialize_f64(*f),
-            Value::I64(i) => serializer.serialize_i64(*i),
-            Value::String(s) => serializer.serialize_str(&s),
-            Value::Array(v) => {
+            Self::Bool(b) => serializer.serialize_bool(*b),
+            Self::Null => serializer.serialize_unit(),
+            Self::F64(f) => serializer.serialize_f64(*f),
+            Self::I64(i) => serializer.serialize_i64(*i),
+            Self::String(s) => serializer.serialize_str(&s),
+            Self::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
                 for e in v {
                     seq.serialize_element(e)?;
                 }
                 seq.end()
             }
-            Value::Object(m) => {
+            Self::Object(m) => {
                 let mut map = serializer.serialize_map(Some(m.len()))?;
                 for (k, v) in m.iter() {
                     map.serialize_entry(k, v)?;
@@ -102,6 +102,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_u64(self, value: u64) -> Result<Value> {
+        #[allow(clippy::cast_possible_wrap)]
         Ok(Value::I64(value as i64))
     }
 
@@ -354,16 +355,16 @@ impl serde::ser::SerializeMap for SerializeMap {
         T: Serialize,
     {
         match *self {
-            SerializeMap::Map {
+            Self::Map {
                 ref mut next_key, ..
             } => {
                 *next_key = Some(stry!(key.serialize(MapKeySerializer {})));
                 Ok(())
             }
             #[cfg(feature = "arbitrary_precision")]
-            SerializeMap::Number { .. } => unreachable!(),
+            Self::Number { .. } => unreachable!(),
             #[cfg(feature = "raw_value")]
-            SerializeMap::RawValue { .. } => unreachable!(),
+            Self::RawValue { .. } => unreachable!(),
         }
     }
 
@@ -372,7 +373,7 @@ impl serde::ser::SerializeMap for SerializeMap {
         T: Serialize,
     {
         match *self {
-            SerializeMap::Map {
+            Self::Map {
                 ref mut map,
                 ref mut next_key,
             } => {
@@ -384,19 +385,19 @@ impl serde::ser::SerializeMap for SerializeMap {
                 Ok(())
             }
             #[cfg(feature = "arbitrary_precision")]
-            SerializeMap::Number { .. } => unreachable!(),
+            Self::Number { .. } => unreachable!(),
             #[cfg(feature = "raw_value")]
-            SerializeMap::RawValue { .. } => unreachable!(),
+            Self::RawValue { .. } => unreachable!(),
         }
     }
 
     fn end(self) -> Result<Value> {
         match self {
-            SerializeMap::Map { map, .. } => Ok(Value::Object(map)),
+            Self::Map { map, .. } => Ok(Value::Object(map)),
             #[cfg(feature = "arbitrary_precision")]
-            SerializeMap::Number { .. } => unreachable!(),
+            Self::Number { .. } => unreachable!(),
             #[cfg(feature = "raw_value")]
-            SerializeMap::RawValue { .. } => unreachable!(),
+            Self::RawValue { .. } => unreachable!(),
         }
     }
 }
@@ -595,12 +596,12 @@ impl serde::ser::SerializeStruct for SerializeMap {
         T: Serialize,
     {
         match *self {
-            SerializeMap::Map { .. } => {
+            Self::Map { .. } => {
                 stry!(serde::ser::SerializeMap::serialize_key(self, key));
                 serde::ser::SerializeMap::serialize_value(self, value)
             }
             #[cfg(feature = "arbitrary_precision")]
-            SerializeMap::Number { ref mut out_value } => {
+            Self::Number { ref mut out_value } => {
                 if key == ::number::TOKEN {
                     *out_value = Some(value.serialize(NumberValueEmitter)?);
                     Ok(())
@@ -609,7 +610,7 @@ impl serde::ser::SerializeStruct for SerializeMap {
                 }
             }
             #[cfg(feature = "raw_value")]
-            SerializeMap::RawValue { ref mut out_value } => {
+            Self::RawValue { ref mut out_value } => {
                 if key == ::raw::TOKEN {
                     *out_value = Some(value.serialize(RawValueEmitter)?);
                     Ok(())
@@ -622,13 +623,13 @@ impl serde::ser::SerializeStruct for SerializeMap {
 
     fn end(self) -> Result<Value> {
         match self {
-            SerializeMap::Map { .. } => serde::ser::SerializeMap::end(self),
+            Self::Map { .. } => serde::ser::SerializeMap::end(self),
             #[cfg(feature = "arbitrary_precision")]
-            SerializeMap::Number { out_value, .. } => {
+            Self::Number { out_value, .. } => {
                 Ok(out_value.expect("number value was not emitted"))
             }
             #[cfg(feature = "raw_value")]
-            SerializeMap::RawValue { out_value, .. } => {
+            Self::RawValue { out_value, .. } => {
                 Ok(out_value.expect("raw value was not emitted"))
             }
         }

@@ -7,6 +7,7 @@ use serde::forward_to_deserialize_any;
 use serde_ext::de::IntoDeserializer;
 use std::borrow::Cow;
 use std::fmt;
+use std::convert::TryInto;
 
 impl<'de> de::Deserializer<'de> for Value {
     type Error = Error;
@@ -19,13 +20,13 @@ impl<'de> de::Deserializer<'de> for Value {
         V: Visitor<'de>,
     {
         match self {
-            Value::Null => visitor.visit_unit(),
-            Value::Bool(b) => visitor.visit_bool(b),
-            Value::I64(n) => visitor.visit_i64(n),
-            Value::F64(n) => visitor.visit_f64(n),
-            Value::String(s) => visitor.visit_string(s),
-            Value::Array(a) => visit_array(a, visitor),
-            Value::Object(o) => visit_object(o, visitor),
+            Self::Null => visitor.visit_unit(),
+            Self::Bool(b) => visitor.visit_bool(b),
+            Self::I64(n) => visitor.visit_i64(n),
+            Self::F64(n) => visitor.visit_f64(n),
+            Self::String(s) => visitor.visit_string(s),
+            Self::Array(a) => visit_array(a, visitor),
+            Self::Object(o) => visit_object(o, visitor),
         }
     }
 
@@ -77,7 +78,7 @@ struct SeqDeserializer {
 
 impl SeqDeserializer {
     fn new(vec: Vec<Value>) -> Self {
-        SeqDeserializer {
+        Self {
             iter: vec.into_iter(),
         }
     }
@@ -143,7 +144,7 @@ struct MapDeserializer {
 
 impl MapDeserializer {
     fn new(map: Map) -> Self {
-        MapDeserializer {
+        Self {
             iter: map.into_iter(),
             value: None,
         }
@@ -383,7 +384,7 @@ impl<'de> de::VariantAccess<'de> for UnitOnly {
 }
 
 impl<'de> Deserialize<'de> for Value {
-    fn deserialize<D>(deserializer: D) -> Result<Value, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -498,9 +499,9 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        use std::i64;
-        if value <= i64::MAX as u64 {
-            Ok(Value::I64(value as i64))
+        if let Ok(v) = value.try_into() {
+            #[allow(clippy::cast_possible_wrap)]
+            Ok(Value::I64(v))
         } else {
             Err(E::custom(format!("Integer out of range: {}", value)))
         }

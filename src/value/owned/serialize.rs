@@ -14,13 +14,24 @@ use std::io::Write;
 //use util::print_dec;
 
 impl Value {
+    #[deprecated(since = "0.1.21", note = "Please use encode instead")]
+    #[allow(clippy::inherent_to_string_shadow_display)]
     pub fn to_string(&self) -> String {
+        self.encode()
+    }
+
+    pub fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
         let _ = g.write_json(&self);
         g.consume()
     }
 
+    #[deprecated(since = "0.1.21", note = "Please use encode instead")]
     pub fn to_string_pp(&self) -> String {
+        self.encode_pp()
+    }
+
+    pub fn encode_pp(&self) -> String {
         let mut g = PrettyGenerator::new(2);
         let _ = g.write_json(&self);
         g.consume()
@@ -143,18 +154,18 @@ mod test {
     use super::Value;
     #[test]
     fn null() {
-        assert_eq!(Value::Null.to_string(), "null")
+        assert_eq!(Value::Null.encode(), "null")
     }
     #[test]
     fn bool_true() {
-        assert_eq!(Value::Bool(true).to_string(), "true")
+        assert_eq!(Value::Bool(true).encode(), "true")
     }
     #[test]
     fn bool_false() {
-        assert_eq!(Value::Bool(false).to_string(), "false")
+        assert_eq!(Value::Bool(false).encode(), "false")
     }
     fn assert_str(from: &str, to: &str) {
-        assert_eq!(Value::String(from.into()).to_string(), to)
+        assert_eq!(Value::String(from.into()).encode(), to)
     }
     #[test]
     fn string() {

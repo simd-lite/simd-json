@@ -67,13 +67,13 @@ impl std::error::Error for Error {}
 
 impl serde::de::Error for Error {
     fn custom<T: fmt::Display>(msg: T) -> Self {
-        Error::generic(ErrorType::Serde(msg.to_string()))
+        Self::generic(ErrorType::Serde(msg.to_string()))
     }
 }
 
 impl serde_ext::ser::Error for Error {
     fn custom<T: fmt::Display>(msg: T) -> Self {
-        Error::generic(ErrorType::Serde(msg.to_string()))
+        Self::generic(ErrorType::Serde(msg.to_string()))
     }
 }
 
@@ -119,6 +119,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_unsigned(&mut self) -> Result<u64> {
+        #[allow(clippy::cast_sign_loss)]
         match self.next_() {
             b'0'..=b'9' => match stry!(self.parse_number(false)) {
                 Number::I64(n) => Ok(n as u64),
@@ -129,6 +130,7 @@ impl<'de> Deserializer<'de> {
     }
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_double(&mut self) -> Result<f64> {
+        #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
         match self.next_() {
             b'-' => match stry!(self.parse_number(true)) {
                 Number::F64(n) => Ok(n),
@@ -148,31 +150,32 @@ impl TryFrom<serde_json::Value> for OwnedValue {
     fn try_from(item: serde_json::Value) -> ConvertResult<Self> {
         use serde_json::Value;
         Ok(match item {
-            Value::Null => OwnedValue::Null,
-            Value::Bool(b) => OwnedValue::Bool(b),
+            Value::Null => Self::Null,
+            Value::Bool(b) => Self::Bool(b),
             Value::Number(b) => {
                 if let Some(n) = b.as_i64() {
-                    OwnedValue::I64(n)
+                    Self::I64(n)
                 } else if let Some(n) = b.as_u64() {
-                    if n > std::i64::MAX as u64 {
+                    if n > i64::max_value() as u64 {
                         return Err(SerdeConversionError::IntegerTooLarge);
                     }
-                    OwnedValue::I64(n as i64)
+                    #[allow(clippy::cast_possible_wrap)]
+                    Self::I64(n as i64)
                 } else if let Some(n) = b.as_f64() {
-                    OwnedValue::F64(n)
+                    Self::F64(n)
                 } else {
                     return Err(SerdeConversionError::Oops);
                 }
             }
-            Value::String(b) => OwnedValue::String(b.into()),
-            Value::Array(a) => OwnedValue::Array(
+            Value::String(b) => Self::String(b),
+            Value::Array(a) => Self::Array(
                 a.into_iter()
                     .map(|v| v.try_into())
-                    .collect::<ConvertResult<Vec<OwnedValue>>>()?,
+                    .collect::<ConvertResult<Vec<Self>>>()?,
             ),
-            Value::Object(o) => OwnedValue::Object(
+            Value::Object(o) => Self::Object(
                 o.into_iter()
-                    .map(|(k, v)| Ok((k.into(), v.try_into()?)))
+                    .map(|(k, v)| Ok((k, v.try_into()?)))
                     .collect::<ConvertResult<crate::value::owned::Map>>()?,
             ),
         })
@@ -184,23 +187,23 @@ impl TryInto<serde_json::Value> for OwnedValue {
     fn try_into(self) -> ConvertResult<serde_json::Value> {
         use serde_json::Value;
         Ok(match self {
-            OwnedValue::Null => Value::Null,
-            OwnedValue::Bool(b) => Value::Bool(b),
-            OwnedValue::I64(n) => Value::Number(n.into()),
-            OwnedValue::F64(n) => {
+            Self::Null => Value::Null,
+            Self::Bool(b) => Value::Bool(b),
+            Self::I64(n) => Value::Number(n.into()),
+            Self::F64(n) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)
                 } else {
                     return Err(SerdeConversionError::NanOrInfinity);
                 }
             }
-            OwnedValue::String(b) => Value::String(b.to_string()),
-            OwnedValue::Array(a) => Value::Array(
+            Self::String(b) => Value::String(b.to_string()),
+            Self::Array(a) => Value::Array(
                 a.into_iter()
                     .map(|v| v.try_into())
                     .collect::<ConvertResult<Vec<Value>>>()?,
             ),
-            OwnedValue::Object(o) => Value::Object(
+            Self::Object(o) => Value::Object(
                 o.into_iter()
                     .map(|(k, v)| Ok((k.to_string(), v.try_into()?)))
                     .collect::<ConvertResult<serde_json::map::Map<String, Value>>>()?,
@@ -220,9 +223,10 @@ impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
                 if let Some(n) = b.as_i64() {
                     BorrowedValue::I64(n)
                 } else if let Some(n) = b.as_u64() {
-                    if n > std::i64::MAX as u64 {
+                    if n > i64::max_value() as u64 {
                         return Err(SerdeConversionError::IntegerTooLarge);
                     }
+                    #[allow(clippy::cast_possible_wrap)]
                     BorrowedValue::I64(n as i64)
                 } else if let Some(n) = b.as_f64() {
                     BorrowedValue::F64(n)

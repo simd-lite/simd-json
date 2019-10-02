@@ -32,7 +32,7 @@ unsafe fn check_utf8(
     has_error: &mut __m256i,
     previous: &mut AvxProcessedUtfBytes,
 ) {
-    let highbit: __m256i = _mm256_set1_epi8(static_cast_i8!(0x80u8));
+    let highbit: __m256i = _mm256_set1_epi8(static_cast_i8!(0x80_u8));
     if (_mm256_testz_si256(_mm256_or_si256(input.lo, input.hi), highbit)) == 1 {
         // it is ascii, we just check continuation
         *has_error = _mm256_or_si256(
@@ -57,10 +57,12 @@ unsafe fn check_utf8(
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
     unsafe {
+        #[allow(clippy::cast_possible_wrap)]
         let mask: __m256i = _mm256_set1_epi8(m as i8);
         let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.lo, mask);
         let res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)));
         let cmp_res_1: __m256i = _mm256_cmpeq_epi8(input.hi, mask);
+        #[allow(clippy::cast_sign_loss)]
         let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
         res_0 | (res_1 << 32)
     }
@@ -74,6 +76,7 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
         // TODO: c++ uses static cast, here what are the implications?
         let res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)));
         let cmp_res_1: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval);
+        #[allow(clippy::cast_sign_loss)]
         let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
         res_0 | (res_1 << 32)
     }
@@ -141,7 +144,7 @@ unsafe fn find_quote_mask_and_bits(
     *quote_bits = cmp_mask_against_input(&input, b'"');
     *quote_bits &= !odd_ends;
     // remove from the valid quoted region the unescapted characters.
-    #[allow(overflowing_literals)]
+    #[allow(overflowing_literals, clippy::cast_sign_loss)]
     let mut quote_mask: u64 = _mm_cvtsi128_si64(_mm_clmulepi64_si128(
         _mm_set_epi64x(0, static_cast_i64!(*quote_bits)),
         _mm_set1_epi8(0xFF),
@@ -224,6 +227,7 @@ unsafe fn find_whitespace_and_structurals(
     );
 
     let structural_res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_lo)));
+    #[allow(clippy::cast_sign_loss)]
     let structural_res_1: u64 = _mm256_movemask_epi8(tmp_hi) as u64;
     *structurals = !(structural_res_0 | (structural_res_1 << 32));
 
@@ -237,6 +241,7 @@ unsafe fn find_whitespace_and_structurals(
     );
 
     let ws_res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_ws_lo)));
+    #[allow(clippy::cast_sign_loss)]
     let ws_res_1: u64 = _mm256_movemask_epi8(tmp_ws_hi) as u64;
     *whitespace = !(ws_res_0 | (ws_res_1 << 32));
 }
@@ -276,6 +281,7 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     }
 
     while bits != 0 {
+        #[allow(clippy::cast_possible_wrap)]
         unsafe {
             let v0 = bits.trailing_zeros() as i32;
             bits &= bits.wrapping_sub(1);
@@ -350,6 +356,7 @@ fn finalize_structurals(
 //#[inline(never)]
 impl<'de> Deserializer<'de> {
     //#[inline(never)]
+    #[allow(clippy::cast_possible_truncation)]
     pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
         // 6 is a heuristic number to estimate it turns out a rate of 1/6 structural caracters lears
@@ -412,6 +419,7 @@ impl<'de> Deserializer<'de> {
 
             // take the previous iterations structural bits, not our current iteration,
             // and flatten
+            #[allow(clippy::cast_possible_truncation)]
             flatten_bits(&mut structural_indexes, idx as u32, structurals);
 
             let mut whitespace: u64 = 0;
@@ -493,10 +501,10 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        if _mm256_testz_si256(has_error, has_error) != 0 {
-            Ok(structural_indexes)
-        } else {
+        if _mm256_testz_si256(has_error, has_error) == 0 {
             Err(ErrorType::InvalidUTF8)
+        } else {
+            Ok(structural_indexes)
         }
     }
 }

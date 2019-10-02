@@ -151,7 +151,7 @@ pub struct DumpGenerator<VT: ValueTrait> {
 
 impl<VT: ValueTrait> DumpGenerator<VT> {
     pub fn new() -> Self {
-        DumpGenerator {
+        Self {
             _value: PhantomData,
             code: Vec::with_capacity(1024),
         }
@@ -200,7 +200,7 @@ pub struct PrettyGenerator<V: ValueTrait> {
 
 impl<V: ValueTrait> PrettyGenerator<V> {
     pub fn new(spaces: u16) -> Self {
-        PrettyGenerator {
+        Self {
             code: Vec::with_capacity(1024),
             dent: 0,
             spaces_per_indent: spaces,
@@ -284,7 +284,7 @@ where
 
     #[inline(always)]
     fn get_writer(&mut self) -> &mut W {
-        &mut self.writer
+        self.writer
     }
 
     #[inline(always)]
@@ -330,7 +330,7 @@ where
 
     #[inline(always)]
     fn get_writer(&mut self) -> &mut W {
-        &mut self.writer
+        self.writer
     }
 
     #[inline(always)]

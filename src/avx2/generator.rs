@@ -18,7 +18,9 @@ where
 {
     let zero = _mm256_set1_epi8(0);
     let lower_quote_range = _mm256_set1_epi8(0x1F as i8);
+    #[allow(clippy::cast_possible_wrap)]
     let quote = _mm256_set1_epi8(b'"' as i8);
+    #[allow(clippy::cast_possible_wrap)]
     let backslash = _mm256_set1_epi8(b'\\' as i8);
     while *len - *idx >= 32 {
         // Load 32 bytes of data;
@@ -37,7 +39,9 @@ where
         let is_unchanged = _mm256_xor_si256(data, in_quote_range);
         let in_range = _mm256_cmpeq_epi8(is_unchanged, zero);
         let quote_bits = _mm256_movemask_epi8(_mm256_or_si256(bs_or_quote, in_range));
-        if quote_bits != 0 {
+        if quote_bits == 0 {
+            *idx += 32;
+        } else {
             let quote_dist = quote_bits.trailing_zeros() as usize;
             stry!(writer.write_all(&string[0..*idx + quote_dist]));
             let ch = string[*idx + quote_dist];
@@ -49,8 +53,6 @@ where
             *string = &string[*idx + quote_dist + 1..];
             *idx = 0;
             *len = string.len();
-        } else {
-            *idx += 32;
         }
     }
     stry!(writer.write_all(&string[0..*idx]));
