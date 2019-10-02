@@ -5,3 +5,4 @@ Cargo.lock
 proptest-regressions
 .baseline
 .current
+.cargo
