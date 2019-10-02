@@ -38,17 +38,18 @@ impl ValueTrait for Value {
     type Array = Vec<Value>;
 
     fn get(&self, k: &str) -> Option<&Value> {
-        match self {
-            Value::Object(m) => m.get(k),
-            _ => None,
-        }
+        self.as_object().and_then(|a| a.get(k))
     }
 
     fn get_mut(&mut self, k: &str) -> Option<&mut Value> {
-        match self {
-            Value::Object(m) => m.get_mut(k),
-            _ => None,
-        }
+        self.as_object_mut().and_then(|a| a.get_mut(k))
+    }
+
+    fn get_idx(&self, i: usize) -> Option<&Self> {
+        self.as_array().and_then(|a| a.get(i))
+    }
+    fn get_idx_mut(&mut self, i: usize) -> Option<&mut Self> {
+        self.as_array_mut().and_then(|a| a.get_mut(i))
     }
 
     fn kind(&self) -> ValueType {
@@ -108,7 +109,14 @@ impl ValueTrait for Value {
 
     fn as_string(&self) -> Option<String> {
         match self {
-            Value::String(s) => Some(s.to_string()),
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        }
+    }
+
+    fn as_str(&self) -> Option<&str> {
+        match self {
+            Value::String(s) => Some(s.as_str()),
             _ => None,
         }
     }
@@ -249,5 +257,149 @@ impl<'de> OwnedDeserializer<'de> {
             self.de.skip();
         }
         Ok(Value::Object(res))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn conversions_i() {
+        let v = Value::from(std::i64::MAX);
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(!v.is_i32());
+        assert!(!v.is_u32());
+        assert!(!v.is_i16());
+        assert!(!v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        let v = Value::from(std::i64::MIN);
+        assert!(v.is_i128());
+        assert!(!v.is_u128());
+        assert!(v.is_i64());
+        assert!(!v.is_u64());
+        assert!(!v.is_i32());
+        assert!(!v.is_u32());
+        assert!(!v.is_i16());
+        assert!(!v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        let v = Value::from(std::i32::MAX);
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(v.is_i32());
+        assert!(v.is_u32());
+        assert!(!v.is_i16());
+        assert!(!v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        let v = Value::from(std::i32::MIN);
+        assert!(v.is_i128());
+        assert!(!v.is_u128());
+        assert!(v.is_i64());
+        assert!(!v.is_u64());
+        assert!(v.is_i32());
+        assert!(!v.is_u32());
+        assert!(!v.is_i16());
+        assert!(!v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        let v = Value::from(std::i16::MAX);
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(v.is_i32());
+        assert!(v.is_u32());
+        assert!(v.is_i16());
+        assert!(v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        let v = Value::from(std::i16::MIN);
+        assert!(v.is_i128());
+        assert!(!v.is_u128());
+        assert!(v.is_i64());
+        assert!(!v.is_u64());
+        assert!(v.is_i32());
+        assert!(!v.is_u32());
+        assert!(v.is_i16());
+        assert!(!v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+
+        let v = Value::from(std::i8::MAX);
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(v.is_i32());
+        assert!(v.is_u32());
+        assert!(v.is_i16());
+        assert!(v.is_u16());
+        assert!(v.is_i8());
+        assert!(v.is_u8());
+        let v = Value::from(std::i8::MIN);
+        assert!(v.is_i128());
+        assert!(!v.is_u128());
+        assert!(v.is_i64());
+        assert!(!v.is_u64());
+        assert!(v.is_i32());
+        assert!(!v.is_u32());
+        assert!(v.is_i16());
+        assert!(!v.is_u16());
+        assert!(v.is_i8());
+        assert!(!v.is_u8());
+    }
+    #[test]
+    fn conversions_u() {
+        let v = Value::from(std::u64::MIN);
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(v.is_i32());
+        assert!(v.is_u32());
+        assert!(v.is_i16());
+        assert!(v.is_u16());
+        assert!(v.is_i8());
+        assert!(v.is_u8());
+        let v = Value::from(std::u32::MAX);
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(!v.is_i32());
+        assert!(v.is_u32());
+        assert!(!v.is_i16());
+        assert!(!v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        let v = Value::from(std::u16::MAX);
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(v.is_i32());
+        assert!(v.is_u32());
+        assert!(!v.is_i16());
+        assert!(v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        let v = Value::from(std::u8::MAX);
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(v.is_i32());
+        assert!(v.is_u32());
+        assert!(v.is_i16());
+        assert!(v.is_u16());
+        assert!(!v.is_i8());
+        assert!(v.is_u8());
     }
 }
