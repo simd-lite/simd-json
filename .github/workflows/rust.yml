@@ -44,6 +44,16 @@ jobs:
       - name: install tarpaulin
         run: cargo install cargo-tarpaulin -f
       - name: run tarpaulin
+        env:
+          RUSTFLAGS: '-C target-cpu=native'
+        run: cargo tarpaulin -v --out Xml
+      - uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{secrets.CODECOV_TOKEN}} #required
+          file: ./cobertura.xml
+      - name: run tarpaulin
+        env:
+          RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
         run: cargo tarpaulin -v --out Xml
       - uses: codecov/codecov-action@v1.0.2
         with:
