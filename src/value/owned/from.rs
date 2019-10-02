@@ -1,8 +1,8 @@
 use super::Value;
 use crate::numberparse::Number;
 use crate::BorrowedValue;
-use std::iter::FromIterator;
 use std::borrow::Cow;
+use std::iter::FromIterator;
 
 impl From<Number> for Value {
     #[inline]

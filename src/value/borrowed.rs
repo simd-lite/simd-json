@@ -58,7 +58,6 @@ impl<'v> ValueTrait for Value<'v> {
         self.as_array_mut().and_then(|a| a.get_mut(i))
     }
 
-
     fn kind(&self) -> ValueType {
         match self {
             Value::Null => ValueType::Null,
