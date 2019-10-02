@@ -51,11 +51,11 @@ impl<'de> Deserializer<'de> {
             let bs_bits: u32 = unsafe {
                 static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                     v,
-            #[allow(clippy::cast_possible_wrap)]
+                    #[allow(clippy::cast_possible_wrap)]
                     _mm256_set1_epi8(b'\\' as i8)
                 )))
             };
-        #[allow(clippy::cast_possible_wrap)]
+            #[allow(clippy::cast_possible_wrap)]
             let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
             let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
@@ -123,7 +123,7 @@ impl<'de> Deserializer<'de> {
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
             let bs_bits: u32 = unsafe {
-            static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
+                static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
                     v,
                     #[allow(clippy::cast_possible_wrap)]
                     _mm256_set1_epi8(b'\\' as i8)

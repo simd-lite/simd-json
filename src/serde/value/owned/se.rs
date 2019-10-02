@@ -625,13 +625,9 @@ impl serde::ser::SerializeStruct for SerializeMap {
         match self {
             Self::Map { .. } => serde::ser::SerializeMap::end(self),
             #[cfg(feature = "arbitrary_precision")]
-            Self::Number { out_value, .. } => {
-                Ok(out_value.expect("number value was not emitted"))
-            }
+            Self::Number { out_value, .. } => Ok(out_value.expect("number value was not emitted")),
             #[cfg(feature = "raw_value")]
-            Self::RawValue { out_value, .. } => {
-                Ok(out_value.expect("raw value was not emitted"))
-            }
+            Self::RawValue { out_value, .. } => Ok(out_value.expect("raw value was not emitted")),
         }
     }
 }

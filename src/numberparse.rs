@@ -167,7 +167,11 @@ impl<'de> Deserializer<'de> {
     /// Note: a redesign could avoid this function entirely.
     ///
     #[inline(never)]
-    #[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap, clippy::cast_precision_loss)]
+    #[allow(
+        clippy::cast_sign_loss,
+        clippy::cast_possible_wrap,
+        clippy::cast_precision_loss
+    )]
     fn parse_float(&self, p: &[u8], negative: bool) -> Result<Number> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: f64;

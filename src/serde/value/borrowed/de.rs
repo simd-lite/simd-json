@@ -5,8 +5,8 @@ use serde_ext::de::{
 };
 use serde_ext::forward_to_deserialize_any;
 use std::borrow::Cow;
-use std::fmt;
 use std::convert::TryInto;
+use std::fmt;
 
 impl<'de> de::Deserializer<'de> for Value<'de> {
     type Error = Error;
