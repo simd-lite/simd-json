@@ -27,11 +27,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all
   tarpaulin:
-    strategy:
-      matrix:
-        rustflags:
-          - '-C target-cpu=native'
-          - '-C target-cpu=native -C target-feature=-avx2'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -45,12 +40,16 @@ jobs:
         run: cargo install cargo-tarpaulin -f
       - name: run tarpaulin
         env:
-          RUSTFLAGS: ${{ matrix.rustflags }}
-        run: cargo tarpaulin -v --out Xml
+          RUSTFLAGS: '-C target-cpu=native'
+        run: cargo tarpaulin -v --out Xml && cp cobertura.xml avx.xml
+      - name: run tarpaulin
+        env:
+          RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
+        run: cargo tarpaulin -v --out Xml && cp cobertura.xml ssl.xml
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
-          file: ./cobertura.xml     
+          file: ./*.xml     
   # tarpaulin-neon:
   #   runs-on: ubuntu-latest
   #   steps:
