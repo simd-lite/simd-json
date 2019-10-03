@@ -10,7 +10,11 @@ use halfbrown::HashMap;
 use std::fmt;
 use std::ops::Index;
 
-pub type Map = HashMap<String, Value>;
+/// Representation of a JSON object
+#[deprecated(since = "0.1.21", note = "Please use Object instead")]
+pub type Map = Object;
+/// Representation of a JSON object
+pub type Object = HashMap<String, Value>;
 
 /// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
@@ -22,19 +26,30 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
     OwnedDeserializer::from_deserializer(de).parse()
 }
 
+/// Owned JSON-DOM Value, consider using the `ValueTrait`
+/// to access it's content.
+/// This is slower then the `BorrowedValue` as a tradeoff
+/// for getting rid of lifetimes.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
+    /// null
     Null,
+    /// boolean type
     Bool(bool),
-    I64(i64),
+    /// float type
     F64(f64),
+    /// integer type
+    I64(i64),
+    /// string type
     String(String),
+    /// array type
     Array(Vec<Value>),
-    Object(Map),
+    /// object type
+    Object(Object),
 }
 
 impl ValueTrait for Value {
-    type Map = Map;
+    type Object = Object;
     type Array = Vec<Self>;
 
     fn get(&self, k: &str) -> Option<&Self> {
@@ -52,7 +67,7 @@ impl ValueTrait for Value {
         self.as_array_mut().and_then(|a| a.get_mut(i))
     }
 
-    fn kind(&self) -> ValueType {
+    fn value_type(&self) -> ValueType {
         match self {
             Self::Null => ValueType::Null,
             Self::Bool(_) => ValueType::Bool,
@@ -137,13 +152,13 @@ impl ValueTrait for Value {
         }
     }
 
-    fn as_object(&self) -> Option<&Map> {
+    fn as_object(&self) -> Option<&<Self as ValueTrait>::Object> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
         }
     }
-    fn as_object_mut(&mut self) -> Option<&mut Self::Map> {
+    fn as_object_mut(&mut self) -> Option<&mut <Self as ValueTrait>::Object> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -241,10 +256,10 @@ impl<'de> OwnedDeserializer<'de> {
 
         if unlikely!(es == 0) {
             self.de.skip();
-            return Ok(Value::Object(Map::new()));
+            return Ok(Value::Object(Object::new()));
         }
 
-        let mut res = Map::with_capacity(es);
+        let mut res = Object::with_capacity(es);
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
@@ -265,9 +280,10 @@ impl<'de> OwnedDeserializer<'de> {
 #[cfg(test)]
 mod test {
     use super::*;
+
     #[test]
-    fn conversions_i() {
-        let v = Value::from(std::i64::MAX);
+    fn conversions_i64() {
+        let v = Value::from(i64::max_value());
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -278,7 +294,7 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
-        let v = Value::from(std::i64::MIN);
+        let v = Value::from(i64::min_value());
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -289,7 +305,11 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
-        let v = Value::from(std::i32::MAX);
+    }
+
+    #[test]
+    fn conversions_i32() {
+        let v = Value::from(i32::max_value());
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -300,7 +320,7 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
-        let v = Value::from(std::i32::MIN);
+        let v = Value::from(i32::min_value());
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -311,7 +331,11 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
-        let v = Value::from(std::i16::MAX);
+    }
+
+    #[test]
+    fn conversions_i16() {
+        let v = Value::from(i16::max_value());
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -322,7 +346,7 @@ mod test {
         assert!(v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
-        let v = Value::from(std::i16::MIN);
+        let v = Value::from(i16::min_value());
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -333,8 +357,11 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
+    }
 
-        let v = Value::from(std::i8::MAX);
+    #[test]
+    fn conversions_i8() {
+        let v = Value::from(i8::max_value());
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -345,7 +372,7 @@ mod test {
         assert!(v.is_u16());
         assert!(v.is_i8());
         assert!(v.is_u8());
-        let v = Value::from(std::i8::MIN);
+        let v = Value::from(i8::min_value());
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -358,8 +385,8 @@ mod test {
         assert!(!v.is_u8());
     }
     #[test]
-    fn conversions_u() {
-        let v = Value::from(std::u64::MIN);
+    fn conversions_u64() {
+        let v = Value::from(u64::min_value());
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -370,7 +397,11 @@ mod test {
         assert!(v.is_u16());
         assert!(v.is_i8());
         assert!(v.is_u8());
-        let v = Value::from(std::u32::MAX);
+    }
+
+    #[test]
+    fn conversions_u32() {
+        let v = Value::from(u32::max_value());
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -381,7 +412,11 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
-        let v = Value::from(std::u16::MAX);
+    }
+
+    #[test]
+    fn conversions_u16() {
+        let v = Value::from(u16::max_value());
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -392,7 +427,11 @@ mod test {
         assert!(v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
-        let v = Value::from(std::u8::MAX);
+    }
+
+    #[test]
+    fn conversions_u8() {
+        let v = Value::from(u8::max_value());
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());

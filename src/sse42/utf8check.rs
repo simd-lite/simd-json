@@ -41,7 +41,7 @@ fn avxcheck_smaller_than_0xf4(current_bytes: __m128i, has_error: &mut __m128i) {
     *has_error = unsafe {
         _mm_or_si128(
             *has_error,
-            _mm_subs_epu8(current_bytes, _mm_set1_epi8(static_cast_i8!(0xF4u8))),
+            _mm_subs_epu8(current_bytes, _mm_set1_epi8(static_cast_i8!(0xF4_u8))),
         )
     };
 }
@@ -104,16 +104,16 @@ fn avxcheck_first_continuation_max(
 ) {
     unsafe {
         let mask_ed: __m128i =
-            _mm_cmpeq_epi8(off1_current_bytes, _mm_set1_epi8(static_cast_i8!(0xEDu8)));
+            _mm_cmpeq_epi8(off1_current_bytes, _mm_set1_epi8(static_cast_i8!(0xED_u8)));
         let mask_f4: __m128i =
-            _mm_cmpeq_epi8(off1_current_bytes, _mm_set1_epi8(static_cast_i8!(0xF4u8)));
+            _mm_cmpeq_epi8(off1_current_bytes, _mm_set1_epi8(static_cast_i8!(0xF4_u8)));
 
         let badfollow_ed: __m128i = _mm_and_si128(
-            _mm_cmpgt_epi8(current_bytes, _mm_set1_epi8(static_cast_i8!(0x9Fu8))),
+            _mm_cmpgt_epi8(current_bytes, _mm_set1_epi8(static_cast_i8!(0x9F_u8))),
             mask_ed,
         );
         let badfollow_f4: __m128i = _mm_and_si128(
-            _mm_cmpgt_epi8(current_bytes, _mm_set1_epi8(static_cast_i8!(0x8Fu8))),
+            _mm_cmpgt_epi8(current_bytes, _mm_set1_epi8(static_cast_i8!(0x8F_u8))),
             mask_f4,
         );
 
@@ -151,10 +151,10 @@ fn avxcheck_overlong(
                 -128,
                 -128,
                 -128, // 10xx => false
-                static_cast_i8!(0xC2u8),
-                -128,                    // 110x
-                static_cast_i8!(0xE1u8), // 1110
-                static_cast_i8!(0xF1u8), // 1111
+                static_cast_i8!(0xC2_u8),
+                -128,                     // 110x
+                static_cast_i8!(0xE1_u8), // 1110
+                static_cast_i8!(0xF1_u8), // 1111
             ),
             off1_hibits,
         );
@@ -187,7 +187,7 @@ fn avxcheck_overlong(
     }
 }
 
-pub struct AvxProcessedUtfBytes {
+pub(crate) struct AvxProcessedUtfBytes {
     rawbytes: __m128i,
     high_nibbles: __m128i,
     pub carried_continuations: __m128i,
@@ -197,7 +197,7 @@ impl Default for AvxProcessedUtfBytes {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         unsafe {
-            AvxProcessedUtfBytes {
+            Self {
                 rawbytes: _mm_setzero_si128(),
                 high_nibbles: _mm_setzero_si128(),
                 carried_continuations: _mm_setzero_si128(),
@@ -215,7 +215,7 @@ fn avx_count_nibbles(bytes: __m128i, answer: &mut AvxProcessedUtfBytes) {
 // check whether the current bytes are valid UTF-8
 // at the end of the function, previous gets updated
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn avxcheck_utf8_bytes(
+pub(crate) fn avxcheck_utf8_bytes(
     current_bytes: __m128i,
     previous: &AvxProcessedUtfBytes,
     has_error: &mut __m128i,

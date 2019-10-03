@@ -72,6 +72,7 @@ unsafe fn check_utf8(
 /// cheaper in AVX512.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
+    #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
     unsafe {
         let mask: __m128i = _mm_set1_epi8(m as i8);
         let cmp_res_0: __m128i = _mm_cmpeq_epi8(input.v0, mask);
@@ -89,6 +90,7 @@ fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
 // find all values less than or equal than the content of maxval (using unsigned arithmetic)
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m128i) -> u64 {
+    #[allow(clippy::cast_sign_loss)]
     unsafe {
         let cmp_res_0: __m128i = _mm_cmpeq_epi8(_mm_max_epu8(maxval, input.v0), maxval);
         let res_0: u64 = u64::from(static_cast_u32!(_mm_movemask_epi8(cmp_res_0)));
@@ -164,7 +166,7 @@ unsafe fn find_quote_mask_and_bits(
     *quote_bits = cmp_mask_against_input(&input, b'"');
     *quote_bits &= !odd_ends;
     // remove from the valid quoted region the unescapted characters.
-    #[allow(overflowing_literals)]
+    #[allow(overflowing_literals, clippy::cast_sign_loss)]
     let mut quote_mask: u64 = _mm_cvtsi128_si64(_mm_clmulepi64_si128(
         _mm_set_epi64x(0, static_cast_i64!(*quote_bits)),
         _mm_set1_epi8(0xFF),
@@ -186,6 +188,7 @@ unsafe fn find_quote_mask_and_bits(
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(clippy::cast_sign_loss)]
 unsafe fn find_whitespace_and_structurals(
     input: &SimdInput,
     whitespace: &mut u64,
@@ -328,6 +331,7 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     }
 
     while bits != 0 {
+        #[allow(clippy::cast_possible_wrap)]
         unsafe {
             let v0 = bits.trailing_zeros() as i32;
             bits &= bits.wrapping_sub(1);
@@ -394,7 +398,10 @@ fn finalize_structurals(
 //#[inline(never)]
 impl<'de> Deserializer<'de> {
     //#[inline(never)]
-    pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
+    #[allow(clippy::cast_possible_truncation)]
+    pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
         // 6 is a heuristic number to estimate it turns out a rate of 1/6 structural caracters lears
         // almost never to relocations.
@@ -537,10 +544,10 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        if _mm_testz_si128(has_error, has_error) != 0 {
-            Ok(structural_indexes)
-        } else {
+        if _mm_testz_si128(has_error, has_error) == 0 {
             Err(ErrorType::InvalidUTF8)
+        } else {
+            Ok(structural_indexes)
         }
     }
 }

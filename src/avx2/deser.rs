@@ -5,10 +5,9 @@ use std::arch::x86_64::*;
 
 use std::mem;
 
-pub use crate::avx2::utf8check::*;
 pub use crate::error::{Error, ErrorType};
-pub use crate::stringparse::*;
-pub use crate::Deserializer;
+use crate::stringparse::*;
+use crate::Deserializer;
 pub use crate::Result;
 
 impl<'de> Deserializer<'de> {

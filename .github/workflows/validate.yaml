@@ -4,6 +4,11 @@ on: [push]
 
 jobs:
   clippy_check:
+    strategy:
+      matrix:
+        rustflags:
+          - '-C target-cpu=native'
+          - '-C target-cpu=native -C target-feature=-avx2'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -16,10 +21,17 @@ jobs:
       - name: Install clippy
         run: rustup component add clippy
       - uses: actions-rs/clippy-check@v1
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all
-  tarpaulin-avx:
+  tarpaulin:
+    strategy:
+      matrix:
+        rustflags:
+          - '-C target-cpu=native'
+          - '-C target-cpu=native -C target-feature=-avx2'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -33,32 +45,12 @@ jobs:
         run: cargo install cargo-tarpaulin -f
       - name: run tarpaulin
         env:
-          RUSTFLAGS: '-C target-cpu=native'
+          RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo tarpaulin -v --out Xml
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
-          file: ./cobertura.xml
-  tarpaulin-sse:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config cmake zlib1g-dev
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: install tarpaulin
-        run: cargo install cargo-tarpaulin -f
-      - name: run tarpaulin
-        env:
-          RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
-        run: cargo tarpaulin -v --out Xml
-      - uses: codecov/codecov-action@v1.0.2
-        with:
-          token: ${{secrets.CODECOV_TOKEN}} #required
-          file: ./cobertura.xml          
+          file: ./cobertura.xml     
   # tarpaulin-neon:
   #   runs-on: ubuntu-latest
   #   steps:

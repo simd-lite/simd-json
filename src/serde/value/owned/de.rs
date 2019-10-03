@@ -1,4 +1,4 @@
-use crate::value::owned::{Map, Value};
+use crate::value::owned::{Object, Value};
 use crate::{stry, Error};
 use serde::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Unexpected, Visitor,
@@ -55,12 +55,12 @@ where
     }
 }
 
-fn visit_object<'de, V>(object: Map, visitor: V) -> Result<V::Value, Error>
+fn visit_object<'de, V>(object: Object, visitor: V) -> Result<V::Value, Error>
 where
     V: Visitor<'de>,
 {
     let len = object.len();
-    let mut deserializer = MapDeserializer::new(object);
+    let mut deserializer = ObjectDeserializer::new(object);
     let map = stry!(visitor.visit_map(&mut deserializer));
     let remaining = deserializer.iter.len();
     if remaining == 0 {
@@ -137,13 +137,13 @@ impl<'de> SeqAccess<'de> for SeqDeserializer {
     }
 }
 
-struct MapDeserializer {
-    iter: <Map as IntoIterator>::IntoIter,
+struct ObjectDeserializer {
+    iter: <Object as IntoIterator>::IntoIter,
     value: Option<Value>,
 }
 
-impl MapDeserializer {
-    fn new(map: Map) -> Self {
+impl ObjectDeserializer {
+    fn new(map: Object) -> Self {
         Self {
             iter: map.into_iter(),
             value: None,
@@ -151,7 +151,7 @@ impl MapDeserializer {
     }
 }
 
-impl<'de> MapAccess<'de> for MapDeserializer {
+impl<'de> MapAccess<'de> for ObjectDeserializer {
     type Error = Error;
 
     fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
@@ -188,7 +188,7 @@ impl<'de> MapAccess<'de> for MapDeserializer {
     }
 }
 
-impl<'de> serde::Deserializer<'de> for MapDeserializer {
+impl<'de> serde::Deserializer<'de> for ObjectDeserializer {
     type Error = Error;
 
     #[inline]
@@ -595,7 +595,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         let size = map.size_hint().unwrap_or_default();
 
-        let mut m = Map::with_capacity(size);
+        let mut m = Object::with_capacity(size);
         while let Some(k) = map.next_key()? {
             let v = map.next_value()?;
             m.insert(k, v);

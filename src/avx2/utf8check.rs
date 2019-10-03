@@ -228,7 +228,7 @@ fn avxcheck_overlong(
     }
 }
 
-pub struct AvxProcessedUtfBytes {
+pub(crate) struct AvxProcessedUtfBytes {
     rawbytes: __m256i,
     high_nibbles: __m256i,
     pub carried_continuations: __m256i,
@@ -257,7 +257,7 @@ fn avx_count_nibbles(bytes: __m256i, answer: &mut AvxProcessedUtfBytes) {
 // check whether the current bytes are valid UTF-8
 // at the end of the function, previous gets updated
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn avxcheck_utf8_bytes(
+pub(crate) fn avxcheck_utf8_bytes(
     current_bytes: __m256i,
     previous: &AvxProcessedUtfBytes,
     has_error: &mut __m256i,

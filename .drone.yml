@@ -12,3 +12,9 @@ steps:
   - rustup update
   - cargo clean && cargo +nightly build --verbose --all --features neon
   - cargo +nightly test --verbose --all --features neon
+- name: coverage
+  image: plugins/codecov
+  settings:
+    token: $
+    files:
+     - *.xml

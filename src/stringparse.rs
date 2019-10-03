@@ -1,12 +1,11 @@
 use crate::charutils::*;
 use crate::error::*;
-//use crate::Result;
 
-// begin copypasta
-// These chars yield themselves: " \ /
-// b -> backspace, f -> formfeed, n -> newline, r -> cr, t -> horizontal tab
-// u not handled in this table as it's complex
-pub const ESCAPE_MAP: [u8; 256] = [
+/// begin copypasta
+/// These chars yield themselves: " \ /
+/// b -> backspace, f -> formfeed, n -> newline, r -> cr, t -> horizontal tab
+/// u not handled in this table as it's complex
+pub(crate) const ESCAPE_MAP: [u8; 256] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 0x0.
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0x2f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -20,15 +19,14 @@ pub const ESCAPE_MAP: [u8; 256] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-// handle a unicode codepoint
-// write appropriate values into dest
-// src will advance 6 bytes or 12 bytes
-// dest will advance a variable amount (return via pointer)
-// return true if the unicode codepoint was valid
-// We work in little-endian then swap at write time
-
+/// handle a unicode codepoint
+/// write appropriate values into dest
+/// src will advance 6 bytes or 12 bytes
+/// dest will advance a variable amount (return via pointer)
+/// return true if the unicode codepoint was valid
+/// We work in little-endian then swap at write time
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub fn handle_unicode_codepoint(
+pub(crate) fn handle_unicode_codepoint(
     mut src_ptr: &[u8],
     dst_ptr: &mut [u8],
 ) -> Result<(usize, usize), ErrorType> {
