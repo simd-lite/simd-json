@@ -7,11 +7,15 @@ platform:
 steps:
 - name: test
   image: rust:1
+  env:
+      RUSTFLAGS='-C target-cpu=native'
   commands:
   - rustup default nightly
   - rustup update
   - cargo clean && cargo +nightly build --verbose --all --features neon
   - cargo +nightly test --verbose --all --features neon
+  - cargo install cargo-tarpaulin -f
+  - cargo tarpaulin -v --out Xml
 - name: coverage
   image: plugins/codecov
   settings:
