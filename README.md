@@ -6,8 +6,8 @@
 [simd-json.rs]: https://simd-json.rs
 [Latest Version]: https://img.shields.io/crates/v/simd-json.svg
 [crates.io]: https://crates.io/crates/simd-json
-[Code Coverage] : https://codecov.io/gh/simd-lite/simdjson-rs/badge.svg
-[codecov.io] : https://codecov.io/gh/simd-lite/simdjson-rs
+[Code Coverage]: https://codecov.io/gh/simd-lite/simdjson-rs/badge.svg
+[codecov.io]: https://codecov.io/gh/simd-lite/simdjson-rs
 
 **Rust port of extremely fast [simdjson](https://github.com/lemire/simdjson) JSON parser with [serde](serde.rs) compatibility.**
 
