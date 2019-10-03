@@ -15,11 +15,11 @@ steps:
   - rustup default nightly
   - rustup update
   - cargo clean && cargo +nightly build --verbose --all --features neon
+  - cargo +nightly test --verbose --all --features neon
 #  - cargo +nightly install cargo-clippy -f
 #  - cargo +nightly clippy --verbose --all --features neon
-  - cargo +nightly test --verbose --all --features neon
-  - cargo +nightly install cargo-tarpaulin -f
-  - cargo +nightly tarpaulin -v --out Xml
+#  - cargo +nightly install cargo-tarpaulin -f
+#  - cargo +nightly tarpaulin -v --out Xml
 - name: coverage
   image: plugins/codecov
   settings:
