@@ -28,6 +28,7 @@
     // We might want to revisit inline_always
     allow(clippy::module_name_repetitions, clippy::inline_always)
 )]
+#![deny(missing_docs)]
 
 //! simdjson-rs is a rust port of the simejson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
@@ -100,7 +101,9 @@
 
 #[cfg(feature = "serde_impl")]
 extern crate serde as serde_ext;
+
 #[cfg(feature = "serde_impl")]
+/// serde related helper functions
 pub mod serde;
 
 mod charutils;
@@ -142,6 +145,7 @@ pub use crate::neon::deser::*;
 use crate::neon::stage1::SIMDJSON_PADDING;
 
 mod stage2;
+/// simd-json JSON-DOM value
 pub mod value;
 
 use crate::numberparse::Number;
@@ -152,9 +156,10 @@ use std::str;
 pub use crate::error::{Error, ErrorType};
 pub use crate::value::*;
 
+/// simd-json Result type
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub struct Deserializer<'de> {
+pub(crate) struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
     // the beginning as data is parsed.
     input: &'de mut [u8],
@@ -293,9 +298,11 @@ impl<'de> Deserializer<'de> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::serde::from_slice;
     use super::{
-        owned::to_value, owned::Map, owned::Value, to_borrowed_value, to_owned_value, Deserializer,
+        owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
+        Deserializer,
     };
     use halfbrown::HashMap;
     use proptest::prelude::*;
@@ -692,7 +699,10 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![Value::Object(Map::new()), Value::Null]))
+            Ok(Value::Array(vec![
+                Value::Object(Object::new()),
+                Value::Null
+            ]))
         );
     }
 
@@ -824,7 +834,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        let mut h = Map::new();
+        let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
         assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
     }
@@ -838,7 +848,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        let mut h = Map::new();
+        let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
         h.insert("badger".into(), Value::from("snot"));
         assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
@@ -1078,7 +1088,7 @@ mod tests {
     // Is this a real issue worth improving?
     #[test]
     fn silly_float1() {
-        let v = Value::from(3.0901448042322017e305);
+        let v = Value::from(3.090_144_804_232_201_7e305);
         let s = v.encode();
         dbg!(&s);
         let mut bytes = s.as_bytes().to_vec();
@@ -1089,7 +1099,7 @@ mod tests {
     #[test]
     #[ignore]
     fn silly_float2() {
-        let v = Value::from(-6.990585694841803e305);
+        let v = Value::from(-6.990_585_694_841_803e305);
         let s = v.encode();
         dbg!(&s);
         let mut bytes = s.as_bytes().to_vec();
@@ -1157,8 +1167,8 @@ mod tests {
         fn prop_json_encode_decode(val in arb_json_value()) {
             let mut encoded: Vec<u8> = Vec::new();
             let _ = val.write(&mut encoded);
-            println!("{}", String::from_utf8(encoded.clone()).unwrap());
-            let res = to_owned_value(&mut encoded).unwrap();
+            println!("{}", String::from_utf8_lossy(&encoded.clone()));
+            let res = to_owned_value(&mut encoded).expect("can't convert");
             assert_eq!(val, res);
         }
 
@@ -1188,7 +1198,7 @@ mod tests {
                 let v_simd_borrowed = to_borrowed_value(d3);
                 dbg!(&v_simd_borrowed);
                 assert!(v_simd_borrowed.is_ok());
-                assert_eq!(v_simd_owned.unwrap(), super::OwnedValue::from(v_simd_borrowed.unwrap()));
+                assert_eq!(v_simd_owned.expect("simd-error"), super::OwnedValue::from(v_simd_borrowed.expect("simd-error")));
             }
 
         }

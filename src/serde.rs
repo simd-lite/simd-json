@@ -5,6 +5,7 @@
 ///
 /// However if have to use serde for other readons or are psrsing
 /// directly to structs this is th4 place to go.
+///
 mod de;
 mod value;
 pub use self::value::*;
@@ -17,10 +18,14 @@ use std::fmt;
 
 type ConvertResult<T> = std::result::Result<T, SerdeConversionError>;
 
+/// Error while converting from or to serde values
 #[derive(Debug)]
 pub enum SerdeConversionError {
+    /// Serde can not reflect NAN or Infinity
     NanOrInfinity,
+    /// A integer was to large, simd-json uses i64 for all integers
     IntegerTooLarge,
+    /// Something horrible went wrong, please open a ticket at <https://simd-json.rs>
     Oops,
 }
 impl std::fmt::Display for SerdeConversionError {
@@ -176,7 +181,7 @@ impl TryFrom<serde_json::Value> for OwnedValue {
             Value::Object(o) => Self::Object(
                 o.into_iter()
                     .map(|(k, v)| Ok((k, v.try_into()?)))
-                    .collect::<ConvertResult<crate::value::owned::Map>>()?,
+                    .collect::<ConvertResult<crate::value::owned::Object>>()?,
             ),
         })
     }
@@ -243,7 +248,7 @@ impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
             Value::Object(o) => BorrowedValue::Object(
                 o.into_iter()
                     .map(|(k, v)| Ok((k.into(), v.try_into()?)))
-                    .collect::<ConvertResult<crate::value::borrowed::Map>>()?,
+                    .collect::<ConvertResult<crate::value::borrowed::Object>>()?,
             ),
         })
     }
@@ -281,6 +286,7 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::result_unwrap_used)]
     use crate::{json, BorrowedValue, OwnedValue};
     use serde_json::{json as sjson, Value as SerdeValue};
     use std::convert::TryInto;

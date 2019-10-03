@@ -1,4 +1,4 @@
-use crate::value::borrowed::{Map, Value};
+use crate::value::borrowed::{Object, Value};
 use crate::Error;
 use serde_ext::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor,
@@ -28,7 +28,7 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
                 Cow::Owned(s) => visitor.visit_string(s),
             },
             Value::Array(a) => visitor.visit_seq(Array(a.iter())),
-            Value::Object(o) => visitor.visit_map(Object {
+            Value::Object(o) => visitor.visit_map(ObjectAccess {
                 i: o.iter(),
                 v: &Value::Null,
             }),
@@ -60,14 +60,15 @@ impl<'de, 'a> SeqAccess<'de> for Array<'a, 'de> {
         }
     }
 }
-struct Object<'de, 'a: 'de> {
+
+struct ObjectAccess<'de, 'a: 'de> {
     i: halfbrown::Iter<'de, Cow<'a, str>, Value<'a>>,
     v: &'de Value<'a>,
 }
 
 // `MapAccess` is provided to the `Visitor` to give it the ability to iterate
 // through entries of the map.
-impl<'de, 'a> MapAccess<'de> for Object<'a, 'de> {
+impl<'de, 'a> MapAccess<'de> for ObjectAccess<'a, 'de> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
@@ -302,7 +303,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         let size = map.size_hint().unwrap_or_default();
 
-        let mut m = Map::with_capacity(size);
+        let mut m = Object::with_capacity(size);
         while let Some(k) = map.next_key::<&str>()? {
             let v = map.next_value()?;
             m.insert(k.into(), v);

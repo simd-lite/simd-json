@@ -6,14 +6,13 @@ use std::arch::x86_64::*;
 use std::mem;
 
 pub use crate::error::{Error, ErrorType};
-pub use crate::sse42::utf8check::*;
-pub use crate::stringparse::*;
-pub use crate::Deserializer;
+use crate::stringparse::*;
+use crate::Deserializer;
 pub use crate::Result;
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_str_(&mut self) -> Result<&'de str> {
+    pub(crate) fn parse_str_(&mut self) -> Result<&'de str> {
         // Add 1 to skip the initial "
         let idx = self.iidx + 1;
         let mut padding = [0_u8; 32];
@@ -49,9 +48,11 @@ impl<'de> Deserializer<'de> {
             let bs_bits: u32 = unsafe {
                 static_cast_u32!(_mm_movemask_epi8(_mm_cmpeq_epi8(
                     v,
+                    #[allow(clippy::cast_possible_wrap)]
                     _mm_set1_epi8(b'\\' as i8)
                 )))
             };
+            #[allow(clippy::cast_possible_wrap)]
             let quote_mask = unsafe { _mm_cmpeq_epi8(v, _mm_set1_epi8(b'"' as i8)) };
             let quote_bits = unsafe { static_cast_u32!(_mm_movemask_epi8(quote_mask)) };
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
@@ -76,23 +77,25 @@ impl<'de> Deserializer<'de> {
                 // we compare the pointers since we care if they are 'at the same spot'
                 // not if they are the same value
             }
-            if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
+            if (quote_bits.wrapping_sub(1) & bs_bits) == 0 {
+                // they are the same. Since they can't co-occur, it means we encountered
+                // neither.
+                src_i += 16;
+                len += 16;
+            } else {
                 // Move to the 'bad' character
                 let bs_dist: u32 = bs_bits.trailing_zeros();
                 len += bs_dist as usize;
                 src_i += bs_dist as usize;
                 break;
-            } else {
-                // they are the same. Since they can't co-occur, it means we encountered
-                // neither.
-                src_i += 16;
-                len += 16;
             }
         }
 
         let mut dst_i: usize = 0;
         let dst: &mut [u8] = &mut self.strings;
 
+        // To be more conform with upstream
+        #[allow(clippy::if_not_else)]
         loop {
             let v: __m128i = if src.len() >= src_i + 16 {
                 // This is safe since we ensure src is at least 16 wide
@@ -121,9 +124,11 @@ impl<'de> Deserializer<'de> {
             let bs_bits: u32 = unsafe {
                 static_cast_u32!(_mm_movemask_epi8(_mm_cmpeq_epi8(
                     v,
+                    #[allow(clippy::cast_possible_wrap)]
                     _mm_set1_epi8(b'\\' as i8)
                 )))
             };
+            #[allow(clippy::cast_possible_wrap)]
             let quote_mask = unsafe { _mm_cmpeq_epi8(v, _mm_set1_epi8(b'"' as i8)) };
             let quote_bits = unsafe { static_cast_u32!(_mm_movemask_epi8(quote_mask)) };
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {

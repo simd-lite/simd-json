@@ -1,5 +1,5 @@
 use super::to_value;
-use crate::value::owned::{Map, Value};
+use crate::value::owned::{Object, Value};
 use crate::{stry, Error, ErrorType, Result};
 use serde::ser::{self, Serialize};
 use serde_ext::ser::{SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait};
@@ -178,7 +178,7 @@ impl serde::Serializer for Serializer {
     where
         T: Serialize,
     {
-        let mut values = Map::new();
+        let mut values = Object::new();
         values.insert(variant.into(), stry!(to_value(&value)));
         Ok(Value::Object(values))
     }
@@ -229,7 +229,7 @@ impl serde::Serializer for Serializer {
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(SerializeMap::Map {
-            map: Map::new(),
+            map: Object::new(),
             next_key: None,
         })
     }
@@ -253,7 +253,7 @@ impl serde::Serializer for Serializer {
     ) -> Result<Self::SerializeStructVariant> {
         Ok(SerializeStructVariant {
             name: variant.to_owned(),
-            map: Map::new(),
+            map: Object::new(),
         })
     }
 }
@@ -268,12 +268,15 @@ pub struct SerializeTupleVariant {
 }
 
 pub enum SerializeMap {
-    Map { map: Map, next_key: Option<String> },
+    Map {
+        map: Object,
+        next_key: Option<String>,
+    },
 }
 
 pub struct SerializeStructVariant {
     name: String,
-    map: Map,
+    map: Object,
 }
 
 impl serde::ser::SerializeSeq for SerializeVec {
@@ -338,7 +341,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     }
 
     fn end(self) -> Result<Value> {
-        let mut object = Map::new();
+        let mut object = Object::new();
 
         object.insert(self.name, Value::Array(self.vec));
 
@@ -645,7 +648,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     }
 
     fn end(self) -> Result<Value> {
-        let mut object = Map::new();
+        let mut object = Object::new();
 
         object.insert(self.name, Value::Object(self.map));
 

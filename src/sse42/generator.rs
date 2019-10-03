@@ -18,7 +18,9 @@ where
 {
     let zero = _mm_set1_epi8(0);
     let lower_quote_range = _mm_set1_epi8(0x1F as i8);
+    #[allow(clippy::cast_possible_wrap)]
     let quote = _mm_set1_epi8(b'"' as i8);
+    #[allow(clippy::cast_possible_wrap)]
     let backslash = _mm_set1_epi8(b'\\' as i8);
     while *len - *idx > 16 {
         // Load 16 bytes of data;
@@ -35,7 +37,9 @@ where
         let is_unchanged = _mm_xor_si128(data, in_quote_range);
         let in_range = _mm_cmpeq_epi8(is_unchanged, zero);
         let quote_bits = _mm_movemask_epi8(_mm_or_si128(bs_or_quote, in_range));
-        if quote_bits != 0 {
+        if quote_bits == 0 {
+            *idx += 16;
+        } else {
             let quote_dist = quote_bits.trailing_zeros() as usize;
             stry!(writer.write_all(&string[0..*idx + quote_dist]));
             let ch = string[*idx + quote_dist];
@@ -47,8 +51,6 @@ where
             *string = &string[*idx + quote_dist + 1..];
             *idx = 0;
             *len = string.len();
-        } else {
-            *idx += 16;
         }
     }
     stry!(writer.write_all(&string[0..*idx]));

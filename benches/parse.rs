@@ -73,7 +73,7 @@ macro_rules! bench_file {
             });
             c.bench(
                 stringify!($name),
-                b.throughput(|data| Throughput::Bytes(data.len() as u32)),
+                b.throughput(|data| Throughput::Bytes(data.len() as u64)),
             );
         }
     };

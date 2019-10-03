@@ -4,7 +4,7 @@
 //
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
-use super::{Map, Value};
+use super::{Object, Value};
 use crate::stry;
 use crate::value::generator::*;
 use crate::value::ValueTrait;
@@ -14,29 +14,34 @@ use std::io::Write;
 //use util::print_dec;
 
 impl Value {
+    /// Encodes the value into it's JSON representation as a string
     #[deprecated(since = "0.1.21", note = "Please use encode instead")]
     #[allow(clippy::inherent_to_string_shadow_display)]
     pub fn to_string(&self) -> String {
         self.encode()
     }
 
+    /// Encodes the value into it's JSON representation as a string
     pub fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
         let _ = g.write_json(&self);
         g.consume()
     }
 
+    /// Encodes the value into it's JSON representation as a string (pretty printed)
     #[deprecated(since = "0.1.21", note = "Please use encode instead")]
     pub fn to_string_pp(&self) -> String {
         self.encode_pp()
     }
 
+    /// Encodes the value into it's JSON representation as a string (pretty printed)
     pub fn encode_pp(&self) -> String {
         let mut g = PrettyGenerator::new(2);
         let _ = g.write_json(&self);
         g.consume()
     }
 
+    /// Encodes the value into it's JSON representation into a Writer
     pub fn write<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
@@ -44,6 +49,8 @@ impl Value {
         let mut g = WriterGenerator::new(w);
         g.write_json(self)
     }
+
+    /// Encodes the value into it's JSON representation into a Writer, pretty printed
     pub fn write_pp<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
@@ -58,7 +65,7 @@ trait Generator: BaseGenerator {
     type V: ValueTrait;
 
     #[inline(always)]
-    fn write_object(&mut self, object: &Map) -> io::Result<()> {
+    fn write_object(&mut self, object: &Object) -> io::Result<()> {
         stry!(self.write_char(b'{'));
         let mut iter = object.iter();
 

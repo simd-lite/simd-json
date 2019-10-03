@@ -14,6 +14,8 @@ value.serialize(super::se::Serializer::default())
 }
 */
 
+/// Tries to convert a `BorrowedValue` into a struct that implements
+/// serde's Deserialize interface
 pub fn from_value<'de, T>(value: BorrowedValue<'de>) -> Result<T>
 where
     T: Deserialize<'de>,
