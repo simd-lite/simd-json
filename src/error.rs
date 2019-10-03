@@ -116,8 +116,21 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{:?} at chracter {} ('{}')",
+            "{:?} at character {} ('{}')",
             self.error, self.index, self.character
+        )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn fmt() {
+        let e = Error::generic(ErrorType::InternalError);
+        assert_eq!(
+            format!("{}", e),
+            "InternalError at character 0 ('\u{1f4a9}')"
         )
     }
 }
