@@ -7,8 +7,10 @@ platform:
 steps:
 - name: test
   image: rust:1
-  env:
-      RUSTFLAGS='-C target-cpu=native'
+  environment:
+    RUSTFLAGS: '-C target-cpu=native'
+    CODECOV_TOKEN:
+      from_secret: CODECOV_TOKEN
   commands:
   - rustup default nightly
   - rustup update
@@ -20,6 +22,6 @@ steps:
 - name: coverage
   image: plugins/codecov
   settings:
-    token: $
+    token: $CODECOV_TOKEN
     files:
-     - *.xml
+     - '*.xml'
