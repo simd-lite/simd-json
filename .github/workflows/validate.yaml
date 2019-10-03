@@ -49,11 +49,13 @@ jobs:
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
-          file: ./avx.xml     
+          file: ./avx.xml    
+          flags: avx2
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
           file: ./ssl.xml     
+          flags: ssl
   # tarpaulin-neon:
   #   runs-on: ubuntu-latest
   #   steps:
