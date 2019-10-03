@@ -26,7 +26,28 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all
-  tarpaulin:
+  tarpaulin-sse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config cmake zlib1g-dev
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: install tarpaulin
+        run: cargo install cargo-tarpaulin -f
+      - name: run tarpaulin
+        env:
+          RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
+        run: cargo tarpaulin -v --out Xml && cp cobertura.xml ssl.xml
+      - uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{secrets.CODECOV_TOKEN}} #required
+          file: ./ssl.xml     
+          flags: ssl
+  tarpaulin-avx2:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -42,20 +63,11 @@ jobs:
         env:
           RUSTFLAGS: '-C target-cpu=native'
         run: cargo tarpaulin -v --out Xml && cp cobertura.xml avx.xml
-      - name: run tarpaulin
-        env:
-          RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
-        run: cargo tarpaulin -v --out Xml && cp cobertura.xml ssl.xml
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
           file: ./avx.xml    
           flags: avx2
-      - uses: codecov/codecov-action@v1.0.2
-        with:
-          token: ${{secrets.CODECOV_TOKEN}} #required
-          file: ./ssl.xml     
-          flags: ssl
   # tarpaulin-neon:
   #   runs-on: ubuntu-latest
   #   steps:
