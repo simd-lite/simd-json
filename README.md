@@ -1,10 +1,9 @@
-# SIMD Json for Rust &emsp; [![Build Status]][drone.io] [![Windows Build Status]][appveyor.com] [![Latest Version]][crates.io]
+# SIMD Json for Rust &emsp; [![Build Status]][simd-json.rs] [![Build Status ARM]][drone.io] [![Windows Build Status]][appveyor.com] [![Latest Version]][crates.io]
 
-
-[Build Status]: https://cloud.drone.io/api/badges/simd-lite/simdjson-rs/status.svg
+[Build Status ARM]: https://cloud.drone.io/api/badges/simd-lite/simdjson-rs/status.svg
 [drone.io]: https://cloud.drone.io/simd-lite/simdjson-rs
-[Windows Build Status]: https://ci.appveyor.com/api/projects/status/ffi2ese7dxse6pb8?svg=true
-[appveyor.com]: https://ci.appveyor.com/project/Licenser/simdjson-rs
+[Build Status]: https://github.com/simd-lite/simdjson-rs/workflows/Rust/badge.svg
+[simd-json.rs]: https://simd-json.rs
 [Latest Version]: https://img.shields.io/crates/v/simd-json.svg
 [crates.io]: https://crates.io/crates/simd-json
 
