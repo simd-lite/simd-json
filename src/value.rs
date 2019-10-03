@@ -22,7 +22,7 @@ pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
 pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
 
 /// Types of JSON values
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ValueType {
     /// null
     Null,
