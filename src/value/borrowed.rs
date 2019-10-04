@@ -284,6 +284,7 @@ impl<'de> BorrowDeserializer<'de> {
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::cognitive_complexity)]
     use super::*;
 
     #[test]
@@ -299,6 +300,9 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
         let v = Value::from(i64::min_value());
         assert!(v.is_i128());
         assert!(!v.is_u128());
@@ -310,6 +314,9 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
     }
 
     #[test]
@@ -325,6 +332,9 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
         let v = Value::from(i32::min_value());
         assert!(v.is_i128());
         assert!(!v.is_u128());
@@ -336,6 +346,9 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
     }
 
     #[test]
@@ -351,6 +364,9 @@ mod test {
         assert!(v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
         let v = Value::from(i16::min_value());
         assert!(v.is_i128());
         assert!(!v.is_u128());
@@ -362,6 +378,10 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
+        assert!(v.is_f64_castable());
     }
 
     #[test]
@@ -377,6 +397,9 @@ mod test {
         assert!(v.is_u16());
         assert!(v.is_i8());
         assert!(v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
         let v = Value::from(i8::min_value());
         assert!(v.is_i128());
         assert!(!v.is_u128());
@@ -388,7 +411,32 @@ mod test {
         assert!(!v.is_u16());
         assert!(v.is_i8());
         assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
     }
+
+    #[test]
+    fn conversions_usize() {
+        let v = Value::from(usize::min_value() as u64);
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(v.is_usize());
+        assert!(v.is_i32());
+        assert!(v.is_u32());
+        assert!(v.is_i16());
+        assert!(v.is_u16());
+        assert!(v.is_i8());
+        assert!(v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
+    }
+
     #[test]
     fn conversions_u64() {
         let v = Value::from(u64::min_value());
@@ -402,6 +450,9 @@ mod test {
         assert!(v.is_u16());
         assert!(v.is_i8());
         assert!(v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
     }
 
     #[test]
@@ -417,6 +468,9 @@ mod test {
         assert!(!v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
     }
 
     #[test]
@@ -432,6 +486,9 @@ mod test {
         assert!(v.is_u16());
         assert!(!v.is_i8());
         assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
     }
 
     #[test]
@@ -447,5 +504,89 @@ mod test {
         assert!(v.is_u16());
         assert!(!v.is_i8());
         assert!(v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
+    }
+
+    #[test]
+    fn conversions_f64() {
+        let v = Value::from(std::f64::MAX);
+        assert!(!v.is_i64());
+        assert!(!v.is_u64());
+        assert!(v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
+        let v = Value::from(std::f64::MIN);
+        assert!(!v.is_i64());
+        assert!(!v.is_u64());
+        assert!(v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
+    }
+
+    #[test]
+    fn conversions_f32() {
+        let v = Value::from(std::f32::MAX);
+        assert!(!v.is_i64());
+        assert!(!v.is_u64());
+        assert!(v.is_f64());
+        assert!(v.is_f32());
+        assert!(v.is_f64_castable());
+        let v = Value::from(std::f32::MIN);
+        assert!(!v.is_i64());
+        assert!(!v.is_u64());
+        assert!(v.is_f64());
+        assert!(v.is_f32());
+        assert!(v.is_f64_castable());
+    }
+
+    #[test]
+    fn conversions_array() {
+        let v = Value::from(vec![true]);
+        assert!(v.is_array());
+        assert_eq!(v.value_type(), ValueType::Array);
+    }
+
+    #[test]
+    fn conversions_bool() {
+        let v = Value::from(true);
+        assert!(v.is_bool());
+        assert_eq!(v.value_type(), ValueType::Bool);
+    }
+
+    #[test]
+    fn conversions_float() {
+        let v = Value::from(42.0);
+        assert!(v.is_f64());
+        assert_eq!(v.value_type(), ValueType::F64);
+    }
+
+    #[test]
+    fn conversions_int() {
+        let v = Value::from(42);
+        assert!(v.is_i64());
+        assert_eq!(v.value_type(), ValueType::I64);
+    }
+
+    #[test]
+    fn conversions_null() {
+        let v = Value::from(());
+        assert!(v.is_null());
+        assert_eq!(v.value_type(), ValueType::Null);
+    }
+
+    #[test]
+    fn conversions_object() {
+        let v = Value::Object(Object::new());
+        assert!(v.is_object());
+        assert_eq!(v.value_type(), ValueType::Object);
+    }
+
+    #[test]
+    fn conversions_str() {
+        let v = Value::from("bla");
+        assert!(v.is_str());
+        assert_eq!(v.value_type(), ValueType::String);
     }
 }

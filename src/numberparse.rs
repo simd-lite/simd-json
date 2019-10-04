@@ -201,7 +201,7 @@ impl<'de> Deserializer<'de> {
                 fraction += u64::from(digit);
             //i = i + f64::from(digit) * fractionalweight;
             } else {
-                return Err(self.error(ErrorType::Parser));
+                return Err(self.error(ErrorType::InvalidNumber));
             }
 
             while is_integer(unsafe { *p.get_unchecked(digitcount) })
@@ -267,7 +267,7 @@ impl<'de> Deserializer<'de> {
             };
             if (exponent > 308) || (exponent < -308) {
                 // we refuse to parse this
-                return Err(self.error(ErrorType::Parser));
+                return Err(self.error(ErrorType::InvalidExponent));
             }
             i *= POWER_OF_TEN[(308 + exponent) as usize];
         }
@@ -505,5 +505,51 @@ impl<'de> Deserializer<'de> {
         } else {
             Ok(v)
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::value::owned::to_value;
+
+    #[test]
+    fn bad_exp() {
+        let mut too_big = String::from("1e309");
+        let mut too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(&mut too_big);
+        assert!(v_too_big.is_err());
+        let mut too_small = String::from("1e-309");
+        let mut too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(&mut too_small);
+        assert!(v_too_small.is_err());
+    }
+
+    #[test]
+    fn bad_dot() {
+        let mut i = String::from("1.");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("1.e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn zero() {
+        let mut i = String::from("0");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert_eq!(r.expect("0"), 0);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn float_zero() {
+        let mut i = String::from("0e1");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert_eq!(r.expect("0"), 0.0);
     }
 }
