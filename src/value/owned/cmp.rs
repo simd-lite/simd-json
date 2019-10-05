@@ -1,4 +1,26 @@
 use super::Value;
+use crate::BorrowedValue;
+
+impl PartialEq<BorrowedValue<'_>> for Value {
+    fn eq(&self, other: &BorrowedValue<'_>) -> bool {
+        match (self, other) {
+            (Self::Null, BorrowedValue::Null) => true,
+            (Self::Bool(v1), BorrowedValue::Bool(v2)) => v1.eq(v2),
+            (Self::I64(v1), BorrowedValue::I64(v2)) => v1.eq(v2),
+            (Self::F64(v1), BorrowedValue::F64(v2)) => v1.eq(v2),
+            (Self::String(v1), BorrowedValue::String(v2)) => v1.eq(v2),
+            (Self::Array(v1), BorrowedValue::Array(v2)) => v1.eq(v2),
+            (Self::Object(v1), BorrowedValue::Object(v2)) => {
+                if v1.len() != v2.len() {
+                    return false;
+                }
+                v1.iter()
+                    .all(|(key, value)| v2.get(key.as_str()).map_or(false, |v| value == v))
+            }
+            _ => false,
+        }
+    }
+}
 
 impl PartialEq<()> for Value {
     fn eq(&self, _other: &()) -> bool {

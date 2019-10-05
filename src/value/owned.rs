@@ -584,4 +584,43 @@ mod test {
         assert!(v.is_str());
         assert_eq!(v.value_type(), ValueType::String);
     }
+    use proptest::prelude::*;
+    fn arb_value() -> BoxedStrategy<Value> {
+        let leaf = prop_oneof![
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
+            any::<i64>().prop_map(Value::I64),
+            any::<f64>().prop_map(Value::F64),
+            ".*".prop_map(Value::from),
+        ];
+        leaf.prop_recursive(
+            8,   // 8 levels deep
+            256, // Shoot for maximum size of 256 nodes
+            10,  // We put up to 10 items per collection
+            |inner| {
+                prop_oneof![
+                    // Take the inner strategy and make the two recursive cases.
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| Value::Array(v)),
+                    prop::collection::hash_map(".*", inner, 0..10)
+                        .prop_map(|m| Value::Object(m.into_iter().collect())),
+                ]
+            },
+        )
+        .boxed()
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            // Setting both fork and timeout is redundant since timeout implies
+            // fork, but both are shown for clarity.
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_to_owned(owned in arb_value()) {
+            use crate::BorrowedValue;
+            let borrowed: BorrowedValue = owned.clone().into();
+            assert_eq!(owned, borrowed);
+        }
+    }
 }

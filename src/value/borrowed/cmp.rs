@@ -1,5 +1,12 @@
 use super::Value;
+use crate::OwnedValue;
 
+impl<'a> PartialEq<OwnedValue> for Value<'a> {
+    fn eq(&self, other: &OwnedValue) -> bool {
+        // We only need to implement this once
+        other.eq(self)
+    }
+}
 impl<'a> PartialEq<()> for Value<'a> {
     fn eq(&self, _other: &()) -> bool {
         if let Value::Null = self {
