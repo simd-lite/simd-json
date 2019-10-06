@@ -30,7 +30,7 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
 /// to access it's content.
 /// This is slower then the `BorrowedValue` as a tradeoff
 /// for getting rid of lifetimes.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Value {
     /// null
     Null,
@@ -601,7 +601,7 @@ mod test {
                 prop_oneof![
                     // Take the inner strategy and make the two recursive cases.
                     prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
-                    prop::collection::hash_map(".*", inner, 0..10)
+                    prop::collection::hash_map(".*", inner.clone(), 0..10)
                         .prop_map(|m| Value::Object(m.into_iter().collect())),
                 ]
             },
@@ -619,6 +619,16 @@ mod test {
             use crate::BorrowedValue;
             let borrowed: BorrowedValue = owned.clone().into();
             assert_eq!(owned, borrowed);
+        }
+
+        #[test]
+        fn prop_serialize_deserialize(owned in arb_value()) {
+            dbg!(&owned);
+            let mut string = owned.encode();
+            dbg!(&string);
+            let mut bytes = unsafe{ string.as_bytes_mut()};
+            let decoded = to_value(&mut bytes).expect("Failed to decode");
+            assert_eq!(owned, decoded)
         }
     }
 }

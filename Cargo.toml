@@ -26,6 +26,9 @@ getopts = { version = "0.2", optional = true }
 colored = { version = "1.8", optional = true }
 simd-lite = { version = "0.1.0", optional = true }
 
+# for float compairison
+float-cmp = "0.5"
+
 
 
 

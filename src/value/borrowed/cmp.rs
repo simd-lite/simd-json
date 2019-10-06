@@ -1,5 +1,22 @@
 use super::Value;
 use crate::OwnedValue;
+use float_cmp::approx_eq;
+
+impl<'a> PartialEq for Value<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        #[allow(clippy::default_trait_access)]
+        match (self, other) {
+            (Self::Null, Self::Null) => true,
+            (Self::Bool(v1), Self::Bool(v2)) => v1.eq(v2),
+            (Self::I64(v1), Self::I64(v2)) => v1.eq(v2),
+            (Self::F64(v1), Self::F64(v2)) => approx_eq!(f64, *v1, *v2),
+            (Self::String(v1), Self::String(v2)) => v1.eq(v2),
+            (Self::Array(v1), Self::Array(v2)) => v1.eq(v2),
+            (Self::Object(v1), Self::Object(v2)) => v1.eq(v2),
+            _ => false,
+        }
+    }
+}
 
 impl<'a> PartialEq<OwnedValue> for Value<'a> {
     fn eq(&self, other: &OwnedValue) -> bool {

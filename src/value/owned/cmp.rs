@@ -1,13 +1,15 @@
 use super::Value;
 use crate::BorrowedValue;
+use float_cmp::approx_eq;
 
 impl PartialEq<BorrowedValue<'_>> for Value {
     fn eq(&self, other: &BorrowedValue<'_>) -> bool {
+        #[allow(clippy::default_trait_access)]
         match (self, other) {
             (Self::Null, BorrowedValue::Null) => true,
             (Self::Bool(v1), BorrowedValue::Bool(v2)) => v1.eq(v2),
             (Self::I64(v1), BorrowedValue::I64(v2)) => v1.eq(v2),
-            (Self::F64(v1), BorrowedValue::F64(v2)) => v1.eq(v2),
+            (Self::F64(v1), BorrowedValue::F64(v2)) => approx_eq!(f64, *v1, *v2),
             (Self::String(v1), BorrowedValue::String(v2)) => v1.eq(v2),
             (Self::Array(v1), BorrowedValue::Array(v2)) => v1.eq(v2),
             (Self::Object(v1), BorrowedValue::Object(v2)) => {
@@ -17,6 +19,22 @@ impl PartialEq<BorrowedValue<'_>> for Value {
                 v1.iter()
                     .all(|(key, value)| v2.get(key.as_str()).map_or(false, |v| value == v))
             }
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        #[allow(clippy::default_trait_access)]
+        match (self, other) {
+            (Self::Null, Self::Null) => true,
+            (Self::Bool(v1), Self::Bool(v2)) => v1.eq(v2),
+            (Self::I64(v1), Self::I64(v2)) => v1.eq(v2),
+            (Self::F64(v1), Self::F64(v2)) => approx_eq!(f64, *v1, *v2),
+            (Self::String(v1), Self::String(v2)) => v1.eq(v2),
+            (Self::Array(v1), Self::Array(v2)) => v1.eq(v2),
+            (Self::Object(v1), Self::Object(v2)) => v1.eq(v2),
             _ => false,
         }
     }
