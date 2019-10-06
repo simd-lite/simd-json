@@ -107,6 +107,53 @@ impl<'a> PartialEq<i64> for Value<'a> {
     }
 }
 
+impl<'a> PartialEq<u8> for Value<'a> {
+    fn eq(&self, other: &u8) -> bool {
+        match self {
+            Self::I64(i) => i == &i64::from(*other),
+            _ => false,
+        }
+    }
+}
+
+impl<'a> PartialEq<u16> for Value<'a> {
+    fn eq(&self, other: &u16) -> bool {
+        match self {
+            Self::I64(i) => i == &i64::from(*other),
+            _ => false,
+        }
+    }
+}
+
+impl<'a> PartialEq<u32> for Value<'a> {
+    fn eq(&self, other: &u32) -> bool {
+        match self {
+            Self::I64(i) => i == &i64::from(*other),
+            _ => false,
+        }
+    }
+}
+
+impl<'a> PartialEq<u64> for Value<'a> {
+    fn eq(&self, other: &u64) -> bool {
+        use std::convert::TryFrom;
+        match self {
+            Self::I64(i) => i64::try_from(*other).map(|o| *i == o).unwrap_or(false),
+            _ => false,
+        }
+    }
+}
+
+impl<'a> PartialEq<usize> for Value<'a> {
+    fn eq(&self, other: &usize) -> bool {
+        use std::convert::TryFrom;
+        match self {
+            Self::I64(i) => i64::try_from(*other).map(|o| *i == o).unwrap_or(false),
+            _ => false,
+        }
+    }
+}
+
 impl<'a> PartialEq<f32> for Value<'a> {
     fn eq(&self, other: &f32) -> bool {
         match self {
