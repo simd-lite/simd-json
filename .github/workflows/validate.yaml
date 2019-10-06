@@ -37,7 +37,7 @@ jobs:
           toolchain: nightly
           override: true
       - name: install tarpaulin
-        run: cargo install cargo-tarpaulin -f
+        run: cargo install cargo-tarpaulin -f  --version 0.8.7
       - name: run tarpaulin
         env:
           RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
@@ -58,7 +58,7 @@ jobs:
           toolchain: nightly
           override: true
       - name: install tarpaulin
-        run: cargo install cargo-tarpaulin -f
+        run: cargo install cargo-tarpaulin -f  --version 0.8.7
       - name: run tarpaulin
         env:
           RUSTFLAGS: '-C target-cpu=native'
