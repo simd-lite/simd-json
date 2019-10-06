@@ -28,7 +28,7 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
 
 /// Borrowed JSON-DOM Value, consider using the `ValueTrait`
 /// to access it'scontent
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Value<'v> {
     /// null
     Null,
@@ -627,6 +627,15 @@ mod test {
             dbg!(&owned);
             dbg!(&borrowed);
             assert_eq!(borrowed, owned);
+        }
+        #[test]
+        fn prop_serialize_deserialize(borrowed in arb_value()) {
+            dbg!(&borrowed);
+            let mut string = borrowed.encode();
+            dbg!(&string);
+            let mut bytes = unsafe{ string.as_bytes_mut()};
+            let decoded = to_value(&mut bytes).expect("Failed to decode");
+            assert_eq!(borrowed, decoded)
         }
     }
 }
