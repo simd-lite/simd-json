@@ -606,7 +606,7 @@ mod test {
             |inner| {
                 prop_oneof![
                     // Take the inner strategy and make the two recursive cases.
-                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| Value::Array(v)),
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
                     prop::collection::hash_map(".*".prop_map(Cow::Owned), inner, 0..10)
                         .prop_map(|m| Value::Object(m.into_iter().collect())),
                 ]
