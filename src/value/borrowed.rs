@@ -617,8 +617,6 @@ mod test {
 
     proptest! {
         #![proptest_config(ProptestConfig {
-            // Setting both fork and timeout is redundant since timeout implies
-            // fork, but both are shown for clarity.
             .. ProptestConfig::default()
         })]
 
