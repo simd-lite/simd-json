@@ -1,5 +1,6 @@
 use super::Value;
-use crate::BorrowedValue;
+use crate::{BorrowedValue, ValueTrait};
+
 use float_cmp::approx_eq;
 
 impl PartialEq<BorrowedValue<'_>> for Value {
@@ -42,147 +43,101 @@ impl PartialEq for Value {
 
 impl PartialEq<()> for Value {
     fn eq(&self, _other: &()) -> bool {
-        if let Self::Null = self {
-            true
-        } else {
-            false
-        }
+        self.is_null()
     }
 }
 
 impl PartialEq<bool> for Value {
     fn eq(&self, other: &bool) -> bool {
-        if let Self::Bool(v) = self {
-            v == other
-        } else {
-            false
-        }
+        self.as_bool().map(|t| t == *other).unwrap_or_default()
     }
 }
 
 impl PartialEq<str> for Value {
     fn eq(&self, other: &str) -> bool {
-        match self {
-            Self::String(s) => s == other,
-            _ => false,
-        }
-    }
-}
-
-impl PartialEq<&str> for Value {
-    fn eq(&self, other: &&str) -> bool {
-        match self {
-            Self::String(s) => s == other,
-            _ => false,
-        }
+        self.as_str().map(|t| t == other).unwrap_or_default()
     }
 }
 
 impl PartialEq<String> for Value {
     fn eq(&self, other: &String) -> bool {
-        match self {
-            Self::String(s) => s == other,
-            _ => false,
-        }
+        self.as_str().map(|t| t == other).unwrap_or_default()
     }
 }
 
 impl PartialEq<i8> for Value {
     fn eq(&self, other: &i8) -> bool {
-        match self {
-            Self::I64(i) => i == &i64::from(*other),
-            _ => false,
-        }
+        self.as_i8().map(|t| t == *other).unwrap_or_default()
     }
 }
 
 impl PartialEq<i16> for Value {
     fn eq(&self, other: &i16) -> bool {
-        match self {
-            Self::I64(i) => i == &i64::from(*other),
-            _ => false,
-        }
+        self.as_i16().map(|t| t == *other).unwrap_or_default()
     }
 }
 
 impl PartialEq<i32> for Value {
     fn eq(&self, other: &i32) -> bool {
-        match self {
-            Self::I64(i) => i == &i64::from(*other),
-            _ => false,
-        }
+        self.as_i32().map(|t| t == *other).unwrap_or_default()
     }
 }
 
 impl PartialEq<i64> for Value {
     fn eq(&self, other: &i64) -> bool {
-        match self {
-            Self::I64(i) => i == other,
-            _ => false,
-        }
+        self.as_i64().map(|t| t == *other).unwrap_or_default()
+    }
+}
+
+impl PartialEq<i128> for Value {
+    fn eq(&self, other: &i128) -> bool {
+        self.as_i128().map(|t| t == *other).unwrap_or_default()
     }
 }
 
 impl PartialEq<u8> for Value {
     fn eq(&self, other: &u8) -> bool {
-        match self {
-            Self::I64(i) => i == &i64::from(*other),
-            _ => false,
-        }
+        self.as_u8().map(|t| t == *other).unwrap_or_default()
     }
 }
 
 impl PartialEq<u16> for Value {
     fn eq(&self, other: &u16) -> bool {
-        match self {
-            Self::I64(i) => i == &i64::from(*other),
-            _ => false,
-        }
+        self.as_u16().map(|t| t == *other).unwrap_or_default()
     }
 }
 
 impl PartialEq<u32> for Value {
     fn eq(&self, other: &u32) -> bool {
-        match self {
-            Self::I64(i) => i == &i64::from(*other),
-            _ => false,
-        }
+        self.as_u32().map(|t| t == *other).unwrap_or_default()
     }
 }
 
 impl PartialEq<u64> for Value {
     fn eq(&self, other: &u64) -> bool {
-        use std::convert::TryFrom;
-        match self {
-            Self::I64(i) => i64::try_from(*other).map(|o| *i == o).unwrap_or(false),
-            _ => false,
-        }
+        self.as_u64().map(|t| t == *other).unwrap_or_default()
     }
 }
 
 impl PartialEq<usize> for Value {
     fn eq(&self, other: &usize) -> bool {
-        use std::convert::TryFrom;
-        match self {
-            Self::I64(i) => i64::try_from(*other).map(|o| *i == o).unwrap_or(false),
-            _ => false,
-        }
+        self.as_usize().map(|t| t == *other).unwrap_or_default()
+    }
+}
+
+impl PartialEq<u128> for Value {
+    fn eq(&self, other: &u128) -> bool {
+        self.as_u128().map(|t| t == *other).unwrap_or_default()
     }
 }
 
 impl PartialEq<f32> for Value {
     fn eq(&self, other: &f32) -> bool {
-        match self {
-            Self::F64(f) => f == &f64::from(*other),
-            _ => false,
-        }
+        self.as_f32().map(|t| t == *other).unwrap_or_default()
     }
 }
 impl PartialEq<f64> for Value {
     fn eq(&self, other: &f64) -> bool {
-        match self {
-            Self::F64(f) => f == other,
-            _ => false,
-        }
+        self.as_f64().map(|t| t == *other).unwrap_or_default()
     }
 }

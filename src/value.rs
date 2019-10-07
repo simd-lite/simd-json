@@ -53,23 +53,24 @@ pub trait ValueTrait:
     + From<u64>
     + From<f32>
     + From<f64>
-    /* Silly rust ... I got no idea how to do those :/
-    + From<&'v i8>
-    + From<&'v i16>
-    + From<&'v i32>
-    + From<&'v i64>
-    + From<&'v u8>
-    + From<&'v u16>
-    + From<&'v u32>
-    + From<&'v u64>
-    + From<&'v f32>
-    + From<&'v f64>
-    + From<&'v str>
-    + From<Cow<'v, str>>
-    */
     + From<String>
     + From<bool>
     + From<()>
+    + PartialEq<i8>
+    + PartialEq<i16>
+    + PartialEq<i32>
+    + PartialEq<i64>
+    + PartialEq<i128>
+    + PartialEq<u8>
+    + PartialEq<u16>
+    + PartialEq<u32>
+    + PartialEq<u64>
+    + PartialEq<u128>
+    + PartialEq<f32>
+    + PartialEq<f64>
+    + PartialEq<String>
+    + PartialEq<bool>
+    + PartialEq<()>
 {
     /// The type for Objects
     type Object;
@@ -91,10 +92,7 @@ pub trait ValueTrait:
     fn get_idx_mut(&mut self, i: usize) -> Option<&mut Self>;
 
     /// Returns the type of the current Valye
-    #[deprecated(
-        since = "0.1.21",
-        note = "please use value_type instead"
-    )]
+    #[deprecated(since = "0.1.21", note = "please use value_type instead")]
     fn kind(&self) -> ValueType {
         self.value_type()
     }
@@ -104,7 +102,6 @@ pub trait ValueTrait:
 
     /// returns true if the current value is null
     fn is_null(&self) -> bool;
-
 
     /// Tries to represent the value as a bool
     fn as_bool(&self) -> Option<bool>;
@@ -226,12 +223,14 @@ pub trait ValueTrait:
 
     /// Tries to represent the value as a f32
     fn as_f32(&self) -> Option<f32> {
-        self.as_f64().and_then(|u| if u <= f64::from(std::f32::MAX) && u >= f64::from(std::f32::MIN) {
-            // Since we check above
-            #[allow(clippy::cast_possible_truncation)]
-            Some(u as f32)
-        } else {
-            None
+        self.as_f64().and_then(|u| {
+            if u <= f64::from(std::f32::MAX) && u >= f64::from(std::f32::MIN) {
+                // Since we check above
+                #[allow(clippy::cast_possible_truncation)]
+                Some(u as f32)
+            } else {
+                None
+            }
         })
     }
     /// returns true if the current value can be represented as a f64
@@ -246,10 +245,7 @@ pub trait ValueTrait:
     )]
     fn as_string(&self) -> Option<String>;
     /// returns true if the current value can be represented as a String
-    #[deprecated(
-        since = "0.1.20",
-        note = "Please use is_str instead"
-    )]
+    #[deprecated(since = "0.1.20", note = "Please use is_str instead")]
     fn is_string(&self) -> bool {
         self.as_str().is_some()
     }
