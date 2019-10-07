@@ -655,3 +655,6 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
         Ok(Value::Object(object))
     }
 }
+
+#[cfg(test)]
+mod test {}

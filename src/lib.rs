@@ -1159,7 +1159,8 @@ mod tests {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies
             // fork, but both are shown for clarity.
-            fork: true,
+            // Disabled for code coverage, enable to track bugs
+            // fork: true,
             .. ProptestConfig::default()
         })]
 
@@ -1177,7 +1178,8 @@ mod tests {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies
             // fork, but both are shown for clarity.
-            fork: true,
+            // Disabled for code coverage, enable to track bugs
+            // fork: true,
             .. ProptestConfig::default()
         })]
 
@@ -1212,7 +1214,8 @@ mod tests {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies
             // fork, but both are shown for clarity.
-            fork: true,
+            // Disabled for code coverage, enable to track bugs
+            // fork: true,
             .. ProptestConfig::default()
         })]
         #[test]
@@ -1232,7 +1235,8 @@ mod tests {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies
             // fork, but both are shown for clarity.
-            fork: true,
+            // Disabled for code coverage, enable to track bugs
+            // fork: true,
             .. ProptestConfig::default()
         })]
 

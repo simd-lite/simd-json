@@ -28,7 +28,7 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
 
 /// Borrowed JSON-DOM Value, consider using the `ValueTrait`
 /// to access it'scontent
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Value<'v> {
     /// null
     Null,
@@ -588,5 +588,129 @@ mod test {
         let v = Value::from("bla");
         assert!(v.is_str());
         assert_eq!(v.value_type(), ValueType::String);
+    }
+
+    use proptest::prelude::*;
+    fn arb_value() -> BoxedStrategy<Value<'static>> {
+        let leaf = prop_oneof![
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
+            any::<i64>().prop_map(Value::I64),
+            any::<f64>().prop_map(Value::F64),
+            ".*".prop_map(Value::from),
+        ];
+        leaf.prop_recursive(
+            8,   // 8 levels deep
+            256, // Shoot for maximum size of 256 nodes
+            10,  // We put up to 10 items per collection
+            |inner| {
+                prop_oneof![
+                    // Take the inner strategy and make the two recursive cases.
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
+                    prop::collection::hash_map(".*".prop_map(Cow::Owned), inner, 0..10)
+                        .prop_map(|m| Value::Object(m.into_iter().collect())),
+                ]
+            },
+        )
+        .boxed()
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_to_owned(borrowed in arb_value()) {
+            use crate::OwnedValue;
+            let owned: OwnedValue = borrowed.clone().into();
+            dbg!(&owned);
+            dbg!(&borrowed);
+            assert_eq!(borrowed, owned);
+        }
+        #[test]
+        fn prop_serialize_deserialize(borrowed in arb_value()) {
+            dbg!(&borrowed);
+            let mut string = borrowed.encode();
+            dbg!(&string);
+            let mut bytes = unsafe{ string.as_bytes_mut()};
+            let decoded = to_value(&mut bytes).expect("Failed to decode");
+            assert_eq!(borrowed, decoded)
+        }
+        #[test]
+        fn prop_f64_cmp(f in proptest::num::f64::NORMAL) {
+            #[allow(clippy::float_cmp)]
+            let v: Value = f.into();
+            assert_eq!(v, f)
+
+        }
+
+        #[test]
+        fn prop_f32_cmp(f in proptest::num::f32::NORMAL) {
+            #[allow(clippy::float_cmp)]
+            let v: Value = f.into();
+            assert_eq!(v, f)
+
+        }
+        #[test]
+        fn prop_i64_cmp(f in proptest::num::i64::ANY) {
+            let v: Value = f.into();
+            assert_eq!(v, f)
+        }
+        #[test]
+        fn prop_i32_cmp(f in proptest::num::i32::ANY) {
+            let v: Value = f.into();
+            assert_eq!(v, f)
+        }
+        #[test]
+        fn prop_i16_cmp(f in proptest::num::i16::ANY) {
+            let v: Value = f.into();
+            assert_eq!(v, f)
+        }
+        #[test]
+        fn prop_i8_cmp(f in proptest::num::i8::ANY) {
+            let v: Value = f.into();
+            assert_eq!(v, f)
+        }
+        #[test]
+        fn prop_u64_cmp(f in (0_u64..=(i64::max_value() as u64))) {
+            let v: Value = f.into();
+            assert_eq!(v, f)
+        }
+
+        #[allow(clippy::cast_possible_truncation)]
+        #[test]
+        fn prop_usize_cmp(f in (0_usize..=(i64::max_value() as usize))) {
+            let v: Value = f.into();
+            assert_eq!(v, f)
+        }
+         #[test]
+        fn prop_u32_cmp(f in proptest::num::u32::ANY) {
+            let v: Value = f.into();
+            assert_eq!(v, f)
+        }
+        #[test]
+        fn prop_u16_cmp(f in proptest::num::u16::ANY) {
+            let v: Value = f.into();
+            assert_eq!(v, f)
+        }
+        #[test]
+        fn prop_u8_cmp(f in proptest::num::u8::ANY) {
+            let v: Value = f.into();
+            assert_eq!(v, f)
+        }
+
+    }
+    #[test]
+    fn test_union_cmp() {
+        let v: Value = ().into();
+        assert_eq!(v, ())
+    }
+    #[test]
+    fn test_bool_cmp() {
+        let v: Value = true.into();
+        assert_eq!(v, true);
+        let v: Value = false.into();
+        assert_eq!(v, false);
     }
 }

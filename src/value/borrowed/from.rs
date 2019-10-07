@@ -95,34 +95,6 @@ impl<'v> From<i64> for Value<'v> {
     }
 }
 
-impl<'v> From<&i8> for Value<'v> {
-    #[inline]
-    fn from(i: &i8) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl<'v> From<&i16> for Value<'v> {
-    #[inline]
-    fn from(i: &i16) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl<'v> From<&i32> for Value<'v> {
-    #[inline]
-    fn from(i: &i32) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl<'v> From<&i64> for Value<'v> {
-    #[inline]
-    fn from(i: &i64) -> Self {
-        Value::I64(*i)
-    }
-}
-
 /********* u_ **********/
 impl<'v> From<u8> for Value<'v> {
     #[inline]
@@ -153,32 +125,10 @@ impl<'v> From<u64> for Value<'v> {
     }
 }
 
-impl<'v> From<&u8> for Value<'v> {
-    #[inline]
-    fn from(i: &u8) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl<'v> From<&u16> for Value<'v> {
-    #[inline]
-    fn from(i: &u16) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl<'v> From<&u32> for Value<'v> {
-    #[inline]
-    fn from(i: &u32) -> Self {
-        Value::I64(i64::from(*i))
-    }
-}
-
-impl<'v> From<&u64> for Value<'v> {
-    #[inline]
-    fn from(i: &u64) -> Self {
+impl<'v> From<usize> for Value<'v> {
+    fn from(i: usize) -> Self {
         #[allow(clippy::cast_possible_wrap)]
-        Value::I64(*i as i64)
+        Self::I64(i as i64)
     }
 }
 
@@ -194,20 +144,6 @@ impl<'v> From<f64> for Value<'v> {
     #[inline]
     fn from(f: f64) -> Self {
         Value::F64(f)
-    }
-}
-
-impl<'v> From<&f32> for Value<'v> {
-    #[inline]
-    fn from(f: &f32) -> Self {
-        Value::F64(f64::from(*f))
-    }
-}
-
-impl<'v> From<&f64> for Value<'v> {
-    #[inline]
-    fn from(f: &f64) -> Self {
-        Value::F64(*f)
     }
 }
 
