@@ -697,7 +697,14 @@ mod test {
         #[test]
         fn prop_u8_cmp(f in proptest::num::u8::ANY) {
             let v: Value = f.into();
+            assert_eq!(v, &f);
             assert_eq!(v, f)
+        }
+        #[test]
+        fn prop_string_cmp(f in ".*") {
+            let v: Value = f.clone().into();
+            assert_eq!(v, f.as_str());
+            assert_eq!(v, f);
         }
 
     }

@@ -52,6 +52,12 @@ impl<'v> PartialEq<str> for Value<'v> {
     }
 }
 
+impl<'v> PartialEq<&str> for Value<'v> {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str().map(|t| t == *other).unwrap_or_default()
+    }
+}
+
 impl<'v> PartialEq<String> for Value<'v> {
     fn eq(&self, other: &String) -> bool {
         self.as_str().map(|t| t == other).unwrap_or_default()
