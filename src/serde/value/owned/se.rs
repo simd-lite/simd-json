@@ -713,4 +713,54 @@ mod test {
         let de: Obj = from_slice(&mut vec).expect("from_slice");
         assert_eq!(o, de);
     }
+
+    use proptest::prelude::*;
+    prop_compose! {
+      fn obj_case()(
+        v_i128 in any::<i64>().prop_map(|v| v as i128),
+        v_i64 in any::<i64>(),
+        v_i32 in any::<i32>(),
+        v_i16 in any::<i16>(),
+        v_i8 in any::<i8>(),
+        v_u128 in any::<u32>().prop_map(|v| v as u128),
+        v_u64 in any::<u32>().prop_map(|v| v as u64),
+        v_usize in any::<u32>().prop_map(|v| v as usize),
+        v_u32 in any::<u32>(),
+        v_u66 in any::<u16>(),
+        v_u8 in any::<u8>(),
+        v_bool in any::<bool>(),
+        v_str in ".*",
+        ) -> Obj {
+         Obj {
+            v_i128,
+            v_i64,
+            v_i32,
+            v_i16,
+            v_i8,
+            v_u128,
+            v_u64,
+            v_usize,
+            v_u32,
+            v_u66,
+            v_u8,
+            v_bool,
+            v_str,
+            ..Default::default()
+        }
+      }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_deserialize_obj(obj in obj_case()) {
+            let mut vec = serde_json::to_vec(&obj).expect("to_vec");
+            println!("{}", serde_json::to_string_pretty(&obj).expect("json"));
+            let de: Obj = from_slice(&mut vec).expect("from_slice");
+            prop_assert_eq!(obj, de);
+        }
+    }
 }
