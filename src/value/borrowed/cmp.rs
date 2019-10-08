@@ -18,6 +18,15 @@ impl<'a> PartialEq for Value<'a> {
     }
 }
 
+impl<'v, T> PartialEq<&T> for Value<'v>
+where
+    Value<'v>: PartialEq<T>,
+{
+    fn eq(&self, other: &&T) -> bool {
+        self == *other
+    }
+}
+
 impl<'a> PartialEq<OwnedValue> for Value<'a> {
     fn eq(&self, other: &OwnedValue) -> bool {
         // We only need to implement this once
@@ -40,6 +49,12 @@ impl<'v> PartialEq<bool> for Value<'v> {
 impl<'v> PartialEq<str> for Value<'v> {
     fn eq(&self, other: &str) -> bool {
         self.as_str().map(|t| t == other).unwrap_or_default()
+    }
+}
+
+impl<'v> PartialEq<&str> for Value<'v> {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str().map(|t| t == *other).unwrap_or_default()
     }
 }
 
