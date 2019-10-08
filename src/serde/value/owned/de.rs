@@ -275,7 +275,7 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
     {
         self.key
             .into_deserializer()
-            .deserialize_enum(name, variants, visitor)
+            .deserialize_enum(dbg!(name), dbg!(variants), visitor)
     }
 
     forward_to_deserialize_any! {
@@ -316,6 +316,7 @@ impl<'de> de::Deserializer<'de> for BorrowedCowStrDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
+        dbg!();
         visitor.visit_enum(self)
     }
 

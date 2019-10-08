@@ -322,8 +322,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     forward_to_deserialize_any! {
             i128 u128 char
-            bytes byte_buf
-            enum identifier ignored_any
+            bytes byte_buf enum
+            identifier ignored_any
     }
 }
 

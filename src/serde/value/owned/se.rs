@@ -669,6 +669,23 @@ mod test {
     */
     use serde::{Deserialize, Serialize};
     use serde_json;
+    /*
+    skipped due to https://github.com/simd-lite/simdjson-rs/issues/65
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    enum Enum {
+        Opt1,
+        Opt2,
+    }
+    impl std::default::Default for Enum {
+        fn default() -> Self {
+            Self::Opt1
+        }
+    }
+    */
+    #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
+    struct Map {
+        key: u32,
+    }
     #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
     struct Obj {
         v_i128: i128,
@@ -676,16 +693,23 @@ mod test {
         v_i32: i32,
         v_i16: i16,
         v_i8: i8,
-        v_iu28: u128,
-        v_iu4: u64,
-        v_iu2: u32,
-        v_iu6: u16,
-        v_iu: u8,
+        v_u128: u128,
+        v_u64: u64,
+        v_usize: usize,
+        v_u32: u32,
+        v_u66: u16,
+        v_u8: u8,
+        v_bool: bool,
+        v_str: String,
+        //v_enum: Enum,
+        v_map: Map,
+        v_arr: Vec<usize>,
     }
     #[test]
     fn from_slice_to_object() {
         let o = Obj::default();
         let mut vec = serde_json::to_vec(&o).expect("to_vec");
+        println!("{}", serde_json::to_string_pretty(&o).expect("json"));
         let de: Obj = from_slice(&mut vec).expect("from_slice");
         assert_eq!(o, de);
     }

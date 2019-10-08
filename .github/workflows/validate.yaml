@@ -41,6 +41,7 @@ jobs:
       - name: run tarpaulin
         env:
           RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
+          PROPTEST_CASES: 512
         run: cargo tarpaulin -v --features no-inline --out Xml -- --test-threads=1 && cp cobertura.xml ssl.xml
       - uses: codecov/codecov-action@v1.0.2
         with:
@@ -62,6 +63,7 @@ jobs:
       - name: run tarpaulin
         env:
           RUSTFLAGS: '-C target-cpu=native'
+          PROPTEST_CASES: 512
         run: cargo tarpaulin -v --features no-inline --out Xml -- --test-threads=1 && cp cobertura.xml avx.xml
       - uses: codecov/codecov-action@v1.0.2
         with:
