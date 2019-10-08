@@ -41,6 +41,15 @@ impl PartialEq for Value {
     }
 }
 
+impl<T> PartialEq<&T> for Value
+where
+    Value: PartialEq<T>,
+{
+    fn eq(&self, other: &&T) -> bool {
+        self == *other
+    }
+}
+
 impl PartialEq<()> for Value {
     fn eq(&self, _other: &()) -> bool {
         self.is_null()
@@ -56,6 +65,12 @@ impl PartialEq<bool> for Value {
 impl PartialEq<str> for Value {
     fn eq(&self, other: &str) -> bool {
         self.as_str().map(|t| t == other).unwrap_or_default()
+    }
+}
+
+impl PartialEq<&str> for Value {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str().map(|t| t == *other).unwrap_or_default()
     }
 }
 
