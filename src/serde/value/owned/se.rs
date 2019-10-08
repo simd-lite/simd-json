@@ -657,4 +657,36 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
 }
 
 #[cfg(test)]
-mod test {}
+mod test {
+    use crate::serde::from_slice;
+    /*
+    use crate::{
+        owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
+        Deserializer,
+    };
+    use halfbrown::HashMap;
+    use proptest::prelude::*;
+    */
+    use serde::{Deserialize, Serialize};
+    use serde_json;
+    #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
+    struct Obj {
+        v_i128: i128,
+        v_i64: i64,
+        v_i32: i32,
+        v_i16: i16,
+        v_i8: i8,
+        v_iu28: u128,
+        v_iu4: u64,
+        v_iu2: u32,
+        v_iu6: u16,
+        v_iu: u8,
+    }
+    #[test]
+    fn from_slice_to_object() {
+        let o = Obj::default();
+        let mut vec = serde_json::to_vec(&o).expect("to_vec");
+        let de: Obj = from_slice(&mut vec).expect("from_slice");
+        assert_eq!(o, de);
+    }
+}
