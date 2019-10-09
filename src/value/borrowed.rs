@@ -65,6 +65,27 @@ impl<'v> Value<'v> {
             })
         }
     }
+
+    /// Clones the current value and enforces a static lifetime, it works the same
+    /// as `into_static` but includes cloning logic
+    pub fn clone_static(&self) -> Value<'static> {
+        unsafe {
+            use std::mem::transmute;
+            transmute(match self {
+                Self::String(s) => Self::String(Cow::Owned(s.to_string())),
+                Self::Array(arr) => Self::Array(arr.iter().map(Value::clone_static).collect()),
+                Self::Object(obj) => Self::Object(
+                    obj.iter()
+                        .map(|(k, v)| (Cow::Owned(k.to_string()), v.clone_static()))
+                        .collect(),
+                ),
+                Self::Null => Self::Null,
+                Self::F64(v) => Self::F64(*v),
+                Self::I64(v) => Self::I64(*v),
+                Self::Bool(v) => Self::Bool(*v),
+            })
+        }
+    }
 }
 
 impl<'v> ValueTrait for Value<'v> {
@@ -648,8 +669,13 @@ mod test {
             assert_eq!(borrowed, owned);
         }
         #[test]
-        fn prop_to_static(borrowed in arb_value()) {
+        fn prop_into_static(borrowed in arb_value()) {
             let static_borrowed = borrowed.clone().into_static();
+            assert_eq!(borrowed, static_borrowed);
+        }
+        #[test]
+        fn prop_clone_static(borrowed in arb_value()) {
+            let static_borrowed = borrowed.clone_static();
             assert_eq!(borrowed, static_borrowed);
         }
         #[test]
