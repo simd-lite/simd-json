@@ -275,7 +275,7 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
     {
         self.key
             .into_deserializer()
-            .deserialize_enum(dbg!(name), dbg!(variants), visitor)
+            .deserialize_enum(name, variants, visitor)
     }
 
     forward_to_deserialize_any! {
