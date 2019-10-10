@@ -704,6 +704,7 @@ mod test {
         //v_enum: Enum,
         v_map: Map,
         v_arr: Vec<usize>,
+        v_null: (),
     }
     #[test]
     fn from_slice_to_object() {
@@ -761,11 +762,19 @@ mod test {
             let vec1 = vec.clone();
             let vec2 = vec.clone();
             println!("{}", serde_json::to_string_pretty(&obj).expect("json"));
+            let de: Obj = from_slice(&mut vec).expect("from_slice");
+            prop_assert_eq!(&obj, &de);
+
             let borroed: crate::BorrowedValue = serde_json::from_slice(& vec1).expect("from_slice");
             let owned: crate::OwnedValue = serde_json::from_slice(& vec2).expect("from_slice");
-            prop_assert_eq!(borroed, owned);
-            let de: Obj = from_slice(&mut vec).expect("from_slice");
-            prop_assert_eq!(obj, de);
+            prop_assert_eq!(&borroed, &owned);
+
+            let de: Obj = Obj::deserialize(borroed).expect("deserialize");
+            prop_assert_eq!(&obj, &de);
+            let de: Obj = Obj::deserialize(owned).expect("deserialize");
+            prop_assert_eq!(&obj, &de);
+
+
         }
     }
 }
