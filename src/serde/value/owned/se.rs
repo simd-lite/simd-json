@@ -758,7 +758,12 @@ mod test {
         #[test]
         fn prop_deserialize_obj(obj in obj_case()) {
             let mut vec = serde_json::to_vec(&obj).expect("to_vec");
+            let vec1 = vec.clone();
+            let vec2 = vec.clone();
             println!("{}", serde_json::to_string_pretty(&obj).expect("json"));
+            let borroed: crate::BorrowedValue = serde_json::from_slice(& vec1).expect("from_slice");
+            let owned: crate::OwnedValue = serde_json::from_slice(& vec2).expect("from_slice");
+            prop_assert_eq!(borroed, owned);
             let de: Obj = from_slice(&mut vec).expect("from_slice");
             prop_assert_eq!(obj, de);
         }
