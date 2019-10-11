@@ -657,4 +657,124 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
 }
 
 #[cfg(test)]
-mod test {}
+mod test {
+    use crate::serde::from_slice;
+    /*
+    use crate::{
+        owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
+        Deserializer,
+    };
+    use halfbrown::HashMap;
+    use proptest::prelude::*;
+    */
+    use serde::{Deserialize, Serialize};
+    use serde_json;
+    /*
+    skipped due to https://github.com/simd-lite/simdjson-rs/issues/65
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    enum Enum {
+        Opt1,
+        Opt2,
+    }
+    impl std::default::Default for Enum {
+        fn default() -> Self {
+            Self::Opt1
+        }
+    }
+    */
+    #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
+    struct Map {
+        key: u32,
+    }
+    #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
+    struct Obj {
+        v_i128: i128,
+        v_i64: i64,
+        v_i32: i32,
+        v_i16: i16,
+        v_i8: i8,
+        v_u128: u128,
+        v_u64: u64,
+        v_usize: usize,
+        v_u32: u32,
+        v_u66: u16,
+        v_u8: u8,
+        v_bool: bool,
+        v_str: String,
+        //v_enum: Enum,
+        v_map: Map,
+        v_arr: Vec<usize>,
+        v_null: (),
+    }
+    #[test]
+    fn from_slice_to_object() {
+        let o = Obj::default();
+        let mut vec = serde_json::to_vec(&o).expect("to_vec");
+        println!("{}", serde_json::to_string_pretty(&o).expect("json"));
+        let de: Obj = from_slice(&mut vec).expect("from_slice");
+        assert_eq!(o, de);
+    }
+
+    use proptest::prelude::*;
+    prop_compose! {
+      fn obj_case()(
+        v_i128 in any::<i64>().prop_map(|v| v as i128),
+        v_i64 in any::<i64>(),
+        v_i32 in any::<i32>(),
+        v_i16 in any::<i16>(),
+        v_i8 in any::<i8>(),
+        v_u128 in any::<u32>().prop_map(|v| v as u128),
+        v_u64 in any::<u32>().prop_map(|v| v as u64),
+        v_usize in any::<u32>().prop_map(|v| v as usize),
+        v_u32 in any::<u32>(),
+        v_u66 in any::<u16>(),
+        v_u8 in any::<u8>(),
+        v_bool in any::<bool>(),
+        v_str in ".*",
+        ) -> Obj {
+         Obj {
+            v_i128,
+            v_i64,
+            v_i32,
+            v_i16,
+            v_i8,
+            v_u128,
+            v_u64,
+            v_usize,
+            v_u32,
+            v_u66,
+            v_u8,
+            v_bool,
+            v_str,
+            ..Default::default()
+        }
+      }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_deserialize_obj(obj in obj_case()) {
+            let mut vec = serde_json::to_vec(&obj).expect("to_vec");
+            let vec1 = vec.clone();
+            let vec2 = vec.clone();
+            println!("{}", serde_json::to_string_pretty(&obj).expect("json"));
+            let de: Obj = from_slice(&mut vec).expect("from_slice");
+            prop_assert_eq!(&obj, &de);
+
+            let borroed: crate::BorrowedValue = serde_json::from_slice(& vec1).expect("from_slice");
+            let owned: crate::OwnedValue = serde_json::from_slice(& vec2).expect("from_slice");
+            prop_assert_eq!(&borroed, &owned);
+
+            let de: Obj = Obj::deserialize(borroed).expect("deserialize");
+            prop_assert_eq!(&obj, &de);
+            let de: Obj = Obj::deserialize(owned).expect("deserialize");
+            prop_assert_eq!(&obj, &de);
+
+
+        }
+    }
+}
