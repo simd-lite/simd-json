@@ -89,29 +89,7 @@ impl<'v> Value<'v> {
 }
 
 impl<'v> ValueTrait for Value<'v> {
-    type Object = Object<'v>;
-    type Array = Vec<Value<'v>>;
-
-    fn get(&self, k: &str) -> Option<&Value<'v>> {
-        match self {
-            Value::Object(m) => m.get(k),
-            _ => None,
-        }
-    }
-
-    fn get_mut(&mut self, k: &str) -> Option<&mut Value<'v>> {
-        match self {
-            Value::Object(m) => m.get_mut(k),
-            _ => None,
-        }
-    }
-
-    fn get_idx(&self, i: usize) -> Option<&Self> {
-        self.as_array().and_then(|a| a.get(i))
-    }
-    fn get_idx_mut(&mut self, i: usize) -> Option<&mut Self> {
-        self.as_array_mut().and_then(|a| a.get_mut(i))
-    }
+    type Key = Cow<'v, str>;
 
     fn value_type(&self) -> ValueType {
         match self {
@@ -199,14 +177,14 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
-    fn as_object(&self) -> Option<&<Value<'v> as ValueTrait>::Object> {
+    fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
         match self {
             Value::Object(m) => Some(m),
             _ => None,
         }
     }
 
-    fn as_object_mut(&mut self) -> Option<&mut <Value<'v> as ValueTrait>::Object> {
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>> {
         match self {
             Value::Object(m) => Some(m),
             _ => None,
