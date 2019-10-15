@@ -46,6 +46,16 @@ where
 impl<'key> KnownKey<'key> {
     /// Looks up this key in a `BorrowedValue`, returns None if the
     /// key wasn't present or `target` isn't an object
+    ///
+    /// ```rust
+    /// use simd_json::*;
+    /// let object: BorrowedValue = json!({
+    ///   "answer": 42,
+    ///   "key": 7
+    /// }).into();
+    /// let known_key = KnownKey::from("answer");
+    /// assert_eq!(known_key.lookup(&object).unwrap(), &42);
+    /// ```
     #[inline]
     pub fn lookup<'borrow, 'value>(
         &self,
@@ -63,6 +73,23 @@ impl<'key> KnownKey<'key> {
 
     /// Looks up this key in a `BorrowedValue`, returns None if the
     /// key wasn't present or `target` isn't an object
+    ///
+    /// ```rust
+    /// use simd_json::*;
+    /// let mut object: BorrowedValue = json!({
+    ///   "answer": 23,
+    ///   "key": 7
+    /// }).into();
+    /// let known_key = KnownKey::from("answer");
+    ///
+    /// assert_eq!(object["answer"], 23);
+    ///
+    /// if let Some(answer) = known_key.lookup_mut(&mut object) {
+    ///   *answer = BorrowedValue::from(42);
+    /// }
+    ///
+    /// assert_eq!(object["answer"], 42);
+    /// ```
     #[inline]
     pub fn lookup_mut<'borrow, 'value>(
         &self,
@@ -85,6 +112,32 @@ impl<'key> KnownKey<'key> {
 
     /// Looks up this key in a `BorrowedValue`, inserts `with` when the key
     ///  when wasn't present returns None if the `target` isn't an object
+    ///
+    /// ```rust
+    /// use simd_json::*;
+    /// let mut object: BorrowedValue = json!({
+    ///   "answer": 23,
+    ///   "key": 7
+    /// }).into();
+    /// let known_key = KnownKey::from("answer");
+    ///
+    /// assert_eq!(object["answer"], 23);
+    ///
+    /// if let Ok(answer) = known_key.lookup_or_insert_mut(&mut object, || 17.into()) {
+    ///   assert_eq!(*answer, 23);
+    ///   *answer = BorrowedValue::from(42);
+    /// }
+    ///
+    /// assert_eq!(object["answer"], 42);
+    ///
+    /// let known_key2 = KnownKey::from("also the answer");
+    /// if let Ok(answer) = known_key2.lookup_or_insert_mut(&mut object, || 8.into()) {
+    ///   assert_eq!(*answer, 8);
+    ///   *answer = BorrowedValue::from(42);
+    /// }
+    ///
+    /// assert_eq!(object["also the answer"], 42);
+    /// ```
     #[inline]
     pub fn lookup_or_insert_mut<'borrow, 'value, F>(
         &self,
@@ -113,6 +166,27 @@ impl<'key> KnownKey<'key> {
     /// Inserts a value key into  `BorrowedValue`, returns None if the
     /// key wasn't present otherwise Some(`old value`).
     /// Errors if `target` isn't an object
+    ///
+    /// ```rust
+    /// use simd_json::*;
+    /// let mut object: BorrowedValue = json!({
+    ///   "answer": 23,
+    ///   "key": 7
+    /// }).into();
+    /// let known_key = KnownKey::from("answer");
+    ///
+    /// assert_eq!(object["answer"], 23);
+    ///
+    /// assert!(known_key.insert(&mut object, BorrowedValue::from(42)).is_ok());
+    ///
+    /// assert_eq!(object["answer"], 42);
+    ///
+    /// let known_key2 = KnownKey::from("also the answer");
+    ///
+    /// assert!(known_key2.insert(&mut object, BorrowedValue::from(42)).is_ok());
+    ///
+    /// assert_eq!(object["also the answer"], 42);
+    /// ```
     #[inline]
     pub fn insert<'borrow, 'value>(
         &self,
@@ -141,6 +215,7 @@ impl<'key> KnownKey<'key> {
         }))
     }
 }
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
