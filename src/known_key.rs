@@ -15,6 +15,7 @@ pub struct KnownKey<'key> {
 /// Error for known keys
 #[derive(Debug, PartialEq, Clone)]
 pub enum Error {
+    /// The target passed wasn't an object
     NotAnObject(ValueType),
 }
 impl fmt::Display for Error {
