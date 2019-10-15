@@ -159,67 +159,10 @@ pub use crate::value::*;
 /// simd-json Result type
 pub type Result<T> = std::result::Result<T, Error>;
 
-use std::borrow::Cow;
-use std::hash::{BuildHasher, Hash, Hasher};
-use std::marker::PhantomData;
-
-/// Well known key that can be looked up in a `BorrowedValue` faster.
-/// It achives this by memorizing the hash.
-pub struct KnownKey<'key, S> {
-    key: Cow<'key, str>,
-    hash: u64,
-    marker: PhantomData<S>,
-}
-
-impl<'key, S> KnownKey<'key, S>
-where
-    S: BuildHasher,
-{
-    /// Creates a new known key with a given hash_builder
-    pub fn from_with_hasher(key: Cow<'key, str>, hash_builder: &S) -> Self {
-        let mut hasher = hash_builder.build_hasher();
-        key.hash(&mut hasher);
-        Self {
-            hash: hasher.finish(),
-            key,
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<'key, S> From<Cow<'key, str>> for KnownKey<'key, S>
-where
-    S: BuildHasher + Default,
-{
-    fn from(key: Cow<'key, str>) -> Self {
-        let hash_builder = S::default();
-        let mut hasher = hash_builder.build_hasher();
-        key.hash(&mut hasher);
-        Self {
-            hash: hasher.finish(),
-            key,
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<'key, S> KnownKey<'key, S> {
-    /// Looks up this key in a `BorrowedValue`, returns None if the
-    /// key wasn't present or `value` isn't an object
-    #[inline]
-    pub fn lookup<'value>(
-        &self,
-        value: &'value BorrowedValue<'value>,
-    ) -> Option<&'value BorrowedValue<'value>>
-    where
-        'key: 'value,
-    {
-        value
-            .as_object()
-            .and_then(|m| m.raw_entry().from_key_hashed_nocheck(self.hash, &self.key))
-            .map(|kv| kv.1)
-    }
-}
+#[cfg(feature = "known-key")]
+mod known_key;
+#[cfg(feature = "known-key")]
+pub use known_key::KnownKey;
 
 pub(crate) struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
@@ -364,60 +307,12 @@ mod tests {
     use super::serde::from_slice;
     use super::{
         owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
-        BorrowedValue, Deserializer, KnownKey,
+        Deserializer,
     };
     use halfbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
     use serde_json;
-    use std::borrow::Cow;
-
-    #[test]
-    fn known_key() {
-        let mut o = HashMap::new();
-        o.insert("key".into(), 1.into());
-        let key1 = KnownKey::from_with_hasher(Cow::Borrowed("key"), o.hasher());
-        let key2 = KnownKey::from_with_hasher(Cow::Borrowed("cake"), o.hasher());
-
-        let v = BorrowedValue::Object(o);
-
-        assert!(key1.lookup(&BorrowedValue::Null).is_none());
-        assert!(key2.lookup(&BorrowedValue::Null).is_none());
-        assert!(key1.lookup(&v).is_some());
-        assert!(key2.lookup(&v).is_none());
-    }
-
-    #[test]
-    fn known_key_map() {
-        let mut o = HashMap::with_capacity(128);
-        assert!(o.is_map());
-        let key1 = KnownKey::from_with_hasher(Cow::Borrowed("key"), o.hasher());
-        let key2 = KnownKey::from_with_hasher(Cow::Borrowed("cake"), o.hasher());
-
-        o.insert("key".into(), 1.into());
-        let v = BorrowedValue::Object(o);
-
-        assert!(key1.lookup(&BorrowedValue::Null).is_none());
-        assert!(key2.lookup(&BorrowedValue::Null).is_none());
-        assert!(key1.lookup(&v).is_some());
-        assert!(key2.lookup(&v).is_none());
-    }
-
-    #[test]
-    fn known_key_map() {
-        let mut o = HashMap::with_capacity(128);
-        assert!(o.is_map());
-        let key1 = KnownKey::from(Cow::Borrowed("key"));
-        let key2 = KnownKey::from(Cow::Borrowed("cake"));
-
-        o.insert("key".into(), 1.into());
-        let v = BorrowedValue::Object(o);
-
-        assert!(key1.lookup(&BorrowedValue::Null).is_none());
-        assert!(key2.lookup(&BorrowedValue::Null).is_none());
-        assert!(key1.lookup(&v).is_some());
-        assert!(key2.lookup(&v).is_none());
-    }
 
     #[test]
     fn count1() {

@@ -31,6 +31,10 @@ simdjson-rs is compatible with serde and serde-json. The Value types provided im
 
 That said serde is contained in the `serde_impl` feature which is part of the default feature set, but it can be disabled.
 
+### known-key
+
+The `known-key` feature changes hasher for the objects, from `ahash` to `fxhash`, ahash is faster at hashing and provides protection against DOS attacks by forcing multiple keys into a single hashing bucket. `fxhash`  on the other hand allows for repeatable hashing results, that allows memorizing hashes for well know keys and saving time on lookups. In workloads that are heavy at accessing some well known keys this can be a performance advantage.
+
 ### serializing
 
 simdjson-rs is not capable of serializing JSON data as there would be very little gain by re-implementing it. For serialization, we recommend serde-json.

@@ -16,6 +16,9 @@ jobs:
         rustflags:
           - '-C target-cpu=native'
           - '-C target-cpu=native -C target-feature=-avx2'
+        features:
+          - ''
+          - '--features known-key'
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v1
@@ -26,8 +29,8 @@ jobs:
     - name: Build
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
-      run: cargo build --verbose
+      run: cargo build --verbose ${{ matrix.features }}
     - name: Run tests
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
-      run: cargo test --verbose
+      run: cargo test --verbose {{ matrix.features }}

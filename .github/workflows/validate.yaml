@@ -70,6 +70,50 @@ jobs:
           token: ${{secrets.CODECOV_TOKEN}} #required
           file: ./avx.xml    
           flags: avx2
+  tarpaulin-sse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config cmake zlib1g-dev
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: install tarpaulin
+        run: cargo install cargo-tarpaulin -f
+      - name: run tarpaulin
+        env:
+          RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
+          PROPTEST_CASES: 512
+        run: cargo tarpaulin -v --features no-inline known-key --out Xml -- --test-threads=1 && cp cobertura.xml ssl.xml
+      - uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{secrets.CODECOV_TOKEN}} #required
+          file: ./ssl.xml     
+          flags: ssl-known-key
+  tarpaulin-avx2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config cmake zlib1g-dev
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: install tarpaulin
+        run: cargo install cargo-tarpaulin -f
+      - name: run tarpaulin
+        env:
+          RUSTFLAGS: '-C target-cpu=native'
+          PROPTEST_CASES: 512
+        run: cargo tarpaulin -v --features no-inline known-key --out Xml -- --test-threads=1 && cp cobertura.xml avx.xml
+      - uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{secrets.CODECOV_TOKEN}} #required
+          file: ./avx.xml    
+          flags: avx2-known-key       
   # tarpaulin-neon:
   #   runs-on: ubuntu-latest
   #   steps:

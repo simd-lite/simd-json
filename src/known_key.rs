@@ -1,0 +1,233 @@
+use crate::{BorrowedValue, ValueTrait};
+use halfbrown::RawEntryMut;
+use std::borrow::Cow;
+use std::hash::{BuildHasher, Hash, Hasher};
+
+/// Well known key that can be looked up in a `BorrowedValue` faster.
+/// It achives this by memorizing the hash.
+#[derive(Debug, Clone, PartialEq)]
+pub struct KnownKey<'key> {
+    key: Cow<'key, str>,
+    hash: u64,
+}
+
+/// Error for known keys
+#[derive(Debug, PartialEq, Clone)]
+pub enum Error {
+    NotAnObject,
+}
+
+impl<'key, S> From<S> for KnownKey<'key>
+where
+    Cow<'key, str>: From<S>,
+{
+    fn from(key: S) -> Self {
+        let key = Cow::from(key);
+        let hash_builder = halfbrown::DefaultHashBuilder::default();
+        let mut hasher = hash_builder.build_hasher();
+        key.hash(&mut hasher);
+        Self {
+            hash: hasher.finish(),
+            key,
+        }
+    }
+}
+
+impl<'key> KnownKey<'key> {
+    /// Looks up this key in a `BorrowedValue`, returns None if the
+    /// key wasn't present or `target` isn't an object
+    #[inline]
+    pub fn lookup<'borrow, 'value>(
+        &self,
+        target: &'borrow BorrowedValue<'value>,
+    ) -> Option<&'borrow BorrowedValue<'value>>
+    where
+        'key: 'value,
+        'value: 'borrow,
+    {
+        target
+            .as_object()
+            .and_then(|m| m.raw_entry().from_key_hashed_nocheck(self.hash, &self.key))
+            .map(|kv| kv.1)
+    }
+
+    /// Looks up this key in a `BorrowedValue`, returns None if the
+    /// key wasn't present or `target` isn't an object
+    #[inline]
+    pub fn lookup_mut<'borrow, 'value>(
+        &self,
+        target: &'borrow mut BorrowedValue<'value>,
+    ) -> Option<&'borrow mut BorrowedValue<'value>>
+    where
+        'key: 'value,
+        'value: 'borrow,
+    {
+        target.as_object_mut().and_then(|m| {
+            match m
+                .raw_entry_mut()
+                .from_key_hashed_nocheck(self.hash, &self.key)
+            {
+                RawEntryMut::Occupied(e) => Some(e.into_mut()),
+                RawEntryMut::Vacant(_e) => None,
+            }
+        })
+    }
+
+    /// Looks up this key in a `BorrowedValue`, inserts `with` when the key
+    ///  when wasn't present returns None if the `target` isn't an object
+    #[inline]
+    pub fn lookup_or_insert_mut<'borrow, 'value, F>(
+        &self,
+        target: &'borrow mut BorrowedValue<'value>,
+        with: F,
+    ) -> Result<&'borrow mut BorrowedValue<'value>, Error>
+    where
+        'key: 'value,
+        'value: 'borrow,
+        F: FnOnce() -> BorrowedValue<'value>,
+    {
+        target
+            .as_object_mut()
+            .map(|m| {
+                m.raw_entry_mut()
+                    .from_key_hashed_nocheck(self.hash, &self.key)
+                    .or_insert_with(|| (self.key.clone(), with()))
+                    .1
+            })
+            .ok_or(Error::NotAnObject)
+    }
+
+    /// Inserts a value key into  `BorrowedValue`, returns None if the
+    /// key wasn't present otherwise Some(`old value`).
+    /// Errors if `target` isn't an object
+    #[inline]
+    pub fn insert<'borrow, 'value>(
+        &self,
+        target: &'borrow mut BorrowedValue<'value>,
+        value: BorrowedValue<'value>,
+    ) -> Result<Option<BorrowedValue<'value>>, Error>
+    where
+        'key: 'value,
+        'value: 'borrow,
+    {
+        if !target.is_object() {
+            return Err(Error::NotAnObject);
+        }
+
+        Ok(target.as_object_mut().and_then(|m| {
+            match m
+                .raw_entry_mut()
+                .from_key_hashed_nocheck(self.hash, &self.key)
+            {
+                RawEntryMut::Occupied(mut e) => Some(e.insert(value)),
+                RawEntryMut::Vacant(e) => {
+                    e.insert_hashed_nocheck(self.hash, self.key.clone(), value);
+                    None
+                }
+            }
+        }))
+    }
+}
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
+    use super::*;
+    use crate::borrowed::*;
+    use crate::ValueTrait;
+
+    #[test]
+    fn known_key() {
+        use std::borrow::Cow;
+        let mut o = Object::new();
+        o.insert("key".into(), 1.into());
+        let key1 = KnownKey::from(Cow::Borrowed("key"));
+        let key2 = KnownKey::from(Cow::Borrowed("cake"));
+
+        let mut v = BorrowedValue::Object(o);
+
+        assert!(key1.lookup(&BorrowedValue::Null).is_none());
+        assert!(key2.lookup(&BorrowedValue::Null).is_none());
+        assert!(key1.lookup(&v).is_some());
+        assert!(key2.lookup(&v).is_none());
+        assert!(key1.lookup_mut(&mut v).is_some());
+        assert!(key2.lookup_mut(&mut v).is_none());
+    }
+
+    #[test]
+    fn known_key_insert() {
+        use std::borrow::Cow;
+        let mut o = Object::new();
+        o.insert("key".into(), 1.into());
+        let key1 = KnownKey::from(Cow::Borrowed("key"));
+        let key2 = KnownKey::from(Cow::Borrowed("cake"));
+
+        let mut v = BorrowedValue::Object(o);
+
+        let mut v1 = BorrowedValue::Null;
+        assert!(key1.insert(&mut v1, 2.into()).is_err());
+        assert!(key2.insert(&mut v1, 2.into()).is_err());
+        assert_eq!(key1.insert(&mut v, 2.into()).unwrap(), Some(1.into()));
+        assert_eq!(key2.insert(&mut v, 3.into()).unwrap(), None);
+        assert_eq!(v["key"], 2);
+        assert_eq!(v["cake"], 3);
+    }
+
+    #[test]
+    fn lookup_or_insert_mut() {
+        use std::borrow::Cow;
+        let mut o = Object::new();
+        o.insert("key".into(), 1.into());
+        let key1 = KnownKey::from(Cow::Borrowed("key"));
+        let key2 = KnownKey::from(Cow::Borrowed("cake"));
+
+        let mut v = BorrowedValue::Object(o);
+
+        let mut v1 = BorrowedValue::Null;
+        assert!(key1.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
+        assert!(key2.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
+
+        {
+            let r1 = key1.lookup_or_insert_mut(&mut v, || 2.into()).unwrap();
+            assert_eq!(r1.as_u8(), Some(1));
+        }
+        {
+            let r2 = key2.lookup_or_insert_mut(&mut v, || 3.into()).unwrap();
+            assert_eq!(r2.as_u8(), Some(3));
+        }
+    }
+    #[test]
+    fn known_key_map() {
+        use std::borrow::Cow;
+        let mut o = Object::with_capacity(128);
+        assert!(o.is_map());
+        let key1 = KnownKey::from(Cow::Borrowed("key"));
+        let key2 = KnownKey::from(Cow::Borrowed("cake"));
+
+        o.insert("key".into(), 1.into());
+        let v = BorrowedValue::Object(o);
+
+        assert!(key1.lookup(&BorrowedValue::Null).is_none());
+        assert!(key2.lookup(&BorrowedValue::Null).is_none());
+        assert!(key1.lookup(&v).is_some());
+        assert!(key2.lookup(&v).is_none());
+    }
+
+    #[test]
+    fn known_key_insert_map() {
+        use std::borrow::Cow;
+        let mut o = Object::with_capacity(128);
+        o.insert("key".into(), 1.into());
+        let key1 = KnownKey::from(Cow::Borrowed("key"));
+        let key2 = KnownKey::from(Cow::Borrowed("cake"));
+
+        let mut v = BorrowedValue::Object(o);
+
+        let mut v1 = BorrowedValue::Null;
+        assert!(key1.insert(&mut v1, 2.into()).is_err());
+        assert!(key2.insert(&mut v1, 2.into()).is_err());
+        assert_eq!(key1.insert(&mut v, 2.into()).unwrap(), Some(1.into()));
+        assert_eq!(key2.insert(&mut v, 3.into()).unwrap(), None);
+        assert_eq!(v["key"], 2);
+        assert_eq!(v["cake"], 3);
+    }
+}

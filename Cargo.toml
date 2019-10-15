@@ -63,6 +63,7 @@ bench-serde = []
 hints = [] # requires nightly
 # for perf testing, used by the example
 perf = ["perfcnt", "getopts", "colored"]
+known-key = [ "halfbrown/fxhash" ]
 
 
 [[example]]
