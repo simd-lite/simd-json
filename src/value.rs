@@ -20,6 +20,9 @@ use std::convert::TryInto;
 
 pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
 pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
+use halfbrown::HashMap;
+use std::borrow::Borrow;
+use std::hash::Hash;
 
 /// Types of JSON values
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -73,23 +76,40 @@ pub trait ValueTrait:
     + PartialEq<()>
 {
     /// The type for Objects
-    type Object;
-    /// Tye type for Arrays
-    type Array;
+    type Key;
 
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key
     /// it was asked for.
-    fn get(&self, k: &str) -> Option<&Self>;
+    fn get<Q: ?Sized>(&self, k: &Q) -> Option<&Self>
+    where
+        Self::Key: Borrow<Q> + Hash + Eq,
+        Q: Hash + Eq,
+    {
+        self.as_object().and_then(|a| a.get(k))
+    }
+
     /// Same as `get` but returns a mutable ref instead
-    fn get_mut(&mut self, k: &str) -> Option<&mut Self>;
+    //    fn get_amut(&mut self, k: &str) -> Option<&mut Self>;
+    fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut Self>
+    where
+        Self::Key: Borrow<Q> + Hash + Eq,
+        Q: Hash + Eq,
+    {
+        self.as_object_mut().and_then(|m| m.get_mut(&k))
+    }
 
     /// Gets a ref to a value based on n index, returns `None` if the
     /// current Value isn't an Array or doesn't contain the index
     /// it was asked for.
-    fn get_idx(&self, i: usize) -> Option<&Self>;
+    fn get_idx(&self, i: usize) -> Option<&Self> {
+        self.as_array().and_then(|a| a.get(i))
+    }
+
     /// Same as `get_idx` but returns a mutable ref instead
-    fn get_idx_mut(&mut self, i: usize) -> Option<&mut Self>;
+    fn get_idx_mut(&mut self, i: usize) -> Option<&mut Self> {
+        self.as_array_mut().and_then(|a| a.get_mut(i))
+    }
 
     /// Returns the type of the current Valye
     #[deprecated(since = "0.1.21", note = "please use value_type instead")]
@@ -258,18 +278,18 @@ pub trait ValueTrait:
     }
 
     /// Tries to represent the value as an array and returns a refference to it
-    fn as_array(&self) -> Option<&Self::Array>;
+    fn as_array(&self) -> Option<&Vec<Self>>;
     /// Tries to represent the value as an array and returns a mutable refference to it
-    fn as_array_mut(&mut self) -> Option<&mut Self::Array>;
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>>;
     /// returns true if the current value can be represented as an array
     fn is_array(&self) -> bool {
         self.as_array().is_some()
     }
 
     /// Tries to represent the value as an object and returns a refference to it
-    fn as_object(&self) -> Option<&Self::Object>;
+    fn as_object(&self) -> Option<&HashMap<Self::Key, Self>>;
     /// Tries to represent the value as an object and returns a mutable refference to it
-    fn as_object_mut(&mut self) -> Option<&mut Self::Object>;
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>>;
     /// returns true if the current value can be represented as an object
     fn is_object(&self) -> bool {
         self.as_object().is_some()

@@ -49,23 +49,7 @@ pub enum Value {
 }
 
 impl ValueTrait for Value {
-    type Object = Object;
-    type Array = Vec<Self>;
-
-    fn get(&self, k: &str) -> Option<&Self> {
-        self.as_object().and_then(|a| a.get(k))
-    }
-
-    fn get_mut(&mut self, k: &str) -> Option<&mut Self> {
-        self.as_object_mut().and_then(|a| a.get_mut(k))
-    }
-
-    fn get_idx(&self, i: usize) -> Option<&Self> {
-        self.as_array().and_then(|a| a.get(i))
-    }
-    fn get_idx_mut(&mut self, i: usize) -> Option<&mut Self> {
-        self.as_array_mut().and_then(|a| a.get_mut(i))
-    }
+    type Key = String;
 
     fn value_type(&self) -> ValueType {
         match self {
@@ -152,13 +136,13 @@ impl ValueTrait for Value {
         }
     }
 
-    fn as_object(&self) -> Option<&<Self as ValueTrait>::Object> {
+    fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
         }
     }
-    fn as_object_mut(&mut self) -> Option<&mut <Self as ValueTrait>::Object> {
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,

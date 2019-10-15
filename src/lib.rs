@@ -159,6 +159,11 @@ pub use crate::value::*;
 /// simd-json Result type
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[cfg(feature = "known-key")]
+mod known_key;
+#[cfg(feature = "known-key")]
+pub use known_key::{Error as KnownKeyError, KnownKey};
+
 pub(crate) struct Deserializer<'de> {
     // This string starts with the input data and characters are truncated off
     // the beginning as data is parsed.
