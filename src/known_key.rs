@@ -1,6 +1,7 @@
-use crate::{BorrowedValue, ValueTrait};
+use crate::{BorrowedValue, ValueTrait, ValueType};
 use halfbrown::RawEntryMut;
 use std::borrow::Cow;
+use std::fmt;
 use std::hash::{BuildHasher, Hash, Hasher};
 
 /// Well known key that can be looked up in a `BorrowedValue` faster.
@@ -14,8 +15,16 @@ pub struct KnownKey<'key> {
 /// Error for known keys
 #[derive(Debug, PartialEq, Clone)]
 pub enum Error {
-    NotAnObject,
+    NotAnObject(ValueType),
 }
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::NotAnObject(t) => write!(f, "Expected object but got {:?}", t),
+        }
+    }
+}
+impl std::error::Error for Error {}
 
 impl<'key, S> From<S> for KnownKey<'key>
 where
@@ -86,6 +95,9 @@ impl<'key> KnownKey<'key> {
         'value: 'borrow,
         F: FnOnce() -> BorrowedValue<'value>,
     {
+        if !target.is_object() {
+            return Err(Error::NotAnObject(target.value_type()));
+        }
         target
             .as_object_mut()
             .map(|m| {
@@ -94,7 +106,7 @@ impl<'key> KnownKey<'key> {
                     .or_insert_with(|| (self.key.clone(), with()))
                     .1
             })
-            .ok_or(Error::NotAnObject)
+            .ok_or(Error::NotAnObject(ValueType::Null))
     }
 
     /// Inserts a value key into  `BorrowedValue`, returns None if the
@@ -111,7 +123,7 @@ impl<'key> KnownKey<'key> {
         'value: 'borrow,
     {
         if !target.is_object() {
-            return Err(Error::NotAnObject);
+            return Err(Error::NotAnObject(target.value_type()));
         }
 
         Ok(target.as_object_mut().and_then(|m| {
