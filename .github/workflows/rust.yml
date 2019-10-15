@@ -33,4 +33,4 @@ jobs:
     - name: Run tests
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
-      run: cargo test --verbose {{ matrix.features }}
+      run: cargo test --verbose ${{ matrix.features }}
