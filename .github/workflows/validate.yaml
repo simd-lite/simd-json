@@ -37,7 +37,7 @@ jobs:
           toolchain: nightly
           override: true
       - name: install tarpaulin
-        run: cargo install cargo-tarpaulin -f
+        run: bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
       - name: run tarpaulin
         env:
           RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
@@ -59,7 +59,7 @@ jobs:
           toolchain: nightly
           override: true
       - name: install tarpaulin
-        run: cargo install cargo-tarpaulin -f
+        run: bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
       - name: run tarpaulin
         env:
           RUSTFLAGS: '-C target-cpu=native'
@@ -81,7 +81,7 @@ jobs:
           toolchain: nightly
           override: true
       - name: install tarpaulin
-        run: cargo install cargo-tarpaulin -f
+        run: bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
       - name: run tarpaulin
         env:
           RUSTFLAGS: '-C target-cpu=native -C target-feature=-avx2'
@@ -103,7 +103,7 @@ jobs:
           toolchain: nightly
           override: true
       - name: install tarpaulin
-        run: cargo install cargo-tarpaulin -f
+        run: bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
       - name: run tarpaulin
         env:
           RUSTFLAGS: '-C target-cpu=native'
