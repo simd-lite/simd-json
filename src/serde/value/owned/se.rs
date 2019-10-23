@@ -16,6 +16,7 @@ impl Serialize for Value {
             Self::Null => serializer.serialize_unit(),
             Self::F64(f) => serializer.serialize_f64(*f),
             Self::I64(i) => serializer.serialize_i64(*i),
+            Self::U64(i) => serializer.serialize_u64(*i),
             Self::String(s) => serializer.serialize_str(&s),
             Self::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
@@ -718,13 +719,13 @@ mod test {
     use proptest::prelude::*;
     prop_compose! {
       fn obj_case()(
-        v_i128 in any::<i64>().prop_map(|v| v as i128),
+        v_i128 in any::<i64>().prop_map(i128::from),
         v_i64 in any::<i64>(),
         v_i32 in any::<i32>(),
         v_i16 in any::<i16>(),
         v_i8 in any::<i8>(),
-        v_u128 in any::<u32>().prop_map(|v| v as u128),
-        v_u64 in any::<u32>().prop_map(|v| v as u64),
+        v_u128 in any::<u64>().prop_map(u128::from),
+        v_u64 in any::<u64>(),
         v_usize in any::<u32>().prop_map(|v| v as usize),
         v_u32 in any::<u32>(),
         v_u66 in any::<u16>(),
@@ -746,7 +747,7 @@ mod test {
             v_u8,
             v_bool,
             v_str,
-            ..Default::default()
+            ..Obj::default()
         }
       }
     }

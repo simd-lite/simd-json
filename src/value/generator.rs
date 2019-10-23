@@ -139,7 +139,10 @@ pub trait BaseGenerator {
     #[inline(always)]
     fn write_int(&mut self, num: i64) -> io::Result<()> {
         itoa::write(self.get_writer(), num).map(|_| ())
-        //self.write(num.to_string().as_bytes())
+    }
+    #[inline(always)]
+    fn write_uint(&mut self, num: u64) -> io::Result<()> {
+        itoa::write(self.get_writer(), num).map(|_| ())
     }
 }
 

@@ -7,6 +7,7 @@ mod serialize;
 use crate::value::{ValueTrait, ValueType};
 use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
+use std::convert::TryFrom;
 use std::fmt;
 use std::ops::Index;
 
@@ -38,8 +39,10 @@ pub enum Value {
     Bool(bool),
     /// float type
     F64(f64),
-    /// integer type
+    /// signed integer type
     I64(i64),
+    /// unsigned integer type
+    U64(u64),
     /// string type
     String(String),
     /// array type
@@ -57,6 +60,7 @@ impl ValueTrait for Value {
             Self::Bool(_) => ValueType::Bool,
             Self::F64(_) => ValueType::F64,
             Self::I64(_) => ValueType::I64,
+            Self::U64(_) => ValueType::U64,
             Self::String(_) => ValueType::String,
             Self::Array(_) => ValueType::Array,
             Self::Object(_) => ValueType::Object,
@@ -80,6 +84,7 @@ impl ValueTrait for Value {
     fn as_i64(&self) -> Option<i64> {
         match self {
             Self::I64(i) => Some(*i),
+            Self::U64(i) => i64::try_from(*i).ok(),
             _ => None,
         }
     }
@@ -87,7 +92,8 @@ impl ValueTrait for Value {
     fn as_u64(&self) -> Option<u64> {
         #[allow(clippy::cast_sign_loss)]
         match self {
-            Self::I64(i) if *i >= 0 => Some(*i as u64),
+            Self::I64(i) => u64::try_from(*i).ok(),
+            Self::U64(i) => Some(*i),
             _ => None,
         }
     }
@@ -104,6 +110,7 @@ impl ValueTrait for Value {
         match self {
             Self::F64(i) => Some(*i),
             Self::I64(i) => Some(*i as f64),
+            Self::U64(i) => Some(*i as f64),
             _ => None,
         }
     }
@@ -157,6 +164,7 @@ impl fmt::Display for Value {
             Self::Bool(false) => f.write_str("false"),
             Self::Bool(true) => f.write_str("true"),
             Self::I64(n) => f.write_str(&n.to_string()),
+            Self::U64(n) => f.write_str(&n.to_string()),
             Self::F64(n) => f.write_str(&n.to_string()),
             Self::String(s) => write!(f, "{}", s),
             Self::Array(a) => write!(f, "{:?}", a),
@@ -648,14 +656,14 @@ mod test {
             prop_assert_eq!(v, f)
         }
         #[test]
-        fn prop_u64_cmp(f in (0_u64..=(i64::max_value() as u64))) {
+        fn prop_u64_cmp(f in proptest::num::u64::ANY) {
             let v: Value = f.into();
             prop_assert_eq!(v, f)
         }
 
         #[allow(clippy::cast_possible_truncation)]
         #[test]
-        fn prop_usize_cmp(f in (0_usize..=(i64::max_value() as usize))) {
+        fn prop_usize_cmp(f in proptest::num::usize::ANY) {
             let v: Value = f.into();
             prop_assert_eq!(v, f)
         }

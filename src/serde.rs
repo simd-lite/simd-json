@@ -23,8 +23,6 @@ type ConvertResult<T> = std::result::Result<T, SerdeConversionError>;
 pub enum SerdeConversionError {
     /// Serde can not reflect NAN or Infinity
     NanOrInfinity,
-    /// A integer was to large, simd-json uses i64 for all integers
-    IntegerTooLarge,
     /// Something horrible went wrong, please open a ticket at <https://simd-json.rs>
     Oops,
 }
@@ -33,7 +31,6 @@ impl std::fmt::Display for SerdeConversionError {
         use SerdeConversionError::*;
         match self {
             NanOrInfinity => write!(f, "JSON can not represent NAN or Infinity values"),
-            IntegerTooLarge => write!(f, "Integer value is too large to fit in a i64"),
             Oops => write!(
                 f,
                 "Unreachable code is reachable, oops - please open a bug with simdjson-rs"
@@ -116,6 +113,9 @@ impl<'de> Deserializer<'de> {
             },
             b'0'..=b'9' => match stry!(self.parse_number(false)) {
                 Number::I64(n) => Ok(n),
+                Number::U64(n) => n
+                    .try_into()
+                    .map_err(|_| self.error(ErrorType::ExpectedSigned)),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
             _ => Err(self.error(ErrorType::ExpectedSigned)),
@@ -128,6 +128,7 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             b'0'..=b'9' => match stry!(self.parse_number(false)) {
                 Number::I64(n) => Ok(n as u64),
+                Number::U64(n) => Ok(n as u64),
                 _ => Err(self.error(ErrorType::ExpectedUnsigned)),
             },
             _ => Err(self.error(ErrorType::ExpectedUnsigned)),
@@ -140,10 +141,12 @@ impl<'de> Deserializer<'de> {
             b'-' => match stry!(self.parse_number(true)) {
                 Number::F64(n) => Ok(n),
                 Number::I64(n) => Ok(n as f64),
+                Number::U64(n) => Ok(n as f64),
             },
             b'0'..=b'9' => match stry!(self.parse_number(false)) {
                 Number::F64(n) => Ok(n),
                 Number::I64(n) => Ok(n as f64),
+                Number::U64(n) => Ok(n as f64),
             },
             _ => Err(self.error(ErrorType::ExpectedFloat)),
         }
@@ -161,11 +164,7 @@ impl TryFrom<serde_json::Value> for OwnedValue {
                 if let Some(n) = b.as_i64() {
                     Self::I64(n)
                 } else if let Some(n) = b.as_u64() {
-                    if n > i64::max_value() as u64 {
-                        return Err(SerdeConversionError::IntegerTooLarge);
-                    }
-                    #[allow(clippy::cast_possible_wrap)]
-                    Self::I64(n as i64)
+                    Self::U64(n)
                 } else if let Some(n) = b.as_f64() {
                     Self::F64(n)
                 } else {
@@ -195,6 +194,7 @@ impl TryInto<serde_json::Value> for OwnedValue {
             Self::Null => Value::Null,
             Self::Bool(b) => Value::Bool(b),
             Self::I64(n) => Value::Number(n.into()),
+            Self::U64(n) => Value::Number(n.into()),
             Self::F64(n) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)
@@ -228,11 +228,7 @@ impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
                 if let Some(n) = b.as_i64() {
                     BorrowedValue::I64(n)
                 } else if let Some(n) = b.as_u64() {
-                    if n > i64::max_value() as u64 {
-                        return Err(SerdeConversionError::IntegerTooLarge);
-                    }
-                    #[allow(clippy::cast_possible_wrap)]
-                    BorrowedValue::I64(n as i64)
+                    BorrowedValue::U64(n)
                 } else if let Some(n) = b.as_f64() {
                     BorrowedValue::F64(n)
                 } else {
@@ -262,6 +258,7 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
             BorrowedValue::Null => Value::Null,
             BorrowedValue::Bool(b) => Value::Bool(b),
             BorrowedValue::I64(n) => Value::Number(n.into()),
+            BorrowedValue::U64(n) => Value::Number(n.into()),
             BorrowedValue::F64(n) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)

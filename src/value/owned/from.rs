@@ -10,6 +10,7 @@ impl From<Number> for Value {
         match n {
             Number::F64(n) => Self::F64(n),
             Number::I64(n) => Self::I64(n),
+            Number::U64(n) => Self::U64(n),
         }
     }
 }
@@ -21,6 +22,7 @@ impl From<crate::BorrowedValue<'_>> for Value {
             BorrowedValue::Bool(b) => Self::Bool(b),
             BorrowedValue::F64(f) => Self::F64(f),
             BorrowedValue::I64(i) => Self::I64(i),
+            BorrowedValue::U64(i) => Self::U64(i),
             BorrowedValue::String(s) => Self::from(s.to_string()),
             BorrowedValue::Array(a) => {
                 Self::Array(a.into_iter().map(|v| v.into()).collect::<Vec<Self>>())
@@ -102,33 +104,33 @@ impl From<i64> for Value {
 /********* u_ **********/
 impl From<u8> for Value {
     fn from(i: u8) -> Self {
-        Self::I64(i64::from(i))
+        Self::U64(u64::from(i))
     }
 }
 
 impl From<u16> for Value {
     fn from(i: u16) -> Self {
-        Self::I64(i64::from(i))
+        Self::U64(u64::from(i))
     }
 }
 
 impl From<u32> for Value {
     fn from(i: u32) -> Self {
-        Self::I64(i64::from(i))
+        Self::U64(u64::from(i))
     }
 }
 
 impl From<u64> for Value {
     fn from(i: u64) -> Self {
         #[allow(clippy::cast_possible_wrap)]
-        Self::I64(i as i64)
+        Self::U64(i)
     }
 }
 
 impl From<usize> for Value {
     fn from(i: usize) -> Self {
         #[allow(clippy::cast_possible_wrap)]
-        Self::I64(i as i64)
+        Self::U64(i as u64)
     }
 }
 

@@ -99,6 +99,7 @@ trait Generator: BaseGenerator {
             Value::Null => self.write(b"null"),
             Value::String(ref string) => self.write_string(string),
             Value::I64(number) => self.write_int(number),
+            Value::U64(number) => self.write_uint(number),
             Value::F64(number) => self.write_float(number),
             Value::Bool(true) => self.write(b"true"),
             Value::Bool(false) => self.write(b"false"),

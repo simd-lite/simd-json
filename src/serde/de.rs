@@ -26,10 +26,12 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             b'-' => match stry!(self.parse_number(true)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
+                Number::U64(n) => visitor.visit_u64(n),
             },
             b'0'..=b'9' => match stry!(self.parse_number(false)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
+                Number::U64(n) => visitor.visit_u64(n),
             },
             b'[' => visitor.visit_seq(CommaSeparated::new(&mut self)),
             b'{' => visitor.visit_map(CommaSeparated::new(&mut self)),

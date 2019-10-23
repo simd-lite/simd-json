@@ -10,6 +10,7 @@ impl<'a> From<Number> for Value<'a> {
         match n {
             Number::F64(n) => Value::F64(n),
             Number::I64(n) => Value::I64(n),
+            Number::U64(n) => Value::U64(n),
         }
     }
 }
@@ -21,6 +22,7 @@ impl<'a> From<OwnedValue> for Value<'a> {
             OwnedValue::Bool(b) => Value::Bool(b),
             OwnedValue::F64(f) => Value::F64(f),
             OwnedValue::I64(i) => Value::I64(i),
+            OwnedValue::U64(i) => Value::U64(i),
             OwnedValue::String(s) => Value::from(s.to_string()),
             OwnedValue::Array(a) => {
                 Value::Array(a.into_iter().map(|v| v.into()).collect::<Vec<Value>>())
@@ -99,36 +101,34 @@ impl<'v> From<i64> for Value<'v> {
 impl<'v> From<u8> for Value<'v> {
     #[inline]
     fn from(i: u8) -> Self {
-        Value::I64(i64::from(i))
+        Self::U64(u64::from(i))
     }
 }
 
 impl<'v> From<u16> for Value<'v> {
     #[inline]
     fn from(i: u16) -> Self {
-        Value::I64(i64::from(i))
+        Self::U64(u64::from(i))
     }
 }
 
 impl<'v> From<u32> for Value<'v> {
     #[inline]
     fn from(i: u32) -> Self {
-        Value::I64(i64::from(i))
+        Self::U64(u64::from(i))
     }
 }
 
 impl<'v> From<u64> for Value<'v> {
     #[inline]
     fn from(i: u64) -> Self {
-        #[allow(clippy::cast_possible_wrap)]
-        Value::I64(i as i64)
+        Value::U64(i)
     }
 }
 
 impl<'v> From<usize> for Value<'v> {
     fn from(i: usize) -> Self {
-        #[allow(clippy::cast_possible_wrap)]
-        Self::I64(i as i64)
+        Self::U64(i as u64)
     }
 }
 

@@ -6,7 +6,6 @@ use serde::de::{
 use serde::forward_to_deserialize_any;
 use serde_ext::de::IntoDeserializer;
 use std::borrow::Cow;
-use std::convert::TryInto;
 use std::fmt;
 
 impl<'de> de::Deserializer<'de> for Value {
@@ -23,6 +22,7 @@ impl<'de> de::Deserializer<'de> for Value {
             Self::Null => visitor.visit_unit(),
             Self::Bool(b) => visitor.visit_bool(b),
             Self::I64(n) => visitor.visit_i64(n),
+            Self::U64(n) => visitor.visit_u64(n),
             Self::F64(n) => visitor.visit_f64(n),
             Self::String(s) => visitor.visit_string(s),
             Self::Array(a) => visit_array(a, visitor),
@@ -475,7 +475,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(i64::from(value)))
+        Ok(Value::U64(u64::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -483,7 +483,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(i64::from(value)))
+        Ok(Value::U64(u64::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -491,7 +491,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(i64::from(value)))
+        Ok(Value::U64(u64::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -499,12 +499,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        if let Ok(v) = value.try_into() {
-            #[allow(clippy::cast_possible_wrap)]
-            Ok(Value::I64(v))
-        } else {
-            Err(E::custom(format!("Integer out of range: {}", value)))
-        }
+        Ok(Value::U64(value))
     }
 
     /****************** f64 ******************/

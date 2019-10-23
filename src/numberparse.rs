@@ -118,6 +118,7 @@ fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
 pub enum Number {
     F64(f64),
     I64(i64),
+    U64(u64),
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -325,12 +326,8 @@ impl<'de> Deserializer<'de> {
             }
         }
 
-        if negative {
-            if i >= 9_223_372_036_854_775_808 {
-                //i64::min_value() * -1
-                return Err(self.error(ErrorType::Overflow));
-            }
-        } else if i > i64::max_value() as u64 {
+        if negative && i >= 9_223_372_036_854_775_808 {
+            //i64::min_value() * -1
             return Err(self.error(ErrorType::Overflow));
         }
 
@@ -339,7 +336,7 @@ impl<'de> Deserializer<'de> {
         } else if negative {
             Ok(Number::I64(-(i as i64)))
         } else {
-            Ok(Number::I64(i as i64))
+            Ok(Number::U64(i))
         }
     }
 
@@ -498,8 +495,12 @@ impl<'de> Deserializer<'de> {
                 // this is uncommon!!!
                 return self.parse_large_integer(buf, negative);
             }
-            #[allow(clippy::cast_possible_wrap)]
-            Number::I64((if negative { i.wrapping_neg() } else { i }) as i64)
+            if negative {
+                #[allow(clippy::cast_possible_wrap)]
+                Number::I64((i as i64).wrapping_neg())
+            } else {
+                Number::U64(i)
+            }
         };
         if is_structural_or_whitespace(d) == 0 {
             Err(self.error(ErrorType::InvalidNumber))

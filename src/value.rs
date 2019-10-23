@@ -31,8 +31,10 @@ pub enum ValueType {
     Null,
     /// a boolean
     Bool,
-    /// an integer type
+    /// a signed integer type
     I64,
+    /// a unsigned integer type
+    U64,
     /// a float type
     F64,
     /// a string type

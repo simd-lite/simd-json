@@ -14,6 +14,7 @@ impl<'a> Serialize for Value<'a> {
             Value::Null => serializer.serialize_unit(),
             Value::F64(f) => serializer.serialize_f64(*f),
             Value::I64(i) => serializer.serialize_i64(*i),
+            Value::U64(i) => serializer.serialize_u64(*i),
             Value::String(Cow::Borrowed(s)) => serializer.serialize_str(s),
             Value::String(Cow::Owned(s)) => serializer.serialize_str(&s),
             Value::Array(v) => {
