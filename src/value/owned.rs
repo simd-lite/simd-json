@@ -64,6 +64,7 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn is_null(&self) -> bool {
         match self {
             Self::Null => true,
@@ -71,6 +72,7 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn as_bool(&self) -> Option<bool> {
         match self {
             Self::Bool(b) => Some(*b),
@@ -78,6 +80,7 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn as_i64(&self) -> Option<i64> {
         match self {
             Self::I64(i) => Some(*i),
@@ -86,6 +89,7 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn as_u64(&self) -> Option<u64> {
         #[allow(clippy::cast_sign_loss)]
         match self {
@@ -95,6 +99,7 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn as_f64(&self) -> Option<f64> {
         match self {
             Self::F64(i) => Some(*i),
@@ -102,6 +107,7 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn cast_f64(&self) -> Option<f64> {
         #[allow(clippy::cast_precision_loss)]
         match self {
@@ -112,6 +118,7 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn as_str(&self) -> Option<&str> {
         match self {
             Self::String(s) => Some(s.as_str()),
@@ -119,6 +126,7 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn as_array(&self) -> Option<&Vec<Self>> {
         match self {
             Self::Array(a) => Some(a),
@@ -126,6 +134,7 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
         match self {
             Self::Array(a) => Some(a),
@@ -133,12 +142,15 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
         }
     }
+
+    #[inline]
     fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),

@@ -179,9 +179,8 @@ pub trait ValueTrait:
     }
 
     /// Tries to represent the value as an u64
-    fn as_u64(&self) -> Option<u64> {
-        self.as_i64().and_then(|u| u.try_into().ok())
-    }
+    fn as_u64(&self) -> Option<u64>;
+
     /// returns true if the current value can be represented as a u64
     fn is_u64(&self) -> bool {
         self.as_u64().is_some()

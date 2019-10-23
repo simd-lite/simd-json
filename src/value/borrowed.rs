@@ -25,7 +25,7 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
 }
 
 /// Borrowed JSON-DOM Value, consider using the `ValueTrait`
-/// to access it'scontent
+/// to access it's content
 #[derive(Debug, Clone)]
 pub enum Value<'v> {
     /// null
@@ -105,6 +105,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn is_null(&self) -> bool {
         match self {
             Self::Null => true,
@@ -112,6 +113,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn as_bool(&self) -> Option<bool> {
         match self {
             Self::Bool(b) => Some(*b),
@@ -119,6 +121,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn as_i64(&self) -> Option<i64> {
         match self {
             Self::I64(i) => Some(*i),
@@ -127,6 +130,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn as_u64(&self) -> Option<u64> {
         #[allow(clippy::cast_sign_loss)]
         match self {
@@ -136,6 +140,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn as_f64(&self) -> Option<f64> {
         match self {
             Self::F64(i) => Some(*i),
@@ -143,6 +148,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn cast_f64(&self) -> Option<f64> {
         #[allow(clippy::cast_precision_loss)]
         match self {
@@ -153,6 +159,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn as_str(&self) -> Option<&str> {
         use std::borrow::Borrow;
         match self {
@@ -161,6 +168,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn as_array(&self) -> Option<&Vec<Value<'v>>> {
         match self {
             Self::Array(a) => Some(a),
@@ -168,6 +176,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
         match self {
             Self::Array(a) => Some(a),
@@ -175,6 +184,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
@@ -182,6 +192,7 @@ impl<'v> ValueTrait for Value<'v> {
         }
     }
 
+    #[inline]
     fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
