@@ -13,9 +13,6 @@ use std::fmt;
 use std::ops::Index;
 
 /// Representation of a JSON object
-#[deprecated(since = "0.1.21", note = "Please use Object instead")]
-pub type Map<'v> = Object<'v>;
-/// Representation of a JSON object
 pub type Object<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 
 /// Parses a slice of butes into a Value dom. This function will
@@ -152,13 +149,6 @@ impl<'v> ValueTrait for Value<'v> {
             Self::F64(i) => Some(*i),
             Self::I64(i) => Some(*i as f64),
             Self::U64(i) => Some(*i as f64),
-            _ => None,
-        }
-    }
-
-    fn as_string(&self) -> Option<String> {
-        match self {
-            Self::String(s) => Some(s.to_string()),
             _ => None,
         }
     }

@@ -114,12 +114,6 @@ pub trait ValueTrait:
     }
 
     /// Returns the type of the current Valye
-    #[deprecated(since = "0.1.21", note = "please use value_type instead")]
-    fn kind(&self) -> ValueType {
-        self.value_type()
-    }
-
-    /// Returns the type of the current Valye
     fn value_type(&self) -> ValueType;
 
     /// returns true if the current value is null
@@ -258,18 +252,6 @@ pub trait ValueTrait:
     /// returns true if the current value can be represented as a f64
     fn is_f32(&self) -> bool {
         self.as_f32().is_some()
-    }
-
-    /// Tries to represent the value as a String
-    #[deprecated(
-        since = "0.1.20",
-        note = "This will allocate a new string please use as_str instead"
-    )]
-    fn as_string(&self) -> Option<String>;
-    /// returns true if the current value can be represented as a String
-    #[deprecated(since = "0.1.20", note = "Please use is_str instead")]
-    fn is_string(&self) -> bool {
-        self.as_str().is_some()
     }
 
     /// Tries to represent the value as a &str

@@ -15,23 +15,10 @@ use std::io::Write;
 
 impl<'value> Value<'value> {
     /// Encodes the value into it's JSON representation as a string
-    #[deprecated(since = "0.1.21", note = "Please use encode instead")]
-    #[allow(clippy::inherent_to_string_shadow_display)]
-    pub fn to_string(&self) -> String {
-        self.encode()
-    }
-
-    /// Encodes the value into it's JSON representation as a string
     pub fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
         let _ = g.write_json(&self);
         g.consume()
-    }
-
-    /// Encodes the value into it's JSON representation as a string (pretty printed)
-    #[deprecated(since = "0.1.21", note = "Please use encode instead")]
-    pub fn to_string_pp(&self) -> String {
-        self.encode_pp()
     }
 
     /// Encodes the value into it's JSON representation as a string (pretty printed)

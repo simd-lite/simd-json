@@ -12,9 +12,6 @@ use std::fmt;
 use std::ops::Index;
 
 /// Representation of a JSON object
-#[deprecated(since = "0.1.21", note = "Please use Object instead")]
-pub type Map = Object;
-/// Representation of a JSON object
 pub type Object = HashMap<String, Value>;
 
 /// Parses a slice of bytes into a Value dom. This function will
@@ -111,13 +108,6 @@ impl ValueTrait for Value {
             Self::F64(i) => Some(*i),
             Self::I64(i) => Some(*i as f64),
             Self::U64(i) => Some(*i as f64),
-            _ => None,
-        }
-    }
-
-    fn as_string(&self) -> Option<String> {
-        match self {
-            Self::String(s) => Some(s.clone()),
             _ => None,
         }
     }
