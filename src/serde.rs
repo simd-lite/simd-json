@@ -219,32 +219,27 @@ impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
     type Error = SerdeConversionError;
     fn try_from(item: serde_json::Value) -> ConvertResult<Self> {
         use serde_json::Value;
-        Ok(match item {
-            Value::Null => BorrowedValue::Null,
-            Value::Bool(b) => BorrowedValue::Bool(b),
+        match item {
+            Value::Null => Ok(BorrowedValue::Null),
+            Value::Bool(b) => Ok(BorrowedValue::from(b)),
             Value::Number(b) => {
                 if let Some(n) = b.as_i64() {
-                    BorrowedValue::I64(n)
+                    Ok(Self::from(n))
                 } else if let Some(n) = b.as_u64() {
-                    BorrowedValue::U64(n)
+                    Ok(Self::from(n))
                 } else if let Some(n) = b.as_f64() {
-                    BorrowedValue::F64(n)
+                    Ok(Self::from(n))
                 } else {
-                    return Err(SerdeConversionError::Oops);
+                    Err(SerdeConversionError::Oops)
                 }
             }
-            Value::String(b) => BorrowedValue::String(b.into()),
-            Value::Array(a) => BorrowedValue::Array(
-                a.into_iter()
-                    .map(|v| v.try_into())
-                    .collect::<ConvertResult<Vec<BorrowedValue>>>()?,
-            ),
-            Value::Object(o) => BorrowedValue::Object(Box::new(
-                o.into_iter()
-                    .map(|(k, v)| Ok((k.into(), v.try_into()?)))
-                    .collect::<ConvertResult<crate::value::borrowed::Object>>()?,
-            )),
-        })
+            Value::String(b) => Ok(Self::String(b.into())),
+            Value::Array(a) => a.into_iter().map(Self::try_from).collect(),
+            Value::Object(o) => o
+                .into_iter()
+                .map(|(k, v)| Ok((k, Self::try_from(v)?)))
+                .collect(),
+        }
     }
 }
 

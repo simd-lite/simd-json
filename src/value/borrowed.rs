@@ -289,7 +289,7 @@ impl<'de> BorrowDeserializer<'de> {
 
         if unlikely!(es == 0) {
             self.de.skip();
-            return Ok(Value::Object(Box::new(Object::new())));
+            return Ok(Value::from(Object::new()));
         }
 
         let mut res = Object::with_capacity(es);
@@ -306,7 +306,7 @@ impl<'de> BorrowDeserializer<'de> {
             res.insert_nocheck(key.into(), stry!(self.parse_value()));
             self.de.skip();
         }
-        Ok(Value::Object(Box::new(res)))
+        Ok(Value::from(res))
     }
 }
 

@@ -704,10 +704,7 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![
-                Value::Object(Box::new(Object::new())),
-                Value::Null
-            ]))
+            Ok(Value::Array(vec![Value::from(Object::new()), Value::Null]))
         );
     }
 
