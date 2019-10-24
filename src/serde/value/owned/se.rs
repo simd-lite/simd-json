@@ -137,8 +137,7 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Value> {
-        let vec = value.iter().map(|&b| Value::I64(b.into())).collect();
-        Ok(Value::Array(vec))
+        Ok(value.iter().cloned().collect())
     }
 
     #[inline]
@@ -179,9 +178,9 @@ impl serde::Serializer for Serializer {
     where
         T: Serialize,
     {
-        let mut values = Object::new();
+        let mut values = Object::with_capacity(1);
         values.insert(variant.into(), stry!(to_value(&value)));
-        Ok(Value::Object(values))
+        Ok(Value::from(values))
     }
 
     #[inline]
@@ -342,11 +341,11 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     }
 
     fn end(self) -> Result<Value> {
-        let mut object = Object::new();
+        let mut object = Object::with_capacity(1);
 
         object.insert(self.name, Value::Array(self.vec));
 
-        Ok(Value::Object(object))
+        Ok(Value::from(object))
     }
 }
 
@@ -397,7 +396,7 @@ impl serde::ser::SerializeMap for SerializeMap {
 
     fn end(self) -> Result<Value> {
         match self {
-            Self::Map { map, .. } => Ok(Value::Object(map)),
+            Self::Map { map, .. } => Ok(Value::from(map)),
             #[cfg(feature = "arbitrary_precision")]
             Self::Number { .. } => unreachable!(),
             #[cfg(feature = "raw_value")]
@@ -649,11 +648,11 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     }
 
     fn end(self) -> Result<Value> {
-        let mut object = Object::new();
+        let mut object = Object::with_capacity(1);
 
-        object.insert(self.name, Value::Object(self.map));
+        object.insert(self.name, Value::from(self.map));
 
-        Ok(Value::Object(object))
+        Ok(Value::from(object))
     }
 }
 

@@ -304,7 +304,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
             let v = map.next_value()?;
             m.insert(k.into(), v);
         }
-        Ok(Value::Object(m))
+        Ok(Value::Object(Box::new(m)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

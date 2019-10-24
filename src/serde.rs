@@ -172,16 +172,14 @@ impl TryFrom<serde_json::Value> for OwnedValue {
                 }
             }
             Value::String(b) => Self::String(b),
-            Value::Array(a) => Self::Array(
-                a.into_iter()
-                    .map(|v| v.try_into())
-                    .collect::<ConvertResult<Vec<Self>>>()?,
-            ),
-            Value::Object(o) => Self::Object(
-                o.into_iter()
-                    .map(|(k, v)| Ok((k, v.try_into()?)))
-                    .collect::<ConvertResult<crate::value::owned::Object>>()?,
-            ),
+            Value::Array(a) => a
+                .into_iter()
+                .map(Self::try_from)
+                .collect::<ConvertResult<Self>>()?,
+            Value::Object(o) => o
+                .into_iter()
+                .map(|(k, v)| Ok((k, Self::try_from(v)?)))
+                .collect::<ConvertResult<Self>>()?,
         })
     }
 }
@@ -241,11 +239,11 @@ impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
                     .map(|v| v.try_into())
                     .collect::<ConvertResult<Vec<BorrowedValue>>>()?,
             ),
-            Value::Object(o) => BorrowedValue::Object(
+            Value::Object(o) => BorrowedValue::Object(Box::new(
                 o.into_iter()
                     .map(|(k, v)| Ok((k.into(), v.try_into()?)))
                     .collect::<ConvertResult<crate::value::borrowed::Object>>()?,
-            ),
+            )),
         })
     }
 }

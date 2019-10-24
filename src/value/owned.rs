@@ -45,7 +45,7 @@ pub enum Value {
     /// array type
     Array(Vec<Value>),
     /// object type
-    Object(Object),
+    Object(Box<Object>),
 }
 
 impl ValueTrait for Value {
@@ -250,7 +250,7 @@ impl<'de> OwnedDeserializer<'de> {
 
         if unlikely!(es == 0) {
             self.de.skip();
-            return Ok(Value::Object(Object::new()));
+            return Ok(Value::from(Object::new()));
         }
 
         let mut res = Object::with_capacity(es);
@@ -267,7 +267,7 @@ impl<'de> OwnedDeserializer<'de> {
             res.insert_nocheck(key.into(), stry!(self.parse_value()));
             self.de.skip();
         }
-        Ok(Value::Object(res))
+        Ok(Value::from(res))
     }
 }
 
@@ -596,7 +596,7 @@ mod test {
                     // Take the inner strategy and make the two recursive cases.
                     prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
                     prop::collection::hash_map(".*", inner.clone(), 0..10)
-                        .prop_map(|m| Value::Object(m.into_iter().collect())),
+                        .prop_map(|m| m.into_iter().collect()),
                 ]
             },
         )
