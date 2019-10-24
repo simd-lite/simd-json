@@ -84,7 +84,7 @@ impl PartialEq<str> for Value {
 impl PartialEq<&str> for Value {
     #[inline]
     fn eq(&self, other: &&str) -> bool {
-        self.as_str().map(|t| t.eq(*other)).unwrap_or_default()
+        self == *other
     }
 }
 
