@@ -174,6 +174,6 @@ impl<'v, K: Into<Cow<'v, str>>, V: Into<Value<'v>>> FromIterator<(K, V)> for Val
 
 impl<'v> From<Object<'v>> for Value<'v> {
     fn from(v: Object<'v>) -> Self {
-        Value::Object(v)
+        Self::Object(v)
     }
 }

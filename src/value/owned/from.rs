@@ -172,6 +172,6 @@ impl<K: Into<String>, V: Into<Value>> FromIterator<(K, V)> for Value {
 
 impl From<Object> for Value {
     fn from(v: Object) -> Self {
-        Value::Object(v)
+        Self::Object(v)
     }
 }
