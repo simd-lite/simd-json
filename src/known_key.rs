@@ -18,6 +18,8 @@ pub enum Error {
     /// The target passed wasn't an object
     NotAnObject(ValueType),
 }
+
+#[cfg_attr(tarpaulin, skip)]
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

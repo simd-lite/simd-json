@@ -123,8 +123,12 @@ pub enum Number {
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[allow(
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    clippy::cast_ptr_alignment
+)]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
-    #[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
     unsafe {
         // this actually computes *16* values so we are being wasteful.
         let ascii0: __m128i = _mm_set1_epi8(b'0' as i8);
@@ -133,7 +137,6 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
         let mul_1_100: __m128i = _mm_setr_epi16(100, 1, 100, 1, 100, 1, 100, 1);
         let mul_1_10000: __m128i = _mm_setr_epi16(10000, 1, 10000, 1, 10000, 1, 10000, 1);
         // We know what we're doing right? :P
-        #[allow(clippy::cast_ptr_alignment)]
         let input: __m128i = _mm_sub_epi8(
             _mm_loadu_si128(chars.get_unchecked(0..16).as_ptr() as *const __m128i),
             ascii0,
@@ -343,7 +346,12 @@ impl<'de> Deserializer<'de> {
     // parse the number at buf + offset
     // define JSON_TEST_NUMBERS for unit testing
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss,
+        clippy::cast_possible_wrap
+    )]
     pub fn parse_number_int(&self, buf: &[u8], negative: bool) -> Result<Number> {
         let mut byte_count = if negative { 1 } else { 0 };
         let mut ignore_count: u8 = 0;
@@ -485,7 +493,6 @@ impl<'de> Deserializer<'de> {
                     return self.parse_float(buf, negative);
                 }
 
-                #[allow(clippy::cast_precision_loss)]
                 let mut d1: f64 = i as f64;
                 d1 *= POWER_OF_TEN[(323 + exponent) as usize];
                 Number::F64(if negative { d1 * -1.0 } else { d1 })
@@ -496,7 +503,6 @@ impl<'de> Deserializer<'de> {
                 return self.parse_large_integer(buf, negative);
             }
             if negative {
-                #[allow(clippy::cast_possible_wrap)]
                 Number::I64((i as i64).wrapping_neg())
             } else {
                 Number::U64(i)

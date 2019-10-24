@@ -51,6 +51,7 @@ pub enum Value {
 impl ValueTrait for Value {
     type Key = String;
 
+    #[inline]
     fn value_type(&self) -> ValueType {
         match self {
             Self::Null => ValueType::Null,
@@ -159,6 +160,7 @@ impl ValueTrait for Value {
     }
 }
 
+#[cfg_attr(tarpaulin, skip)]
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

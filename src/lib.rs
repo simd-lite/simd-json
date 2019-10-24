@@ -111,7 +111,6 @@ mod charutils;
 mod macros;
 mod error;
 mod numberparse;
-mod parsedjson;
 mod stringparse;
 
 #[cfg(target_feature = "avx2")]

@@ -90,6 +90,7 @@ impl<'v> Value<'v> {
 impl<'v> ValueTrait for Value<'v> {
     type Key = Cow<'v, str>;
 
+    #[inline]
     fn value_type(&self) -> ValueType {
         match self {
             Self::Null => ValueType::Null,
@@ -199,6 +200,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 }
 
+#[cfg_attr(tarpaulin, skip)]
 impl<'v> fmt::Display for Value<'v> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
