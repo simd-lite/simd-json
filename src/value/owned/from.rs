@@ -1,4 +1,4 @@
-use super::Value;
+use super::{Object, Value};
 use crate::numberparse::Number;
 use crate::BorrowedValue;
 use std::borrow::Cow;
@@ -167,5 +167,11 @@ impl<K: Into<String>, V: Into<Value>> FromIterator<(K, V)> for Value {
                 .map(|(k, v)| (Into::into(k), Into::into(v)))
                 .collect(),
         )
+    }
+}
+
+impl From<Object> for Value {
+    fn from(v: Object) -> Self {
+        Value::Object(v)
     }
 }
