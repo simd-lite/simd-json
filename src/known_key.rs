@@ -233,7 +233,7 @@ mod tests {
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::Object(o);
+        let mut v = BorrowedValue::from(o);
 
         assert!(key1.lookup(&BorrowedValue::Null).is_none());
         assert!(key2.lookup(&BorrowedValue::Null).is_none());
@@ -251,7 +251,7 @@ mod tests {
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::Object(o);
+        let mut v = BorrowedValue::from(o);
 
         let mut v1 = BorrowedValue::Null;
         assert!(key1.insert(&mut v1, 2.into()).is_err());
@@ -270,7 +270,7 @@ mod tests {
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::Object(o);
+        let mut v = BorrowedValue::from(o);
 
         let mut v1 = BorrowedValue::Null;
         assert!(key1.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
@@ -294,7 +294,7 @@ mod tests {
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
         o.insert("key".into(), 1.into());
-        let v = BorrowedValue::Object(o);
+        let v = BorrowedValue::from(o);
 
         assert!(key1.lookup(&BorrowedValue::Null).is_none());
         assert!(key2.lookup(&BorrowedValue::Null).is_none());
@@ -310,7 +310,7 @@ mod tests {
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::Object(o);
+        let mut v = BorrowedValue::from(o);
 
         let mut v1 = BorrowedValue::Null;
         assert!(key1.insert(&mut v1, 2.into()).is_err());
