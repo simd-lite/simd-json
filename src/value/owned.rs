@@ -557,7 +557,7 @@ mod test {
 
     #[test]
     fn conversions_object() {
-        let v = Value::Object(Object::new());
+        let v = Value::from(Object::new());
         assert!(v.is_object());
         assert_eq!(v.value_type(), ValueType::Object);
     }
