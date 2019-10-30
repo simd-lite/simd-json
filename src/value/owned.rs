@@ -4,8 +4,8 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::value::{ValueDeserializer, ValueTrait, ValueType};
-use crate::{stry, Deserializer, Result};
+use crate::value::{ValueTrait, ValueType};
+use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
@@ -19,9 +19,9 @@ pub type Object = HashMap<String, Value>;
 /// We do not keep any references to the raw data but re-allocate
 /// owned memory whereever required thus returning a value without
 /// a lifetime.
-pub fn deserialize(s: &mut [u8]) -> Result<Value> {
+pub fn to_value(s: &mut [u8]) -> Result<Value> {
     let de = stry!(Deserializer::from_slice(s));
-    ValueDeserializer::from_deserializer(de).parse()
+    OwnedDeserializer::from_deserializer(de).parse()
 }
 
 /// Owned JSON-DOM Value, consider using the `ValueTrait`
@@ -50,19 +50,6 @@ pub enum Value {
 
 impl ValueTrait for Value {
     type Key = String;
-
-    #[inline]
-    fn array() -> Self {
-        Self::Array(Vec::new())
-    }
-    #[inline]
-    fn object() -> Self {
-        Self::Object(Box::new(Object::new()))
-    }
-    #[inline]
-    fn null() -> Self {
-        Self::Null
-    }
 
     #[inline]
     fn value_type(&self) -> ValueType {
@@ -201,6 +188,88 @@ impl Index<&str> for Value {
 impl Default for Value {
     fn default() -> Self {
         Self::Null
+    }
+}
+
+struct OwnedDeserializer<'de> {
+    de: Deserializer<'de>,
+}
+
+impl<'de> OwnedDeserializer<'de> {
+    pub fn from_deserializer(de: Deserializer<'de>) -> Self {
+        Self { de }
+    }
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    pub fn parse(&mut self) -> Result<Value> {
+        match self.de.next_() {
+            b'"' => self.de.parse_str_().map(Value::from),
+            b'n' => Ok(Value::Null),
+            b't' => Ok(Value::Bool(true)),
+            b'f' => Ok(Value::Bool(false)),
+            b'-' => self.de.parse_number_root(true).map(Value::from),
+            b'0'..=b'9' => self.de.parse_number_root(false).map(Value::from),
+            b'[' => self.parse_array(),
+            b'{' => self.parse_map(),
+            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_value(&mut self) -> Result<Value> {
+        match self.de.next_() {
+            b'"' => self.de.parse_str_().map(Value::from),
+            b'n' => Ok(Value::Null),
+            b't' => Ok(Value::Bool(true)),
+            b'f' => Ok(Value::Bool(false)),
+            b'-' => self.de.parse_number(true).map(Value::from),
+            b'0'..=b'9' => self.de.parse_number(false).map(Value::from),
+            b'[' => self.parse_array(),
+            b'{' => self.parse_map(),
+            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_array(&mut self) -> Result<Value> {
+        let es = self.de.count_elements();
+        if unlikely!(es == 0) {
+            self.de.skip();
+            return Ok(Value::Array(Vec::new()));
+        }
+        let mut res = Vec::with_capacity(es);
+
+        for _i in 0..es {
+            res.push(stry!(self.parse_value()));
+            self.de.skip();
+        }
+        Ok(Value::Array(res))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_map(&mut self) -> Result<Value> {
+        // We short cut for empty arrays
+        let es = self.de.count_elements();
+
+        if unlikely!(es == 0) {
+            self.de.skip();
+            return Ok(Value::from(Object::new()));
+        }
+
+        let mut res = Object::with_capacity(es);
+
+        // Since we checked if it's empty we know that we at least have one
+        // element so we eat this
+
+        for _ in 0..es {
+            self.de.skip();
+            let key = stry!(self.de.parse_str_());
+            // We have to call parse short str twice since parse_short_str
+            // does not move the cursor forward
+            self.de.skip();
+            res.insert_nocheck(key.into(), stry!(self.parse_value()));
+            self.de.skip();
+        }
+        Ok(Value::from(res))
     }
 }
 
@@ -577,7 +646,7 @@ mod test {
         fn prop_serialize_deserialize(owned in arb_value()) {
             let mut string = owned.encode();
             let mut bytes = unsafe{ string.as_bytes_mut()};
-            let decoded = deserialize(&mut bytes).expect("Failed to decode");
+            let decoded = to_value(&mut bytes).expect("Failed to decode");
             prop_assert_eq!(owned, decoded)
         }
         #[test]

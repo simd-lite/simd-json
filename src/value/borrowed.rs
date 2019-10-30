@@ -4,8 +4,8 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::value::{ValueDeserializer, ValueTrait, ValueType};
-use crate::{stry, Deserializer, Result};
+use crate::value::{ValueTrait, ValueType};
+use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
 use std::borrow::Cow;
 use std::convert::TryFrom;
@@ -19,9 +19,9 @@ pub type Object<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 /// rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
 /// has the dame lifetime as the slice it was created from.
-pub fn deserialize<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
+pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
     let de = stry!(Deserializer::from_slice(s));
-    ValueDeserializer::from_deserializer(de).parse()
+    BorrowDeserializer::from_deserializer(de).parse()
 }
 
 /// Borrowed JSON-DOM Value, consider using the `ValueTrait`
@@ -54,8 +54,8 @@ impl<'v> Value<'v> {
         unsafe {
             use std::mem::transmute;
             transmute(match self {
-                Self::String(Cow::Borrowed(s)) => Self::from(Cow::Owned(s.to_owned())),
-                Self::Array(arr) => arr.into_iter().map(Self::into_static).collect(),
+                Self::String(Cow::Borrowed(s)) => Self::String(Cow::Owned(s.to_owned())),
+                Self::Array(arr) => arr.into_iter().map(Value::into_static).collect(),
                 Self::Object(obj) => obj
                     .into_iter()
                     .map(|(k, v)| (Cow::Owned(k.into_owned()), v.into_static()))
@@ -72,7 +72,7 @@ impl<'v> Value<'v> {
             use std::mem::transmute;
             transmute(match self {
                 Self::String(s) => Self::String(Cow::Owned(s.to_string())),
-                Self::Array(arr) => arr.iter().map(Self::clone_static).collect(),
+                Self::Array(arr) => arr.iter().map(Value::clone_static).collect(),
                 Self::Object(obj) => obj
                     .iter()
                     .map(|(k, v)| (Cow::Owned(k.to_string()), v.clone_static()))
@@ -89,19 +89,6 @@ impl<'v> Value<'v> {
 
 impl<'v> ValueTrait for Value<'v> {
     type Key = Cow<'v, str>;
-
-    #[inline]
-    fn array() -> Self {
-        Self::Array(Vec::new())
-    }
-    #[inline]
-    fn object() -> Self {
-        Self::Object(Box::new(Object::new()))
-    }
-    #[inline]
-    fn null() -> Self {
-        Self::Null
-    }
 
     #[inline]
     fn value_type(&self) -> ValueType {
@@ -240,6 +227,88 @@ impl<'v> Index<&str> for Value<'v> {
 impl<'v> Default for Value<'v> {
     fn default() -> Self {
         Self::Null
+    }
+}
+
+struct BorrowDeserializer<'de> {
+    de: Deserializer<'de>,
+}
+impl<'de> BorrowDeserializer<'de> {
+    pub fn from_deserializer(de: Deserializer<'de>) -> Self {
+        Self { de }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    pub fn parse(&mut self) -> Result<Value<'de>> {
+        match self.de.next_() {
+            b'"' => self.de.parse_str_().map(Value::from),
+            b'-' => self.de.parse_number_root(true).map(Value::from),
+            b'0'..=b'9' => self.de.parse_number_root(false).map(Value::from),
+            b'n' => Ok(Value::Null),
+            b't' => Ok(Value::Bool(true)),
+            b'f' => Ok(Value::Bool(false)),
+            b'[' => self.parse_array(),
+            b'{' => self.parse_map(),
+            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_value(&mut self) -> Result<Value<'de>> {
+        match self.de.next_() {
+            b'"' => self.de.parse_str_().map(Value::from),
+            b'-' => self.de.parse_number_(true).map(Value::from),
+            b'0'..=b'9' => self.de.parse_number_(false).map(Value::from),
+            b'n' => Ok(Value::Null),
+            b't' => Ok(Value::Bool(true)),
+            b'f' => Ok(Value::Bool(false)),
+            b'[' => self.parse_array(),
+            b'{' => self.parse_map(),
+            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_array(&mut self) -> Result<Value<'de>> {
+        let es = self.de.count_elements();
+        if unlikely!(es == 0) {
+            self.de.skip();
+            return Ok(Value::Array(Vec::new()));
+        }
+        let mut res = Vec::with_capacity(es);
+
+        for _i in 0..es {
+            res.push(stry!(self.parse_value()));
+            self.de.skip();
+        }
+        Ok(Value::Array(res))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_map(&mut self) -> Result<Value<'de>> {
+        // We short cut for empty arrays
+        let es = self.de.count_elements();
+
+        if unlikely!(es == 0) {
+            self.de.skip();
+            return Ok(Value::from(Object::new()));
+        }
+
+        let mut res = Object::with_capacity(es);
+
+        // Since we checked if it's empty we know that we at least have one
+        // element so we eat this
+
+        for _ in 0..es {
+            self.de.skip();
+            let key = stry!(self.de.parse_str_());
+            // We have to call parse short str twice since parse_short_str
+            // does not move the cursor forward
+            self.de.skip();
+            res.insert_nocheck(key.into(), stry!(self.parse_value()));
+            self.de.skip();
+        }
+        Ok(Value::from(res))
     }
 }
 
@@ -614,7 +683,7 @@ mod test {
         fn prop_serialize_deserialize(borrowed in arb_value()) {
             let mut string = borrowed.encode();
             let mut bytes = unsafe{ string.as_bytes_mut()};
-            let decoded = deserialize(&mut bytes).expect("Failed to decode");
+            let decoded = to_value(&mut bytes).expect("Failed to decode");
             prop_assert_eq!(borrowed, decoded)
         }
         #[test]

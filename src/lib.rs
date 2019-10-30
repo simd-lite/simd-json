@@ -78,7 +78,7 @@
 //! ```
 //! use simd_json;
 //! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
-//! let v: simd_json::BorrowedValue = simd_json::deserialize(&mut d).unwrap();
+//! let v: simd_json::BorrowedValue = simd_json::to_borrowed_value(&mut d).unwrap();
 //! ```
 //!
 //! **Owned Values**
@@ -86,7 +86,7 @@
 //! ```
 //! use simd_json;
 //! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
-//! let v: simd_json::OwnedValue = simd_json::deserialize(&mut d).unwrap();
+//! let v: simd_json::OwnedValue = simd_json::to_owned_value(&mut d).unwrap();
 //! ```
 //!
 //! ### Serde Comaptible API
@@ -305,8 +305,8 @@ mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::serde::from_slice;
     use super::{
-        deserialize_borrowed_value, deserialize_owned_value, owned::deserialize, owned::Object,
-        owned::Value, Deserializer,
+        owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
+        Deserializer,
     };
     use halfbrown::HashMap;
     use proptest::prelude::*;
@@ -375,7 +375,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(deserialize(&mut d1), Ok(Value::from(true)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(true)));
     }
 
     #[test]
@@ -387,7 +387,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(deserialize(&mut d1), Ok(Value::from(false)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(false)));
         //assert!(false)
     }
 
@@ -400,7 +400,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(deserialize(&mut d1), Ok(Value::Null));
+        assert_eq!(to_value(&mut d1), Ok(Value::Null));
     }
 
     #[test]
@@ -412,7 +412,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(deserialize(&mut d1), Ok(Value::from(42)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(42)));
     }
 
     #[test]
@@ -424,7 +424,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(deserialize(&mut d1), Ok(Value::from(0)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(0)));
     }
 
     #[test]
@@ -436,7 +436,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(deserialize(&mut d1), Ok(Value::from(1)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(1)));
     }
 
     #[test]
@@ -448,7 +448,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(deserialize(&mut d1), Ok(Value::from(-1)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(-1)));
     }
 
     #[test]
@@ -460,7 +460,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(deserialize(&mut d1), Ok(Value::from(23.0)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(23.0)));
     }
 
     #[test]
@@ -471,7 +471,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(deserialize(&mut d1), Ok(Value::from("snot")));
+        assert_eq!(to_value(&mut d1), Ok(Value::from("snot")));
         assert_eq!(v_simd, v_serde);
     }
 
@@ -522,7 +522,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(deserialize(&mut d1), Ok(Value::from("")));
+        assert_eq!(to_value(&mut d1), Ok(Value::from("")));
         assert_eq!(v_simd, v_serde);
     }
 
@@ -534,7 +534,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
-        assert_eq!(deserialize(&mut d1), Ok(Value::Array(vec![])));
+        assert_eq!(to_value(&mut d1), Ok(Value::Array(vec![])));
         assert_eq!(v_simd, v_serde);
     }
 
@@ -547,8 +547,8 @@ mod tests {
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d2 = unsafe { d2.as_bytes_mut() };
         let v_serde: Result<serde_json::Value, _> = serde_json::from_slice(d);
-        let v_simd_ov = deserialize_owned_value(&mut d);
-        let v_simd_bv = deserialize_borrowed_value(&mut d1);
+        let v_simd_ov = to_owned_value(&mut d);
+        let v_simd_bv = to_borrowed_value(&mut d1);
         let v_simd: Result<serde_json::Value, _> = from_slice(&mut d2);
         assert!(v_simd_ov.is_err());
         assert!(v_simd_bv.is_err());
@@ -565,7 +565,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
         assert_eq!(
-            deserialize(&mut d1),
+            to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![])]))
         );
         assert_eq!(v_simd, v_serde);
@@ -580,7 +580,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("parse_simd");
         assert_eq!(
-            deserialize(&mut d1),
+            to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::Array(vec![]),
                 Value::Null,
@@ -597,7 +597,7 @@ mod tests {
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
         assert_eq!(
-            deserialize(&mut d1),
+            to_value(&mut d1),
             Ok(Value::Array(vec![Value::from("snot")]))
         );
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
@@ -612,7 +612,7 @@ mod tests {
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
         assert_eq!(
-            deserialize(&mut d1),
+            to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::from("snot"),
                 Value::from("badger")
@@ -633,7 +633,7 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
         assert_eq!(
-            deserialize(&mut d1),
+            to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::from(42),
                 Value::from(23.0),
@@ -649,7 +649,7 @@ mod tests {
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
         assert_eq!(
-            deserialize(&mut d1),
+            to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::from(42),
                 Value::Array(vec![Value::from(23.0), Value::from("snot")]),
@@ -702,7 +702,7 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
         assert_eq!(
-            deserialize(&mut d1),
+            to_value(&mut d1),
             Ok(Value::Array(vec![Value::from(Object::new()), Value::Null]))
         );
     }
@@ -722,7 +722,7 @@ mod tests {
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
-        assert_eq!(deserialize(&mut d1), Ok(Value::Null));
+        assert_eq!(to_value(&mut d1), Ok(Value::Null));
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
@@ -734,7 +734,7 @@ mod tests {
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
         assert_eq!(
-            deserialize(&mut d1),
+            to_value(&mut d1),
             Ok(Value::Array(vec![Value::Null, Value::Null,]))
         );
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
@@ -749,7 +749,7 @@ mod tests {
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
         assert_eq!(
-            deserialize(&mut d1),
+            to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![
                 Value::Null,
                 Value::Null,
@@ -771,7 +771,7 @@ mod tests {
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
         assert_eq!(
-            deserialize(&mut d1),
+            to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![Value::Array(vec![
                 Value::Null,
                 Value::Null,
@@ -837,7 +837,7 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
-        assert_eq!(deserialize(&mut d1), Ok(Value::from(h)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(h)));
     }
 
     #[test]
@@ -852,7 +852,7 @@ mod tests {
         let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
         h.insert("badger".into(), Value::from("snot"));
-        assert_eq!(deserialize(&mut d1), Ok(Value::from(h)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(h)));
     }
 
     #[test]
@@ -1093,7 +1093,7 @@ mod tests {
         let s = v.encode();
         dbg!(&s);
         let mut bytes = s.as_bytes().to_vec();
-        let parsed = deserialize_owned_value(&mut bytes).expect("failed to parse gernated float");
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
         assert_eq!(v, parsed);
     }
 
@@ -1104,7 +1104,7 @@ mod tests {
         let s = v.encode();
         dbg!(&s);
         let mut bytes = s.as_bytes().to_vec();
-        let parsed = deserialize_owned_value(&mut bytes).expect("failed to parse gernated float");
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
         assert_eq!(v, parsed);
     }
 
@@ -1129,7 +1129,7 @@ mod tests {
                 ]
             },
         )
-        .prop_map(|v| serde_json::to_string(&v).expect(""))
+        .prop_map(|v| serde_json::to_string(&v).expect("").to_string())
         .boxed()
     }
 
@@ -1170,7 +1170,7 @@ mod tests {
             let mut encoded: Vec<u8> = Vec::new();
             let _ = val.write(&mut encoded);
             println!("{}", String::from_utf8_lossy(&encoded.clone()));
-            let res = deserialize_owned_value(&mut encoded).expect("can't convert");
+            let res = to_owned_value(&mut encoded).expect("can't convert");
             assert_eq!(val, res);
         }
 
@@ -1196,9 +1196,9 @@ mod tests {
                 let mut d3 = d.clone();
                 let d3 = unsafe{ d3.as_bytes_mut()};
                 assert_eq!(v_simd_serde, v_serde);
-                let v_simd_owned = deserialize_owned_value(d2);
+                let v_simd_owned = to_owned_value(d2);
                 assert!(v_simd_owned.is_ok());
-                let v_simd_borrowed = deserialize_borrowed_value(d3);
+                let v_simd_borrowed = to_borrowed_value(d3);
                 dbg!(&v_simd_borrowed);
                 assert!(v_simd_borrowed.is_ok());
                 assert_eq!(v_simd_owned.expect("simd-error"), super::OwnedValue::from(v_simd_borrowed.expect("simd-error")));
@@ -1226,8 +1226,8 @@ mod tests {
             let mut d3 = d.clone();
 
             let _ = from_slice::<serde_json::Value>(&mut d1);
-            let _ = deserialize_borrowed_value(&mut d2);
-            let _ = deserialize_owned_value(&mut d3);
+            let _ = to_borrowed_value(&mut d2);
+            let _ = to_owned_value(&mut d3);
 
         }
     }
@@ -1250,8 +1250,8 @@ mod tests {
             let mut d3 = d.clone();
             let mut d3 = unsafe{ d3.as_bytes_mut()};
             let _ = from_slice::<serde_json::Value>(&mut d1);
-            let _ = deserialize_borrowed_value(&mut d2);
-            let _ = deserialize_owned_value(&mut d3);
+            let _ = to_borrowed_value(&mut d2);
+            let _ = to_owned_value(&mut d3);
 
         }
     }
