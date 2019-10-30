@@ -519,7 +519,7 @@ impl<'de> Deserializer<'de> {
 #[cfg(test)]
 mod test {
     #![allow(clippy::default_trait_access)]
-    use crate::value::owned::to_value;
+    use crate::value::owned::deserialize;
     use crate::value::ValueTrait;
     use float_cmp::approx_eq;
 
@@ -527,11 +527,11 @@ mod test {
     fn bad_exp() {
         let mut too_big = String::from("1e309");
         let mut too_big = unsafe { too_big.as_bytes_mut() };
-        let v_too_big = to_value(&mut too_big);
+        let v_too_big = deserialize(&mut too_big);
         assert!(v_too_big.is_err());
         let mut too_small = String::from("1e-324");
         let mut too_small = unsafe { too_small.as_bytes_mut() };
-        let v_too_small = to_value(&mut too_small);
+        let v_too_small = deserialize(&mut too_small);
         assert!(v_too_small.is_err());
     }
 
@@ -539,11 +539,11 @@ mod test {
     fn bad_dot() {
         let mut i = String::from("1.");
         let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let r = deserialize(&mut i);
         assert!(r.is_err());
         let mut i = String::from("1.e");
         let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let r = deserialize(&mut i);
         assert!(r.is_err());
     }
 
@@ -551,7 +551,7 @@ mod test {
     fn zero() {
         let mut i = String::from("0");
         let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let r = deserialize(&mut i);
         assert_eq!(r.expect("0"), 0);
     }
 
@@ -559,7 +559,7 @@ mod test {
     fn float_zero() {
         let mut i = String::from("0e1");
         let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i).expect("failed to decode");
+        let r = deserialize(&mut i).expect("failed to decode");
         assert!(approx_eq!(f64, r.as_f64().expect("float"), 0.0));
     }
 
@@ -567,7 +567,7 @@ mod test {
     fn minus_309() {
         let mut i = String::from("-5.96916642387374e-309");
         let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i).expect("failed to decode");
+        let r = deserialize(&mut i).expect("failed to decode");
         assert!(approx_eq!(
             f64,
             r.as_f64().expect("float"),
@@ -579,7 +579,7 @@ mod test {
     fn tiny_float() {
         let mut i = String::from("-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374");
         let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i).expect("failed to decode");
+        let r = deserialize(&mut i).expect("failed to decode");
         assert!(approx_eq!(f64, r.as_f64().expect("float"), -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374))
     }
 }

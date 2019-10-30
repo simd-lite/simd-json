@@ -16,13 +16,16 @@ pub mod borrowed;
 pub(crate) mod generator;
 /// Owned, lifetimeless version of the value for times when lifetimes are to be avoided
 pub mod owned;
-use std::convert::TryInto;
 
-pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
-pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
+pub use self::borrowed::{deserialize as deserialize_borrowed_value, Value as BorrowedValue};
+pub use self::owned::{deserialize as deserialize_owned_value, Value as OwnedValue};
+use crate::numberparse::Number;
+use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
 use std::borrow::Borrow;
+use std::convert::TryInto;
 use std::hash::Hash;
+use std::marker::PhantomData;
 
 /// Types of JSON values
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -79,6 +82,13 @@ pub trait ValueTrait:
 {
     /// The type for Objects
     type Key;
+
+    /// Returns an empty array
+    fn array() -> Self;
+    /// Returns an empty object
+    fn object() -> Self;
+    /// Returns anull value
+    fn null() -> Self;
 
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key
@@ -276,5 +286,119 @@ pub trait ValueTrait:
     /// returns true if the current value can be represented as an object
     fn is_object(&self) -> bool {
         self.as_object().is_some()
+    }
+}
+
+/// Deserializes towards an `ValueTrait` implementation
+pub fn deserialize<'de, V>(s: &'de mut [u8]) -> Result<V>
+where
+    V: ValueTrait
+        + 'de
+        + From<&'de str>
+        + From<Number>
+        + From<HashMap<<V as ValueTrait>::Key, V>>
+        + From<Vec<V>>,
+    <V as ValueTrait>::Key: Eq + Hash + From<&'de str>,
+{
+    let de = stry!(Deserializer::from_slice(s));
+    ValueDeserializer::from_deserializer(de).parse()
+}
+
+struct ValueDeserializer<'de, V>
+where
+    V: ValueTrait,
+{
+    de: Deserializer<'de>,
+    marker: PhantomData<V>,
+}
+
+impl<'de, V> ValueDeserializer<'de, V>
+where
+    V: ValueTrait
+        + 'de
+        + From<&'de str>
+        + From<Number>
+        + From<HashMap<<V as ValueTrait>::Key, V>>
+        + From<Vec<V>>,
+    <V as ValueTrait>::Key: Eq + Hash + From<&'de str>,
+{
+    pub fn from_deserializer(de: Deserializer<'de>) -> Self {
+        Self {
+            de,
+            marker: PhantomData::default(),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    pub fn parse(&mut self) -> Result<V> {
+        match self.de.next_() {
+            b'"' => self.de.parse_str_().map(V::from),
+            b'-' => self.de.parse_number_root(true).map(V::from),
+            b'0'..=b'9' => self.de.parse_number_root(false).map(V::from),
+            b'n' => Ok(V::null()),
+            b't' => Ok(V::from(true)),
+            b'f' => Ok(V::from(false)),
+            b'[' => self.parse_array(),
+            b'{' => self.parse_map(),
+            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_value(&mut self) -> Result<V> {
+        match self.de.next_() {
+            b'"' => self.de.parse_str_().map(V::from),
+            b'-' => self.de.parse_number_(true).map(V::from),
+            b'0'..=b'9' => self.de.parse_number_(false).map(V::from),
+            b'n' => Ok(V::from(())),
+            b't' => Ok(V::from(true)),
+            b'f' => Ok(V::from(false)),
+            b'[' => self.parse_array(),
+            b'{' => self.parse_map(),
+            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_array(&mut self) -> Result<V> {
+        let es = self.de.count_elements();
+        if unlikely!(es == 0) {
+            self.de.skip();
+            return Ok(V::array());
+        }
+        let mut res: Vec<V> = Vec::with_capacity(es);
+
+        for _i in 0..es {
+            res.push(stry!(self.parse_value()));
+            self.de.skip();
+        }
+        Ok(V::from(res))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_map(&mut self) -> Result<V> {
+        // We short cut for empty arrays
+        let es = self.de.count_elements();
+
+        if unlikely!(es == 0) {
+            self.de.skip();
+            return Ok(V::object());
+        }
+
+        let mut res: HashMap<V::Key, V> = HashMap::with_capacity(es);
+
+        // Since we checked if it's empty we know that we at least have one
+        // element so we eat this
+
+        for _ in 0..es {
+            self.de.skip();
+            let key = stry!(self.de.parse_str_());
+            // We have to call parse short str twice since parse_short_str
+            // does not move the cursor forward
+            self.de.skip();
+            res.insert_nocheck(key.into(), stry!(self.parse_value()));
+            self.de.skip();
+        }
+        Ok(V::from(res))
     }
 }
