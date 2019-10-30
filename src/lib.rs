@@ -111,7 +111,6 @@ mod charutils;
 mod macros;
 mod error;
 mod numberparse;
-mod parsedjson;
 mod stringparse;
 
 #[cfg(target_feature = "avx2")]
@@ -704,10 +703,7 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![
-                Value::Object(Object::new()),
-                Value::Null
-            ]))
+            Ok(Value::Array(vec![Value::from(Object::new()), Value::Null]))
         );
     }
 
@@ -841,7 +837,7 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
-        assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(h)));
     }
 
     #[test]
@@ -856,7 +852,7 @@ mod tests {
         let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
         h.insert("badger".into(), Value::from("snot"));
-        assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(h)));
     }
 
     #[test]

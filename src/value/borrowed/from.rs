@@ -16,6 +16,7 @@ impl<'a> From<Number> for Value<'a> {
 }
 
 impl<'a> From<OwnedValue> for Value<'a> {
+    #[inline]
     fn from(b: OwnedValue) -> Self {
         match b {
             OwnedValue::Null => Value::Null,
@@ -24,12 +25,8 @@ impl<'a> From<OwnedValue> for Value<'a> {
             OwnedValue::I64(i) => Value::I64(i),
             OwnedValue::U64(i) => Value::U64(i),
             OwnedValue::String(s) => Value::from(s.to_string()),
-            OwnedValue::Array(a) => {
-                Value::Array(a.into_iter().map(|v| v.into()).collect::<Vec<Value>>())
-            }
-            OwnedValue::Object(m) => {
-                Value::Object(m.into_iter().map(|(k, v)| (k.into(), v.into())).collect())
-            }
+            OwnedValue::Array(a) => a.into_iter().collect(),
+            OwnedValue::Object(m) => m.into_iter().collect(),
         }
     }
 }
@@ -43,6 +40,7 @@ impl<'v> From<&'v str> for Value<'v> {
 }
 
 impl<'v> From<Cow<'v, str>> for Value<'v> {
+    #[inline]
     fn from(c: Cow<'v, str>) -> Self {
         Value::String(c)
     }
@@ -63,6 +61,7 @@ impl<'v> From<bool> for Value<'v> {
     }
 }
 impl<'v> From<()> for Value<'v> {
+    #[inline]
     fn from(_b: ()) -> Self {
         Value::Null
     }
@@ -127,6 +126,7 @@ impl<'v> From<u64> for Value<'v> {
 }
 
 impl<'v> From<usize> for Value<'v> {
+    #[inline]
     fn from(i: usize) -> Self {
         Self::U64(i as u64)
     }
@@ -151,29 +151,33 @@ impl<'v, S> From<Vec<S>> for Value<'v>
 where
     Value<'v>: From<S>,
 {
+    #[inline]
     fn from(v: Vec<S>) -> Self {
-        Value::Array(v.into_iter().map(Value::from).collect())
+        v.into_iter().collect()
     }
 }
 
 impl<'v, V: Into<Value<'v>>> FromIterator<V> for Value<'v> {
+    #[inline]
     fn from_iter<I: IntoIterator<Item = V>>(iter: I) -> Self {
         Value::Array(iter.into_iter().map(Into::into).collect())
     }
 }
 
 impl<'v, K: Into<Cow<'v, str>>, V: Into<Value<'v>>> FromIterator<(K, V)> for Value<'v> {
+    #[inline]
     fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
-        Value::Object(
+        Value::Object(Box::new(
             iter.into_iter()
                 .map(|(k, v)| (Into::into(k), Into::into(v)))
                 .collect(),
-        )
+        ))
     }
 }
 
 impl<'v> From<Object<'v>> for Value<'v> {
+    #[inline]
     fn from(v: Object<'v>) -> Self {
-        Self::Object(v)
+        Self::Object(Box::new(v))
     }
 }

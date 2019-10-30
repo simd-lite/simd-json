@@ -123,8 +123,8 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
     fn parse_unsigned(&mut self) -> Result<u64> {
-        #[allow(clippy::cast_sign_loss)]
         match self.next_() {
             b'0'..=b'9' => match stry!(self.parse_number(false)) {
                 Number::I64(n) => Ok(n as u64),
@@ -135,8 +135,8 @@ impl<'de> Deserializer<'de> {
         }
     }
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {
-        #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
         match self.next_() {
             b'-' => match stry!(self.parse_number(true)) {
                 Number::F64(n) => Ok(n),
@@ -172,16 +172,14 @@ impl TryFrom<serde_json::Value> for OwnedValue {
                 }
             }
             Value::String(b) => Self::String(b),
-            Value::Array(a) => Self::Array(
-                a.into_iter()
-                    .map(|v| v.try_into())
-                    .collect::<ConvertResult<Vec<Self>>>()?,
-            ),
-            Value::Object(o) => Self::Object(
-                o.into_iter()
-                    .map(|(k, v)| Ok((k, v.try_into()?)))
-                    .collect::<ConvertResult<crate::value::owned::Object>>()?,
-            ),
+            Value::Array(a) => a
+                .into_iter()
+                .map(Self::try_from)
+                .collect::<ConvertResult<Self>>()?,
+            Value::Object(o) => o
+                .into_iter()
+                .map(|(k, v)| Ok((k, Self::try_from(v)?)))
+                .collect::<ConvertResult<Self>>()?,
         })
     }
 }
@@ -221,32 +219,27 @@ impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
     type Error = SerdeConversionError;
     fn try_from(item: serde_json::Value) -> ConvertResult<Self> {
         use serde_json::Value;
-        Ok(match item {
-            Value::Null => BorrowedValue::Null,
-            Value::Bool(b) => BorrowedValue::Bool(b),
+        match item {
+            Value::Null => Ok(BorrowedValue::Null),
+            Value::Bool(b) => Ok(BorrowedValue::from(b)),
             Value::Number(b) => {
                 if let Some(n) = b.as_i64() {
-                    BorrowedValue::I64(n)
+                    Ok(Self::from(n))
                 } else if let Some(n) = b.as_u64() {
-                    BorrowedValue::U64(n)
+                    Ok(Self::from(n))
                 } else if let Some(n) = b.as_f64() {
-                    BorrowedValue::F64(n)
+                    Ok(Self::from(n))
                 } else {
-                    return Err(SerdeConversionError::Oops);
+                    Err(SerdeConversionError::Oops)
                 }
             }
-            Value::String(b) => BorrowedValue::String(b.into()),
-            Value::Array(a) => BorrowedValue::Array(
-                a.into_iter()
-                    .map(|v| v.try_into())
-                    .collect::<ConvertResult<Vec<BorrowedValue>>>()?,
-            ),
-            Value::Object(o) => BorrowedValue::Object(
-                o.into_iter()
-                    .map(|(k, v)| Ok((k.into(), v.try_into()?)))
-                    .collect::<ConvertResult<crate::value::borrowed::Object>>()?,
-            ),
-        })
+            Value::String(b) => Ok(Self::String(b.into())),
+            Value::Array(a) => a.into_iter().map(Self::try_from).collect(),
+            Value::Object(o) => o
+                .into_iter()
+                .map(|(k, v)| Ok((k, Self::try_from(v)?)))
+                .collect(),
+        }
     }
 }
 

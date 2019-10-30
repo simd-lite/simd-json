@@ -55,7 +55,7 @@ where
     }
 }
 
-fn visit_object<'de, V>(object: Object, visitor: V) -> Result<V::Value, Error>
+fn visit_object<'de, V>(object: Box<Object>, visitor: V) -> Result<V::Value, Error>
 where
     V: Visitor<'de>,
 {
@@ -143,7 +143,8 @@ struct ObjectDeserializer {
 }
 
 impl ObjectDeserializer {
-    fn new(map: Object) -> Self {
+    #[allow(clippy::boxed_local, clippy::needless_pass_by_value)]
+    fn new(map: Box<Object>) -> Self {
         Self {
             iter: map.into_iter(),
             value: None,
@@ -595,7 +596,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
             let v = map.next_value()?;
             m.insert(k, v);
         }
-        Ok(Value::Object(m))
+        Ok(Value::from(m))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

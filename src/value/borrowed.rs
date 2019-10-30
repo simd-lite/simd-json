@@ -43,7 +43,7 @@ pub enum Value<'v> {
     /// array type
     Array(Vec<Value<'v>>),
     /// object type
-    Object(Object<'v>),
+    Object(Box<Object<'v>>),
 }
 
 impl<'v> Value<'v> {
@@ -55,12 +55,11 @@ impl<'v> Value<'v> {
             use std::mem::transmute;
             transmute(match self {
                 Self::String(Cow::Borrowed(s)) => Self::String(Cow::Owned(s.to_owned())),
-                Self::Array(arr) => Self::Array(arr.into_iter().map(Value::into_static).collect()),
-                Self::Object(obj) => Self::Object(
-                    obj.into_iter()
-                        .map(|(k, v)| (Cow::Owned(k.into_owned()), v.into_static()))
-                        .collect(),
-                ),
+                Self::Array(arr) => arr.into_iter().map(Value::into_static).collect(),
+                Self::Object(obj) => obj
+                    .into_iter()
+                    .map(|(k, v)| (Cow::Owned(k.into_owned()), v.into_static()))
+                    .collect(),
                 _ => self,
             })
         }
@@ -73,12 +72,11 @@ impl<'v> Value<'v> {
             use std::mem::transmute;
             transmute(match self {
                 Self::String(s) => Self::String(Cow::Owned(s.to_string())),
-                Self::Array(arr) => Self::Array(arr.iter().map(Value::clone_static).collect()),
-                Self::Object(obj) => Self::Object(
-                    obj.iter()
-                        .map(|(k, v)| (Cow::Owned(k.to_string()), v.clone_static()))
-                        .collect(),
-                ),
+                Self::Array(arr) => arr.iter().map(Value::clone_static).collect(),
+                Self::Object(obj) => obj
+                    .iter()
+                    .map(|(k, v)| (Cow::Owned(k.to_string()), v.clone_static()))
+                    .collect(),
                 Self::Null => Self::Null,
                 Self::F64(v) => Self::F64(*v),
                 Self::I64(v) => Self::I64(*v),
@@ -92,6 +90,7 @@ impl<'v> Value<'v> {
 impl<'v> ValueTrait for Value<'v> {
     type Key = Cow<'v, str>;
 
+    #[inline]
     fn value_type(&self) -> ValueType {
         match self {
             Self::Null => ValueType::Null,
@@ -201,6 +200,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 }
 
+#[cfg_attr(tarpaulin, skip)]
 impl<'v> fmt::Display for Value<'v> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -291,7 +291,7 @@ impl<'de> BorrowDeserializer<'de> {
 
         if unlikely!(es == 0) {
             self.de.skip();
-            return Ok(Value::Object(Object::new()));
+            return Ok(Value::from(Object::new()));
         }
 
         let mut res = Object::with_capacity(es);
@@ -308,7 +308,7 @@ impl<'de> BorrowDeserializer<'de> {
             res.insert_nocheck(key.into(), stry!(self.parse_value()));
             self.de.skip();
         }
-        Ok(Value::Object(res))
+        Ok(Value::from(res))
     }
 }
 
@@ -639,7 +639,7 @@ mod test {
                     // Take the inner strategy and make the two recursive cases.
                     prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
                     prop::collection::hash_map(".*".prop_map(Cow::Owned), inner, 0..10)
-                        .prop_map(|m| Value::Object(m.into_iter().collect())),
+                        .prop_map(|m| m.into_iter().collect()),
                 ]
             },
         )

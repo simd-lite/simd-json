@@ -237,11 +237,11 @@ pub trait ValueTrait:
     }
 
     /// Tries to represent the value as a f32
+    #[allow(clippy::cast_possible_truncation)]
     fn as_f32(&self) -> Option<f32> {
         self.as_f64().and_then(|u| {
             if u <= f64::from(std::f32::MAX) && u >= f64::from(std::f32::MIN) {
                 // Since we check above
-                #[allow(clippy::cast_possible_truncation)]
                 Some(u as f32)
             } else {
                 None
