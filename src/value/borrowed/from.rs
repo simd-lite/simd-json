@@ -35,7 +35,7 @@ impl<'a> From<OwnedValue> for Value<'a> {
 impl<'v> From<&'v str> for Value<'v> {
     #[inline]
     fn from(s: &'v str) -> Self {
-        Value::String(s.into())
+        Value::String(Cow::Borrowed(s))
     }
 }
 

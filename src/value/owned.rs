@@ -208,6 +208,31 @@ impl Default for Value {
 mod test {
     #![allow(clippy::cognitive_complexity)]
     use super::*;
+    use crate::value::{AccessError, ValueTrait};
+
+    #[test]
+    fn object_access() {
+        let mut v = Value::null();
+        assert_eq!(v.insert("key", ()), Err(AccessError::NotAnObject));
+        assert_eq!(v.remove("key"), Err(AccessError::NotAnObject));
+        let mut v = Value::object();
+        assert_eq!(v.insert("key", 1), Ok(None));
+        assert_eq!(v.insert("key", 2), Ok(Some(Value::from(1))));
+        assert_eq!(v.remove("key"), Ok(Some(Value::from(2))));
+    }
+
+    #[test]
+    fn array_access() {
+        let mut v = Value::null();
+        assert_eq!(v.push("key"), Err(AccessError::NotAnArray));
+        assert_eq!(v.pop(), Err(AccessError::NotAnArray));
+        let mut v = Value::array();
+        assert_eq!(v.push(1), Ok(()));
+        assert_eq!(v.push(2), Ok(()));
+        assert_eq!(v.pop(), Ok(Some(Value::from(2))));
+        assert_eq!(v.pop(), Ok(Some(Value::from(1))));
+        assert_eq!(v.pop(), Ok(None));
+    }
 
     #[test]
     fn conversions_i64() {
