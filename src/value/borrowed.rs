@@ -343,6 +343,19 @@ mod test {
     }
 
     #[test]
+    fn array_access() {
+        let mut v = Value::null();
+        assert_eq!(v.push("key"), Err(AccessError::NotAnArray));
+        assert_eq!(v.pop(), Err(AccessError::NotAnArray));
+        let mut v = Value::array();
+        assert_eq!(v.push(1), Ok(()));
+        assert_eq!(v.push(2), Ok(()));
+        assert_eq!(v.pop(), Ok(Some(Value::from(2))));
+        assert_eq!(v.pop(), Ok(Some(Value::from(1))));
+        assert_eq!(v.pop(), Ok(None));
+    }
+
+    #[test]
     fn conversions_i64() {
         let v = Value::from(i64::max_value());
         assert!(v.is_i128());
