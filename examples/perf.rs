@@ -2,8 +2,8 @@ use std::env;
 
 #[cfg(feature = "perf")]
 mod int {
-    const ROUNDS: usize = 10000;
-    const WARMUP: usize = 2000;
+    const ROUNDS: usize = 2000;
+    const WARMUP: usize = 200;
     use colored::*;
     use perfcnt::linux::{HardwareEventType, PerfCounterBuilderLinux};
     use perfcnt::{AbstractPerfCounter, PerfCounter};
@@ -164,7 +164,7 @@ mod int {
         // Run some warmup;
 
         for mut bytes in &mut data_entries[..WARMUP as usize] {
-            simd_json::to_borrowed_value(&mut bytes).unwrap();
+            simd_json::deserialize_borrowed_value(&mut bytes).unwrap();
         }
         let mut stats = Stats::default();
         for mut bytes in &mut data_entries[WARMUP as usize..] {
@@ -172,7 +172,7 @@ mod int {
             let pc = stats.start();
 
             // run the measurement
-            let r = simd_json::to_borrowed_value(&mut bytes);
+            let r = simd_json::deserialize_borrowed_value(&mut bytes);
             // Stop counters
             stats.stop(pc);
             // we make sure that dropping doesn't happen untill we are done with our counting.
