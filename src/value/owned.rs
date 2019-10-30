@@ -52,6 +52,19 @@ impl ValueTrait for Value {
     type Key = String;
 
     #[inline]
+    fn array() -> Self {
+        Self::Array(Vec::new())
+    }
+    #[inline]
+    fn object() -> Self {
+        Self::Object(Box::new(Object::new()))
+    }
+    #[inline]
+    fn null() -> Self {
+        Self::Null
+    }
+
+    #[inline]
     fn value_type(&self) -> ValueType {
         match self {
             Self::Null => ValueType::Null,

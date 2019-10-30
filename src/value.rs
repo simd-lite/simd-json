@@ -16,8 +16,6 @@ pub mod borrowed;
 pub(crate) mod generator;
 /// Owned, lifetimeless version of the value for times when lifetimes are to be avoided
 pub mod owned;
-use std::convert::TryInto;
-
 pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
 pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
 use halfbrown::HashMap;
@@ -104,6 +102,13 @@ pub trait ValueTrait:
 {
     /// The type for Objects
     type Key;
+
+    /// Returns an empty array
+    fn array() -> Self;
+    /// Returns an empty object
+    fn object() -> Self;
+    /// Returns anull value
+    fn null() -> Self;
 
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key

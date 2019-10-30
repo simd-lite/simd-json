@@ -91,6 +91,19 @@ impl<'v> ValueTrait for Value<'v> {
     type Key = Cow<'v, str>;
 
     #[inline]
+    fn array() -> Self {
+        Self::Array(Vec::new())
+    }
+    #[inline]
+    fn object() -> Self {
+        Self::Object(Box::new(Object::new()))
+    }
+    #[inline]
+    fn null() -> Self {
+        Self::Null
+    }
+
+    #[inline]
     fn value_type(&self) -> ValueType {
         match self {
             Self::Null => ValueType::Null,
