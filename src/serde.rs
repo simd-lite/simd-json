@@ -50,7 +50,6 @@ where
     T: Deserialize<'a>,
 {
     let mut deserializer = stry!(Deserializer::from_slice(s));
-    dbg!(&deserializer.structural_indexes);
     T::deserialize(&mut deserializer)
 }
 /// parses a str  using a serde deserializer.
