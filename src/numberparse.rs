@@ -7,7 +7,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-const POWER_OF_TEN: [f64; 632] = [
+pub(crate) const POWER_OF_TEN: [f64; 632] = [
     1e-323, 1e-322, 1e-321, 1e-320, 1e-319, 1e-318, 1e-317, 1e-316, 1e-315, 1e-314, 1e-313, 1e-312,
     1e-311, 1e-310, 1e-309, 1e-308, 1e-307, 1e-306, 1e-305, 1e-304, 1e-303, 1e-302, 1e-301, 1e-300,
     1e-299, 1e-298, 1e-297, 1e-296, 1e-295, 1e-294, 1e-293, 1e-292, 1e-291, 1e-290, 1e-289, 1e-288,
@@ -61,7 +61,7 @@ const POWER_OF_TEN: [f64; 632] = [
 
 //#[inline(always)]
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub fn is_integer(c: u8) -> bool {
+pub(crate) fn is_integer(c: u8) -> bool {
     // this gets compiled to (uint8_t)(c - '0') <= 9 on all decent compilers
     c >= b'0' && c <= b'9'
 }
@@ -90,7 +90,7 @@ const STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED: [bool; 256] = [
 ];
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
+pub(crate) fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
     unsafe { *STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED.get_unchecked(c as usize) }
 }
 
@@ -100,7 +100,7 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // http://0x80.pl/articles/swar-digits-validate.html
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
+pub(crate) fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
     // We know what we're doing right? :P
     #[allow(clippy::cast_ptr_alignment)]
     let val: u64 = unsafe { *(chars.as_ptr() as *const u64) };
@@ -128,7 +128,7 @@ pub enum Number {
     clippy::cast_possible_wrap,
     clippy::cast_ptr_alignment
 )]
-fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
+pub(crate) fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
     unsafe {
         // this actually computes *16* values so we are being wasteful.
         let ascii0: __m128i = _mm_set1_epi8(b'0' as i8);
@@ -177,7 +177,7 @@ impl<'de> Deserializer<'de> {
         clippy::cast_possible_wrap,
         clippy::cast_precision_loss
     )]
-    fn parse_float(&self, p: &[u8], negative: bool) -> Result<Number> {
+    pub(crate) fn parse_float(&self, p: &[u8], negative: bool) -> Result<Number> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: f64;
         let mut digit: u8;
@@ -297,7 +297,7 @@ impl<'de> Deserializer<'de> {
     ///
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
-    fn parse_large_integer(&self, buf: &[u8], negative: bool) -> Result<Number> {
+    pub(crate) fn parse_large_integer(&self, buf: &[u8], negative: bool) -> Result<Number> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: u64;
         let mut d = unsafe { *buf.get_unchecked(digitcount) };

@@ -4,8 +4,14 @@ mod cmp;
 mod from;
 mod serialize;
 
+use crate::charutils::is_structural_or_whitespace;
+use crate::numberparse::{
+    is_integer, is_made_of_eight_digits_fast,
+    is_not_structural_or_whitespace_or_exponent_or_decimal, parse_eight_digits_unrolled,
+    POWER_OF_TEN,
+};
 use crate::value::{ValueTrait, ValueType};
-use crate::{stry, unlikely, Deserializer, ErrorType, Result};
+use crate::{stry, unlikely, Deserializer, ErrorType, Result, SIMDJSON_PADDING};
 use halfbrown::HashMap;
 use std::borrow::Cow;
 use std::convert::TryFrom;
@@ -273,8 +279,8 @@ impl<'de> BorrowDeserializer<'de> {
     pub fn parse(&mut self) -> Result<Value<'de>> {
         match self.de.next_() {
             b'"' => self.de.parse_str_().map(Value::from),
-            b'-' => self.de.parse_number_root(true).map(Value::from),
-            b'0'..=b'9' => self.de.parse_number_root(false).map(Value::from),
+            b'-' => self.parse_number_root(true).map(Value::from),
+            b'0'..=b'9' => self.parse_number_root(false).map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
@@ -288,8 +294,8 @@ impl<'de> BorrowDeserializer<'de> {
     fn parse_value(&mut self) -> Result<Value<'de>> {
         match self.de.next_() {
             b'"' => self.de.parse_str_().map(Value::from),
-            b'-' => self.de.parse_number_(true).map(Value::from),
-            b'0'..=b'9' => self.de.parse_number_(false).map(Value::from),
+            b'-' => self.parse_number_(true).map(Value::from),
+            b'0'..=b'9' => self.parse_number_(false).map(Value::from),
             b'n' => Ok(Value::Null),
             b't' => Ok(Value::Bool(true)),
             b'f' => Ok(Value::Bool(false)),
@@ -340,6 +346,194 @@ impl<'de> BorrowDeserializer<'de> {
             self.de.skip();
         }
         Ok(Value::from(res))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_number_root(&mut self, minus: bool) -> Result<Value<'de>> {
+        let input = unsafe { &self.de.input.get_unchecked(self.de.iidx..) };
+        let len = input.len();
+        let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
+        copy[len] = 0;
+        unsafe {
+            copy.as_mut_ptr().copy_from(input.as_ptr(), len);
+        };
+        self.parse_number_int(&copy, minus)
+    }
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_number_(&mut self, minus: bool) -> Result<Value<'de>> {
+        let input = unsafe { &self.de.input.get_unchecked(self.de.iidx..) };
+        self.parse_number_int(input, minus)
+    }
+    // parse the number at buf + offset
+    // define JSON_TEST_NUMBERS for unit testing
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss,
+        clippy::cast_possible_wrap
+    )]
+    fn parse_number_int(&self, buf: &[u8], negative: bool) -> Result<Value<'de>> {
+        let mut byte_count = if negative { 1 } else { 0 };
+        let mut ignore_count: u8 = 0;
+        //let startdigits: *const u8 = p;
+        let mut i: u64;
+        let mut d = unsafe { *buf.get_unchecked(byte_count) };
+        let mut digit: u8;
+        if d == b'0' {
+            // 0 cannot be followed by an integer
+            byte_count += 1;
+            d = unsafe { *buf.get_unchecked(byte_count) };
+            if is_not_structural_or_whitespace_or_exponent_or_decimal(d) {
+                return Err(self.de.error(ErrorType::InvalidNumber));
+            }
+            i = 0;
+        } else {
+            if !is_integer(d) {
+                // must start with an integer
+                return Err(self.de.error(ErrorType::InvalidNumber));
+            }
+            digit = d - b'0';
+            i = u64::from(digit);
+            byte_count += 1;
+
+            d = unsafe { *buf.get_unchecked(byte_count) };
+            // the is_made_of_eight_digits_fast routine is unlikely to help here because
+            // we rarely see large integer parts like 123456789
+            while is_integer(d) {
+                digit = d - b'0';
+                i = i.wrapping_mul(10);
+                if let Some(i1) = i.checked_add(u64::from(digit)) {
+                    i = i1;
+                } else {
+                    return Err(self.de.error(ErrorType::Overflow));
+                }
+                //i = 10 * i + u64::from(digit); // might overflow
+                byte_count += 1;
+                d = unsafe { *buf.get_unchecked(byte_count) };
+            }
+        }
+
+        let mut exponent: i64 = if d == b'.' {
+            ignore_count += 1;
+            byte_count += 1;
+            d = unsafe { *buf.get_unchecked(byte_count) };
+            let firstafterperiod = byte_count;
+            if is_integer(d) {
+                digit = d - b'0';
+                byte_count += 1;
+                i = i.wrapping_mul(10).wrapping_add(u64::from(digit));
+            } else {
+                return Err(self.de.error(ErrorType::InvalidNumber));
+            }
+            // this helps if we have lots of decimals!
+            // this turns out to be frequent enough.
+
+            #[cfg(feature = "swar-number-parsing")]
+            {
+                // FIXME
+                // can we omit this: buf.len() - byte_count >= 8
+
+                if is_made_of_eight_digits_fast(unsafe { buf.get_unchecked(byte_count..) }) {
+                    i = i.wrapping_mul(100_000_000).wrapping_add(u64::from(
+                        parse_eight_digits_unrolled(unsafe { buf.get_unchecked(byte_count..) }),
+                    ));
+                    byte_count += 8;
+                }
+            }
+            d = unsafe { *buf.get_unchecked(byte_count) };
+            while is_integer(d) {
+                digit = d - b'0';
+                i = i.wrapping_mul(10).wrapping_add(u64::from(digit));
+                byte_count += 1;
+                d = unsafe { *buf.get_unchecked(byte_count) };
+            }
+            firstafterperiod as i64 - byte_count as i64
+        } else {
+            0
+        };
+        let mut expnumber: i16 = 0; // exponential part
+        if (d == b'e') || (d == b'E') {
+            ignore_count += 1;
+            byte_count += 1;
+            d = unsafe { *buf.get_unchecked(byte_count) };
+            let mut negexp: bool = false;
+            if d == b'-' {
+                negexp = true;
+                ignore_count += 1;
+                byte_count += 1;
+                d = unsafe { *buf.get_unchecked(byte_count) };
+            } else if d == b'+' {
+                ignore_count += 1;
+                byte_count += 1;
+                d = unsafe { *buf.get_unchecked(byte_count) };
+            }
+            if !is_integer(d) {
+                return Err(self.de.error(ErrorType::InvalidNumber));
+            }
+            digit = d - b'0';
+            expnumber = i16::from(digit);
+            byte_count += 1;
+            ignore_count += 1;
+            d = unsafe { *buf.get_unchecked(byte_count) };
+            if is_integer(d) {
+                digit = d - b'0';
+                expnumber = 10 * expnumber + i16::from(digit);
+                ignore_count += 1;
+                byte_count += 1;
+                d = unsafe { *buf.get_unchecked(byte_count) };
+            }
+            if is_integer(d) {
+                digit = d - b'0';
+                expnumber = 10 * expnumber + i16::from(digit);
+                ignore_count += 1;
+                byte_count += 1;
+                d = unsafe { *buf.get_unchecked(byte_count) };
+            }
+            if is_integer(d) {
+                // we refuse to parse this
+                return Err(self.de.error(ErrorType::InvalidNumber));
+            }
+            exponent += i64::from(if negexp { -expnumber } else { expnumber });
+        }
+        let v = if (exponent != 0) || (expnumber != 0) {
+            if unlikely!((byte_count - ignore_count as usize) >= 19) {
+                // this is uncommon!!!
+                // this is almost never going to get called!!!
+                // we start anew, going slowly!!!
+                return self.de.parse_float(buf, negative).map(Value::from);
+            }
+            ///////////
+            // We want 0.1e1 to be a float.
+            //////////
+            if i == 0 {
+                Value::F64(0.0)
+            } else {
+                if (exponent > 308) || (exponent < -323) {
+                    //FIXME Parse it as a expensive float perhaps
+                    return self.de.parse_float(buf, negative).map(Value::from);
+                }
+
+                let mut d1: f64 = i as f64;
+                d1 *= POWER_OF_TEN[(323 + exponent) as usize];
+                Value::F64(if negative { d1 * -1.0 } else { d1 })
+            }
+        } else {
+            if unlikely!(byte_count >= 18) {
+                // this is uncommon!!!
+                return self.de.parse_large_integer(buf, negative).map(Value::from);
+            }
+            if negative {
+                Value::I64((i as i64).wrapping_neg())
+            } else {
+                Value::U64(i)
+            }
+        };
+        if is_structural_or_whitespace(d) == 0 {
+            Err(self.de.error(ErrorType::InvalidNumber))
+        } else {
+            Ok(v)
+        }
     }
 }
 
