@@ -15,8 +15,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match dbg!(stry!(self.next())) {
-            CharType::String => visitor.visit_borrowed_str(dbg!(stry!(self.parse_str_()))),
+        match stry!(self.next()) {
+            CharType::String => visitor.visit_borrowed_str(stry!(self.parse_str_())),
             CharType::Null => visitor.visit_unit(),
             CharType::True => visitor.visit_bool(true),
             CharType::False => visitor.visit_bool(false),
@@ -68,10 +68,10 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if dbg!(stry!(self.next())) != CharType::String {
+        if stry!(self.next()) != CharType::String {
             return Err(self.error(ErrorType::ExpectedString));
         }
-        visitor.visit_borrowed_str(dbg!(stry!(self.parse_str_())))
+        visitor.visit_borrowed_str(stry!(self.parse_str_()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -370,7 +370,6 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
             Ok(None)
         } else {
             self.len -= 1;
-            dbg!("key");
             seed.deserialize(&mut *self.de).map(Some)
         }
     }
@@ -381,7 +380,6 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         V: DeserializeSeed<'de>,
     {
         // read the value
-        dbg!("value");
         seed.deserialize(&mut *self.de)
     }
 
