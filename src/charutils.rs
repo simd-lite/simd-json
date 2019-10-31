@@ -26,7 +26,7 @@ pub fn is_not_structural_or_whitespace(c: u8) -> u32 {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub(crate) fn is_structural_or_whitespace(c: u8) -> u32 {
+pub fn is_structural_or_whitespace(c: u8) -> u32 {
     unsafe { *STRUCTURAL_OR_WHITESPACE.get_unchecked(c as usize) }
 }
 
