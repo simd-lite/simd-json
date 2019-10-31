@@ -25,7 +25,7 @@ use std::fmt;
 use std::hash::Hash;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-/// An access error for ValueType
+/// An access error for `ValueType`
 pub enum AccessError {
     /// An access attempt to a Value was made under the
     /// assumption that it is an Object - the Value however
@@ -39,8 +39,8 @@ pub enum AccessError {
 impl fmt::Display for AccessError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AccessError::NotAnArray => write!(f, "The value is not an array"),
-            AccessError::NotAnObject => write!(f, "The value is not an object"),
+            Self::NotAnArray => write!(f, "The value is not an array"),
+            Self::NotAnObject => write!(f, "The value is not an object"),
         }
     }
 }
@@ -175,7 +175,7 @@ pub trait ValueTrait:
     fn pop(&mut self) -> std::result::Result<Option<Self>, AccessError> {
         self.as_array_mut()
             .ok_or(AccessError::NotAnArray)
-            .map(|o| o.pop())
+            .map(Vec::pop)
     }
 
     /// Same as `get` but returns a mutable ref instead
