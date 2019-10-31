@@ -9,7 +9,7 @@ use crate::{stry, unlikely, Deserializer, ErrorType, Result};
 use halfbrown::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 
 /// Representation of a JSON object
 pub type Object = HashMap<String, Value>;
@@ -192,9 +192,27 @@ impl fmt::Display for Value {
 
 impl Index<&str> for Value {
     type Output = Self;
-    fn index(&self, index: &str) -> &Self {
-        static NULL: Value = Value::Null;
-        self.get(index).unwrap_or(&NULL)
+    fn index(&self, index: &str) -> &Self::Output {
+        self.get(index).unwrap()
+    }
+}
+
+impl Index<usize> for Value {
+    type Output = Self;
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get_idx(index).unwrap()
+    }
+}
+
+impl IndexMut<&str> for Value {
+    fn index_mut(&mut self, index: &str) -> &mut Self::Output {
+        self.get_mut(index).unwrap()
+    }
+}
+
+impl IndexMut<usize> for Value {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.get_idx_mut(index).unwrap()
     }
 }
 

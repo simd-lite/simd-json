@@ -10,6 +10,45 @@
 /// This differs notably from serds zero copy implementation as, unlike serde,
 /// we do not require prior knowledge sbout string comtent to to take advantage
 /// of it.
+///
+/// ## Usage
+/// The value trait is meant to simplify interacting with DOM values, for both
+/// creation as well as mutation and inspection.
+///
+/// Objects can be treated as hashmap's for the most part
+/// ```rust
+/// use simd_json::{OwnedValue as Value, ValueTrait};
+/// let mut v = Value::object();
+/// v.insert("key", 42);
+/// assert_eq!(v.get("key").unwrap(), &42);
+/// assert_eq!(v["key"], &42);
+/// assert_eq!(v.remove("key").unwrap().unwrap(), 42);
+/// assert_eq!(v.get("key"), None);
+/// ```
+///
+/// Arrays can be treated as vectors for the most part
+///
+/// ```rust
+/// use simd_json::{OwnedValue as Value, ValueTrait};
+/// let mut v = Value::array();
+/// v.push("zero");
+/// v.push(1);
+/// assert_eq!(v[0], &"zero");
+/// assert_eq!(v.get_idx(1).unwrap(), &1);
+/// assert_eq!(v.pop().unwrap().unwrap(), 1);
+/// assert_eq!(v.pop().unwrap().unwrap(), "zero");
+/// assert_eq!(v.pop().unwrap(), None);
+/// ```
+///
+/// Nested changes are also possible:
+/// ```rust
+/// use simd_json::{OwnedValue as Value, ValueTrait};
+/// let mut o = Value::object();
+/// o.insert("key", Value::array());
+/// o["key"].push(Value::object());
+/// o["key"][0].insert("other", "value");
+/// assert_eq!(o.encode(), r#"{"key":[{"other":"value"}]}"#);
+/// ```
 
 /// Borrowed values, using Cow's for strings using in situ parsing strategies wherever possible
 pub mod borrowed;
@@ -67,6 +106,7 @@ pub enum ValueType {
     Object,
 }
 
+use std::ops::{Index, IndexMut};
 /// The `ValueTrait` exposes common interface for values, this allows using both
 /// `BorrowedValue` and `OwnedValue` nearly interchangable
 pub trait ValueTrait:
@@ -84,6 +124,8 @@ pub trait ValueTrait:
     + From<String>
     + From<bool>
     + From<()>
+    + Index<usize>
+    + IndexMut<usize>
     + PartialEq<i8>
     + PartialEq<i16>
     + PartialEq<i32>

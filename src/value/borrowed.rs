@@ -10,7 +10,7 @@ use halfbrown::HashMap;
 use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::fmt;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 
 /// Representation of a JSON object
 pub type Object<'v> = HashMap<Cow<'v, str>, Value<'v>>;
@@ -231,9 +231,27 @@ impl<'v> fmt::Display for Value<'v> {
 
 impl<'v> Index<&str> for Value<'v> {
     type Output = Value<'v>;
-    fn index(&self, index: &str) -> &Self {
-        static NULL: Value = Value::Null;
-        self.get(index).unwrap_or(&NULL)
+    fn index(&self, index: &str) -> &Self::Output {
+        self.get(index).unwrap()
+    }
+}
+
+impl<'v> Index<usize> for Value<'v> {
+    type Output = Value<'v>;
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get_idx(index).unwrap()
+    }
+}
+
+impl<'v> IndexMut<&str> for Value<'v> {
+    fn index_mut(&mut self, index: &str) -> &mut Self::Output {
+        self.get_mut(index).unwrap()
+    }
+}
+
+impl<'v> IndexMut<usize> for Value<'v> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.get_idx_mut(index).unwrap()
     }
 }
 
