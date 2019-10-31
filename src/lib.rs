@@ -144,6 +144,7 @@ pub use crate::neon::deser::*;
 use crate::neon::stage1::SIMDJSON_PADDING;
 
 mod stage2;
+use stage2::CharType;
 /// simd-json JSON-DOM value
 pub mod value;
 
@@ -169,9 +170,9 @@ pub(crate) struct Deserializer<'de> {
     input: &'de mut [u8],
     //data: Vec<u8>,
     strings: Vec<u8>,
-    structural_indexes: Vec<u32>,
+    structural_indexes: Vec<(CharType, u16, u32)>,
+    len: usize,
     idx: usize,
-    counts: Vec<usize>,
     str_offset: usize,
     iidx: usize,
 }
@@ -216,7 +217,7 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let counts = Deserializer::validate(input, &structural_indexes)?;
+        let structural_indexes = Deserializer::validate(input, &structural_indexes)?;
 
         // Set length to allow slice access in ARM code
         let mut strings = Vec::with_capacity(len + SIMDJSON_PADDING);
@@ -225,9 +226,9 @@ impl<'de> Deserializer<'de> {
         }
 
         Ok(Deserializer {
-            counts,
             structural_indexes,
             input,
+            len: 0,
             idx: 0,
             strings,
             str_offset: 0,
@@ -236,34 +237,36 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn skip(&mut self) {
-        self.idx += 1;
-        self.iidx = unsafe { *self.structural_indexes.get_unchecked(self.idx) as usize };
+    fn c(&self) -> u8 {
+        unsafe { *self.input.get_unchecked(self.iidx) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn c(&self) -> u8 {
+    fn skip(&mut self) {
         unsafe {
-            *self
-                .input
-                .get_unchecked(*self.structural_indexes.get_unchecked(self.idx) as usize)
+            self.idx += 1;
+            let (_c, l, iidx) = self.structural_indexes.get_unchecked(self.idx);
+            self.iidx = *iidx as usize;
+            self.len = *l as usize;
         }
     }
 
     // pull out the check so we don't need to
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next_(&mut self) -> u8 {
+    fn next_(&mut self) -> CharType {
         unsafe {
             self.idx += 1;
-            self.iidx = *self.structural_indexes.get_unchecked(self.idx) as usize;
-            *self.input.get_unchecked(self.iidx)
+            let (c, l, iidx) = self.structural_indexes.get_unchecked(self.idx);
+            self.iidx = *iidx as usize;
+            self.len = *l as usize;
+            *c
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn count_elements(&self) -> usize {
-        unsafe { *self.counts.get_unchecked(self.idx) }
+        self.len
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -318,7 +321,7 @@ mod tests {
         let mut d = String::from("[]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 0);
+        assert_eq!(simd.structural_indexes[1].1, 0);
     }
 
     #[test]
@@ -326,7 +329,7 @@ mod tests {
         let mut d = String::from("[1]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 1);
+        assert_eq!(simd.structural_indexes[1].1, 1);
     }
 
     #[test]
@@ -334,7 +337,7 @@ mod tests {
         let mut d = String::from("[1,2]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 2);
+        assert_eq!(simd.structural_indexes[1].1, 2);
     }
 
     #[test]
@@ -342,8 +345,8 @@ mod tests {
         let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 3);
-        assert_eq!(simd.counts[4], 1);
+        assert_eq!(simd.structural_indexes[1].1, 3);
+        assert_eq!(simd.structural_indexes[3].1, 1);
     }
 
     #[test]
@@ -351,8 +354,8 @@ mod tests {
         let mut d = String::from("[[],null,null]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 3);
-        assert_eq!(simd.counts[2], 0);
+        assert_eq!(simd.structural_indexes[1].1, 3);
+        assert_eq!(simd.structural_indexes[2].1, 0);
     }
 
     #[test]
@@ -837,7 +840,7 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
-        assert_eq!(to_value(&mut d1), Ok(Value::from(h)));
+        assert_eq!(dbg!(to_value(&mut d1)), Ok(Value::from(h)));
     }
 
     #[test]
@@ -930,7 +933,7 @@ mod tests {
     }
 
     #[test]
-    fn obj() {
+    fn obj1() {
         let mut d = String::from(r#"{"a": 1, "b":1}"#);
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Obj = serde_json::from_slice(d).expect("serde_json");

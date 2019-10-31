@@ -4,8 +4,9 @@ mod cmp;
 mod from;
 mod serialize;
 
+use crate::stage2::CharType;
 use crate::value::{ValueTrait, ValueType};
-use crate::{stry, unlikely, Deserializer, ErrorType, Result};
+use crate::{stry, Deserializer, Result};
 use halfbrown::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
@@ -233,45 +234,38 @@ impl<'de> OwnedDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Result<Value> {
         match self.de.next_() {
-            b'"' => self.de.parse_str_().map(Value::from),
-            b'n' => Ok(Value::Null),
-            b't' => Ok(Value::Bool(true)),
-            b'f' => Ok(Value::Bool(false)),
-            b'-' => self.de.parse_number_root(true).map(Value::from),
-            b'0'..=b'9' => self.de.parse_number_root(false).map(Value::from),
-            b'[' => self.parse_array(),
-            b'{' => self.parse_map(),
-            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
+            CharType::String => self.de.parse_str_().map(Value::from),
+            CharType::Null => Ok(Value::Null),
+            CharType::True => Ok(Value::Bool(true)),
+            CharType::False => Ok(Value::Bool(false)),
+            CharType::NegNum => self.de.parse_number_root(true).map(Value::from),
+            CharType::PosNum => self.de.parse_number_root(false).map(Value::from),
+            CharType::Array => self.parse_array(),
+            CharType::Object => self.parse_map(),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_value(&mut self) -> Result<Value> {
         match self.de.next_() {
-            b'"' => self.de.parse_str_().map(Value::from),
-            b'n' => Ok(Value::Null),
-            b't' => Ok(Value::Bool(true)),
-            b'f' => Ok(Value::Bool(false)),
-            b'-' => self.de.parse_number(true).map(Value::from),
-            b'0'..=b'9' => self.de.parse_number(false).map(Value::from),
-            b'[' => self.parse_array(),
-            b'{' => self.parse_map(),
-            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
+            CharType::String => self.de.parse_str_().map(Value::from),
+            CharType::Null => Ok(Value::Null),
+            CharType::True => Ok(Value::Bool(true)),
+            CharType::False => Ok(Value::Bool(false)),
+            CharType::NegNum => self.de.parse_number_(true).map(Value::from),
+            CharType::PosNum => self.de.parse_number_(false).map(Value::from),
+            CharType::Array => self.parse_array(),
+            CharType::Object => self.parse_map(),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_array(&mut self) -> Result<Value> {
         let es = self.de.count_elements();
-        if unlikely!(es == 0) {
-            self.de.skip();
-            return Ok(Value::Array(Vec::new()));
-        }
         let mut res = Vec::with_capacity(es);
 
         for _i in 0..es {
             res.push(stry!(self.parse_value()));
-            self.de.skip();
         }
         Ok(Value::Array(res))
     }
@@ -280,11 +274,6 @@ impl<'de> OwnedDeserializer<'de> {
     fn parse_map(&mut self) -> Result<Value> {
         // We short cut for empty arrays
         let es = self.de.count_elements();
-
-        if unlikely!(es == 0) {
-            self.de.skip();
-            return Ok(Value::from(Object::new()));
-        }
 
         let mut res = Object::with_capacity(es);
 
@@ -296,9 +285,7 @@ impl<'de> OwnedDeserializer<'de> {
             let key = stry!(self.de.parse_str_());
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
-            self.de.skip();
             res.insert_nocheck(key.into(), stry!(self.parse_value()));
-            self.de.skip();
         }
         Ok(Value::from(res))
     }

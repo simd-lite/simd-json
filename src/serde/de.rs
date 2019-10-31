@@ -1,4 +1,5 @@
 use crate::numberparse::Number;
+use crate::stage2::CharType;
 use crate::*;
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
@@ -14,28 +15,23 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match stry!(self.next()) {
-            b'"' => {
-                // We don't do the short string optimisation as serde requires
-                // additional checks
-                visitor.visit_borrowed_str(stry!(self.parse_str_()))
-            }
-            b'n' => visitor.visit_unit(),
-            b't' => visitor.visit_bool(true),
-            b'f' => visitor.visit_bool(false),
-            b'-' => match stry!(self.parse_number(true)) {
+        match dbg!(stry!(self.next())) {
+            CharType::String => visitor.visit_borrowed_str(dbg!(stry!(self.parse_str_()))),
+            CharType::Null => visitor.visit_unit(),
+            CharType::True => visitor.visit_bool(true),
+            CharType::False => visitor.visit_bool(false),
+            CharType::NegNum => match stry!(self.parse_number(true)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
                 Number::U64(n) => visitor.visit_u64(n),
             },
-            b'0'..=b'9' => match stry!(self.parse_number(false)) {
+            CharType::PosNum => match stry!(self.parse_number(false)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
                 Number::U64(n) => visitor.visit_u64(n),
             },
-            b'[' => visitor.visit_seq(CommaSeparated::new(&mut self)),
-            b'{' => visitor.visit_map(CommaSeparated::new(&mut self)),
-            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
+            CharType::Array => visitor.visit_seq(CommaSeparated::new(&mut self)),
+            CharType::Object => visitor.visit_map(CommaSeparated::new(&mut self)),
         }
     }
 
@@ -59,8 +55,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            b't' => visitor.visit_bool(true),
-            b'f' => visitor.visit_bool(false),
+            CharType::True => visitor.visit_bool(true),
+            CharType::False => visitor.visit_bool(false),
             _c => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
@@ -72,15 +68,10 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != b'"' {
+        if dbg!(stry!(self.next())) != CharType::String {
             return Err(self.error(ErrorType::ExpectedString));
         }
-        if let Some(next) = self.structural_indexes.get(self.idx + 1) {
-            if *next as usize - self.iidx < 32 {
-                return visitor.visit_borrowed_str(stry!(self.parse_str_()));
-            }
-        }
-        visitor.visit_borrowed_str(stry!(self.parse_str_()))
+        visitor.visit_borrowed_str(dbg!(stry!(self.parse_str_())))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -88,13 +79,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != b'"' {
+        if stry!(self.next()) != CharType::String {
             return Err(self.error(ErrorType::ExpectedString));
-        }
-        if let Some(next) = self.structural_indexes.get(self.idx + 1) {
-            if *next as usize - self.iidx < 32 {
-                return visitor.visit_str(stry!(self.parse_str_()));
-            }
         }
         visitor.visit_str(stry!(self.parse_str_()))
     }
@@ -209,7 +195,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.peek()) == b'n' {
+        if stry!(self.peek()) == CharType::Null {
             self.skip();
             visitor.visit_unit()
         } else {
@@ -223,7 +209,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != b'n' {
+        if stry!(self.next()) != CharType::Null {
             return Err(self.error(ErrorType::ExpectedNull));
         }
         visitor.visit_unit()
@@ -238,7 +224,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if stry!(self.next()) == b'[' {
+        if stry!(self.next()) == CharType::Array {
             // Give the visitor access to each element of the sequence.
             visitor.visit_seq(CommaSeparated::new(&mut self))
         } else {
@@ -260,7 +246,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         let r = self.deserialize_seq(visitor);
         // tuples have a known length damn you serde ...
-        self.skip();
+        //self.skip();
         r
     }
 
@@ -301,7 +287,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if stry!(self.next()) == b'{' {
+        if stry!(self.next()) == CharType::Object {
             // Give the visitor access to each element of the sequence.
             visitor.visit_map(CommaSeparated::new(&mut self))
         } else {
@@ -334,7 +320,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 // element.
 struct CommaSeparated<'a, 'de: 'a> {
     de: &'a mut Deserializer<'de>,
-    first: bool,
     len: usize,
 }
 
@@ -342,7 +327,6 @@ impl<'a, 'de> CommaSeparated<'a, 'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn new(de: &'a mut Deserializer<'de>) -> Self {
         CommaSeparated {
-            first: true,
             len: de.count_elements(),
             de,
         }
@@ -360,14 +344,8 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
         T: DeserializeSeed<'de>,
     {
         if self.len == 0 {
-            self.de.skip();
             Ok(None)
         } else {
-            if self.first {
-                self.first = false;
-            } else {
-                self.de.skip();
-            }
             self.len -= 1;
             seed.deserialize(&mut *self.de).map(Some)
         }
@@ -389,13 +367,10 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         K: DeserializeSeed<'de>,
     {
         if self.len == 0 {
-            if self.first {
-                self.de.skip();
-            }
             Ok(None)
         } else {
             self.len -= 1;
-            self.first = false;
+            dbg!("key");
             seed.deserialize(&mut *self.de).map(Some)
         }
     }
@@ -405,12 +380,9 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        // Skip the ':'
-        self.de.skip();
         // read the value
-        let r = seed.deserialize(&mut *self.de);
-        self.de.skip();
-        r
+        dbg!("value");
+        seed.deserialize(&mut *self.de)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

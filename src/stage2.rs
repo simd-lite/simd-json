@@ -88,34 +88,49 @@ enum StackState {
     Array,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum CharType {
+    String,
+    Object,
+    PosNum,
+    NegNum,
+    True,
+    False,
+    Null,
+    Array,
+}
+
 impl<'de> Deserializer<'de> {
-    pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<Vec<usize>> {
-        let mut counts = Vec::with_capacity(structural_indexes.len());
+    pub fn validate(
+        input: &[u8],
+        structural_indexes: &[u32],
+    ) -> Result<(Vec<(CharType, u16, u32)>)> {
+        let mut res = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
         unsafe {
-            counts.set_len(structural_indexes.len());
             stack.set_len(structural_indexes.len());
         }
 
-        let mut depth = 0;
+        let mut depth: usize = 0;
         let mut last_start = 1;
-        let mut cnt = 0;
+        let mut cnt: u16 = 0;
 
         // let mut i: usize = 0; // index of the structural character (0,1,2,3...)
         // location of the structural character in the input (buf)
-        let mut idx: usize;
+        let mut idx: u32;
         // used to track the (structural) character we are looking at, updated
         // by UPDATE_CHAR macro
         let mut c: u8;
-        let mut i = 0;
+        let mut i: u32 = 0;
 
         // this macro reads the next structural character, updating idx, i and c.
         let mut si = structural_indexes.iter().skip(1).peekable();
+        res.push((CharType::Null, 0, 0));
         macro_rules! update_char {
             () => {
-                idx = *stry!(si.next().ok_or_else(|| (Error::generic(ErrorType::Syntax)))) as usize;
+                idx = *stry!(si.next().ok_or_else(|| (Error::generic(ErrorType::Syntax)))) as u32;
                 i += 1;
-                c = unsafe { *input.get_unchecked(idx) };
+                c = unsafe { *input.get_unchecked(idx as usize) };
             };
         }
 
@@ -157,6 +172,7 @@ impl<'de> Deserializer<'de> {
                         cnt += 1;
                         update_char!();
                         if c == b'"' {
+                            res.push((CharType::String, 0, idx));
                             goto!(ObjectKey);
                         } else {
                             fail!(ErrorType::ExpectedObjectKey);
@@ -187,7 +203,10 @@ impl<'de> Deserializer<'de> {
             () => {{
                 update_char!();
                 match c {
-                    b'"' => goto!(ObjectKey),
+                    b'"' => {
+                        res.push((CharType::String, 0, idx));
+                        goto!(ObjectKey)
+                    }
                     b'}' => {
                         cnt = 0;
                         goto!(ScopeEnd);
@@ -201,10 +220,15 @@ impl<'de> Deserializer<'de> {
 
         macro_rules! fail {
             () => {
-                return Err(Error::new(i, idx, c as char, ErrorType::InternalError));
+                return Err(Error::new(
+                    i as usize,
+                    idx as usize,
+                    c as char,
+                    ErrorType::InternalError,
+                ));
             };
             ($t:expr) => {
-                return Err(Error::new(i, idx, c as char, $t));
+                return Err(Error::new(i as usize, idx as usize, c as char, $t));
             };
         }
         // State start, we pull this outside of the
@@ -215,13 +239,16 @@ impl<'de> Deserializer<'de> {
                 unsafe {
                     *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
                 }
+                last_start = res.len();
+                res.push((CharType::Object, 0, idx));
+
                 depth += 1;
-                last_start = i;
                 cnt = 1;
 
                 update_char!();
                 match c {
                     b'"' => {
+                        res.push((CharType::String, 0, idx));
                         state = State::ObjectKey;
                     }
                     b'}' => {
@@ -237,8 +264,11 @@ impl<'de> Deserializer<'de> {
                 unsafe {
                     *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
                 }
+
+                last_start = res.len();
+                res.push((CharType::Array, 0, idx));
+
                 depth += 1;
-                last_start = i;
                 cnt = 1;
 
                 update_char!();
@@ -254,12 +284,13 @@ impl<'de> Deserializer<'de> {
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_true_atom(copy.get_unchecked(idx..)) {
+                    if !is_valid_true_atom(copy.get_unchecked((idx as usize)..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
+                res.push((CharType::True, 0, idx));
                 if si.next().is_none() {
-                    return Ok(counts);
+                    return Ok(res);
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -269,12 +300,13 @@ impl<'de> Deserializer<'de> {
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_false_atom(copy.get_unchecked(idx..)) {
+                    if !is_valid_false_atom(copy.get_unchecked((idx as usize)..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
+                res.push((CharType::False, 0, idx));
                 if si.next().is_none() {
-                    return Ok(counts);
+                    return Ok(res);
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -284,19 +316,37 @@ impl<'de> Deserializer<'de> {
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_null_atom(copy.get_unchecked(idx..)) {
+                    if !is_valid_null_atom(copy.get_unchecked((idx as usize)..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
+                res.push((CharType::Null, 0, idx));
                 if si.next().is_none() {
-                    return Ok(counts);
+                    return Ok(res);
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
             }
-            b'"' | b'-' | b'0'..=b'9' => {
+            b'"' => {
+                res.push((CharType::String, 0, idx));
                 if si.next().is_none() {
-                    return Ok(counts);
+                    return Ok(res);
+                } else {
+                    fail!(ErrorType::TrailingCharacters);
+                }
+            }
+            b'-' => {
+                res.push((CharType::NegNum, 0, idx));
+                if si.next().is_none() {
+                    return Ok(res);
+                } else {
+                    fail!(ErrorType::TrailingCharacters);
+                }
+            }
+            b'0'..=b'9' => {
+                res.push((CharType::PosNum, 0, idx));
+                if si.next().is_none() {
+                    return Ok(res);
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -317,27 +367,41 @@ impl<'de> Deserializer<'de> {
                     }
                     update_char!();
                     match c {
-                        b'"' => object_continue!(),
-
+                        b'"' => {
+                            res.push((CharType::String, 0, idx));
+                            object_continue!()
+                        }
                         b't' => {
-                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                            res.push((CharType::True, 0, idx));
+                            if !is_valid_true_atom(unsafe { input.get_unchecked((idx as usize)..) })
+                            {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'f' => {
-                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                            res.push((CharType::False, 0, idx));
+                            if !is_valid_false_atom(unsafe {
+                                input.get_unchecked((idx as usize)..)
+                            }) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'n' => {
-                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                            res.push((CharType::Null, 0, idx));
+                            if !is_valid_null_atom(unsafe { input.get_unchecked((idx as usize)..) })
+                            {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             object_continue!();
                         }
-                        b'-' | b'0'..=b'9' => {
+                        b'-' => {
+                            res.push((CharType::NegNum, 0, idx));
+                            object_continue!();
+                        }
+                        b'0'..=b'9' => {
+                            res.push((CharType::PosNum, 0, idx));
                             object_continue!();
                         }
                         b'{' => {
@@ -345,8 +409,9 @@ impl<'de> Deserializer<'de> {
                                 *stack.get_unchecked_mut(depth) =
                                     (StackState::Object, last_start, cnt);
                             }
+                            last_start = res.len();
+                            res.push((CharType::Object, 0, idx));
                             depth += 1;
-                            last_start = i;
                             cnt = 1;
                             object_begin!();
                         }
@@ -355,8 +420,9 @@ impl<'de> Deserializer<'de> {
                                 *stack.get_unchecked_mut(depth) =
                                     (StackState::Object, last_start, cnt);
                             }
+                            last_start = res.len();
+                            res.push((CharType::Array, 0, idx));
                             depth += 1;
-                            last_start = i;
                             cnt = 1;
                             array_begin!();
                         }
@@ -372,7 +438,7 @@ impl<'de> Deserializer<'de> {
                     }
                     depth -= 1;
                     unsafe {
-                        *counts.get_unchecked_mut(last_start) = cnt;
+                        res.get_unchecked_mut(last_start).1 = cnt;
                     }
 
                     let (a_state, a_last_start, a_cnt) = unsafe { stack.get_unchecked(depth) };
@@ -387,7 +453,7 @@ impl<'de> Deserializer<'de> {
                         StackState::Array => array_continue!(),
                         StackState::Start => {
                             if si.next().is_none() {
-                                return Ok(counts);
+                                return Ok(res);
                             } else {
                                 fail!();
                             }
@@ -400,26 +466,41 @@ impl<'de> Deserializer<'de> {
                     // we call update char on all paths in, so we can peek at c on the
                     // on paths that can accept a close square brace (post-, and at start)
                     match c {
-                        b'"' => array_continue!(),
+                        b'"' => {
+                            res.push((CharType::String, 0, idx));
+                            array_continue!()
+                        }
                         b't' => {
-                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                            res.push((CharType::True, 0, idx));
+                            if !is_valid_true_atom(unsafe { input.get_unchecked((idx as usize)..) })
+                            {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'f' => {
-                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                            res.push((CharType::False, 0, idx));
+                            if !is_valid_false_atom(unsafe {
+                                input.get_unchecked((idx as usize)..)
+                            }) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'n' => {
-                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                            res.push((CharType::Null, 0, idx));
+                            if !is_valid_null_atom(unsafe { input.get_unchecked((idx as usize)..) })
+                            {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             array_continue!();
                         }
-                        b'-' | b'0'..=b'9' => {
+                        b'-' => {
+                            res.push((CharType::NegNum, 0, idx));
+                            array_continue!();
+                        }
+                        b'0'..=b'9' => {
+                            res.push((CharType::PosNum, 0, idx));
                             array_continue!();
                         }
                         b'{' => {
@@ -427,8 +508,9 @@ impl<'de> Deserializer<'de> {
                                 *stack.get_unchecked_mut(depth) =
                                     (StackState::Array, last_start, cnt);
                             }
+                            last_start = res.len();
+                            res.push((CharType::Object, 0, idx));
                             depth += 1;
-                            last_start = i;
                             cnt = 1;
                             object_begin!();
                         }
@@ -437,8 +519,9 @@ impl<'de> Deserializer<'de> {
                                 *stack.get_unchecked_mut(depth) =
                                     (StackState::Array, last_start, cnt);
                             }
+                            last_start = res.len();
+                            res.push((CharType::Array, 0, idx));
                             depth += 1;
-                            last_start = i;
                             cnt = 1;
                             array_begin!();
                         }
