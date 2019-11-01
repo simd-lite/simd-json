@@ -7,7 +7,7 @@ use simd_lite::aarch64::*;
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_str_(&mut self, len: usize) -> Result<&'de str> {
+    pub fn parse_str_(&mut self, mut len: usize) -> Result<&'de str> {
         // Add 1 to skip the initial "
         idx += 1;
         let mut padding = [0_u8; 32];
