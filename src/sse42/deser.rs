@@ -12,9 +12,9 @@ pub use crate::Result;
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub(crate) fn parse_str_(&mut self) -> Result<&'de str> {
+    pub(crate) fn parse_str_(&mut self, idx: usize) -> Result<&'de str> {
         // Add 1 to skip the initial "
-        let idx = self.iidx + 1;
+        idx += 1;
         let mut padding = [0_u8; 32];
         //let mut read: usize = 0;
 

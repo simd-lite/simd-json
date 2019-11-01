@@ -234,28 +234,34 @@ impl<'de> OwnedDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Result<Value> {
         match self.de.next_() {
-            (CharType::String, _) => self.de.parse_str_().map(Value::from),
+            (CharType::String, idx) => self.de.parse_str_(idx as usize).map(Value::from),
             (CharType::Null, _) => Ok(Value::Null),
             (CharType::True, _) => Ok(Value::Bool(true)),
             (CharType::False, _) => Ok(Value::Bool(false)),
-            (CharType::NegNum, _) => self.de.parse_number_root(true).map(Value::from),
-            (CharType::PosNum, _) => self.de.parse_number_root(false).map(Value::from),
-            (CharType::Array, len) => self.parse_array(len),
-            (CharType::Object, len) => self.parse_map(len),
+            (CharType::NegNum, idx) => self
+                .de
+                .parse_number_root(idx as usize, true)
+                .map(Value::from),
+            (CharType::PosNum, idx) => self
+                .de
+                .parse_number_root(idx as usize, false)
+                .map(Value::from),
+            (CharType::Array, len) => self.parse_array(len as usize),
+            (CharType::Object, len) => self.parse_map(len as usize),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_value(&mut self) -> Result<Value> {
         match self.de.next_() {
-            (CharType::String, _) => self.de.parse_str_().map(Value::from),
+            (CharType::String, idx) => self.de.parse_str_(idx as usize).map(Value::from),
             (CharType::Null, _) => Ok(Value::Null),
             (CharType::True, _) => Ok(Value::Bool(true)),
             (CharType::False, _) => Ok(Value::Bool(false)),
-            (CharType::NegNum, _) => self.de.parse_number_(true).map(Value::from),
-            (CharType::PosNum, _) => self.de.parse_number_(false).map(Value::from),
-            (CharType::Array, len) => self.parse_array(len),
-            (CharType::Object, len) => self.parse_map(len),
+            (CharType::NegNum, idx) => self.de.parse_number_(idx as usize, true).map(Value::from),
+            (CharType::PosNum, idx) => self.de.parse_number_(idx as usize, false).map(Value::from),
+            (CharType::Array, len) => self.parse_array(len as usize),
+            (CharType::Object, len) => self.parse_map(len as usize),
         }
     }
 
@@ -289,8 +295,8 @@ impl<'de> OwnedDeserializer<'de> {
         let mut res = Object::with_capacity(len);
 
         for _ in 0..len {
-            self.de.skip();
-            let key = stry!(self.de.parse_str_());
+            let idx = self.de.next_().1;
+            let key = stry!(self.de.parse_str_(idx as usize));
             // We have to call parse short str twice since parse_short_str
             // does not move the cursor forward
             res.insert_nocheck(key.into(), stry!(self.parse_value()));

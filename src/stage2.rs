@@ -102,10 +102,7 @@ pub(crate) enum CharType {
 
 impl<'de> Deserializer<'de> {
     #[allow(clippy::cognitive_complexity)]
-    pub fn validate(
-        input: &[u8],
-        structural_indexes: &[u32],
-    ) -> Result<(Vec<(CharType, u16, u32)>)> {
+    pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<(CharType, u32)>)> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
         let mut res = Vec::with_capacity(structural_indexes.len() + 1);
@@ -117,7 +114,7 @@ impl<'de> Deserializer<'de> {
 
         let mut depth: usize = 0;
         let mut last_start = 1;
-        let mut cnt: u16 = 0;
+        let mut cnt: u32 = 0;
         let mut r_i = 0;
 
         // let mut i: usize = 0; // index of the structural character (0,1,2,3...)
@@ -132,9 +129,9 @@ impl<'de> Deserializer<'de> {
         let mut si = structural_indexes.iter().skip(1).peekable();
 
         macro_rules! insert_res {
-            ($t:expr, $l:expr, $i:expr) => {
+            ($t:expr, $l:expr) => {
                 unsafe {
-                    *res.get_unchecked_mut(r_i) = ($t, $l, $i);
+                    *res.get_unchecked_mut(r_i) = ($t, $l);
                     r_i += 1;
                 }
             };
@@ -162,7 +159,7 @@ impl<'de> Deserializer<'de> {
             }};
         }
 
-        insert_res!(CharType::Null, 0, 0);
+        insert_res!(CharType::Null, 0);
 
         // The continue cases are the most frequently called onces it's
         // worth pulling them out into a macro (aka inlining them)
@@ -194,7 +191,7 @@ impl<'de> Deserializer<'de> {
                         cnt += 1;
                         update_char!();
                         if c == b'"' {
-                            insert_res!(CharType::String, 0, idx);
+                            insert_res!(CharType::String, idx);
                             goto!(ObjectKey);
                         } else {
                             fail!(ErrorType::ExpectedObjectKey);
@@ -226,7 +223,7 @@ impl<'de> Deserializer<'de> {
                 update_char!();
                 match c {
                     b'"' => {
-                        insert_res!(CharType::String, 0, idx);
+                        insert_res!(CharType::String, idx);
                         goto!(ObjectKey)
                     }
                     b'}' => {
@@ -262,7 +259,7 @@ impl<'de> Deserializer<'de> {
                     *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
                 }
                 last_start = r_i;
-                insert_res!(CharType::Object, 0, idx);
+                insert_res!(CharType::Object, idx);
 
                 depth += 1;
                 cnt = 1;
@@ -270,7 +267,7 @@ impl<'de> Deserializer<'de> {
                 update_char!();
                 match c {
                     b'"' => {
-                        insert_res!(CharType::String, 0, idx);
+                        insert_res!(CharType::String, idx);
                         state = State::ObjectKey;
                     }
                     b'}' => {
@@ -288,7 +285,7 @@ impl<'de> Deserializer<'de> {
                 }
 
                 last_start = r_i;
-                insert_res!(CharType::Array, 0, idx);
+                insert_res!(CharType::Array, idx);
 
                 depth += 1;
                 cnt = 1;
@@ -310,7 +307,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                insert_res!(CharType::True, 0, idx);
+                insert_res!(CharType::True, idx);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -326,7 +323,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                insert_res!(CharType::False, 0, idx);
+                insert_res!(CharType::False, idx);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -342,7 +339,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                insert_res!(CharType::Null, 0, idx);
+                insert_res!(CharType::Null, idx);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -350,7 +347,7 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'"' => {
-                insert_res!(CharType::String, 0, idx);
+                insert_res!(CharType::String, idx);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -358,7 +355,7 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'-' => {
-                insert_res!(CharType::NegNum, 0, idx);
+                insert_res!(CharType::NegNum, idx);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -366,7 +363,7 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'0'..=b'9' => {
-                insert_res!(CharType::PosNum, 0, idx);
+                insert_res!(CharType::PosNum, idx);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -390,11 +387,11 @@ impl<'de> Deserializer<'de> {
                     update_char!();
                     match c {
                         b'"' => {
-                            insert_res!(CharType::String, 0, idx);
+                            insert_res!(CharType::String, idx);
                             object_continue!()
                         }
                         b't' => {
-                            insert_res!(CharType::True, 0, idx);
+                            insert_res!(CharType::True, idx);
                             if !is_valid_true_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
@@ -402,7 +399,7 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'f' => {
-                            insert_res!(CharType::False, 0, idx);
+                            insert_res!(CharType::False, idx);
                             if !is_valid_false_atom(unsafe {
                                 input.get_unchecked((idx as usize)..)
                             }) {
@@ -411,7 +408,7 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'n' => {
-                            insert_res!(CharType::Null, 0, idx);
+                            insert_res!(CharType::Null, idx);
                             if !is_valid_null_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
@@ -419,11 +416,11 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'-' => {
-                            insert_res!(CharType::NegNum, 0, idx);
+                            insert_res!(CharType::NegNum, idx);
                             object_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(CharType::PosNum, 0, idx);
+                            insert_res!(CharType::PosNum, idx);
                             object_continue!();
                         }
                         b'{' => {
@@ -432,7 +429,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Object, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(CharType::Object, 0, idx);
+                            insert_res!(CharType::Object, idx);
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -443,7 +440,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Object, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(CharType::Array, 0, idx);
+                            insert_res!(CharType::Array, idx);
                             depth += 1;
                             cnt = 1;
                             array_begin!();
@@ -489,11 +486,11 @@ impl<'de> Deserializer<'de> {
                     // on paths that can accept a close square brace (post-, and at start)
                     match c {
                         b'"' => {
-                            insert_res!(CharType::String, 0, idx);
+                            insert_res!(CharType::String, idx);
                             array_continue!()
                         }
                         b't' => {
-                            insert_res!(CharType::True, 0, idx);
+                            insert_res!(CharType::True, idx);
                             if !is_valid_true_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
@@ -501,7 +498,7 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'f' => {
-                            insert_res!(CharType::False, 0, idx);
+                            insert_res!(CharType::False, idx);
                             if !is_valid_false_atom(unsafe {
                                 input.get_unchecked((idx as usize)..)
                             }) {
@@ -510,7 +507,7 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'n' => {
-                            insert_res!(CharType::Null, 0, idx);
+                            insert_res!(CharType::Null, idx);
                             if !is_valid_null_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
@@ -518,11 +515,11 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'-' => {
-                            insert_res!(CharType::NegNum, 0, idx);
+                            insert_res!(CharType::NegNum, idx);
                             array_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(CharType::PosNum, 0, idx);
+                            insert_res!(CharType::PosNum, idx);
                             array_continue!();
                         }
                         b'{' => {
@@ -531,7 +528,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Array, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(CharType::Object, 0, idx);
+                            insert_res!(CharType::Object, idx);
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -542,7 +539,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Array, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(CharType::Array, 0, idx);
+                            insert_res!(CharType::Array, idx);
                             depth += 1;
                             cnt = 1;
                             array_begin!();

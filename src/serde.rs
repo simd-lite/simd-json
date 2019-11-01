@@ -82,20 +82,17 @@ impl serde_ext::ser::Error for Error {
 // Functions purely used by serde
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next(&mut self) -> Result<CharType> {
+    fn next(&mut self) -> Result<(CharType, u32)> {
         self.idx += 1;
-        if let Some((c, l, iidx)) = self.structural_indexes.get(self.idx) {
-            self.iidx = *iidx as usize;
-            self.len = *l as usize;
-            Ok(*c)
-        } else {
-            Err(self.error(ErrorType::Syntax))
-        }
+        self.structural_indexes
+            .get(self.idx)
+            .map(|v| *v)
+            .ok_or_else(|| self.error(ErrorType::Syntax))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn peek(&self) -> Result<CharType> {
-        if let Some((c, _, _)) = self.structural_indexes.get(self.idx + 1) {
+        if let Some((c, _)) = self.structural_indexes.get(self.idx + 1) {
             Ok(*c)
         } else {
             Err(self.error(ErrorType::UnexpectedEnd))
@@ -105,11 +102,11 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_signed(&mut self) -> Result<i64> {
         match self.next_() {
-            (CharType::NegNum, _) => match stry!(self.parse_number(true)) {
+            (CharType::NegNum, idx) => match stry!(self.parse_number(idx as usize, true)) {
                 Number::I64(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
-            (CharType::PosNum, _) => match stry!(self.parse_number(false)) {
+            (CharType::PosNum, idx) => match stry!(self.parse_number(idx as usize, false)) {
                 Number::I64(n) => Ok(n),
                 Number::U64(n) => n
                     .try_into()
@@ -124,7 +121,7 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cast_sign_loss)]
     fn parse_unsigned(&mut self) -> Result<u64> {
         match self.next_() {
-            (CharType::PosNum, _) => match stry!(self.parse_number(false)) {
+            (CharType::PosNum, idx) => match stry!(self.parse_number(idx as usize, false)) {
                 Number::I64(n) => Ok(n as u64),
                 Number::U64(n) => Ok(n as u64),
                 _ => Err(self.error(ErrorType::ExpectedUnsigned)),
@@ -136,12 +133,12 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {
         match self.next_() {
-            (CharType::NegNum, _) => match stry!(self.parse_number(true)) {
+            (CharType::NegNum, idx) => match stry!(self.parse_number(idx as usize, true)) {
                 Number::F64(n) => Ok(n),
                 Number::I64(n) => Ok(n as f64),
                 Number::U64(n) => Ok(n as f64),
             },
-            (CharType::PosNum, _) => match stry!(self.parse_number(false)) {
+            (CharType::PosNum, idx) => match stry!(self.parse_number(idx as usize, false)) {
                 Number::F64(n) => Ok(n),
                 Number::I64(n) => Ok(n as f64),
                 Number::U64(n) => Ok(n as f64),

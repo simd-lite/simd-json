@@ -170,17 +170,19 @@ pub(crate) struct Deserializer<'de> {
     input: &'de mut [u8],
     //data: Vec<u8>,
     strings: Vec<u8>,
-    structural_indexes: Vec<(CharType, u16, u32)>,
-    len: usize,
+    // Note: we use the 2nd part as both index and lenght since only one is ever
+    // used (array / object use len) everything else uses idx
+    structural_indexes: Vec<(CharType, u32)>,
     idx: usize,
     str_offset: usize,
-    iidx: usize,
 }
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(&self, error: ErrorType) -> Error {
-        Error::new(self.idx, self.iidx, self.c() as char, error)
+        let idx = unsafe { self.structural_indexes.get_unchecked(self.idx).1 as usize };
+        let c = unsafe { *self.input.get_unchecked(idx) };
+        Error::new(self.idx, idx, c as char, error)
     }
     // By convention, `Deserializer` constructors are named like `from_xyz`.
     // That way basic use cases are satisfied by something like
@@ -228,49 +230,30 @@ impl<'de> Deserializer<'de> {
         Ok(Deserializer {
             structural_indexes,
             input,
-            len: 0,
             idx: 0,
             strings,
             str_offset: 0,
-            iidx: 0,
         })
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn c(&self) -> u8 {
-        unsafe { *self.input.get_unchecked(self.iidx) }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn skip(&mut self) {
-        unsafe {
-            self.idx += 1;
-            let (_c, l, iidx) = self.structural_indexes.get_unchecked(self.idx);
-            self.iidx = *iidx as usize;
-            self.len = *l as usize;
-        }
+        self.idx += 1;
     }
 
     // pull out the check so we don't need to
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next_(&mut self) -> (CharType, usize) {
+    fn next_(&mut self) -> (CharType, u32) {
         unsafe {
             self.idx += 1;
-            let (c, l, iidx) = self.structural_indexes.get_unchecked(self.idx);
-            self.iidx = *iidx as usize;
-            (*c, *l as usize)
+            *self.structural_indexes.get_unchecked(self.idx)
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn count_elements(&self) -> usize {
-        self.len
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+    fn parse_number_root(&mut self, idx: usize, minus: bool) -> Result<Number> {
+        let input = unsafe { &self.input.get_unchecked(idx..) };
         let len = input.len();
         let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
         copy[len] = 0;
@@ -281,8 +264,8 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+    fn parse_number(&mut self, idx: usize, minus: bool) -> Result<Number> {
+        let input = unsafe { &self.input.get_unchecked(idx..) };
         let len = input.len();
         if len < SIMDJSON_PADDING {
             let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
@@ -296,8 +279,8 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+    fn parse_number_(&mut self, idx: usize, minus: bool) -> Result<Number> {
+        let input = unsafe { &self.input.get_unchecked(idx..) };
         self.parse_number_int(input, minus)
     }
 }

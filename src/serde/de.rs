@@ -16,22 +16,28 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            CharType::String => visitor.visit_borrowed_str(stry!(self.parse_str_())),
-            CharType::Null => visitor.visit_unit(),
-            CharType::True => visitor.visit_bool(true),
-            CharType::False => visitor.visit_bool(false),
-            CharType::NegNum => match stry!(self.parse_number(true)) {
+            (CharType::String, idx) => {
+                visitor.visit_borrowed_str(stry!(self.parse_str_(idx as usize)))
+            }
+            (CharType::Null, _) => visitor.visit_unit(),
+            (CharType::True, _) => visitor.visit_bool(true),
+            (CharType::False, _) => visitor.visit_bool(false),
+            (CharType::NegNum, idx) => match stry!(self.parse_number(idx as usize, true)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
                 Number::U64(n) => visitor.visit_u64(n),
             },
-            CharType::PosNum => match stry!(self.parse_number(false)) {
+            (CharType::PosNum, idx) => match stry!(self.parse_number(idx as usize, false)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
                 Number::U64(n) => visitor.visit_u64(n),
             },
-            CharType::Array => visitor.visit_seq(CommaSeparated::new(&mut self)),
-            CharType::Object => visitor.visit_map(CommaSeparated::new(&mut self)),
+            (CharType::Array, len) => {
+                visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
+            }
+            (CharType::Object, len) => {
+                visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
+            }
         }
     }
 
@@ -55,8 +61,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            CharType::True => visitor.visit_bool(true),
-            CharType::False => visitor.visit_bool(false),
+            (CharType::True, _) => visitor.visit_bool(true),
+            (CharType::False, _) => visitor.visit_bool(false),
             _c => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
@@ -68,10 +74,11 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != CharType::String {
-            return Err(self.error(ErrorType::ExpectedString));
+        if let Ok((CharType::String, idx)) = self.next() {
+            visitor.visit_borrowed_str(stry!(self.parse_str_(idx as usize)))
+        } else {
+            Err(self.error(ErrorType::ExpectedString))
         }
-        visitor.visit_borrowed_str(stry!(self.parse_str_()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -79,10 +86,11 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != CharType::String {
-            return Err(self.error(ErrorType::ExpectedString));
+        if let Ok((CharType::String, idx)) = self.next() {
+            visitor.visit_str(stry!(self.parse_str_(idx as usize)))
+        } else {
+            Err(self.error(ErrorType::ExpectedString))
         }
-        visitor.visit_str(stry!(self.parse_str_()))
     }
 
     // The `parse_signed` function is generic over the integer type `T` so here
@@ -209,7 +217,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != CharType::Null {
+        if stry!(self.next()).0 != CharType::Null {
             return Err(self.error(ErrorType::ExpectedNull));
         }
         visitor.visit_unit()
@@ -224,9 +232,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if stry!(self.next()) == CharType::Array {
+        if let Ok((CharType::Array, len)) = self.next() {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_seq(CommaSeparated::new(&mut self))
+            visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
         } else {
             Err(self.error(ErrorType::ExpectedArray))
         }
@@ -287,9 +295,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if stry!(self.next()) == CharType::Object {
+        if let Ok((CharType::Object, len)) = self.next() {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_map(CommaSeparated::new(&mut self))
+            visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
         } else {
             Err(self.error(ErrorType::ExpectedMap))
         }
@@ -325,11 +333,8 @@ struct CommaSeparated<'a, 'de: 'a> {
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn new(de: &'a mut Deserializer<'de>) -> Self {
-        CommaSeparated {
-            len: de.count_elements(),
-            de,
-        }
+    fn new(de: &'a mut Deserializer<'de>, len: usize) -> Self {
+        CommaSeparated { len, de }
     }
 }
 
