@@ -238,13 +238,9 @@ impl<'de> OwnedDeserializer<'de> {
             (CharType::Null, _) => Ok(Value::Null),
             (CharType::True, _) => Ok(Value::Bool(true)),
             (CharType::False, _) => Ok(Value::Bool(false)),
-            (CharType::NegNum, idx) => self
+            (CharType::Number(neg), idx) => self
                 .de
-                .parse_number_root(idx as usize, true)
-                .map(Value::from),
-            (CharType::PosNum, idx) => self
-                .de
-                .parse_number_root(idx as usize, false)
+                .parse_number_root(idx as usize, neg)
                 .map(Value::from),
             (CharType::Array, len) => self.parse_array(len as usize),
             (CharType::Object, len) => self.parse_map(len as usize),
@@ -258,8 +254,10 @@ impl<'de> OwnedDeserializer<'de> {
             (CharType::Null, _) => Ok(Value::Null),
             (CharType::True, _) => Ok(Value::Bool(true)),
             (CharType::False, _) => Ok(Value::Bool(false)),
-            (CharType::NegNum, idx) => self.de.parse_number_(idx as usize, true).map(Value::from),
-            (CharType::PosNum, idx) => self.de.parse_number_(idx as usize, false).map(Value::from),
+            (CharType::Number(neg), idx) => {
+                self.de.parse_number_(idx as usize, neg).map(Value::from)
+            }
+
             (CharType::Array, len) => self.parse_array(len as usize),
             (CharType::Object, len) => self.parse_map(len as usize),
         }

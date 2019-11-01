@@ -22,12 +22,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             (CharType::Null, _) => visitor.visit_unit(),
             (CharType::True, _) => visitor.visit_bool(true),
             (CharType::False, _) => visitor.visit_bool(false),
-            (CharType::NegNum, idx) => match stry!(self.parse_number(idx as usize, true)) {
-                Number::F64(n) => visitor.visit_f64(n),
-                Number::I64(n) => visitor.visit_i64(n),
-                Number::U64(n) => visitor.visit_u64(n),
-            },
-            (CharType::PosNum, idx) => match stry!(self.parse_number(idx as usize, false)) {
+            (CharType::Number(neg), idx) => match stry!(self.parse_number(idx as usize, neg)) {
                 Number::F64(n) => visitor.visit_f64(n),
                 Number::I64(n) => visitor.visit_i64(n),
                 Number::U64(n) => visitor.visit_u64(n),
