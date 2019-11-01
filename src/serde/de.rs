@@ -244,10 +244,10 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let r = self.deserialize_seq(visitor);
+        self.deserialize_seq(visitor)
         // tuples have a known length damn you serde ...
         //self.skip();
-        r
+        // r
     }
 
     // Tuple structs look just like sequences in JSON.

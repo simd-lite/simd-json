@@ -101,6 +101,7 @@ pub(crate) enum CharType {
 }
 
 impl<'de> Deserializer<'de> {
+    #[allow(clippy::cognitive_complexity)]
     pub fn validate(
         input: &[u8],
         structural_indexes: &[u32],
