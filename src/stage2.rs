@@ -92,7 +92,8 @@ enum StackState {
 pub(crate) enum CharType {
     String,
     Object,
-    Number(bool),
+    PosNum,
+    NegNum,
     True,
     False,
     Null,
@@ -104,11 +105,11 @@ impl<'de> Deserializer<'de> {
     pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<(CharType, u32)>)> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
-        let mut res = Vec::with_capacity(structural_indexes.len());
+        let mut res = Vec::with_capacity(structural_indexes.len() + 1);
         let mut stack = Vec::with_capacity(structural_indexes.len());
         unsafe {
             stack.set_len(structural_indexes.len());
-            res.set_len(structural_indexes.len());
+            res.set_len(structural_indexes.len() + 1);
         }
 
         let mut depth: usize = 0;
@@ -354,7 +355,7 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'-' => {
-                insert_res!(CharType::Number(true), idx);
+                insert_res!(CharType::NegNum, idx);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -362,7 +363,7 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'0'..=b'9' => {
-                insert_res!(CharType::Number(false), idx);
+                insert_res!(CharType::PosNum, idx);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -415,11 +416,11 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'-' => {
-                            insert_res!(CharType::Number(true), idx);
+                            insert_res!(CharType::NegNum, idx);
                             object_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(CharType::Number(false), idx);
+                            insert_res!(CharType::PosNum, idx);
                             object_continue!();
                         }
                         b'{' => {
@@ -514,11 +515,11 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'-' => {
-                            insert_res!(CharType::Number(true), idx);
+                            insert_res!(CharType::NegNum, idx);
                             array_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(CharType::Number(false), idx);
+                            insert_res!(CharType::PosNum, idx);
                             array_continue!();
                         }
                         b'{' => {
