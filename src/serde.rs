@@ -92,11 +92,10 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn peek(&self) -> Result<CharType> {
-        if let Some((c, _)) = self.structural_indexes.get(self.idx + 1) {
-            Ok(*c)
-        } else {
-            Err(self.error(ErrorType::UnexpectedEnd))
-        }
+        self.structural_indexes
+            .get(self.idx + 1)
+            .map(|v| v.0)
+            .ok_or_else(|| self.error(ErrorType::UnexpectedEnd))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -122,7 +121,6 @@ impl<'de> Deserializer<'de> {
     fn parse_unsigned(&mut self) -> Result<u64> {
         match self.next_() {
             (CharType::PosNum, idx) => match stry!(self.parse_number(idx as usize, false)) {
-                Number::I64(n) => Ok(n as u64),
                 Number::U64(n) => Ok(n as u64),
                 _ => Err(self.error(ErrorType::ExpectedUnsigned)),
             },
