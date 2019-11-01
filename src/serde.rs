@@ -86,7 +86,7 @@ impl<'de> Deserializer<'de> {
         self.idx += 1;
         self.structural_indexes
             .get(self.idx)
-            .map(|v| *v)
+            .copied()
             .ok_or_else(|| self.error(ErrorType::Syntax))
     }
 
