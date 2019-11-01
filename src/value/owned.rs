@@ -234,53 +234,61 @@ impl<'de> OwnedDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Result<Value> {
         match self.de.next_() {
-            CharType::String => self.de.parse_str_().map(Value::from),
-            CharType::Null => Ok(Value::Null),
-            CharType::True => Ok(Value::Bool(true)),
-            CharType::False => Ok(Value::Bool(false)),
-            CharType::NegNum => self.de.parse_number_root(true).map(Value::from),
-            CharType::PosNum => self.de.parse_number_root(false).map(Value::from),
-            CharType::Array => self.parse_array(),
-            CharType::Object => self.parse_map(),
+            (CharType::String, _) => self.de.parse_str_().map(Value::from),
+            (CharType::Null, _) => Ok(Value::Null),
+            (CharType::True, _) => Ok(Value::Bool(true)),
+            (CharType::False, _) => Ok(Value::Bool(false)),
+            (CharType::NegNum, _) => self.de.parse_number_root(true).map(Value::from),
+            (CharType::PosNum, _) => self.de.parse_number_root(false).map(Value::from),
+            (CharType::Array, len) => self.parse_array(len),
+            (CharType::Object, len) => self.parse_map(len),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_value(&mut self) -> Result<Value> {
         match self.de.next_() {
-            CharType::String => self.de.parse_str_().map(Value::from),
-            CharType::Null => Ok(Value::Null),
-            CharType::True => Ok(Value::Bool(true)),
-            CharType::False => Ok(Value::Bool(false)),
-            CharType::NegNum => self.de.parse_number_(true).map(Value::from),
-            CharType::PosNum => self.de.parse_number_(false).map(Value::from),
-            CharType::Array => self.parse_array(),
-            CharType::Object => self.parse_map(),
+            (CharType::String, _) => self.de.parse_str_().map(Value::from),
+            (CharType::Null, _) => Ok(Value::Null),
+            (CharType::True, _) => Ok(Value::Bool(true)),
+            (CharType::False, _) => Ok(Value::Bool(false)),
+            (CharType::NegNum, _) => self.de.parse_number_(true).map(Value::from),
+            (CharType::PosNum, _) => self.de.parse_number_(false).map(Value::from),
+            (CharType::Array, len) => self.parse_array(len),
+            (CharType::Object, len) => self.parse_map(len),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array(&mut self) -> Result<Value> {
-        let es = self.de.count_elements();
-        let mut res = Vec::with_capacity(es);
-
-        for _i in 0..es {
-            res.push(stry!(self.parse_value()));
+    fn parse_array(&mut self, len: usize) -> Result<Value> {
+        // Rust doens't optimize the normal loop away here
+        // so we write our own avoiding the lenght
+        // checks during push
+        let mut res = Vec::with_capacity(len);
+        unsafe {
+            res.set_len(len);
+            for i in 0..len {
+                // We have to handle errors manyally here
+                // this is because if we encouter an error we have to set
+                // the lenght of the array to the correct value so rust can
+                // free the right memory
+                match self.parse_value() {
+                    Ok(r) => std::ptr::write(res.get_unchecked_mut(i), r),
+                    Err(e) => {
+                        res.set_len(i);
+                        return Err(e);
+                    }
+                };
+            }
         }
         Ok(Value::Array(res))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map(&mut self) -> Result<Value> {
-        // We short cut for empty arrays
-        let es = self.de.count_elements();
+    fn parse_map(&mut self, len: usize) -> Result<Value> {
+        let mut res = Object::with_capacity(len);
 
-        let mut res = Object::with_capacity(es);
-
-        // Since we checked if it's empty we know that we at least have one
-        // element so we eat this
-
-        for _ in 0..es {
+        for _ in 0..len {
             self.de.skip();
             let key = stry!(self.de.parse_str_());
             // We have to call parse short str twice since parse_short_str

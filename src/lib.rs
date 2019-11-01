@@ -254,13 +254,12 @@ impl<'de> Deserializer<'de> {
     // pull out the check so we don't need to
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next_(&mut self) -> CharType {
+    fn next_(&mut self) -> (CharType, usize) {
         unsafe {
             self.idx += 1;
             let (c, l, iidx) = self.structural_indexes.get_unchecked(self.idx);
             self.iidx = *iidx as usize;
-            self.len = *l as usize;
-            *c
+            (*c, *l as usize)
         }
     }
 

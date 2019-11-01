@@ -105,11 +105,11 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_signed(&mut self) -> Result<i64> {
         match self.next_() {
-            CharType::NegNum => match stry!(self.parse_number(true)) {
+            (CharType::NegNum, _) => match stry!(self.parse_number(true)) {
                 Number::I64(n) => Ok(n),
                 _ => Err(self.error(ErrorType::ExpectedSigned)),
             },
-            CharType::PosNum => match stry!(self.parse_number(false)) {
+            (CharType::PosNum, _) => match stry!(self.parse_number(false)) {
                 Number::I64(n) => Ok(n),
                 Number::U64(n) => n
                     .try_into()
@@ -124,7 +124,7 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cast_sign_loss)]
     fn parse_unsigned(&mut self) -> Result<u64> {
         match self.next_() {
-            CharType::PosNum => match stry!(self.parse_number(false)) {
+            (CharType::PosNum, _) => match stry!(self.parse_number(false)) {
                 Number::I64(n) => Ok(n as u64),
                 Number::U64(n) => Ok(n as u64),
                 _ => Err(self.error(ErrorType::ExpectedUnsigned)),
@@ -136,12 +136,12 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {
         match self.next_() {
-            CharType::NegNum => match stry!(self.parse_number(true)) {
+            (CharType::NegNum, _) => match stry!(self.parse_number(true)) {
                 Number::F64(n) => Ok(n),
                 Number::I64(n) => Ok(n as f64),
                 Number::U64(n) => Ok(n as f64),
             },
-            CharType::PosNum => match stry!(self.parse_number(false)) {
+            (CharType::PosNum, _) => match stry!(self.parse_number(false)) {
                 Number::F64(n) => Ok(n),
                 Number::I64(n) => Ok(n as f64),
                 Number::U64(n) => Ok(n as f64),
