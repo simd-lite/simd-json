@@ -21,8 +21,10 @@ pub type Object<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 /// As we reference parts of the input slice the resulting dom
 /// has the dame lifetime as the slice it was created from.
 pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
-    let de = stry!(Deserializer::from_slice(s));
-    Ok(BorrowDeserializer::from_deserializer(de).parse())
+    match Deserializer::from_slice(s) {
+        Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
+        Err(e) => Err(e),
+    }
 }
 
 /// Borrowed JSON-DOM Value, consider using the `ValueTrait`
@@ -262,17 +264,15 @@ impl<'v> Default for Value<'v> {
     }
 }
 
-struct BorrowDeserializer<'de> {
-    de: Deserializer<'de>,
-}
+struct BorrowDeserializer<'de>(Deserializer<'de>);
 impl<'de> BorrowDeserializer<'de> {
     pub fn from_deserializer(de: Deserializer<'de>) -> Self {
-        Self { de }
+        Self(de)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Value<'de> {
-        match self.de.next_() {
+        match self.0.next_() {
             Tape::String(s) => Value::from(s),
             Tape::Null => Value::Null,
             Tape::True => Value::Bool(true),
@@ -307,7 +307,7 @@ impl<'de> BorrowDeserializer<'de> {
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
         for _ in 0..len {
-            if let Tape::String(key) = self.de.next_() {
+            if let Tape::String(key) = self.0.next_() {
                 res.insert_nocheck(key.into(), self.parse());
             } else {
                 unreachable!()

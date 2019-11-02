@@ -6,7 +6,7 @@ mod serialize;
 
 use crate::stage2::Tape;
 use crate::value::{ValueTrait, ValueType};
-use crate::{stry, Deserializer, Result};
+use crate::{Deserializer, Result};
 use halfbrown::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
@@ -21,8 +21,10 @@ pub type Object = HashMap<String, Value>;
 /// owned memory whereever required thus returning a value without
 /// a lifetime.
 pub fn to_value(s: &mut [u8]) -> Result<Value> {
-    let de = stry!(Deserializer::from_slice(s));
-    Ok(OwnedDeserializer::from_deserializer(de).parse())
+    match Deserializer::from_slice(s) {
+        Ok(de) => Ok(OwnedDeserializer::from_deserializer(de).parse()),
+        Err(e) => Err(e),
+    }
 }
 
 /// Owned JSON-DOM Value, consider using the `ValueTrait`
