@@ -164,27 +164,16 @@ mod known_key;
 pub use known_key::{Error as KnownKeyError, KnownKey};
 
 pub(crate) struct Deserializer<'de> {
-    // This string starts with the input data and characters are truncated off
-    // the beginning as data is parsed.
-    input: &'de mut [u8],
-    //data: Vec<u8>,
-    strings: Vec<u8>,
     // Note: we use the 2nd part as both index and lenght since only one is ever
     // used (array / object use len) everything else uses idx
-    structural_indexes: Vec<Tape>,
+    tape: Vec<Tape<'de>>,
     idx: usize,
-    str_offset: usize,
 }
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(&self, error: ErrorType) -> Error {
-        let idx = match unsafe { self.structural_indexes.get_unchecked(self.idx) } {
-            Tape::String(idx) => *idx,
-            _ => 0,
-        };
-        let c = unsafe { *self.input.get_unchecked(idx) };
-        Deserializer::raw_error(self.idx, idx, c as char, error)
+        Deserializer::raw_error(self.idx, 0, '?', error)
     }
 
     fn raw_error(structural: usize, idx: usize, c: char, error: ErrorType) -> Error {
@@ -225,21 +214,9 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let structural_indexes = Deserializer::validate(input, &structural_indexes)?;
+        let tape = Deserializer::build_tape(input, &structural_indexes)?;
 
-        // Set length to allow slice access in ARM code
-        let mut strings = Vec::with_capacity(len + SIMDJSON_PADDING);
-        unsafe {
-            strings.set_len(len + SIMDJSON_PADDING);
-        }
-
-        Ok(Deserializer {
-            structural_indexes,
-            input,
-            idx: 0,
-            strings,
-            str_offset: 0,
-        })
+        Ok(Deserializer { tape, idx: 0 })
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -250,10 +227,10 @@ impl<'de> Deserializer<'de> {
     // pull out the check so we don't need to
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next_(&mut self) -> Tape {
+    fn next_(&mut self) -> Tape<'de> {
         unsafe {
             self.idx += 1;
-            *self.structural_indexes.get_unchecked(self.idx)
+            *self.tape.get_unchecked(self.idx)
         }
     }
 }
@@ -277,7 +254,7 @@ mod tests {
         let mut d = String::from("[]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.structural_indexes[1], Tape::Array(0));
+        assert_eq!(simd.tape[1], Tape::Array(0));
     }
 
     #[test]
@@ -285,7 +262,7 @@ mod tests {
         let mut d = String::from("[1]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.structural_indexes[1], Tape::Array(1));
+        assert_eq!(simd.tape[1], Tape::Array(1));
     }
 
     #[test]
@@ -293,7 +270,7 @@ mod tests {
         let mut d = String::from("[1,2]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.structural_indexes[1], Tape::Array(2));
+        assert_eq!(simd.tape[1], Tape::Array(2));
     }
 
     #[test]
@@ -301,8 +278,8 @@ mod tests {
         let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.structural_indexes[1], Tape::Array(3));
-        assert_eq!(simd.structural_indexes[3], Tape::Array(1));
+        assert_eq!(simd.tape[1], Tape::Array(3));
+        assert_eq!(simd.tape[3], Tape::Array(1));
     }
 
     #[test]
@@ -310,8 +287,8 @@ mod tests {
         let mut d = String::from("[[],null,null]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.structural_indexes[1], Tape::Array(3));
-        assert_eq!(simd.structural_indexes[2], Tape::Array(0));
+        assert_eq!(simd.tape[1], Tape::Array(3));
+        assert_eq!(simd.tape[2], Tape::Array(0));
     }
 
     #[test]

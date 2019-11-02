@@ -12,9 +12,14 @@ pub use crate::Result;
 
 impl<'de> Deserializer<'de> {
     // Allow it to keep in sync with upstream
-    #[allow(clippy::if_not_else)]
+    #[allow(clippy::if_not_else, mutable_transmutes)]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_str_(&mut self, mut idx: usize) -> Result<&'de str> {
+    pub fn parse_str_<'invoke>(
+        input: &'de [u8],
+        buffer: &'invoke mut [u8],
+        mut idx: usize,
+    ) -> Result<&'de str> {
+        let input: &mut [u8] = unsafe { std::mem::transmute(input) };
         // Add 1 to skip the initial "
         idx += 1;
         let mut padding = [0_u8; 32];
@@ -24,8 +29,8 @@ impl<'de> Deserializer<'de> {
         // This is safe since we check sub's lenght in the range access above and only
         // create sub sliced form sub to `sub.len()`.
 
-        let src: &[u8] = unsafe { &self.input.get_unchecked(idx..) };
         let mut src_i: usize = 0;
+        let src: &[u8] = unsafe { input.get_unchecked(idx..) };
         let mut len = src_i;
         loop {
             let v: __m256i = if src.len() >= src_i + 32 {
@@ -72,7 +77,7 @@ impl<'de> Deserializer<'de> {
 
                 len += quote_dist as usize;
                 unsafe {
-                    let v = self.input.get_unchecked(idx..idx + len) as *const [u8] as *const str;
+                    let v = input.get_unchecked(idx..idx + len) as *const [u8] as *const str;
                     return Ok(&*v);
                 }
 
@@ -94,7 +99,6 @@ impl<'de> Deserializer<'de> {
         }
 
         let mut dst_i: usize = 0;
-        let dst: &mut [u8] = &mut self.strings;
 
         loop {
             let v: __m256i = if src.len() >= src_i + 32 {
@@ -116,7 +120,7 @@ impl<'de> Deserializer<'de> {
 
             #[allow(clippy::cast_ptr_alignment)]
             unsafe {
-                _mm256_storeu_si256(dst.as_mut_ptr().add(dst_i) as *mut __m256i, v)
+                _mm256_storeu_si256(buffer.as_mut_ptr().add(dst_i) as *mut __m256i, v)
             };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
@@ -146,12 +150,11 @@ impl<'de> Deserializer<'de> {
 
                 dst_i += quote_dist as usize;
                 unsafe {
-                    self.input
+                    input
                         .get_unchecked_mut(idx + len..idx + len + dst_i)
-                        .clone_from_slice(&self.strings.get_unchecked(..dst_i));
-                    let v = self.input.get_unchecked(idx..idx + len + dst_i) as *const [u8]
-                        as *const str;
-                    self.str_offset += dst_i as usize;
+                        .clone_from_slice(&buffer.get_unchecked(..dst_i));
+                    let v =
+                        input.get_unchecked(idx..idx + len + dst_i) as *const [u8] as *const str;
                     return Ok(&*v);
                 }
 
@@ -170,14 +173,24 @@ impl<'de> Deserializer<'de> {
                     dst_i += bs_dist as usize;
                     let (o, s) = if let Ok(r) =
                         handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, unsafe {
-                            dst.get_unchecked_mut(dst_i..)
+                            buffer.get_unchecked_mut(dst_i..)
                         }) {
                         r
                     } else {
-                        return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
+                        return Err(Self::raw_error(
+                            0,
+                            src_i,
+                            'u',
+                            ErrorType::InvlaidUnicodeCodepoint,
+                        ));
                     };
                     if o == 0 {
-                        return Err(self.error(ErrorType::InvlaidUnicodeCodepoint));
+                        return Err(Self::raw_error(
+                            0,
+                            src_i,
+                            'u',
+                            ErrorType::InvlaidUnicodeCodepoint,
+                        ));
                     };
                     // We moved o steps forword at the destiation and 6 on the source
                     src_i += s;
@@ -190,10 +203,15 @@ impl<'de> Deserializer<'de> {
                     let escape_result: u8 =
                         unsafe { *ESCAPE_MAP.get_unchecked(escape_char as usize) };
                     if escape_result == 0 {
-                        return Err(self.error(ErrorType::InvalidEscape));
+                        return Err(Self::raw_error(
+                            0,
+                            src_i,
+                            escape_char as char,
+                            ErrorType::InvalidEscape,
+                        ));
                     }
                     unsafe {
-                        *dst.get_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
+                        *buffer.get_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
                     }
                     src_i += bs_dist as usize + 2;
                     dst_i += bs_dist as usize + 1;

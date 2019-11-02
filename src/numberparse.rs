@@ -178,7 +178,7 @@ impl<'de> Deserializer<'de> {
         clippy::cast_possible_wrap,
         clippy::cast_precision_loss
     )]
-    fn parse_float(idx: usize, p: &[u8], negative: bool) -> Result<Tape> {
+    fn parse_float(idx: usize, p: &[u8], negative: bool) -> Result<Tape<'static>> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: f64;
         let mut digit: u8;
@@ -326,7 +326,7 @@ impl<'de> Deserializer<'de> {
     ///
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
-    fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<Tape> {
+    fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<Tape<'static>> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: u64;
         let mut d = unsafe { *buf.get_unchecked(digitcount) };
@@ -396,7 +396,7 @@ impl<'de> Deserializer<'de> {
         clippy::cast_precision_loss,
         clippy::cast_possible_wrap
     )]
-    pub fn parse_number_int(idx: usize, buf: &[u8], negative: bool) -> Result<Tape> {
+    pub fn parse_number_int(idx: usize, buf: &[u8], negative: bool) -> Result<Tape<'static>> {
         let mut byte_count = if negative { 1 } else { 0 };
         let mut ignore_count: u8 = 0;
         //let startdigits: *const u8 = p;

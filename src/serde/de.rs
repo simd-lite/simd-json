@@ -3,7 +3,10 @@ use crate::*;
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
 
-impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
+impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de>
+where
+    'de: 'a,
+{
     type Error = Error;
 
     // Look at the input data to decide what Serde data model type to
@@ -15,7 +18,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            Tape::String(idx) => visitor.visit_borrowed_str(stry!(self.parse_str_(idx as usize))),
+            Tape::String(s) => visitor.visit_borrowed_str(s),
             Tape::Null => visitor.visit_unit(),
             Tape::True => visitor.visit_bool(true),
             Tape::False => visitor.visit_bool(false),
@@ -60,8 +63,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if let Ok(Tape::String(idx)) = self.next() {
-            visitor.visit_borrowed_str(stry!(self.parse_str_(idx as usize)))
+        if let Ok(Tape::String(s)) = self.next() {
+            visitor.visit_borrowed_str(s)
         } else {
             Err(self.error(ErrorType::ExpectedString))
         }
@@ -72,8 +75,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if let Ok(Tape::String(idx)) = self.next() {
-            visitor.visit_str(stry!(self.parse_str_(idx as usize)))
+        if let Ok(Tape::String(s)) = self.next() {
+            visitor.visit_str(s)
         } else {
             Err(self.error(ErrorType::ExpectedString))
         }

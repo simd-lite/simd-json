@@ -81,9 +81,9 @@ impl serde_ext::ser::Error for Error {
 // Functions purely used by serde
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next(&mut self) -> Result<Tape> {
+    fn next(&mut self) -> Result<Tape<'de>> {
         self.idx += 1;
-        self.structural_indexes
+        self.tape
             .get(self.idx)
             .copied()
             .ok_or_else(|| self.error(ErrorType::Syntax))
@@ -91,7 +91,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn peek(&self) -> Result<Tape> {
-        self.structural_indexes
+        self.tape
             .get(self.idx + 1)
             .copied()
             .ok_or_else(|| self.error(ErrorType::UnexpectedEnd))

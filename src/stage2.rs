@@ -89,8 +89,8 @@ enum StackState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum Tape {
-    String(usize),
+pub(crate) enum Tape<'input> {
+    String(&'input str),
     Object(usize),
     Array(usize),
     I64(i64),
@@ -103,15 +103,12 @@ pub(crate) enum Tape {
 
 impl<'de> Deserializer<'de> {
     #[allow(clippy::cognitive_complexity)]
-    pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<Vec<Tape>> {
+    pub fn build_tape(input: &'de mut [u8], structural_indexes: &[u32]) -> Result<Vec<Tape<'de>>> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
-        let mut res = Vec::with_capacity(structural_indexes.len() + 1);
+        let mut res: Vec<Tape<'de>> = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
-        unsafe {
-            stack.set_len(structural_indexes.len());
-            res.set_len(structural_indexes.len() + 1);
-        }
+        let mut buffer: Vec<u8> = Vec::with_capacity(input.len() + SIMDJSON_PADDING);
 
         let mut depth: usize = 0;
         let mut last_start = 1;
@@ -120,36 +117,58 @@ impl<'de> Deserializer<'de> {
 
         // let mut i: usize = 0; // index of the structural character (0,1,2,3...)
         // location of the structural character in the input (buf)
-        let mut idx: usize;
+        let mut idx: usize = 0;
         // used to track the (structural) character we are looking at, updated
         // by UPDATE_CHAR macro
-        let mut c: u8;
-        let mut i: u32 = 0;
+        let mut c: u8 = 0;
+        let mut i: usize = 1;
         let mut state;
-        // this macro reads the next structural character, updating idx, i and c.
-        let mut si = structural_indexes.iter().skip(1).peekable();
+
+        macro_rules! s2try {
+            ($e:expr) => {
+                match $e {
+                    ::std::result::Result::Ok(val) => val,
+                    ::std::result::Result::Err(err) => {
+                        // We need to ensure that rust doens't
+                        // try to free strings that we never
+                        // allocated
+                        #[allow(unused_unsafe)]
+                        unsafe {
+                            res.set_len(r_i);
+                        };
+                        return ::std::result::Result::Err(err);
+                    }
+                }
+            };
+        }
 
         macro_rules! insert_res {
             ($t:expr) => {
                 unsafe {
-                    *res.get_unchecked_mut(r_i) = $t;
+                    std::ptr::write(res.get_unchecked_mut(r_i), $t);
                     r_i += 1;
                 }
             };
         }
-        macro_rules! finish_res {
+        macro_rules! success {
             () => {
                 unsafe {
                     res.set_len(r_i);
-                    Ok(res)
+                    return Ok(res);
                 }
             };
         }
         macro_rules! update_char {
             () => {
-                idx = *stry!(si.next().ok_or_else(|| (Error::generic(ErrorType::Syntax)))) as usize;
-                i += 1;
-                c = unsafe { *input.get_unchecked(idx) };
+                if i <= structural_indexes.len() {
+                    unsafe {
+                        idx = *structural_indexes.get_unchecked(i) as usize;
+                        i += 1;
+                        c = *input.get_unchecked(idx);
+                    }
+                } else {
+                    fail!(ErrorType::Syntax);
+                }
             };
         }
 
@@ -161,6 +180,16 @@ impl<'de> Deserializer<'de> {
         }
 
         insert_res!(Tape::Null);
+
+        macro_rules! insert_str {
+            () => {
+                insert_res!(Tape::String(s2try!(Self::parse_str_(
+                    input,
+                    &mut buffer,
+                    idx
+                ))));
+            };
+        }
 
         // The continue cases are the most frequently called onces it's
         // worth pulling them out into a macro (aka inlining them)
@@ -192,7 +221,7 @@ impl<'de> Deserializer<'de> {
                         cnt += 1;
                         update_char!();
                         if c == b'"' {
-                            insert_res!(Tape::String(idx));
+                            insert_str!();
                             goto!(ObjectKey);
                         } else {
                             fail!(ErrorType::ExpectedObjectKey);
@@ -224,7 +253,7 @@ impl<'de> Deserializer<'de> {
                 update_char!();
                 match c {
                     b'"' => {
-                        insert_res!(Tape::String(idx));
+                        insert_str!();
                         goto!(ObjectKey)
                     }
                     b'}' => {
@@ -240,15 +269,24 @@ impl<'de> Deserializer<'de> {
 
         macro_rules! fail {
             () => {
-                return Err(Error::new(
-                    i as usize,
-                    idx as usize,
-                    c as char,
-                    ErrorType::InternalError,
-                ));
+                // We need to ensure that rust doens't
+                // try to free strings that we never
+                // allocated
+                #[allow(unused_unsafe)]
+                unsafe {
+                    res.set_len(r_i);
+                };
+                return Err(Error::new(i, idx, c as char, ErrorType::InternalError));
             };
             ($t:expr) => {
-                return Err(Error::new(i as usize, idx as usize, c as char, $t));
+                // We need to ensure that rust doens't
+                // try to free strings that we never
+                // allocated
+                #[allow(unused_unsafe)]
+                unsafe {
+                    res.set_len(r_i);
+                };
+                return Err(Error::new(i, idx, c as char, $t));
             };
         }
         // State start, we pull this outside of the
@@ -268,7 +306,7 @@ impl<'de> Deserializer<'de> {
                 update_char!();
                 match c {
                     b'"' => {
-                        insert_res!(Tape::String(idx));
+                        insert_str!();
                         state = State::ObjectKey;
                     }
                     b'}' => {
@@ -309,8 +347,8 @@ impl<'de> Deserializer<'de> {
                     }
                 };
                 insert_res!(Tape::True);
-                if si.next().is_none() {
-                    return finish_res!();
+                if i == structural_indexes.len() {
+                    success!();
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -325,8 +363,8 @@ impl<'de> Deserializer<'de> {
                     }
                 };
                 insert_res!(Tape::False);
-                if si.next().is_none() {
-                    return finish_res!();
+                if i == structural_indexes.len() {
+                    success!();
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -341,16 +379,16 @@ impl<'de> Deserializer<'de> {
                     }
                 };
                 insert_res!(Tape::Null);
-                if si.next().is_none() {
-                    return finish_res!();
+                if i == structural_indexes.len() {
+                    success!();
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
             }
             b'"' => {
-                insert_res!(Tape::String(idx));
-                if si.next().is_none() {
-                    return finish_res!();
+                insert_str!();
+                if i == structural_indexes.len() {
+                    success!();
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -359,10 +397,10 @@ impl<'de> Deserializer<'de> {
                 let len = input.len();
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
-                insert_res!(stry!(Self::parse_number_int(idx, &copy[idx..], true)));
+                insert_res!(s2try!(Self::parse_number_int(idx, &copy[idx..], true)));
 
-                if si.next().is_none() {
-                    return finish_res!();
+                if i == structural_indexes.len() {
+                    success!();
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -371,10 +409,10 @@ impl<'de> Deserializer<'de> {
                 let len = input.len();
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
-                insert_res!(stry!(Self::parse_number_int(idx, &copy[idx..], false)));
+                insert_res!(s2try!(Self::parse_number_int(idx, &copy[idx..], false)));
 
-                if si.next().is_none() {
-                    return finish_res!();
+                if i == structural_indexes.len() {
+                    success!();
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -396,7 +434,7 @@ impl<'de> Deserializer<'de> {
                     update_char!();
                     match c {
                         b'"' => {
-                            insert_res!(Tape::String(idx));
+                            insert_str!();
                             object_continue!()
                         }
                         b't' => {
@@ -425,11 +463,11 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'-' => {
-                            insert_res!(stry!(Self::parse_number_int(idx, &input[idx..], true)));
+                            insert_res!(s2try!(Self::parse_number_int(idx, &input[idx..], true)));
                             object_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(stry!(Self::parse_number_int(idx, &input[idx..], false)));
+                            insert_res!(s2try!(Self::parse_number_int(idx, &input[idx..], false)));
                             object_continue!();
                         }
                         b'{' => {
@@ -462,7 +500,7 @@ impl<'de> Deserializer<'de> {
                 ////////////////////////////// COMMON STATE /////////////////////////////
                 ScopeEnd => {
                     if depth == 0 {
-                        return Err(Error::generic(ErrorType::Syntax));
+                        fail!(ErrorType::Syntax);
                     }
                     depth -= 1;
                     unsafe {
@@ -475,7 +513,7 @@ impl<'de> Deserializer<'de> {
 
                     let (a_state, a_last_start, a_cnt) = unsafe { stack.get_unchecked(depth) };
                     //                    let (a_state, a_last_start, a_cnt) = unsafe {  };
-                    //stry!(stack.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
+                    //s2try!(stack.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
 
                     last_start = *a_last_start;
                     cnt = *a_cnt;
@@ -484,8 +522,8 @@ impl<'de> Deserializer<'de> {
                         StackState::Object => object_continue!(),
                         StackState::Array => array_continue!(),
                         StackState::Start => {
-                            if si.next().is_none() {
-                                return finish_res!();
+                            if i == structural_indexes.len() {
+                                success!();
                             } else {
                                 fail!();
                             }
@@ -499,7 +537,7 @@ impl<'de> Deserializer<'de> {
                     // on paths that can accept a close square brace (post-, and at start)
                     match c {
                         b'"' => {
-                            insert_res!(Tape::String(idx));
+                            insert_str!();
                             array_continue!()
                         }
                         b't' => {
@@ -528,11 +566,11 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'-' => {
-                            insert_res!(stry!(Self::parse_number_int(idx, &input[idx..], true)));
+                            insert_res!(s2try!(Self::parse_number_int(idx, &input[idx..], true)));
                             array_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(stry!(Self::parse_number_int(idx, &input[idx..], false)));
+                            insert_res!(s2try!(Self::parse_number_int(idx, &input[idx..], false)));
                             array_continue!();
                         }
                         b'{' => {

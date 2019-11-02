@@ -400,7 +400,7 @@ impl<'de> Deserializer<'de> {
               __builtin_prefetch(buf + idx + 128);
             #endif
              */
-            let input: SimdInput = fill_input(input.get_unchecked(idx as usize..));
+            let input = fill_input(input.get_unchecked(idx as usize..));
             check_utf8(&input, &mut has_error, &mut previous);
             // detect odd sequences of backslashes
             let odd_ends: u64 =

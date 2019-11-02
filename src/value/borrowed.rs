@@ -273,7 +273,7 @@ impl<'de> BorrowDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Result<Value<'de>> {
         match self.de.next_() {
-            Tape::String(idx) => self.de.parse_str_(idx).map(Value::from),
+            Tape::String(s) => Ok(Value::from(s)),
             Tape::Null => Ok(Value::Null),
             Tape::True => Ok(Value::Bool(true)),
             Tape::False => Ok(Value::Bool(false)),
@@ -317,10 +317,7 @@ impl<'de> BorrowDeserializer<'de> {
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
         for _ in 0..len {
-            if let Tape::String(idx) = self.de.next_() {
-                let key = stry!(self.de.parse_str_(idx));
-                // We have to call parse short str twice since parse_short_str
-                // does not move the cursor forward
+            if let Tape::String(key) = self.de.next_() {
                 res.insert_nocheck(key.into(), stry!(self.parse()));
             } else {
                 unreachable!()
