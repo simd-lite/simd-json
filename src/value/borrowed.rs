@@ -4,9 +4,8 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::stage2::{StaticTape, Tape};
 use crate::value::{ValueTrait, ValueType};
-use crate::{Deserializer, Result};
+use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::borrow::Cow;
 use std::convert::TryFrom;
@@ -32,7 +31,7 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
 #[derive(Debug, Clone)]
 pub enum Value<'v> {
     /// Static values
-    Static(StaticTape),
+    Static(StaticNode),
     /// string type
     String(Cow<'v, str>),
     /// array type
@@ -91,17 +90,17 @@ impl<'v> ValueTrait for Value<'v> {
     }
     #[inline]
     fn null() -> Self {
-        Self::Static(StaticTape::Null)
+        Self::Static(StaticNode::Null)
     }
 
     #[inline]
     fn value_type(&self) -> ValueType {
         match self {
-            Self::Static(StaticTape::Null) => ValueType::Null,
-            Self::Static(StaticTape::Bool(_)) => ValueType::Bool,
-            Self::Static(StaticTape::F64(_)) => ValueType::F64,
-            Self::Static(StaticTape::I64(_)) => ValueType::I64,
-            Self::Static(StaticTape::U64(_)) => ValueType::U64,
+            Self::Static(StaticNode::Null) => ValueType::Null,
+            Self::Static(StaticNode::Bool(_)) => ValueType::Bool,
+            Self::Static(StaticNode::F64(_)) => ValueType::F64,
+            Self::Static(StaticNode::I64(_)) => ValueType::I64,
+            Self::Static(StaticNode::U64(_)) => ValueType::U64,
             Self::String(_) => ValueType::String,
             Self::Array(_) => ValueType::Array,
             Self::Object(_) => ValueType::Object,
@@ -111,7 +110,7 @@ impl<'v> ValueTrait for Value<'v> {
     #[inline]
     fn is_null(&self) -> bool {
         match self {
-            Self::Static(StaticTape::Null) => true,
+            Self::Static(StaticNode::Null) => true,
             _ => false,
         }
     }
@@ -119,7 +118,7 @@ impl<'v> ValueTrait for Value<'v> {
     #[inline]
     fn as_bool(&self) -> Option<bool> {
         match self {
-            Self::Static(StaticTape::Bool(b)) => Some(*b),
+            Self::Static(StaticNode::Bool(b)) => Some(*b),
             _ => None,
         }
     }
@@ -127,8 +126,8 @@ impl<'v> ValueTrait for Value<'v> {
     #[inline]
     fn as_i64(&self) -> Option<i64> {
         match self {
-            Self::Static(StaticTape::I64(i)) => Some(*i),
-            Self::Static(StaticTape::U64(i)) => i64::try_from(*i).ok(),
+            Self::Static(StaticNode::I64(i)) => Some(*i),
+            Self::Static(StaticNode::U64(i)) => i64::try_from(*i).ok(),
             _ => None,
         }
     }
@@ -137,8 +136,8 @@ impl<'v> ValueTrait for Value<'v> {
     fn as_u64(&self) -> Option<u64> {
         #[allow(clippy::cast_sign_loss)]
         match self {
-            Self::Static(StaticTape::I64(i)) => u64::try_from(*i).ok(),
-            Self::Static(StaticTape::U64(i)) => Some(*i),
+            Self::Static(StaticNode::I64(i)) => u64::try_from(*i).ok(),
+            Self::Static(StaticNode::U64(i)) => Some(*i),
             _ => None,
         }
     }
@@ -146,7 +145,7 @@ impl<'v> ValueTrait for Value<'v> {
     #[inline]
     fn as_f64(&self) -> Option<f64> {
         match self {
-            Self::Static(StaticTape::F64(i)) => Some(*i),
+            Self::Static(StaticNode::F64(i)) => Some(*i),
             _ => None,
         }
     }
@@ -155,9 +154,9 @@ impl<'v> ValueTrait for Value<'v> {
     fn cast_f64(&self) -> Option<f64> {
         #[allow(clippy::cast_precision_loss)]
         match self {
-            Self::Static(StaticTape::F64(i)) => Some(*i),
-            Self::Static(StaticTape::I64(i)) => Some(*i as f64),
-            Self::Static(StaticTape::U64(i)) => Some(*i as f64),
+            Self::Static(StaticNode::F64(i)) => Some(*i),
+            Self::Static(StaticNode::I64(i)) => Some(*i as f64),
+            Self::Static(StaticNode::U64(i)) => Some(*i as f64),
             _ => None,
         }
     }
@@ -244,11 +243,12 @@ impl<'v> IndexMut<usize> for Value<'v> {
 
 impl<'v> Default for Value<'v> {
     fn default() -> Self {
-        Self::Static(StaticTape::Null)
+        Self::Static(StaticNode::Null)
     }
 }
 
 struct BorrowDeserializer<'de>(Deserializer<'de>);
+
 impl<'de> BorrowDeserializer<'de> {
     pub fn from_deserializer(de: Deserializer<'de>) -> Self {
         Self(de)
@@ -257,10 +257,10 @@ impl<'de> BorrowDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Value<'de> {
         match self.0.next_() {
-            Tape::Static(s) => Value::Static(s),
-            Tape::String(s) => Value::from(s),
-            Tape::Array(len) => self.parse_array(len),
-            Tape::Object(len) => self.parse_map(len),
+            Node::Static(s) => Value::Static(s),
+            Node::String(s) => Value::from(s),
+            Node::Array(len) => self.parse_array(len),
+            Node::Object(len) => self.parse_map(len),
         }
     }
 
@@ -286,7 +286,7 @@ impl<'de> BorrowDeserializer<'de> {
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
         for _ in 0..len {
-            if let Tape::String(key) = self.0.next_() {
+            if let Node::String(key) = self.0.next_() {
                 res.insert_nocheck(key.into(), self.parse());
             } else {
                 unreachable!()
@@ -632,18 +632,18 @@ mod test {
     use proptest::prelude::*;
     fn arb_value() -> BoxedStrategy<Value<'static>> {
         let leaf = prop_oneof![
-            Just(Value::Static(StaticTape::Null)),
+            Just(Value::Static(StaticNode::Null)),
             any::<bool>()
-                .prop_map(StaticTape::Bool)
+                .prop_map(StaticNode::Bool)
                 .prop_map(Value::Static),
             any::<i64>()
-                .prop_map(StaticTape::I64)
+                .prop_map(StaticNode::I64)
                 .prop_map(Value::Static),
             any::<u64>()
-                .prop_map(StaticTape::U64)
+                .prop_map(StaticNode::U64)
                 .prop_map(Value::Static),
             any::<f64>()
-                .prop_map(StaticTape::F64)
+                .prop_map(StaticNode::F64)
                 .prop_map(Value::Static),
             ".*".prop_map(Value::from),
         ];

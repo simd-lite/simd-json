@@ -5,7 +5,7 @@
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
 use super::{Object, Value};
-use crate::stage2::StaticTape;
+use crate::StaticNode;
 use crate::stry;
 use crate::value::generator::*;
 use crate::value::ValueTrait;
@@ -84,12 +84,12 @@ trait Generator: BaseGenerator {
     #[inline(always)]
     fn write_json(&mut self, json: &Value) -> io::Result<()> {
         match *json {
-            Value::Static(StaticTape::Null) => self.write(b"null"),
-            Value::Static(StaticTape::I64(number)) => self.write_int(number),
-            Value::Static(StaticTape::U64(number)) => self.write_uint(number),
-            Value::Static(StaticTape::F64(number)) => self.write_float(number),
-            Value::Static(StaticTape::Bool(true)) => self.write(b"true"),
-            Value::Static(StaticTape::Bool(false)) => self.write(b"false"),
+            Value::Static(StaticNode::Null) => self.write(b"null"),
+            Value::Static(StaticNode::I64(number)) => self.write_int(number),
+            Value::Static(StaticNode::U64(number)) => self.write_uint(number),
+            Value::Static(StaticNode::F64(number)) => self.write_float(number),
+            Value::Static(StaticNode::Bool(true)) => self.write(b"true"),
+            Value::Static(StaticNode::Bool(false)) => self.write(b"false"),
             Value::String(ref string) => self.write_string(string),
             Value::Array(ref array) => {
                 stry!(self.write_char(b'['));
@@ -148,18 +148,18 @@ where
 #[cfg(test)]
 mod test {
     use super::Value;
-    use crate::stage2::StaticTape;
+    use crate::StaticNode;
     #[test]
     fn null() {
-        assert_eq!(Value::Static(StaticTape::Null).encode(), "null")
+        assert_eq!(Value::Static(StaticNode::Null).encode(), "null")
     }
     #[test]
     fn bool_true() {
-        assert_eq!(Value::Static(StaticTape::Bool(true)).encode(), "true")
+        assert_eq!(Value::Static(StaticNode::Bool(true)).encode(), "true")
     }
     #[test]
     fn bool_false() {
-        assert_eq!(Value::Static(StaticTape::Bool(false)).encode(), "false")
+        assert_eq!(Value::Static(StaticNode::Bool(false)).encode(), "false")
     }
     fn assert_str(from: &str, to: &str) {
         assert_eq!(Value::String(from.into()).encode(), to)

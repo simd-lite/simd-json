@@ -1,4 +1,3 @@
-use crate::stage2::{StaticTape, Tape};
 use crate::*;
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
@@ -18,14 +17,14 @@ where
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            Tape::String(s) => visitor.visit_borrowed_str(s),
-            Tape::Static(StaticTape::Null) => visitor.visit_unit(),
-            Tape::Static(StaticTape::Bool(b)) => visitor.visit_bool(b),
-            Tape::Static(StaticTape::F64(n)) => visitor.visit_f64(n),
-            Tape::Static(StaticTape::I64(n)) => visitor.visit_i64(n),
-            Tape::Static(StaticTape::U64(n)) => visitor.visit_u64(n),
-            Tape::Array(len) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
-            Tape::Object(len) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
+            Node::String(s) => visitor.visit_borrowed_str(s),
+            Node::Static(StaticNode::Null) => visitor.visit_unit(),
+            Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
+            Node::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
+            Node::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
+            Node::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            Node::Array(len) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
+            Node::Object(len) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
         }
     }
 
@@ -49,7 +48,7 @@ where
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            Tape::Static(StaticTape::Bool(b)) => visitor.visit_bool(b),
+            Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
             _c => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
@@ -61,7 +60,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if let Ok(Tape::String(s)) = self.next() {
+        if let Ok(Node::String(s)) = self.next() {
             visitor.visit_borrowed_str(s)
         } else {
             Err(self.error(ErrorType::ExpectedString))
@@ -73,7 +72,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if let Ok(Tape::String(s)) = self.next() {
+        if let Ok(Node::String(s)) = self.next() {
             visitor.visit_str(s)
         } else {
             Err(self.error(ErrorType::ExpectedString))
@@ -190,7 +189,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if stry!(self.peek()) == Tape::Static(StaticTape::Null) {
+        if stry!(self.peek()) == Node::Static(StaticNode::Null) {
             self.skip();
             visitor.visit_unit()
         } else {
@@ -204,7 +203,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != Tape::Static(StaticTape::Null) {
+        if stry!(self.next()) != Node::Static(StaticNode::Null) {
             return Err(self.error(ErrorType::ExpectedNull));
         }
         visitor.visit_unit()
@@ -219,7 +218,7 @@ where
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if let Ok(Tape::Array(len)) = self.next() {
+        if let Ok(Node::Array(len)) = self.next() {
             // Give the visitor access to each element of the sequence.
             visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
         } else {
@@ -282,7 +281,7 @@ where
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if let Ok(Tape::Object(len)) = self.next() {
+        if let Ok(Node::Object(len)) = self.next() {
             // Give the visitor access to each element of the sequence.
             visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
         } else {

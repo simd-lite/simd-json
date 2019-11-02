@@ -1,6 +1,6 @@
-use crate::stage2::StaticTape;
 use crate::value::borrowed::{Object, Value};
 use crate::Error;
+use crate::StaticNode;
 use serde_ext::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor,
 };
@@ -19,11 +19,11 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
         V: Visitor<'de>,
     {
         match self {
-            Value::Static(StaticTape::Null) => visitor.visit_unit(),
-            Value::Static(StaticTape::Bool(b)) => visitor.visit_bool(b),
-            Value::Static(StaticTape::I64(n)) => visitor.visit_i64(n),
-            Value::Static(StaticTape::U64(n)) => visitor.visit_u64(n),
-            Value::Static(StaticTape::F64(n)) => visitor.visit_f64(n),
+            Value::Static(StaticNode::Null) => visitor.visit_unit(),
+            Value::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
+            Value::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
+            Value::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            Value::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
             Value::String(s) => match s {
                 Cow::Borrowed(s) => visitor.visit_borrowed_str(s),
                 Cow::Owned(s) => visitor.visit_string(s),
@@ -31,7 +31,7 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
             Value::Array(a) => visitor.visit_seq(Array(a.iter())),
             Value::Object(o) => visitor.visit_map(ObjectAccess {
                 i: o.iter(),
-                v: &Value::Static(StaticTape::Null),
+                v: &Value::Static(StaticNode::Null),
             }),
         }
     }
@@ -114,19 +114,19 @@ impl<'de> Visitor<'de> for ValueVisitor {
     /****************** unit ******************/
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_unit<E>(self) -> Result<Self::Value, E> {
-        Ok(Value::Static(StaticTape::Null))
+        Ok(Value::Static(StaticNode::Null))
     }
 
     /****************** bool ******************/
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
-        Ok(Value::Static(StaticTape::Bool(value)))
+        Ok(Value::Static(StaticNode::Bool(value)))
     }
 
     /****************** Option ******************/
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_none<E>(self) -> Result<Self::Value, E> {
-        Ok(Value::Static(StaticTape::Null))
+        Ok(Value::Static(StaticNode::Null))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -151,7 +151,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticTape::I64(i64::from(value))))
+        Ok(Value::Static(StaticNode::I64(i64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -159,7 +159,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticTape::I64(i64::from(value))))
+        Ok(Value::Static(StaticNode::I64(i64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -167,7 +167,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticTape::I64(i64::from(value))))
+        Ok(Value::Static(StaticNode::I64(i64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -175,7 +175,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticTape::I64(value)))
+        Ok(Value::Static(StaticNode::I64(value)))
     }
 
     /****************** u64 ******************/
@@ -185,7 +185,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticTape::U64(u64::from(value))))
+        Ok(Value::Static(StaticNode::U64(u64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -193,7 +193,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticTape::U64(u64::from(value))))
+        Ok(Value::Static(StaticNode::U64(u64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -201,7 +201,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticTape::U64(u64::from(value))))
+        Ok(Value::Static(StaticNode::U64(u64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -209,7 +209,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticTape::U64(value)))
+        Ok(Value::Static(StaticNode::U64(value)))
     }
 
     /****************** f64 ******************/
@@ -219,7 +219,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticTape::F64(f64::from(value))))
+        Ok(Value::Static(StaticNode::F64(f64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -227,7 +227,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticTape::F64(value)))
+        Ok(Value::Static(StaticNode::F64(value)))
     }
 
     /****************** stringy stuff ******************/

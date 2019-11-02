@@ -9,6 +9,7 @@ use crate::neon::stage1::SIMDJSON_PADDING;
     not(target_feature = "avx2")
 ))]
 use crate::sse42::stage1::SIMDJSON_PADDING;
+use crate::value::tape::*;
 use crate::{Deserializer, Error, ErrorType, Result};
 use float_cmp::approx_eq;
 use std::fmt;
@@ -90,36 +91,8 @@ enum StackState {
     Array,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-/// Tape node
-pub enum Tape<'input> {
-    /// string
-    String(&'input str),
-    /// Object
-    Object(usize),
-    /// array
-    Array(usize),
-    /// static value
-    Static(StaticTape),
-}
-
-#[derive(Debug, Clone, Copy)]
-/// Static tape value
-pub enum StaticTape {
-    /// i64
-    I64(i64),
-    /// u64
-    U64(u64),
-    /// f64
-    F64(f64),
-    /// bool
-    Bool(bool),
-    /// nnull
-    Null,
-}
-
 #[cfg_attr(tarpaulin, skip)]
-impl<'v> fmt::Display for StaticTape {
+impl<'v> fmt::Display for StaticNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Null => write!(f, "null"),
@@ -132,7 +105,7 @@ impl<'v> fmt::Display for StaticTape {
 }
 
 #[allow(clippy::cast_sign_loss, clippy::default_trait_access)]
-impl<'a> PartialEq for StaticTape {
+impl<'a> PartialEq for StaticNode {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -151,10 +124,10 @@ impl<'a> PartialEq for StaticTape {
 
 impl<'de> Deserializer<'de> {
     #[allow(clippy::cognitive_complexity)]
-    pub fn build_tape(input: &'de mut [u8], structural_indexes: &[u32]) -> Result<Vec<Tape<'de>>> {
+    pub fn build_tape(input: &'de mut [u8], structural_indexes: &[u32]) -> Result<Vec<Node<'de>>> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
-        let mut res: Vec<Tape<'de>> = Vec::with_capacity(structural_indexes.len());
+        let mut res: Vec<Node<'de>> = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
         let mut buffer: Vec<u8> = Vec::with_capacity(input.len() + SIMDJSON_PADDING);
 
@@ -227,11 +200,11 @@ impl<'de> Deserializer<'de> {
             }};
         }
 
-        insert_res!(Tape::Static(StaticTape::Null));
+        insert_res!(Node::Static(StaticNode::Null));
 
         macro_rules! insert_str {
             () => {
-                insert_res!(Tape::String(s2try!(Self::parse_str_(
+                insert_res!(Node::String(s2try!(Self::parse_str_(
                     input,
                     &mut buffer,
                     idx
@@ -346,7 +319,7 @@ impl<'de> Deserializer<'de> {
                     *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
                 }
                 last_start = r_i;
-                insert_res!(Tape::Object(0));
+                insert_res!(Node::Object(0));
 
                 depth += 1;
                 cnt = 1;
@@ -372,7 +345,7 @@ impl<'de> Deserializer<'de> {
                 }
 
                 last_start = r_i;
-                insert_res!(Tape::Array(0));
+                insert_res!(Node::Array(0));
 
                 depth += 1;
                 cnt = 1;
@@ -394,7 +367,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                insert_res!(Tape::Static(StaticTape::Bool(true)));
+                insert_res!(Node::Static(StaticNode::Bool(true)));
                 if i == structural_indexes.len() {
                     success!();
                 } else {
@@ -410,7 +383,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                insert_res!(Tape::Static(StaticTape::Bool(false)));
+                insert_res!(Node::Static(StaticNode::Bool(false)));
                 if i == structural_indexes.len() {
                     success!();
                 } else {
@@ -426,7 +399,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                insert_res!(Tape::Static(StaticTape::Null));
+                insert_res!(Node::Static(StaticNode::Null));
                 if i == structural_indexes.len() {
                     success!();
                 } else {
@@ -445,7 +418,7 @@ impl<'de> Deserializer<'de> {
                 let len = input.len();
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
-                insert_res!(Tape::Static(s2try!(Self::parse_number_int(
+                insert_res!(Node::Static(s2try!(Self::parse_number_int(
                     idx,
                     &copy[idx..],
                     true
@@ -461,7 +434,7 @@ impl<'de> Deserializer<'de> {
                 let len = input.len();
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
-                insert_res!(Tape::Static(s2try!(Self::parse_number_int(
+                insert_res!(Node::Static(s2try!(Self::parse_number_int(
                     idx,
                     &copy[idx..],
                     false
@@ -494,7 +467,7 @@ impl<'de> Deserializer<'de> {
                             object_continue!()
                         }
                         b't' => {
-                            insert_res!(Tape::Static(StaticTape::Bool(true)));
+                            insert_res!(Node::Static(StaticNode::Bool(true)));
                             if !is_valid_true_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
@@ -502,7 +475,7 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'f' => {
-                            insert_res!(Tape::Static(StaticTape::Bool(false)));
+                            insert_res!(Node::Static(StaticNode::Bool(false)));
                             if !is_valid_false_atom(unsafe {
                                 input.get_unchecked((idx as usize)..)
                             }) {
@@ -511,7 +484,7 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'n' => {
-                            insert_res!(Tape::Static(StaticTape::Null));
+                            insert_res!(Node::Static(StaticNode::Null));
                             if !is_valid_null_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
@@ -519,7 +492,7 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'-' => {
-                            insert_res!(Tape::Static(s2try!(Self::parse_number_int(
+                            insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
                                 &input[idx..],
                                 true
@@ -527,7 +500,7 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(Tape::Static(s2try!(Self::parse_number_int(
+                            insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
                                 &input[idx..],
                                 false
@@ -540,7 +513,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Object, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(Tape::Object(0));
+                            insert_res!(Node::Object(0));
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -551,7 +524,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Object, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(Tape::Array(0));
+                            insert_res!(Node::Array(0));
                             depth += 1;
                             cnt = 1;
                             array_begin!();
@@ -569,8 +542,8 @@ impl<'de> Deserializer<'de> {
                     depth -= 1;
                     unsafe {
                         match res.get_unchecked_mut(last_start) {
-                            Tape::Array(ref mut len) => *len = cnt,
-                            Tape::Object(ref mut len) => *len = cnt,
+                            Node::Array(ref mut len) => *len = cnt,
+                            Node::Object(ref mut len) => *len = cnt,
                             _ => unreachable!(),
                         };
                     }
@@ -605,7 +578,7 @@ impl<'de> Deserializer<'de> {
                             array_continue!()
                         }
                         b't' => {
-                            insert_res!(Tape::Static(StaticTape::Bool(true)));
+                            insert_res!(Node::Static(StaticNode::Bool(true)));
                             if !is_valid_true_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
@@ -613,7 +586,7 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'f' => {
-                            insert_res!(Tape::Static(StaticTape::Bool(false)));
+                            insert_res!(Node::Static(StaticNode::Bool(false)));
                             if !is_valid_false_atom(unsafe {
                                 input.get_unchecked((idx as usize)..)
                             }) {
@@ -622,7 +595,7 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'n' => {
-                            insert_res!(Tape::Static(StaticTape::Null));
+                            insert_res!(Node::Static(StaticNode::Null));
                             if !is_valid_null_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
@@ -630,7 +603,7 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'-' => {
-                            insert_res!(Tape::Static(s2try!(Self::parse_number_int(
+                            insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
                                 &input[idx..],
                                 true
@@ -638,7 +611,7 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(Tape::Static(s2try!(Self::parse_number_int(
+                            insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
                                 &input[idx..],
                                 false
@@ -651,7 +624,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Array, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(Tape::Object(0));
+                            insert_res!(Node::Object(0));
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -662,7 +635,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Array, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(Tape::Array(0));
+                            insert_res!(Node::Array(0));
                             depth += 1;
                             cnt = 1;
                             array_begin!();

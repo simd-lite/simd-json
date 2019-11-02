@@ -162,17 +162,17 @@ mod known_key;
 #[cfg(feature = "known-key")]
 pub use known_key::{Error as KnownKeyError, KnownKey};
 
-pub use crate::stage2::{StaticTape, Tape};
-/// Parses the json to a tape
-pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Tape<'input>>> {
+pub use crate::tape::{Node, StaticNode, Tape};
+
+/// Creates a tape from the input for later consumption
+pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Node<'input>>> {
     let de = stry!(Deserializer::from_slice(s));
     Ok(de.tape)
 }
-
 pub(crate) struct Deserializer<'de> {
     // Note: we use the 2nd part as both index and lenght since only one is ever
     // used (array / object use len) everything else uses idx
-    tape: Vec<Tape<'de>>,
+    pub(crate) tape: Vec<Node<'de>>,
     idx: usize,
 }
 
@@ -233,7 +233,7 @@ impl<'de> Deserializer<'de> {
     // pull out the check so we don't need to
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next_(&mut self) -> Tape<'de> {
+    fn next_(&mut self) -> Node<'de> {
         unsafe {
             self.idx += 1;
             *self.tape.get_unchecked(self.idx)
@@ -249,7 +249,7 @@ mod tests {
         owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
         Deserializer,
     };
-    use crate::stage2::Tape;
+    use crate::tape::*;
     use halfbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
@@ -260,7 +260,7 @@ mod tests {
         let mut d = String::from("[]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.tape[1], Tape::Array(0));
+        assert_eq!(simd.tape[1], Node::Array(0));
     }
 
     #[test]
@@ -268,7 +268,7 @@ mod tests {
         let mut d = String::from("[1]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.tape[1], Tape::Array(1));
+        assert_eq!(simd.tape[1], Node::Array(1));
     }
 
     #[test]
@@ -276,7 +276,7 @@ mod tests {
         let mut d = String::from("[1,2]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.tape[1], Tape::Array(2));
+        assert_eq!(simd.tape[1], Node::Array(2));
     }
 
     #[test]
@@ -284,8 +284,8 @@ mod tests {
         let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.tape[1], Tape::Array(3));
-        assert_eq!(simd.tape[3], Tape::Array(1));
+        assert_eq!(simd.tape[1], Node::Array(3));
+        assert_eq!(simd.tape[3], Node::Array(1));
     }
 
     #[test]
@@ -293,8 +293,8 @@ mod tests {
         let mut d = String::from("[[],null,null]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.tape[1], Tape::Array(3));
-        assert_eq!(simd.tape[2], Tape::Array(0));
+        assert_eq!(simd.tape[1], Node::Array(3));
+        assert_eq!(simd.tape[2], Node::Array(0));
     }
 
     #[test]
@@ -342,7 +342,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Null));
+        assert_eq!(to_value(&mut d1), Ok(Value::Static(StaticNode::Null)));
     }
 
     #[test]
@@ -525,8 +525,8 @@ mod tests {
             to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::Array(vec![]),
-                Value::Null,
-                Value::Null,
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
             ]))
         );
         assert_eq!(v_simd, v_serde);
@@ -645,7 +645,10 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![Value::from(Object::new()), Value::Null]))
+            Ok(Value::Array(vec![
+                Value::from(Object::new()),
+                Value::Static(StaticNode::Null)
+            ]))
         );
     }
 
@@ -664,7 +667,7 @@ mod tests {
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
-        assert_eq!(to_value(&mut d1), Ok(Value::Null));
+        assert_eq!(to_value(&mut d1), Ok(Value::Static(StaticNode::Null)));
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
@@ -677,7 +680,10 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![Value::Null, Value::Null,]))
+            Ok(Value::Array(vec![
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
+            ]))
         );
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
@@ -693,8 +699,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![
-                Value::Null,
-                Value::Null,
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
             ])]))
         );
 
@@ -715,8 +721,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![Value::Array(vec![
-                Value::Null,
-                Value::Null,
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
             ])])]))
         );
     }
@@ -1053,8 +1059,10 @@ mod tests {
     //6.576692109929364e305
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
-            Just(Value::Null),
-            any::<bool>().prop_map(Value::Bool),
+            Just(Value::Static(StaticNode::Null)),
+            any::<bool>()
+                .prop_map(StaticNode::Bool)
+                .prop_map(Value::Static),
             // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // The float parsing of simd and serde are too different
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),
@@ -1077,8 +1085,10 @@ mod tests {
 
     fn arb_json_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
-            Just(Value::Null),
-            any::<bool>().prop_map(Value::Bool),
+            Just(Value::Static(StaticNode::Null)),
+            any::<bool>()
+                .prop_map(StaticNode::Bool)
+                .prop_map(Value::Static),
             //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),

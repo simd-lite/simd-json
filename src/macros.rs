@@ -264,15 +264,15 @@ macro_rules! json_internal {
     //////////////////////////////////////////////////////////////////////////
 
     (null) => {
-        $crate::value::owned::Value::Null
+        $crate::value::owned::Value::Static($crate::StaticNode::Null)
     };
 
     (true) => {
-        $crate::value::owned::Value::Bool(true)
+        $crate::value::owned::Value::Static($crate::StaticNode::Bool(true))
     };
 
     (false) => {
-        $crate::value::owned::Value::Bool(false)
+        $crate::value::owned::Value::Static($crate::StaticNode::Bool(false))
     };
 
     ([]) => {
@@ -415,7 +415,7 @@ mod test {
     #[test]
     fn array() {
         let v: OwnedValue = json!(vec![1]);
-        assert_eq!(OwnedValue::Array(vec![OwnedValue::I64(1)]), v);
+        assert_eq!(OwnedValue::from(vec![1u64]), v);
     }
 
     #[test]

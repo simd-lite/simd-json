@@ -4,9 +4,8 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::stage2::{StaticTape, Tape};
 use crate::value::{ValueTrait, ValueType};
-use crate::{Deserializer, Result};
+use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
@@ -33,16 +32,8 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
 /// for getting rid of lifetimes.
 #[derive(Debug, Clone)]
 pub enum Value {
-    /// null
-    Null,
-    /// boolean type
-    Bool(bool),
-    /// float type
-    F64(f64),
-    /// signed integer type
-    I64(i64),
-    /// unsigned integer type
-    U64(u64),
+    /// Static values
+    Static(StaticNode),
     /// string type
     String(String),
     /// array type
@@ -64,17 +55,13 @@ impl ValueTrait for Value {
     }
     #[inline]
     fn null() -> Self {
-        Self::Null
+        Self::Static(StaticNode::Null)
     }
 
     #[inline]
     fn value_type(&self) -> ValueType {
         match self {
-            Self::Null => ValueType::Null,
-            Self::Bool(_) => ValueType::Bool,
-            Self::F64(_) => ValueType::F64,
-            Self::I64(_) => ValueType::I64,
-            Self::U64(_) => ValueType::U64,
+            Self::Static(s) => s.value_type(),
             Self::String(_) => ValueType::String,
             Self::Array(_) => ValueType::Array,
             Self::Object(_) => ValueType::Object,
@@ -84,7 +71,7 @@ impl ValueTrait for Value {
     #[inline]
     fn is_null(&self) -> bool {
         match self {
-            Self::Null => true,
+            Self::Static(StaticNode::Null) => true,
             _ => false,
         }
     }
@@ -92,7 +79,7 @@ impl ValueTrait for Value {
     #[inline]
     fn as_bool(&self) -> Option<bool> {
         match self {
-            Self::Bool(b) => Some(*b),
+            Self::Static(StaticNode::Bool(b)) => Some(*b),
             _ => None,
         }
     }
@@ -100,8 +87,8 @@ impl ValueTrait for Value {
     #[inline]
     fn as_i64(&self) -> Option<i64> {
         match self {
-            Self::I64(i) => Some(*i),
-            Self::U64(i) => i64::try_from(*i).ok(),
+            Self::Static(StaticNode::I64(i)) => Some(*i),
+            Self::Static(StaticNode::U64(i)) => i64::try_from(*i).ok(),
             _ => None,
         }
     }
@@ -110,8 +97,8 @@ impl ValueTrait for Value {
     fn as_u64(&self) -> Option<u64> {
         #[allow(clippy::cast_sign_loss)]
         match self {
-            Self::I64(i) => u64::try_from(*i).ok(),
-            Self::U64(i) => Some(*i),
+            Self::Static(StaticNode::I64(i)) => u64::try_from(*i).ok(),
+            Self::Static(StaticNode::U64(i)) => Some(*i),
             _ => None,
         }
     }
@@ -119,7 +106,7 @@ impl ValueTrait for Value {
     #[inline]
     fn as_f64(&self) -> Option<f64> {
         match self {
-            Self::F64(i) => Some(*i),
+            Self::Static(StaticNode::F64(i)) => Some(*i),
             _ => None,
         }
     }
@@ -128,9 +115,9 @@ impl ValueTrait for Value {
     fn cast_f64(&self) -> Option<f64> {
         #[allow(clippy::cast_precision_loss)]
         match self {
-            Self::F64(i) => Some(*i),
-            Self::I64(i) => Some(*i as f64),
-            Self::U64(i) => Some(*i as f64),
+            Self::Static(StaticNode::F64(i)) => Some(*i),
+            Self::Static(StaticNode::I64(i)) => Some(*i as f64),
+            Self::Static(StaticNode::U64(i)) => Some(*i as f64),
             _ => None,
         }
     }
@@ -180,12 +167,7 @@ impl ValueTrait for Value {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Null => f.write_str("null"),
-            Self::Bool(false) => f.write_str("false"),
-            Self::Bool(true) => f.write_str("true"),
-            Self::I64(n) => f.write_str(&n.to_string()),
-            Self::U64(n) => f.write_str(&n.to_string()),
-            Self::F64(n) => f.write_str(&n.to_string()),
+            Self::Static(s) => s.fmt(f),
             Self::String(s) => write!(f, "{}", s),
             Self::Array(a) => write!(f, "{:?}", a),
             Self::Object(o) => write!(f, "{:?}", o),
@@ -221,7 +203,7 @@ impl IndexMut<usize> for Value {
 
 impl Default for Value {
     fn default() -> Self {
-        Self::Null
+        Self::Static(StaticNode::Null)
     }
 }
 
@@ -236,14 +218,10 @@ impl<'de> OwnedDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Value {
         match self.de.next_() {
-            Tape::Static(StaticTape::Null) => Value::Null,
-            Tape::Static(StaticTape::Bool(b)) => Value::Bool(b),
-            Tape::Static(StaticTape::F64(n)) => Value::F64(n),
-            Tape::Static(StaticTape::I64(n)) => Value::I64(n),
-            Tape::Static(StaticTape::U64(n)) => Value::U64(n),
-            Tape::String(s) => Value::from(s),
-            Tape::Array(len) => self.parse_array(len),
-            Tape::Object(len) => self.parse_map(len),
+            Node::Static(s) => Value::Static(s),
+            Node::String(s) => Value::from(s),
+            Node::Array(len) => self.parse_array(len),
+            Node::Object(len) => self.parse_map(len),
         }
     }
 
@@ -267,7 +245,7 @@ impl<'de> OwnedDeserializer<'de> {
         let mut res = Object::with_capacity(len);
 
         for _ in 0..len {
-            if let Tape::String(key) = self.de.next_() {
+            if let Node::String(key) = self.de.next_() {
                 // We have to call parse short str twice since parse_short_str
                 // does not move the cursor forward
                 res.insert_nocheck(key.into(), self.parse());
@@ -614,10 +592,16 @@ mod test {
     use proptest::prelude::*;
     fn arb_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
-            Just(Value::Null),
-            any::<bool>().prop_map(Value::Bool),
-            any::<i64>().prop_map(Value::I64),
-            any::<f64>().prop_map(Value::F64),
+            Just(Value::Static(StaticNode::Null)),
+            any::<bool>()
+                .prop_map(StaticNode::Bool)
+                .prop_map(Value::Static),
+            any::<i64>()
+                .prop_map(StaticNode::I64)
+                .prop_map(Value::Static),
+            any::<f64>()
+                .prop_map(StaticNode::F64)
+                .prop_map(Value::Static),
             ".*".prop_map(Value::from),
         ];
         leaf.prop_recursive(
