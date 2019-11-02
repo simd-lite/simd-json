@@ -19,6 +19,7 @@ impl<'de> Deserializer<'de> {
         buffer: &'invoke mut [u8],
         mut idx: usize,
     ) -> Result<&'de str> {
+        use ErrorType::*;
         let input: &mut [u8] = unsafe { std::mem::transmute(input) };
         // Add 1 to skip the initial "
         idx += 1;
@@ -177,20 +178,10 @@ impl<'de> Deserializer<'de> {
                         }) {
                         r
                     } else {
-                        return Err(Self::raw_error(
-                            0,
-                            src_i,
-                            'u',
-                            ErrorType::InvlaidUnicodeCodepoint,
-                        ));
+                        return Err(Self::raw_error(src_i, 'u', InvlaidUnicodeCodepoint));
                     };
                     if o == 0 {
-                        return Err(Self::raw_error(
-                            0,
-                            src_i,
-                            'u',
-                            ErrorType::InvlaidUnicodeCodepoint,
-                        ));
+                        return Err(Self::raw_error(src_i, 'u', InvlaidUnicodeCodepoint));
                     };
                     // We moved o steps forword at the destiation and 6 on the source
                     src_i += s;
@@ -203,12 +194,7 @@ impl<'de> Deserializer<'de> {
                     let escape_result: u8 =
                         unsafe { *ESCAPE_MAP.get_unchecked(escape_char as usize) };
                     if escape_result == 0 {
-                        return Err(Self::raw_error(
-                            0,
-                            src_i,
-                            escape_char as char,
-                            ErrorType::InvalidEscape,
-                        ));
+                        return Err(Self::raw_error(src_i, escape_char as char, InvalidEscape));
                     }
                     unsafe {
                         *buffer.get_unchecked_mut(dst_i + bs_dist as usize) = escape_result;

@@ -264,7 +264,7 @@ impl<'de> Deserializer<'de> {
                 unsafe {
                     res.set_len(r_i);
                 };
-                return Err(Error::new(i, idx, c as char, ErrorType::InternalError));
+                return Err(Error::new(idx, c as char, ErrorType::InternalError));
             };
             ($t:expr) => {
                 // We need to ensure that rust doens't
@@ -274,7 +274,7 @@ impl<'de> Deserializer<'de> {
                 unsafe {
                     res.set_len(r_i);
                 };
-                return Err(Error::new(i, idx, c as char, $t));
+                return Err(Error::new(idx, c as char, $t));
             };
         }
         // State start, we pull this outside of the

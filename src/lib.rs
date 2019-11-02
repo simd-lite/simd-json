@@ -179,11 +179,11 @@ pub(crate) struct Deserializer<'de> {
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(&self, error: ErrorType) -> Error {
-        Deserializer::raw_error(self.idx, 0, '?', error)
+        Deserializer::raw_error(0, '?', error)
     }
 
-    fn raw_error(structural: usize, idx: usize, c: char, error: ErrorType) -> Error {
-        Error::new(structural, idx, c, error)
+    fn raw_error(idx: usize, c: char, error: ErrorType) -> Error {
+        Error::new(idx, c, error)
     }
     // By convention, `Deserializer` constructors are named like `from_xyz`.
     // That way basic use cases are satisfied by something like
