@@ -9,8 +9,7 @@
 mod de;
 mod value;
 pub use self::value::*;
-use crate::numberparse::Number;
-use crate::stage2::CharType;
+use crate::stage2::Tape;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use crate::{BorrowedValue, OwnedValue};
 use serde_ext::Deserialize;
@@ -82,7 +81,7 @@ impl serde_ext::ser::Error for Error {
 // Functions purely used by serde
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next(&mut self) -> Result<(CharType, u32)> {
+    fn next(&mut self) -> Result<Tape> {
         self.idx += 1;
         self.structural_indexes
             .get(self.idx)
@@ -91,27 +90,20 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn peek(&self) -> Result<CharType> {
+    fn peek(&self) -> Result<Tape> {
         self.structural_indexes
             .get(self.idx + 1)
-            .map(|v| v.0)
+            .copied()
             .ok_or_else(|| self.error(ErrorType::UnexpectedEnd))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_signed(&mut self) -> Result<i64> {
         match self.next_() {
-            (CharType::NegNum, idx) => match stry!(self.parse_number(idx as usize, true)) {
-                Number::I64(n) => Ok(n),
-                _ => Err(self.error(ErrorType::ExpectedSigned)),
-            },
-            (CharType::PosNum, idx) => match stry!(self.parse_number(idx as usize, false)) {
-                Number::I64(n) => Ok(n),
-                Number::U64(n) => n
-                    .try_into()
-                    .map_err(|_| self.error(ErrorType::ExpectedSigned)),
-                _ => Err(self.error(ErrorType::ExpectedSigned)),
-            },
+            Tape::I64(i) => Ok(i),
+            Tape::U64(n) => n
+                .try_into()
+                .map_err(|_| self.error(ErrorType::ExpectedSigned)),
             _ => Err(self.error(ErrorType::ExpectedSigned)),
         }
     }
@@ -120,10 +112,7 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cast_sign_loss)]
     fn parse_unsigned(&mut self) -> Result<u64> {
         match self.next_() {
-            (CharType::PosNum, idx) => match stry!(self.parse_number(idx as usize, false)) {
-                Number::U64(n) => Ok(n as u64),
-                _ => Err(self.error(ErrorType::ExpectedUnsigned)),
-            },
+            Tape::U64(n) => Ok(n),
             _ => Err(self.error(ErrorType::ExpectedUnsigned)),
         }
     }
@@ -131,16 +120,9 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {
         match self.next_() {
-            (CharType::NegNum, idx) => match stry!(self.parse_number(idx as usize, true)) {
-                Number::F64(n) => Ok(n),
-                Number::I64(n) => Ok(n as f64),
-                Number::U64(n) => Ok(n as f64),
-            },
-            (CharType::PosNum, idx) => match stry!(self.parse_number(idx as usize, false)) {
-                Number::F64(n) => Ok(n),
-                Number::I64(n) => Ok(n as f64),
-                Number::U64(n) => Ok(n as f64),
-            },
+            Tape::F64(n) => Ok(n),
+            Tape::I64(n) => Ok(n as f64),
+            Tape::U64(n) => Ok(n as f64),
             _ => Err(self.error(ErrorType::ExpectedFloat)),
         }
     }

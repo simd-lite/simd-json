@@ -89,20 +89,21 @@ enum StackState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum CharType {
-    String,
-    Object,
-    PosNum,
-    NegNum,
+pub(crate) enum Tape {
+    String(usize),
+    Object(usize),
+    Array(usize),
+    I64(i64),
+    U64(u64),
+    F64(f64),
     True,
     False,
     Null,
-    Array,
 }
 
 impl<'de> Deserializer<'de> {
     #[allow(clippy::cognitive_complexity)]
-    pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<(Vec<(CharType, u32)>)> {
+    pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<Vec<Tape>> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
         let mut res = Vec::with_capacity(structural_indexes.len() + 1);
@@ -114,12 +115,12 @@ impl<'de> Deserializer<'de> {
 
         let mut depth: usize = 0;
         let mut last_start = 1;
-        let mut cnt: u32 = 0;
+        let mut cnt: usize = 0;
         let mut r_i = 0;
 
         // let mut i: usize = 0; // index of the structural character (0,1,2,3...)
         // location of the structural character in the input (buf)
-        let mut idx: u32;
+        let mut idx: usize;
         // used to track the (structural) character we are looking at, updated
         // by UPDATE_CHAR macro
         let mut c: u8;
@@ -129,9 +130,9 @@ impl<'de> Deserializer<'de> {
         let mut si = structural_indexes.iter().skip(1).peekable();
 
         macro_rules! insert_res {
-            ($t:expr, $l:expr) => {
+            ($t:expr) => {
                 unsafe {
-                    *res.get_unchecked_mut(r_i) = ($t, $l);
+                    *res.get_unchecked_mut(r_i) = $t;
                     r_i += 1;
                 }
             };
@@ -146,9 +147,9 @@ impl<'de> Deserializer<'de> {
         }
         macro_rules! update_char {
             () => {
-                idx = *stry!(si.next().ok_or_else(|| (Error::generic(ErrorType::Syntax)))) as u32;
+                idx = *stry!(si.next().ok_or_else(|| (Error::generic(ErrorType::Syntax)))) as usize;
                 i += 1;
-                c = unsafe { *input.get_unchecked(idx as usize) };
+                c = unsafe { *input.get_unchecked(idx) };
             };
         }
 
@@ -159,7 +160,7 @@ impl<'de> Deserializer<'de> {
             }};
         }
 
-        insert_res!(CharType::Null, 0);
+        insert_res!(Tape::Null);
 
         // The continue cases are the most frequently called onces it's
         // worth pulling them out into a macro (aka inlining them)
@@ -191,7 +192,7 @@ impl<'de> Deserializer<'de> {
                         cnt += 1;
                         update_char!();
                         if c == b'"' {
-                            insert_res!(CharType::String, idx);
+                            insert_res!(Tape::String(idx));
                             goto!(ObjectKey);
                         } else {
                             fail!(ErrorType::ExpectedObjectKey);
@@ -223,7 +224,7 @@ impl<'de> Deserializer<'de> {
                 update_char!();
                 match c {
                     b'"' => {
-                        insert_res!(CharType::String, idx);
+                        insert_res!(Tape::String(idx));
                         goto!(ObjectKey)
                     }
                     b'}' => {
@@ -259,7 +260,7 @@ impl<'de> Deserializer<'de> {
                     *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
                 }
                 last_start = r_i;
-                insert_res!(CharType::Object, idx);
+                insert_res!(Tape::Object(0));
 
                 depth += 1;
                 cnt = 1;
@@ -267,7 +268,7 @@ impl<'de> Deserializer<'de> {
                 update_char!();
                 match c {
                     b'"' => {
-                        insert_res!(CharType::String, idx);
+                        insert_res!(Tape::String(idx));
                         state = State::ObjectKey;
                     }
                     b'}' => {
@@ -285,7 +286,7 @@ impl<'de> Deserializer<'de> {
                 }
 
                 last_start = r_i;
-                insert_res!(CharType::Array, idx);
+                insert_res!(Tape::Array(0));
 
                 depth += 1;
                 cnt = 1;
@@ -307,7 +308,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                insert_res!(CharType::True, idx);
+                insert_res!(Tape::True);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -323,7 +324,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                insert_res!(CharType::False, idx);
+                insert_res!(Tape::False);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -339,7 +340,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                insert_res!(CharType::Null, idx);
+                insert_res!(Tape::Null);
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -347,7 +348,7 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'"' => {
-                insert_res!(CharType::String, idx);
+                insert_res!(Tape::String(idx));
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -355,7 +356,11 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'-' => {
-                insert_res!(CharType::NegNum, idx);
+                let len = input.len();
+                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
+                unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
+                insert_res!(stry!(Self::parse_number_int(idx, &copy[idx..], true)));
+
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -363,7 +368,11 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'0'..=b'9' => {
-                insert_res!(CharType::PosNum, idx);
+                let len = input.len();
+                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
+                unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
+                insert_res!(stry!(Self::parse_number_int(idx, &copy[idx..], false)));
+
                 if si.next().is_none() {
                     return finish_res!();
                 } else {
@@ -387,11 +396,11 @@ impl<'de> Deserializer<'de> {
                     update_char!();
                     match c {
                         b'"' => {
-                            insert_res!(CharType::String, idx);
+                            insert_res!(Tape::String(idx));
                             object_continue!()
                         }
                         b't' => {
-                            insert_res!(CharType::True, idx);
+                            insert_res!(Tape::True);
                             if !is_valid_true_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
@@ -399,7 +408,7 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'f' => {
-                            insert_res!(CharType::False, idx);
+                            insert_res!(Tape::False);
                             if !is_valid_false_atom(unsafe {
                                 input.get_unchecked((idx as usize)..)
                             }) {
@@ -408,7 +417,7 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'n' => {
-                            insert_res!(CharType::Null, idx);
+                            insert_res!(Tape::Null);
                             if !is_valid_null_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
@@ -416,11 +425,11 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'-' => {
-                            insert_res!(CharType::NegNum, idx);
+                            insert_res!(stry!(Self::parse_number_int(idx, &input[idx..], true)));
                             object_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(CharType::PosNum, idx);
+                            insert_res!(stry!(Self::parse_number_int(idx, &input[idx..], false)));
                             object_continue!();
                         }
                         b'{' => {
@@ -429,7 +438,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Object, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(CharType::Object, idx);
+                            insert_res!(Tape::Object(0));
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -440,7 +449,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Object, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(CharType::Array, idx);
+                            insert_res!(Tape::Array(0));
                             depth += 1;
                             cnt = 1;
                             array_begin!();
@@ -457,7 +466,11 @@ impl<'de> Deserializer<'de> {
                     }
                     depth -= 1;
                     unsafe {
-                        res.get_unchecked_mut(last_start).1 = cnt;
+                        match res.get_unchecked_mut(last_start) {
+                            Tape::Array(ref mut len) => *len = cnt,
+                            Tape::Object(ref mut len) => *len = cnt,
+                            _ => unreachable!(),
+                        };
                     }
 
                     let (a_state, a_last_start, a_cnt) = unsafe { stack.get_unchecked(depth) };
@@ -486,11 +499,11 @@ impl<'de> Deserializer<'de> {
                     // on paths that can accept a close square brace (post-, and at start)
                     match c {
                         b'"' => {
-                            insert_res!(CharType::String, idx);
+                            insert_res!(Tape::String(idx));
                             array_continue!()
                         }
                         b't' => {
-                            insert_res!(CharType::True, idx);
+                            insert_res!(Tape::True);
                             if !is_valid_true_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
@@ -498,7 +511,7 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'f' => {
-                            insert_res!(CharType::False, idx);
+                            insert_res!(Tape::False);
                             if !is_valid_false_atom(unsafe {
                                 input.get_unchecked((idx as usize)..)
                             }) {
@@ -507,7 +520,7 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'n' => {
-                            insert_res!(CharType::Null, idx);
+                            insert_res!(Tape::Null);
                             if !is_valid_null_atom(unsafe { input.get_unchecked((idx as usize)..) })
                             {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
@@ -515,11 +528,11 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'-' => {
-                            insert_res!(CharType::NegNum, idx);
+                            insert_res!(stry!(Self::parse_number_int(idx, &input[idx..], true)));
                             array_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(CharType::PosNum, idx);
+                            insert_res!(stry!(Self::parse_number_int(idx, &input[idx..], false)));
                             array_continue!();
                         }
                         b'{' => {
@@ -528,7 +541,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Array, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(CharType::Object, idx);
+                            insert_res!(Tape::Object(0));
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -539,7 +552,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Array, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(CharType::Array, idx);
+                            insert_res!(Tape::Array(0));
                             depth += 1;
                             cnt = 1;
                             array_begin!();

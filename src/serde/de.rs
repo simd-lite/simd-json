@@ -1,5 +1,4 @@
-use crate::numberparse::Number;
-use crate::stage2::CharType;
+use crate::stage2::Tape;
 use crate::*;
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
@@ -16,28 +15,15 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            (CharType::String, idx) => {
-                visitor.visit_borrowed_str(stry!(self.parse_str_(idx as usize)))
-            }
-            (CharType::Null, _) => visitor.visit_unit(),
-            (CharType::True, _) => visitor.visit_bool(true),
-            (CharType::False, _) => visitor.visit_bool(false),
-            (CharType::NegNum, idx) => match stry!(self.parse_number(idx as usize, true)) {
-                Number::F64(n) => visitor.visit_f64(n),
-                Number::I64(n) => visitor.visit_i64(n),
-                Number::U64(n) => visitor.visit_u64(n),
-            },
-            (CharType::PosNum, idx) => match stry!(self.parse_number(idx as usize, false)) {
-                Number::F64(n) => visitor.visit_f64(n),
-                Number::I64(n) => visitor.visit_i64(n),
-                Number::U64(n) => visitor.visit_u64(n),
-            },
-            (CharType::Array, len) => {
-                visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
-            }
-            (CharType::Object, len) => {
-                visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
-            }
+            Tape::String(idx) => visitor.visit_borrowed_str(stry!(self.parse_str_(idx as usize))),
+            Tape::Null => visitor.visit_unit(),
+            Tape::True => visitor.visit_bool(true),
+            Tape::False => visitor.visit_bool(false),
+            Tape::F64(n) => visitor.visit_f64(n),
+            Tape::I64(n) => visitor.visit_i64(n),
+            Tape::U64(n) => visitor.visit_u64(n),
+            Tape::Array(len) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
+            Tape::Object(len) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
         }
     }
 
@@ -61,8 +47,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            (CharType::True, _) => visitor.visit_bool(true),
-            (CharType::False, _) => visitor.visit_bool(false),
+            Tape::True => visitor.visit_bool(true),
+            Tape::False => visitor.visit_bool(false),
             _c => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
@@ -74,7 +60,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if let Ok((CharType::String, idx)) = self.next() {
+        if let Ok(Tape::String(idx)) = self.next() {
             visitor.visit_borrowed_str(stry!(self.parse_str_(idx as usize)))
         } else {
             Err(self.error(ErrorType::ExpectedString))
@@ -86,7 +72,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if let Ok((CharType::String, idx)) = self.next() {
+        if let Ok(Tape::String(idx)) = self.next() {
             visitor.visit_str(stry!(self.parse_str_(idx as usize)))
         } else {
             Err(self.error(ErrorType::ExpectedString))
@@ -203,7 +189,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.peek()) == CharType::Null {
+        if stry!(self.peek()) == Tape::Null {
             self.skip();
             visitor.visit_unit()
         } else {
@@ -217,7 +203,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()).0 != CharType::Null {
+        if stry!(self.next()) != Tape::Null {
             return Err(self.error(ErrorType::ExpectedNull));
         }
         visitor.visit_unit()
@@ -232,7 +218,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if let Ok((CharType::Array, len)) = self.next() {
+        if let Ok(Tape::Array(len)) = self.next() {
             // Give the visitor access to each element of the sequence.
             visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
         } else {
@@ -295,7 +281,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if let Ok((CharType::Object, len)) = self.next() {
+        if let Ok(Tape::Object(len)) = self.next() {
             // Give the visitor access to each element of the sequence.
             visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
         } else {

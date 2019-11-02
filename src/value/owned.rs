@@ -4,7 +4,7 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::stage2::CharType;
+use crate::stage2::Tape;
 use crate::value::{ValueTrait, ValueType};
 use crate::{stry, Deserializer, Result};
 use halfbrown::HashMap;
@@ -234,34 +234,15 @@ impl<'de> OwnedDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Result<Value> {
         match self.de.next_() {
-            (CharType::String, idx) => self.de.parse_str_(idx as usize).map(Value::from),
-            (CharType::Null, _) => Ok(Value::Null),
-            (CharType::True, _) => Ok(Value::Bool(true)),
-            (CharType::False, _) => Ok(Value::Bool(false)),
-            (CharType::NegNum, idx) => self
-                .de
-                .parse_number_root(idx as usize, true)
-                .map(Value::from),
-            (CharType::PosNum, idx) => self
-                .de
-                .parse_number_root(idx as usize, false)
-                .map(Value::from),
-            (CharType::Array, len) => self.parse_array(len as usize),
-            (CharType::Object, len) => self.parse_map(len as usize),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_value(&mut self) -> Result<Value> {
-        match self.de.next_() {
-            (CharType::String, idx) => self.de.parse_str_(idx as usize).map(Value::from),
-            (CharType::Null, _) => Ok(Value::Null),
-            (CharType::True, _) => Ok(Value::Bool(true)),
-            (CharType::False, _) => Ok(Value::Bool(false)),
-            (CharType::NegNum, idx) => self.de.parse_number_(idx as usize, true).map(Value::from),
-            (CharType::PosNum, idx) => self.de.parse_number_(idx as usize, false).map(Value::from),
-            (CharType::Array, len) => self.parse_array(len as usize),
-            (CharType::Object, len) => self.parse_map(len as usize),
+            Tape::String(idx) => self.de.parse_str_(idx).map(Value::from),
+            Tape::Null => Ok(Value::Null),
+            Tape::True => Ok(Value::Bool(true)),
+            Tape::False => Ok(Value::Bool(false)),
+            Tape::F64(n) => Ok(Value::F64(n)),
+            Tape::I64(n) => Ok(Value::I64(n)),
+            Tape::U64(n) => Ok(Value::U64(n)),
+            Tape::Array(len) => self.parse_array(len),
+            Tape::Object(len) => self.parse_map(len),
         }
     }
 
@@ -278,7 +259,7 @@ impl<'de> OwnedDeserializer<'de> {
                 // this is because if we encouter an error we have to set
                 // the lenght of the array to the correct value so rust can
                 // free the right memory
-                match self.parse_value() {
+                match self.parse() {
                     Ok(r) => std::ptr::write(res.get_unchecked_mut(i), r),
                     Err(e) => {
                         res.set_len(i);
@@ -295,11 +276,14 @@ impl<'de> OwnedDeserializer<'de> {
         let mut res = Object::with_capacity(len);
 
         for _ in 0..len {
-            let idx = self.de.next_().1;
-            let key = stry!(self.de.parse_str_(idx as usize));
-            // We have to call parse short str twice since parse_short_str
-            // does not move the cursor forward
-            res.insert_nocheck(key.into(), stry!(self.parse_value()));
+            if let Tape::String(idx) = self.de.next_() {
+                let key = stry!(self.de.parse_str_(idx));
+                // We have to call parse short str twice since parse_short_str
+                // does not move the cursor forward
+                res.insert_nocheck(key.into(), stry!(self.parse()));
+            } else {
+                unreachable!()
+            }
         }
         Ok(Value::from(res))
     }

@@ -144,11 +144,10 @@ pub use crate::neon::deser::*;
 use crate::neon::stage1::SIMDJSON_PADDING;
 
 mod stage2;
-use stage2::CharType;
+use stage2::Tape;
 /// simd-json JSON-DOM value
 pub mod value;
 
-use crate::numberparse::Number;
 #[cfg(not(target_feature = "neon"))]
 use std::mem;
 use std::str;
@@ -172,7 +171,7 @@ pub(crate) struct Deserializer<'de> {
     strings: Vec<u8>,
     // Note: we use the 2nd part as both index and lenght since only one is ever
     // used (array / object use len) everything else uses idx
-    structural_indexes: Vec<(CharType, u32)>,
+    structural_indexes: Vec<Tape>,
     idx: usize,
     str_offset: usize,
 }
@@ -180,9 +179,16 @@ pub(crate) struct Deserializer<'de> {
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(&self, error: ErrorType) -> Error {
-        let idx = unsafe { self.structural_indexes.get_unchecked(self.idx).1 as usize };
+        let idx = match unsafe { self.structural_indexes.get_unchecked(self.idx) } {
+            Tape::String(idx) => *idx,
+            _ => 0,
+        };
         let c = unsafe { *self.input.get_unchecked(idx) };
-        Error::new(self.idx, idx, c as char, error)
+        Deserializer::raw_error(self.idx, idx, c as char, error)
+    }
+
+    fn raw_error(structural: usize, idx: usize, c: char, error: ErrorType) -> Error {
+        Error::new(structural, idx, c, error)
     }
     // By convention, `Deserializer` constructors are named like `from_xyz`.
     // That way basic use cases are satisfied by something like
@@ -244,44 +250,11 @@ impl<'de> Deserializer<'de> {
     // pull out the check so we don't need to
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next_(&mut self) -> (CharType, u32) {
+    fn next_(&mut self) -> Tape {
         unsafe {
             self.idx += 1;
             *self.structural_indexes.get_unchecked(self.idx)
         }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_root(&mut self, idx: usize, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(idx..) };
-        let len = input.len();
-        let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
-        copy[len] = 0;
-        unsafe {
-            copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-        };
-        self.parse_number_int(&copy, minus)
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number(&mut self, idx: usize, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(idx..) };
-        let len = input.len();
-        if len < SIMDJSON_PADDING {
-            let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
-            unsafe {
-                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-            };
-            self.parse_number_int(&copy, minus)
-        } else {
-            self.parse_number_int(input, minus)
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_(&mut self, idx: usize, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(idx..) };
-        self.parse_number_int(input, minus)
     }
 }
 
@@ -293,6 +266,7 @@ mod tests {
         owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
         Deserializer,
     };
+    use crate::stage2::Tape;
     use halfbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
@@ -303,7 +277,7 @@ mod tests {
         let mut d = String::from("[]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.structural_indexes[1].1, 0);
+        assert_eq!(simd.structural_indexes[1], Tape::Array(0));
     }
 
     #[test]
@@ -311,7 +285,7 @@ mod tests {
         let mut d = String::from("[1]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.structural_indexes[1].1, 1);
+        assert_eq!(simd.structural_indexes[1], Tape::Array(1));
     }
 
     #[test]
@@ -319,7 +293,7 @@ mod tests {
         let mut d = String::from("[1,2]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.structural_indexes[1].1, 2);
+        assert_eq!(simd.structural_indexes[1], Tape::Array(2));
     }
 
     #[test]
@@ -327,8 +301,8 @@ mod tests {
         let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.structural_indexes[1].1, 3);
-        assert_eq!(simd.structural_indexes[3].1, 1);
+        assert_eq!(simd.structural_indexes[1], Tape::Array(3));
+        assert_eq!(simd.structural_indexes[3], Tape::Array(1));
     }
 
     #[test]
@@ -336,8 +310,8 @@ mod tests {
         let mut d = String::from("[[],null,null]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.structural_indexes[1].1, 3);
-        assert_eq!(simd.structural_indexes[2].1, 0);
+        assert_eq!(simd.structural_indexes[1], Tape::Array(3));
+        assert_eq!(simd.structural_indexes[2], Tape::Array(0));
     }
 
     #[test]
