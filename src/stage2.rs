@@ -509,8 +509,7 @@ impl<'de> Deserializer<'de> {
                     depth -= 1;
                     unsafe {
                         match res.get_unchecked_mut(last_start) {
-                            Node::Array(ref mut len) => *len = cnt,
-                            Node::Object(ref mut len) => *len = cnt,
+                            Node::Array(ref mut len) | Node::Object(ref mut len) => *len = cnt,
                             _ => unreachable!(),
                         };
                     }

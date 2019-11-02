@@ -237,8 +237,8 @@ mod tests {
 
         let mut v = BorrowedValue::from(o);
 
-        assert!(key1.lookup(&BorrowedValue::Null).is_none());
-        assert!(key2.lookup(&BorrowedValue::Null).is_none());
+        assert!(key1.lookup(&BorrowedValue::null()).is_none());
+        assert!(key2.lookup(&BorrowedValue::null()).is_none());
         assert!(key1.lookup(&v).is_some());
         assert!(key2.lookup(&v).is_none());
         assert!(key1.lookup_mut(&mut v).is_some());
@@ -255,7 +255,7 @@ mod tests {
 
         let mut v = BorrowedValue::from(o);
 
-        let mut v1 = BorrowedValue::Null;
+        let mut v1 = BorrowedValue::null();
         assert!(key1.insert(&mut v1, 2.into()).is_err());
         assert!(key2.insert(&mut v1, 2.into()).is_err());
         assert_eq!(key1.insert(&mut v, 2.into()).unwrap(), Some(1.into()));
@@ -274,7 +274,7 @@ mod tests {
 
         let mut v = BorrowedValue::from(o);
 
-        let mut v1 = BorrowedValue::Null;
+        let mut v1 = BorrowedValue::null();
         assert!(key1.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
         assert!(key2.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
 
@@ -298,8 +298,8 @@ mod tests {
         o.insert("key".into(), 1.into());
         let v = BorrowedValue::from(o);
 
-        assert!(key1.lookup(&BorrowedValue::Null).is_none());
-        assert!(key2.lookup(&BorrowedValue::Null).is_none());
+        assert!(key1.lookup(&BorrowedValue::null()).is_none());
+        assert!(key2.lookup(&BorrowedValue::null()).is_none());
         assert!(key1.lookup(&v).is_some());
         assert!(key2.lookup(&v).is_none());
     }
@@ -314,7 +314,7 @@ mod tests {
 
         let mut v = BorrowedValue::from(o);
 
-        let mut v1 = BorrowedValue::Null;
+        let mut v1 = BorrowedValue::null();
         assert!(key1.insert(&mut v1, 2.into()).is_err());
         assert!(key2.insert(&mut v1, 2.into()).is_err());
         assert_eq!(key1.insert(&mut v, 2.into()).unwrap(), Some(1.into()));

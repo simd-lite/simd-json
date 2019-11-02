@@ -176,6 +176,7 @@ impl<'de> Deserializer<'de> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: f64;
         let mut digit: u8;
+        let mut d;
         if unsafe { *p.get_unchecked(digitcount) } == b'0' {
             // 0 cannot be followed by an integer
             digitcount += 1;
@@ -195,7 +196,7 @@ impl<'de> Deserializer<'de> {
             let mut fraction_weight: u64 = 10;
             digitcount += 1;
             //let mut fractionalweight: f64 = 1.0;
-            let d = unsafe { *p.get_unchecked(digitcount) };
+            d = unsafe { *p.get_unchecked(digitcount) };
             if is_integer(d) {
                 digit = d - b'0';
                 digitcount += 1;
@@ -239,7 +240,7 @@ impl<'de> Deserializer<'de> {
             } else if unsafe { *p.get_unchecked(digitcount) } == b'+' {
                 digitcount += 1;
             }
-            let d = unsafe { *p.get_unchecked(digitcount) };
+            d = unsafe { *p.get_unchecked(digitcount) };
             if !is_integer(d) {
                 return Err(Self::raw_error(
                     idx + digitcount,
@@ -250,25 +251,25 @@ impl<'de> Deserializer<'de> {
             digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
             let mut expnumber: u32 = u32::from(digit); // exponential part
             digitcount += 1;
-            let d = unsafe { *p.get_unchecked(digitcount) };
+            d = unsafe { *p.get_unchecked(digitcount) };
             if is_integer(d) {
                 digit = d - b'0';
                 expnumber = 10 * expnumber + u32::from(digit);
                 digitcount += 1;
             }
-            let d = unsafe { *p.get_unchecked(digitcount) };
+            d = unsafe { *p.get_unchecked(digitcount) };
             if is_integer(d) {
                 digit = d - b'0';
                 expnumber = 10 * expnumber + u32::from(digit);
                 digitcount += 1;
             }
-            let d = unsafe { *p.get_unchecked(digitcount) };
+            d = unsafe { *p.get_unchecked(digitcount) };
             if is_integer(d) {
                 digit = d - b'0';
                 expnumber = 10 * expnumber + u32::from(digit);
                 digitcount += 1;
             }
-            let d = unsafe { *p.get_unchecked(digitcount) };
+            d = unsafe { *p.get_unchecked(digitcount) };
             if is_integer(d) {
                 // we refuse to parse this
                 return Err(Self::raw_error(
@@ -293,7 +294,7 @@ impl<'de> Deserializer<'de> {
             i *= POWER_OF_TEN[(323 + exponent) as usize];
         }
 
-        let d = unsafe { *p.get_unchecked(digitcount) };
+        d = unsafe { *p.get_unchecked(digitcount) };
         if is_structural_or_whitespace(d) == 0 {
             Err(Self::raw_error(
                 idx + digitcount,
@@ -563,11 +564,11 @@ impl<'de> Deserializer<'de> {
             }
         };
         if is_structural_or_whitespace(d) == 0 {
-            return Err(Self::raw_error(
+            Err(Self::raw_error(
                 idx + byte_count,
                 d as char,
                 ErrorType::InvalidNumber,
-            ));
+            ))
         } else {
             Ok(v)
         }
