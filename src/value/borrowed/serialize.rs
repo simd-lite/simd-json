@@ -5,10 +5,10 @@
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
 use super::{Object, Value};
-use crate::StaticNode;
 use crate::stry;
 use crate::value::generator::*;
 use crate::value::ValueTrait;
+use crate::StaticNode;
 use std::io;
 use std::io::Write;
 
