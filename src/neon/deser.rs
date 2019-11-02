@@ -6,6 +6,7 @@ use crate::Result;
 use simd_lite::aarch64::*;
 
 impl<'de> Deserializer<'de> {
+    #[allow(clippy::if_not_else, mutable_transmutes)]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_str_<'invoke>(
         input: &'de [u8],
