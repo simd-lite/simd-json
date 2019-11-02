@@ -22,7 +22,7 @@ pub type Object<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 /// has the dame lifetime as the slice it was created from.
 pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
     let de = stry!(Deserializer::from_slice(s));
-    BorrowDeserializer::from_deserializer(de).parse()
+    Ok(BorrowDeserializer::from_deserializer(de).parse())
 }
 
 /// Borrowed JSON-DOM Value, consider using the `ValueTrait`
@@ -271,22 +271,22 @@ impl<'de> BorrowDeserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse(&mut self) -> Result<Value<'de>> {
+    pub fn parse(&mut self) -> Value<'de> {
         match self.de.next_() {
-            Tape::String(s) => Ok(Value::from(s)),
-            Tape::Null => Ok(Value::Null),
-            Tape::True => Ok(Value::Bool(true)),
-            Tape::False => Ok(Value::Bool(false)),
-            Tape::F64(n) => Ok(Value::F64(n)),
-            Tape::I64(n) => Ok(Value::I64(n)),
-            Tape::U64(n) => Ok(Value::U64(n)),
+            Tape::String(s) => Value::from(s),
+            Tape::Null => Value::Null,
+            Tape::True => Value::Bool(true),
+            Tape::False => Value::Bool(false),
+            Tape::F64(n) => Value::F64(n),
+            Tape::I64(n) => Value::I64(n),
+            Tape::U64(n) => Value::U64(n),
             Tape::Array(len) => self.parse_array(len),
             Tape::Object(len) => self.parse_map(len),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array(&mut self, len: usize) -> Result<Value<'de>> {
+    fn parse_array(&mut self, len: usize) -> Value<'de> {
         // Rust doens't optimize the normal loop away here
         // so we write our own avoiding the lenght
         // checks during push
@@ -294,36 +294,26 @@ impl<'de> BorrowDeserializer<'de> {
         unsafe {
             res.set_len(len);
             for i in 0..len {
-                // We have to handle errors manyally here
-                // this is because if we encouter an error we have to set
-                // the lenght of the array to the correct value so rust can
-                // free the right memory
-                match self.parse() {
-                    Ok(r) => std::ptr::write(res.get_unchecked_mut(i), r),
-                    Err(e) => {
-                        res.set_len(i);
-                        return Err(e);
-                    }
-                };
+                std::ptr::write(res.get_unchecked_mut(i), self.parse());
             }
         }
-        Ok(Value::Array(res))
+        Value::Array(res)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map(&mut self, len: usize) -> Result<Value<'de>> {
+    fn parse_map(&mut self, len: usize) -> Value<'de> {
         let mut res = Object::with_capacity(len);
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
         for _ in 0..len {
             if let Tape::String(key) = self.de.next_() {
-                res.insert_nocheck(key.into(), stry!(self.parse()));
+                res.insert_nocheck(key.into(), self.parse());
             } else {
                 unreachable!()
             }
         }
-        Ok(Value::from(res))
+        Value::from(res)
     }
 }
 
