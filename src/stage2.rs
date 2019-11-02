@@ -11,8 +11,6 @@ use crate::neon::stage1::SIMDJSON_PADDING;
 use crate::sse42::stage1::SIMDJSON_PADDING;
 use crate::value::tape::*;
 use crate::{Deserializer, Error, ErrorType, Result};
-use float_cmp::approx_eq;
-use std::fmt;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 #[allow(clippy::cast_ptr_alignment)]
@@ -89,37 +87,6 @@ enum StackState {
     Start,
     Object,
     Array,
-}
-
-#[cfg_attr(tarpaulin, skip)]
-impl<'v> fmt::Display for StaticNode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Null => write!(f, "null"),
-            Self::Bool(b) => write!(f, "{}", b),
-            Self::I64(n) => write!(f, "{}", n),
-            Self::U64(n) => write!(f, "{}", n),
-            Self::F64(n) => write!(f, "{}", n),
-        }
-    }
-}
-
-#[allow(clippy::cast_sign_loss, clippy::default_trait_access)]
-impl<'a> PartialEq for StaticNode {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Null, Self::Null) => true,
-            (Self::Bool(v1), Self::Bool(v2)) => v1.eq(v2),
-            (Self::I64(v1), Self::I64(v2)) => v1.eq(v2),
-            (Self::F64(v1), Self::F64(v2)) => approx_eq!(f64, *v1, *v2),
-            (Self::U64(v1), Self::U64(v2)) => v1.eq(v2),
-            // NOTE: We swap v1 and v2 here to avoid having to juggle ref's
-            (Self::U64(v1), Self::I64(v2)) if *v2 >= 0 => (*v2 as u64).eq(v1),
-            (Self::I64(v1), Self::U64(v2)) if *v1 >= 0 => (*v1 as u64).eq(v2),
-            _ => false,
-        }
-    }
 }
 
 impl<'de> Deserializer<'de> {
