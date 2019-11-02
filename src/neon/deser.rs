@@ -171,7 +171,7 @@ impl<'de> Deserializer<'de> {
                     dst_i += bs_dist as usize;
                     let (o, s) = if let Ok(r) =
                         handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, unsafe {
-                            dst.get_unchecked_mut(dst_i..)
+                            buffer.get_unchecked_mut(dst_i..)
                         }) {
                         r
                     } else {
