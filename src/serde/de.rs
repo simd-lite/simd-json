@@ -1,4 +1,4 @@
-use crate::stage2::Tape;
+use crate::stage2::{StaticTape, Tape};
 use crate::*;
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
@@ -19,12 +19,11 @@ where
     {
         match stry!(self.next()) {
             Tape::String(s) => visitor.visit_borrowed_str(s),
-            Tape::Null => visitor.visit_unit(),
-            Tape::True => visitor.visit_bool(true),
-            Tape::False => visitor.visit_bool(false),
-            Tape::F64(n) => visitor.visit_f64(n),
-            Tape::I64(n) => visitor.visit_i64(n),
-            Tape::U64(n) => visitor.visit_u64(n),
+            Tape::Static(StaticTape::Null) => visitor.visit_unit(),
+            Tape::Static(StaticTape::Bool(b)) => visitor.visit_bool(b),
+            Tape::Static(StaticTape::F64(n)) => visitor.visit_f64(n),
+            Tape::Static(StaticTape::I64(n)) => visitor.visit_i64(n),
+            Tape::Static(StaticTape::U64(n)) => visitor.visit_u64(n),
             Tape::Array(len) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
             Tape::Object(len) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
         }
@@ -50,8 +49,7 @@ where
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            Tape::True => visitor.visit_bool(true),
-            Tape::False => visitor.visit_bool(false),
+            Tape::Static(StaticTape::Bool(b)) => visitor.visit_bool(b),
             _c => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
@@ -192,7 +190,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if stry!(self.peek()) == Tape::Null {
+        if stry!(self.peek()) == Tape::Static(StaticTape::Null) {
             self.skip();
             visitor.visit_unit()
         } else {
@@ -206,7 +204,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != Tape::Null {
+        if stry!(self.next()) != Tape::Static(StaticTape::Null) {
             return Err(self.error(ErrorType::ExpectedNull));
         }
         visitor.visit_unit()

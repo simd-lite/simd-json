@@ -9,7 +9,7 @@
 mod de;
 mod value;
 pub use self::value::*;
-use crate::stage2::Tape;
+use crate::stage2::{StaticTape, Tape};
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use crate::{BorrowedValue, OwnedValue};
 use serde_ext::Deserialize;
@@ -100,8 +100,8 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_signed(&mut self) -> Result<i64> {
         match self.next_() {
-            Tape::I64(i) => Ok(i),
-            Tape::U64(n) => n
+            Tape::Static(StaticTape::I64(i)) => Ok(i),
+            Tape::Static(StaticTape::U64(n)) => n
                 .try_into()
                 .map_err(|_| self.error(ErrorType::ExpectedSigned)),
             _ => Err(self.error(ErrorType::ExpectedSigned)),
@@ -112,7 +112,7 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cast_sign_loss)]
     fn parse_unsigned(&mut self) -> Result<u64> {
         match self.next_() {
-            Tape::U64(n) => Ok(n),
+            Tape::Static(StaticTape::U64(n)) => Ok(n),
             _ => Err(self.error(ErrorType::ExpectedUnsigned)),
         }
     }
@@ -120,9 +120,9 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {
         match self.next_() {
-            Tape::F64(n) => Ok(n),
-            Tape::I64(n) => Ok(n as f64),
-            Tape::U64(n) => Ok(n as f64),
+            Tape::Static(StaticTape::F64(n)) => Ok(n),
+            Tape::Static(StaticTape::I64(n)) => Ok(n as f64),
+            Tape::Static(StaticTape::U64(n)) => Ok(n as f64),
             _ => Err(self.error(ErrorType::ExpectedFloat)),
         }
     }
@@ -195,7 +195,7 @@ impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
     fn try_from(item: serde_json::Value) -> ConvertResult<Self> {
         use serde_json::Value;
         match item {
-            Value::Null => Ok(BorrowedValue::Null),
+            Value::Null => Ok(BorrowedValue::from(())),
             Value::Bool(b) => Ok(BorrowedValue::from(b)),
             Value::Number(b) => {
                 if let Some(n) = b.as_i64() {
@@ -223,11 +223,11 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
     fn try_into(self) -> ConvertResult<serde_json::Value> {
         use serde_json::Value;
         Ok(match self {
-            BorrowedValue::Null => Value::Null,
-            BorrowedValue::Bool(b) => Value::Bool(b),
-            BorrowedValue::I64(n) => Value::Number(n.into()),
-            BorrowedValue::U64(n) => Value::Number(n.into()),
-            BorrowedValue::F64(n) => {
+            BorrowedValue::Static(StaticTape::Null) => Value::Null,
+            BorrowedValue::Static(StaticTape::Bool(b)) => Value::Bool(b),
+            BorrowedValue::Static(StaticTape::I64(n)) => Value::Number(n.into()),
+            BorrowedValue::Static(StaticTape::U64(n)) => Value::Number(n.into()),
+            BorrowedValue::Static(StaticTape::F64(n)) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)
                 } else {

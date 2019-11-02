@@ -4,7 +4,7 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::stage2::Tape;
+use crate::stage2::{StaticTape, Tape};
 use crate::value::{ValueTrait, ValueType};
 use crate::{Deserializer, Result};
 use halfbrown::HashMap;
@@ -236,13 +236,12 @@ impl<'de> OwnedDeserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Value {
         match self.de.next_() {
+            Tape::Static(StaticTape::Null) => Value::Null,
+            Tape::Static(StaticTape::Bool(b)) => Value::Bool(b),
+            Tape::Static(StaticTape::F64(n)) => Value::F64(n),
+            Tape::Static(StaticTape::I64(n)) => Value::I64(n),
+            Tape::Static(StaticTape::U64(n)) => Value::U64(n),
             Tape::String(s) => Value::from(s),
-            Tape::Null => Value::Null,
-            Tape::True => Value::Bool(true),
-            Tape::False => Value::Bool(false),
-            Tape::F64(n) => Value::F64(n),
-            Tape::I64(n) => Value::I64(n),
-            Tape::U64(n) => Value::U64(n),
             Tape::Array(len) => self.parse_array(len),
             Tape::Object(len) => self.parse_map(len),
         }

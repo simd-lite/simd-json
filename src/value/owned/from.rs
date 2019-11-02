@@ -1,5 +1,6 @@
 use super::{Object, Value};
 use crate::numberparse::Number;
+use crate::stage2::StaticTape;
 use crate::BorrowedValue;
 use std::borrow::Cow;
 use std::iter::FromIterator;
@@ -19,11 +20,11 @@ impl From<crate::BorrowedValue<'_>> for Value {
     #[inline]
     fn from(b: BorrowedValue<'_>) -> Self {
         match b {
-            BorrowedValue::Null => Self::Null,
-            BorrowedValue::Bool(b) => Self::Bool(b),
-            BorrowedValue::F64(f) => Self::F64(f),
-            BorrowedValue::I64(i) => Self::I64(i),
-            BorrowedValue::U64(i) => Self::U64(i),
+            BorrowedValue::Static(StaticTape::Null) => Self::Null,
+            BorrowedValue::Static(StaticTape::Bool(b)) => Self::Bool(b),
+            BorrowedValue::Static(StaticTape::F64(f)) => Self::F64(f),
+            BorrowedValue::Static(StaticTape::I64(i)) => Self::I64(i),
+            BorrowedValue::Static(StaticTape::U64(i)) => Self::U64(i),
             BorrowedValue::String(s) => Self::from(s.to_string()),
             BorrowedValue::Array(a) => a.into_iter().collect(),
             BorrowedValue::Object(m) => m.into_iter().collect(),

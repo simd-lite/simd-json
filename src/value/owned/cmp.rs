@@ -1,4 +1,5 @@
 use super::Value;
+use crate::stage2::StaticTape;
 use crate::{BorrowedValue, ValueTrait};
 
 use float_cmp::approx_eq;
@@ -8,14 +9,20 @@ impl PartialEq<BorrowedValue<'_>> for Value {
     #[inline]
     fn eq(&self, other: &BorrowedValue<'_>) -> bool {
         match (self, other) {
-            (Self::Null, BorrowedValue::Null) => true,
-            (Self::Bool(v1), BorrowedValue::Bool(v2)) => v1.eq(v2),
-            (Self::I64(v1), BorrowedValue::I64(v2)) => v1.eq(v2),
-            (Self::U64(v1), BorrowedValue::U64(v2)) => v1.eq(v2),
+            (Self::Null, BorrowedValue::Static(StaticTape::Null)) => true,
+            (Self::Bool(v1), BorrowedValue::Static(StaticTape::Bool(v2))) => v1.eq(v2),
+            (Self::I64(v1), BorrowedValue::Static(StaticTape::I64(v2))) => v1.eq(v2),
+            (Self::U64(v1), BorrowedValue::Static(StaticTape::U64(v2))) => v1.eq(v2),
             // NOTE: We swap v1 and v2 here to avoid having to juggle ref's
-            (Self::U64(v1), BorrowedValue::I64(v2)) if *v2 >= 0 => (*v2 as u64).eq(v1),
-            (Self::I64(v1), BorrowedValue::U64(v2)) if *v1 >= 0 => (*v1 as u64).eq(v2),
-            (Self::F64(v1), BorrowedValue::F64(v2)) => approx_eq!(f64, *v1, *v2),
+            (Self::U64(v1), BorrowedValue::Static(StaticTape::I64(v2))) if *v2 >= 0 => {
+                (*v2 as u64).eq(v1)
+            }
+            (Self::I64(v1), BorrowedValue::Static(StaticTape::U64(v2))) if *v1 >= 0 => {
+                (*v1 as u64).eq(v2)
+            }
+            (Self::F64(v1), BorrowedValue::Static(StaticTape::F64(v2))) => {
+                approx_eq!(f64, *v1, *v2)
+            }
             (Self::String(v1), BorrowedValue::String(v2)) => v1.eq(v2),
             (Self::Array(v1), BorrowedValue::Array(v2)) => v1.eq(v2),
             (Self::Object(v1), BorrowedValue::Object(v2)) => {

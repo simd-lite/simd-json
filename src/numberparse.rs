@@ -1,5 +1,5 @@
 use crate::charutils::*;
-use crate::stage2::Tape;
+use crate::stage2::StaticTape;
 use crate::unlikely;
 use crate::*;
 
@@ -178,7 +178,7 @@ impl<'de> Deserializer<'de> {
         clippy::cast_possible_wrap,
         clippy::cast_precision_loss
     )]
-    fn parse_float(idx: usize, p: &[u8], negative: bool) -> Result<Tape<'static>> {
+    fn parse_float(idx: usize, p: &[u8], negative: bool) -> Result<StaticTape> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: f64;
         let mut digit: u8;
@@ -312,7 +312,7 @@ impl<'de> Deserializer<'de> {
                 ErrorType::InvalidNumber,
             ))
         } else {
-            Ok(Tape::F64(if negative { -i } else { i }))
+            Ok(StaticTape::F64(if negative { -i } else { i }))
         }
     }
 
@@ -326,7 +326,7 @@ impl<'de> Deserializer<'de> {
     ///
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
-    fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<Tape<'static>> {
+    fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticTape> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: u64;
         let mut d = unsafe { *buf.get_unchecked(digitcount) };
@@ -381,9 +381,9 @@ impl<'de> Deserializer<'de> {
                 ErrorType::InvalidNumber,
             ))
         } else if negative {
-            Ok(Tape::I64(-(i as i64)))
+            Ok(StaticTape::I64(-(i as i64)))
         } else {
-            Ok(Tape::U64(i))
+            Ok(StaticTape::U64(i))
         }
     }
 
@@ -396,7 +396,7 @@ impl<'de> Deserializer<'de> {
         clippy::cast_precision_loss,
         clippy::cast_possible_wrap
     )]
-    pub fn parse_number_int(idx: usize, buf: &[u8], negative: bool) -> Result<Tape<'static>> {
+    pub fn parse_number_int(idx: usize, buf: &[u8], negative: bool) -> Result<StaticTape> {
         let mut byte_count = if negative { 1 } else { 0 };
         let mut ignore_count: u8 = 0;
         //let startdigits: *const u8 = p;
@@ -560,7 +560,7 @@ impl<'de> Deserializer<'de> {
             // We want 0.1e1 to be a float.
             //////////
             if i == 0 {
-                Tape::F64(0.0)
+                StaticTape::F64(0.0)
             } else {
                 if (exponent > 308) || (exponent < -323) {
                     //FIXME Parse it as a expensive float perhaps
@@ -569,7 +569,7 @@ impl<'de> Deserializer<'de> {
 
                 let mut d1: f64 = i as f64;
                 d1 *= POWER_OF_TEN[(323 + exponent) as usize];
-                Tape::F64(if negative { d1 * -1.0 } else { d1 })
+                StaticTape::F64(if negative { d1 * -1.0 } else { d1 })
             }
         } else {
             if unlikely!(byte_count >= 18) {
@@ -577,9 +577,9 @@ impl<'de> Deserializer<'de> {
                 return Self::parse_large_integer(idx, buf, negative);
             }
             if negative {
-                Tape::I64((i as i64).wrapping_neg())
+                StaticTape::I64((i as i64).wrapping_neg())
             } else {
-                Tape::U64(i)
+                StaticTape::U64(i)
             }
         };
         if is_structural_or_whitespace(d) == 0 {

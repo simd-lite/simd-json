@@ -1,20 +1,12 @@
 use super::Value;
 use crate::{OwnedValue, ValueTrait};
-use float_cmp::approx_eq;
 
 #[allow(clippy::cast_sign_loss, clippy::default_trait_access)]
 impl<'a> PartialEq for Value<'a> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Null, Self::Null) => true,
-            (Self::Bool(v1), Self::Bool(v2)) => v1.eq(v2),
-            (Self::I64(v1), Self::I64(v2)) => v1.eq(v2),
-            (Self::F64(v1), Self::F64(v2)) => approx_eq!(f64, *v1, *v2),
-            (Self::U64(v1), Self::U64(v2)) => v1.eq(v2),
-            // NOTE: We swap v1 and v2 here to avoid having to juggle ref's
-            (Self::U64(v1), Self::I64(v2)) if *v2 >= 0 => (*v2 as u64).eq(v1),
-            (Self::I64(v1), Self::U64(v2)) if *v1 >= 0 => (*v1 as u64).eq(v2),
+            (Self::Static(s1), Self::Static(s2)) => s1 == s2,
             (Self::String(v1), Self::String(v2)) => v1.eq(v2),
             (Self::Array(v1), Self::Array(v2)) => v1.eq(v2),
             (Self::Object(v1), Self::Object(v2)) => v1.eq(v2),
