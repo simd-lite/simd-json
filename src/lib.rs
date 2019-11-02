@@ -144,7 +144,6 @@ pub use crate::neon::deser::*;
 use crate::neon::stage1::SIMDJSON_PADDING;
 
 mod stage2;
-use stage2::Tape;
 /// simd-json JSON-DOM value
 pub mod value;
 
@@ -162,6 +161,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 mod known_key;
 #[cfg(feature = "known-key")]
 pub use known_key::{Error as KnownKeyError, KnownKey};
+
+pub use crate::stage2::{StaticTape, Tape};
+/// Parses the json to a tape
+pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Tape<'input>>> {
+    let de = stry!(Deserializer::from_slice(s));
+    Ok(de.tape)
+}
 
 pub(crate) struct Deserializer<'de> {
     // Note: we use the 2nd part as both index and lenght since only one is ever

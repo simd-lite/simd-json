@@ -91,19 +91,30 @@ enum StackState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum Tape<'input> {
+/// Tape node
+pub enum Tape<'input> {
+    /// string
     String(&'input str),
+    /// Object
     Object(usize),
+    /// array
     Array(usize),
+    /// static value
     Static(StaticTape),
 }
 
 #[derive(Debug, Clone, Copy)]
+/// Static tape value
 pub enum StaticTape {
+    /// i64
     I64(i64),
+    /// u64
     U64(u64),
+    /// f64
     F64(f64),
+    /// bool
     Bool(bool),
+    /// nnull
     Null,
 }
 
