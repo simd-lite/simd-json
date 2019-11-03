@@ -33,6 +33,40 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     error == 0
 }
 
+#[cfg(feature = "safe")]
+macro_rules! get {
+    ($a:expr, $i:expr) => {
+        &$a[$i]
+    };
+}
+
+#[cfg(not(feature = "safe"))]
+macro_rules! get {
+    ($a:expr, $i:expr) => {{
+        #[allow(unused_unsafe)]
+        unsafe {
+            $a.get_unchecked($i)
+        }
+    }};
+}
+
+#[cfg(feature = "safe")]
+macro_rules! get_mut {
+    ($a:expr, $i:expr) => {
+        &mut $a[$i]
+    };
+}
+
+#[cfg(not(feature = "safe"))]
+macro_rules! get_mut {
+    ($a:expr, $i:expr) => {{
+        #[allow(unused_unsafe)]
+        unsafe {
+            $a.get_unchecked_mut($i)
+        }
+    }};
+}
+
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 #[allow(clippy::cast_ptr_alignment)]
 pub fn is_valid_false_atom(loc: &[u8]) -> bool {
@@ -53,7 +87,7 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
         // will mask the error on the y so we re-write it
         // it would be interesting what the consequecnes are
         error = (locval & MASK5) ^ FV;
-        error |= u64::from(is_not_structural_or_whitespace(*loc.get_unchecked(5)));
+        error |= u64::from(is_not_structural_or_whitespace(*get!(loc, 5)));
     }
     error == 0
 }
@@ -71,7 +105,7 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
         error = (locval & MASK4) ^ NV;
-        error |= u64::from(is_not_structural_or_whitespace(*loc.get_unchecked(4)));
+        error |= u64::from(is_not_structural_or_whitespace(*get!(loc, 4)));
     }
     error == 0
 }
@@ -96,7 +130,12 @@ impl<'de> Deserializer<'de> {
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
         let mut res: Vec<Node<'de>> = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
-        let mut buffer: Vec<u8> = Vec::with_capacity(input.len() + SIMDJSON_PADDING);
+        let mut buffer: Vec<u8> = Vec::with_capacity(input.len() + SIMDJSON_PADDING * 2);
+        unsafe {
+            stack.set_len(structural_indexes.len());
+            res.set_len(structural_indexes.len());
+            buffer.set_len(input.len() + SIMDJSON_PADDING * 2);
+        }
 
         let mut depth: usize = 0;
         let mut last_start = 1;
@@ -109,6 +148,7 @@ impl<'de> Deserializer<'de> {
         // used to track the (structural) character we are looking at, updated
         // by UPDATE_CHAR macro
         let mut c: u8 = 0;
+        // skip the zero index
         let mut i: usize = 1;
         let mut state;
 
@@ -133,7 +173,7 @@ impl<'de> Deserializer<'de> {
         macro_rules! insert_res {
             ($t:expr) => {
                 unsafe {
-                    std::ptr::write(res.get_unchecked_mut(r_i), $t);
+                    std::ptr::write(get_mut!(res, r_i), $t);
                     r_i += 1;
                 }
             };
@@ -148,12 +188,10 @@ impl<'de> Deserializer<'de> {
         }
         macro_rules! update_char {
             () => {
-                if i <= structural_indexes.len() {
-                    unsafe {
-                        idx = *structural_indexes.get_unchecked(i) as usize;
-                        i += 1;
-                        c = *input.get_unchecked(idx);
-                    }
+                if i < structural_indexes.len() {
+                    idx = *get!(structural_indexes, i) as usize;
+                    i += 1;
+                    c = *get!(input, idx);
                 } else {
                     fail!(ErrorType::Syntax);
                 }
@@ -226,14 +264,14 @@ impl<'de> Deserializer<'de> {
         }
 
         macro_rules! array_begin {
-            () => {{
+            () => {
                 update_char!();
                 if c == b']' {
                     cnt = 0;
                     goto!(ScopeEnd);
                 }
                 goto!(MainArraySwitch);
-            }};
+            };
         }
 
         macro_rules! object_begin {
@@ -282,9 +320,8 @@ impl<'de> Deserializer<'de> {
         update_char!();
         match c {
             b'{' => {
-                unsafe {
-                    *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
-                }
+                *get_mut!(stack, depth) = (StackState::Start, last_start, cnt);
+
                 last_start = r_i;
                 insert_res!(Node::Object(0));
 
@@ -307,9 +344,7 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'[' => {
-                unsafe {
-                    *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
-                }
+                *get_mut!(stack, depth) = (StackState::Start, last_start, cnt);
 
                 last_start = r_i;
                 insert_res!(Node::Array(0));
@@ -330,7 +365,7 @@ impl<'de> Deserializer<'de> {
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_true_atom(copy.get_unchecked((idx as usize)..)) {
+                    if !is_valid_true_atom(get!(copy, idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
@@ -346,7 +381,7 @@ impl<'de> Deserializer<'de> {
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_false_atom(copy.get_unchecked((idx as usize)..)) {
+                    if !is_valid_false_atom(get!(copy, idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
@@ -362,7 +397,7 @@ impl<'de> Deserializer<'de> {
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_null_atom(copy.get_unchecked((idx as usize)..)) {
+                    if !is_valid_null_atom(get!(copy, idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
@@ -435,25 +470,21 @@ impl<'de> Deserializer<'de> {
                         }
                         b't' => {
                             insert_res!(Node::Static(StaticNode::Bool(true)));
-                            if !is_valid_true_atom(unsafe { input.get_unchecked((idx as usize)..) })
-                            {
+                            if !is_valid_true_atom(get!(input, idx..)) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'f' => {
                             insert_res!(Node::Static(StaticNode::Bool(false)));
-                            if !is_valid_false_atom(unsafe {
-                                input.get_unchecked((idx as usize)..)
-                            }) {
+                            if !is_valid_false_atom(get!(input, idx..)) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'n' => {
                             insert_res!(Node::Static(StaticNode::Null));
-                            if !is_valid_null_atom(unsafe { input.get_unchecked((idx as usize)..) })
-                            {
+                            if !is_valid_null_atom(get!(input, idx..)) {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             object_continue!();
@@ -461,7 +492,7 @@ impl<'de> Deserializer<'de> {
                         b'-' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
-                                &input[idx..],
+                                get!(input, idx..),
                                 true
                             ))));
                             object_continue!();
@@ -545,25 +576,21 @@ impl<'de> Deserializer<'de> {
                         }
                         b't' => {
                             insert_res!(Node::Static(StaticNode::Bool(true)));
-                            if !is_valid_true_atom(unsafe { input.get_unchecked((idx as usize)..) })
-                            {
+                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'f' => {
                             insert_res!(Node::Static(StaticNode::Bool(false)));
-                            if !is_valid_false_atom(unsafe {
-                                input.get_unchecked((idx as usize)..)
-                            }) {
+                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'n' => {
                             insert_res!(Node::Static(StaticNode::Null));
-                            if !is_valid_null_atom(unsafe { input.get_unchecked((idx as usize)..) })
-                            {
+                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             array_continue!();

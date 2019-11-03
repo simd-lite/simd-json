@@ -49,21 +49,28 @@ harness = false
 
 [features]
 default = ["swar-number-parsing", "serde_impl"]
-# Support for ARM NEON SIMD
-neon = ["simd-lite"]
+# used for enabeling known keys in favour of a slower
+# hasher that is not protected against hash collision
+# attacks
+known-key = [ "halfbrown/fxhash" ]
 # use 8 number at once parsing strategy
 swar-number-parsing = []
-# serde compatibility
+# serde compatibilitya
 serde_impl = [ "serde", "serde_json", "halfbrown/serde" ]
+# Support for ARM NEON SIMD
+neon = ["simd-lite"]
 # don't inline code - used for debugging
 no-inline = []
+# uses safe slice access ([]) instead of get_unsafe
+# **for debugging**
+safe = []
 # also bench serde in the benchmarks
 bench-serde = []
 # use branch hints - requires nightly :(
 hints = [] # requires nightly
 # for perf testing, used by the example
 perf = ["perfcnt", "getopts", "colored"]
-known-key = [ "halfbrown/fxhash" ]
+
 
 
 [[example]]
