@@ -592,6 +592,31 @@ mod test {
         let mut too_small = unsafe { too_small.as_bytes_mut() };
         let v_too_small = to_value(&mut too_small);
         assert!(v_too_small.is_err());
+        let mut too_big = String::from("1e1000");
+        let mut too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(&mut too_big);
+        assert!(v_too_big.is_err());
+        let mut too_small = String::from("1e-1000");
+        let mut too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(&mut too_small);
+        assert!(v_too_small.is_err());
+
+        let mut too_big = String::from("100000000000000000000000000000000000000000000e309");
+        let mut too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(&mut too_big);
+        assert!(v_too_big.is_err());
+        let mut too_small = String::from("100000000000000000000000000000000000000000000e-324");
+        let mut too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(&mut too_small);
+        assert!(v_too_small.is_err());
+        let mut too_big = String::from("100000000000000000000000000000000000000000000e1000");
+        let mut too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(&mut too_big);
+        assert!(v_too_big.is_err());
+        let mut too_small = String::from("100000000000000000000000000000000000000000000e-1000");
+        let mut too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(&mut too_small);
+        assert!(v_too_small.is_err());
     }
 
     #[test]
@@ -601,6 +626,34 @@ mod test {
         let r = to_value(&mut i);
         assert!(r.is_err());
         let mut i = String::from("1.e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("100000000000000000000000000000000000000000000.");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("100000000000000000000000000000000000000000000.e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn bad_e() {
+        let mut i = String::from("1.0e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("1.0e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("100000000000000000000000000000000000000000000.0e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("100000000000000000000000000000000000000000000.0ee");
         let mut i = unsafe { i.as_bytes_mut() };
         let r = to_value(&mut i);
         assert!(r.is_err());
