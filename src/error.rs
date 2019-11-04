@@ -84,8 +84,6 @@ pub enum ErrorType {
 /// Parser error
 #[derive(Debug, PartialEq)]
 pub struct Error {
-    /// Strucutral the error was encountered at
-    structural: usize,
     /// Byte index it was encountered at
     index: usize,
     /// Current character
@@ -95,9 +93,8 @@ pub struct Error {
 }
 
 impl Error {
-    pub(crate) fn new(structural: usize, index: usize, character: char, error: ErrorType) -> Self {
+    pub(crate) fn new(index: usize, character: char, error: ErrorType) -> Self {
         Self {
-            structural,
             index,
             character,
             error,
@@ -105,7 +102,6 @@ impl Error {
     }
     pub(crate) fn generic(t: ErrorType) -> Self {
         Self {
-            structural: 0,
             index: 0,
             character: '💩', //this is the poop emoji
             error: t,

@@ -147,7 +147,6 @@ mod stage2;
 /// simd-json JSON-DOM value
 pub mod value;
 
-use crate::numberparse::Number;
 #[cfg(not(target_feature = "neon"))]
 use std::mem;
 use std::str;
@@ -163,23 +162,28 @@ mod known_key;
 #[cfg(feature = "known-key")]
 pub use known_key::{Error as KnownKeyError, KnownKey};
 
+pub use crate::tape::{Node, StaticNode, Tape};
+
+/// Creates a tape from the input for later consumption
+pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Node<'input>>> {
+    let de = stry!(Deserializer::from_slice(s));
+    Ok(de.tape)
+}
 pub(crate) struct Deserializer<'de> {
-    // This string starts with the input data and characters are truncated off
-    // the beginning as data is parsed.
-    input: &'de mut [u8],
-    //data: Vec<u8>,
-    strings: Vec<u8>,
-    structural_indexes: Vec<u32>,
+    // Note: we use the 2nd part as both index and lenght since only one is ever
+    // used (array / object use len) everything else uses idx
+    pub(crate) tape: Vec<Node<'de>>,
     idx: usize,
-    counts: Vec<usize>,
-    str_offset: usize,
-    iidx: usize,
 }
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(&self, error: ErrorType) -> Error {
-        Error::new(self.idx, self.iidx, self.c() as char, error)
+        Deserializer::raw_error(0, '?', error)
+    }
+
+    fn raw_error(idx: usize, c: char, error: ErrorType) -> Error {
+        Error::new(idx, c, error)
     }
     // By convention, `Deserializer` constructors are named like `from_xyz`.
     // That way basic use cases are satisfied by something like
@@ -216,87 +220,24 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let counts = Deserializer::validate(input, &structural_indexes)?;
+        let tape = Deserializer::build_tape(input, &structural_indexes)?;
 
-        // Set length to allow slice access in ARM code
-        let mut strings = Vec::with_capacity(len + SIMDJSON_PADDING);
-        unsafe {
-            strings.set_len(len + SIMDJSON_PADDING);
-        }
-
-        Ok(Deserializer {
-            counts,
-            structural_indexes,
-            input,
-            idx: 0,
-            strings,
-            str_offset: 0,
-            iidx: 0,
-        })
+        Ok(Deserializer { tape, idx: 0 })
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn skip(&mut self) {
         self.idx += 1;
-        self.iidx = unsafe { *self.structural_indexes.get_unchecked(self.idx) as usize };
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn c(&self) -> u8 {
-        unsafe {
-            *self
-                .input
-                .get_unchecked(*self.structural_indexes.get_unchecked(self.idx) as usize)
-        }
     }
 
     // pull out the check so we don't need to
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next_(&mut self) -> u8 {
+    fn next_(&mut self) -> Node<'de> {
         unsafe {
             self.idx += 1;
-            self.iidx = *self.structural_indexes.get_unchecked(self.idx) as usize;
-            *self.input.get_unchecked(self.iidx)
+            *self.tape.get_unchecked(self.idx)
         }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn count_elements(&self) -> usize {
-        unsafe { *self.counts.get_unchecked(self.idx) }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        let len = input.len();
-        let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
-        copy[len] = 0;
-        unsafe {
-            copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-        };
-        self.parse_number_int(&copy, minus)
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        let len = input.len();
-        if len < SIMDJSON_PADDING {
-            let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
-            unsafe {
-                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-            };
-            self.parse_number_int(&copy, minus)
-        } else {
-            self.parse_number_int(input, minus)
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        self.parse_number_int(input, minus)
     }
 }
 
@@ -308,6 +249,7 @@ mod tests {
         owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
         Deserializer,
     };
+    use crate::tape::*;
     use halfbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
@@ -318,7 +260,7 @@ mod tests {
         let mut d = String::from("[]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 0);
+        assert_eq!(simd.tape[1], Node::Array(0));
     }
 
     #[test]
@@ -326,7 +268,7 @@ mod tests {
         let mut d = String::from("[1]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 1);
+        assert_eq!(simd.tape[1], Node::Array(1));
     }
 
     #[test]
@@ -334,7 +276,7 @@ mod tests {
         let mut d = String::from("[1,2]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 2);
+        assert_eq!(simd.tape[1], Node::Array(2));
     }
 
     #[test]
@@ -342,8 +284,8 @@ mod tests {
         let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 3);
-        assert_eq!(simd.counts[4], 1);
+        assert_eq!(simd.tape[1], Node::Array(3));
+        assert_eq!(simd.tape[3], Node::Array(1));
     }
 
     #[test]
@@ -351,8 +293,8 @@ mod tests {
         let mut d = String::from("[[],null,null]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 3);
-        assert_eq!(simd.counts[2], 0);
+        assert_eq!(simd.tape[1], Node::Array(3));
+        assert_eq!(simd.tape[2], Node::Array(0));
     }
 
     #[test]
@@ -400,7 +342,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Null));
+        assert_eq!(to_value(&mut d1), Ok(Value::Static(StaticNode::Null)));
     }
 
     #[test]
@@ -583,8 +525,8 @@ mod tests {
             to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::Array(vec![]),
-                Value::Null,
-                Value::Null,
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
             ]))
         );
         assert_eq!(v_simd, v_serde);
@@ -703,7 +645,10 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![Value::from(Object::new()), Value::Null]))
+            Ok(Value::Array(vec![
+                Value::from(Object::new()),
+                Value::Static(StaticNode::Null)
+            ]))
         );
     }
 
@@ -722,7 +667,7 @@ mod tests {
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
-        assert_eq!(to_value(&mut d1), Ok(Value::Null));
+        assert_eq!(to_value(&mut d1), Ok(Value::Static(StaticNode::Null)));
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
@@ -735,7 +680,10 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![Value::Null, Value::Null,]))
+            Ok(Value::Array(vec![
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
+            ]))
         );
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
@@ -751,8 +699,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![
-                Value::Null,
-                Value::Null,
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
             ])]))
         );
 
@@ -773,8 +721,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![Value::Array(vec![
-                Value::Null,
-                Value::Null,
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
             ])])]))
         );
     }
@@ -837,7 +785,7 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
-        assert_eq!(to_value(&mut d1), Ok(Value::from(h)));
+        assert_eq!(dbg!(to_value(&mut d1)), Ok(Value::from(h)));
     }
 
     #[test]
@@ -930,7 +878,7 @@ mod tests {
     }
 
     #[test]
-    fn obj() {
+    fn obj1() {
         let mut d = String::from(r#"{"a": 1, "b":1}"#);
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Obj = serde_json::from_slice(d).expect("serde_json");
@@ -1111,8 +1059,10 @@ mod tests {
     //6.576692109929364e305
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
-            Just(Value::Null),
-            any::<bool>().prop_map(Value::Bool),
+            Just(Value::Static(StaticNode::Null)),
+            any::<bool>()
+                .prop_map(StaticNode::Bool)
+                .prop_map(Value::Static),
             // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // The float parsing of simd and serde are too different
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),
@@ -1135,8 +1085,10 @@ mod tests {
 
     fn arb_json_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
-            Just(Value::Null),
-            any::<bool>().prop_map(Value::Bool),
+            Just(Value::Static(StaticNode::Null)),
+            any::<bool>()
+                .prop_map(StaticNode::Bool)
+                .prop_map(Value::Static),
             //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),

@@ -55,6 +55,8 @@ pub mod borrowed;
 pub(crate) mod generator;
 /// Owned, lifetimeless version of the value for times when lifetimes are to be avoided
 pub mod owned;
+/// Tape implementation
+pub mod tape;
 pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
 pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
 use halfbrown::HashMap;

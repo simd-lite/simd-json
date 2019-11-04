@@ -1,29 +1,14 @@
 use super::{Object, Value};
-use crate::numberparse::Number;
 use crate::OwnedValue;
+use crate::StaticNode;
 use std::borrow::Cow;
 use std::iter::FromIterator;
-
-impl<'a> From<Number> for Value<'a> {
-    #[inline]
-    fn from(n: Number) -> Self {
-        match n {
-            Number::F64(n) => Value::F64(n),
-            Number::I64(n) => Value::I64(n),
-            Number::U64(n) => Value::U64(n),
-        }
-    }
-}
 
 impl<'a> From<OwnedValue> for Value<'a> {
     #[inline]
     fn from(b: OwnedValue) -> Self {
         match b {
-            OwnedValue::Null => Value::Null,
-            OwnedValue::Bool(b) => Value::Bool(b),
-            OwnedValue::F64(f) => Value::F64(f),
-            OwnedValue::I64(i) => Value::I64(i),
-            OwnedValue::U64(i) => Value::U64(i),
+            OwnedValue::Static(s) => Value::Static(s),
             OwnedValue::String(s) => Value::from(s.to_string()),
             OwnedValue::Array(a) => a.into_iter().collect(),
             OwnedValue::Object(m) => m.into_iter().collect(),
@@ -57,13 +42,13 @@ impl<'v> From<String> for Value<'v> {
 impl<'v> From<bool> for Value<'v> {
     #[inline]
     fn from(b: bool) -> Self {
-        Value::Bool(b)
+        Value::Static(StaticNode::Bool(b))
     }
 }
 impl<'v> From<()> for Value<'v> {
     #[inline]
     fn from(_b: ()) -> Self {
-        Value::Null
+        Value::Static(StaticNode::Null)
     }
 }
 
@@ -71,28 +56,28 @@ impl<'v> From<()> for Value<'v> {
 impl<'v> From<i8> for Value<'v> {
     #[inline]
     fn from(i: i8) -> Self {
-        Value::I64(i64::from(i))
+        Value::Static(StaticNode::I64(i64::from(i)))
     }
 }
 
 impl<'v> From<i16> for Value<'v> {
     #[inline]
     fn from(i: i16) -> Self {
-        Value::I64(i64::from(i))
+        Value::Static(StaticNode::I64(i64::from(i)))
     }
 }
 
 impl<'v> From<i32> for Value<'v> {
     #[inline]
     fn from(i: i32) -> Self {
-        Value::I64(i64::from(i))
+        Value::Static(StaticNode::I64(i64::from(i)))
     }
 }
 
 impl<'v> From<i64> for Value<'v> {
     #[inline]
     fn from(i: i64) -> Self {
-        Value::I64(i)
+        Value::Static(StaticNode::I64(i))
     }
 }
 
@@ -100,35 +85,35 @@ impl<'v> From<i64> for Value<'v> {
 impl<'v> From<u8> for Value<'v> {
     #[inline]
     fn from(i: u8) -> Self {
-        Self::U64(u64::from(i))
+        Self::Static(StaticNode::U64(u64::from(i)))
     }
 }
 
 impl<'v> From<u16> for Value<'v> {
     #[inline]
     fn from(i: u16) -> Self {
-        Self::U64(u64::from(i))
+        Self::Static(StaticNode::U64(u64::from(i)))
     }
 }
 
 impl<'v> From<u32> for Value<'v> {
     #[inline]
     fn from(i: u32) -> Self {
-        Self::U64(u64::from(i))
+        Self::Static(StaticNode::U64(u64::from(i)))
     }
 }
 
 impl<'v> From<u64> for Value<'v> {
     #[inline]
     fn from(i: u64) -> Self {
-        Value::U64(i)
+        Value::Static(StaticNode::U64(i))
     }
 }
 
 impl<'v> From<usize> for Value<'v> {
     #[inline]
     fn from(i: usize) -> Self {
-        Self::U64(i as u64)
+        Self::Static(StaticNode::U64(i as u64))
     }
 }
 
@@ -136,14 +121,14 @@ impl<'v> From<usize> for Value<'v> {
 impl<'v> From<f32> for Value<'v> {
     #[inline]
     fn from(f: f32) -> Self {
-        Value::F64(f64::from(f))
+        Value::Static(StaticNode::F64(f64::from(f)))
     }
 }
 
 impl<'v> From<f64> for Value<'v> {
     #[inline]
     fn from(f: f64) -> Self {
-        Value::F64(f)
+        Value::Static(StaticNode::F64(f))
     }
 }
 
