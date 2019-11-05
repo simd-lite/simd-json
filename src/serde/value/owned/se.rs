@@ -1,6 +1,6 @@
 use super::to_value;
 use crate::value::owned::{Object, Value};
-use crate::{stry, Error, ErrorType, Result, StaticNode};
+use crate::{stry, Error, ErrorType, Result};
 use serde::ser::{self, Serialize};
 use serde_ext::ser::{SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait};
 
@@ -12,11 +12,11 @@ impl Serialize for Value {
         S: ser::Serializer,
     {
         match self {
-            Self::Static(StaticNode::Bool(b)) => serializer.serialize_bool(*b),
-            Self::Static(StaticNode::Null) => serializer.serialize_unit(),
-            Self::Static(StaticNode::F64(f)) => serializer.serialize_f64(*f),
-            Self::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
-            Self::Static(StaticNode::U64(i)) => serializer.serialize_u64(*i),
+            Self::Bool(b) => serializer.serialize_bool(*b),
+            Self::Null => serializer.serialize_unit(),
+            Self::F64(n) => serializer.serialize_f64(*n),
+            Self::I64(n) => serializer.serialize_i64(*n),
+            Self::U64(n) => serializer.serialize_u64(*n),
             Self::String(s) => serializer.serialize_str(&s),
             Self::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
@@ -57,7 +57,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_bool(self, value: bool) -> Result<Value> {
-        Ok(Value::Static(StaticNode::Bool(value)))
+        Ok(Value::Bool(value))
     }
 
     #[inline]
@@ -76,7 +76,7 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_i64(self, value: i64) -> Result<Value> {
-        Ok(Value::Static(StaticNode::I64(value)))
+        Ok(Value::I64(value))
     }
 
     #[cfg(feature = "arbitrary_precision")]
@@ -103,8 +103,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_u64(self, value: u64) -> Result<Value> {
-        #[allow(clippy::cast_possible_wrap)]
-        Ok(Value::Static(StaticNode::I64(value as i64)))
+        Ok(Value::U64(value))
     }
 
     #[cfg(feature = "arbitrary_precision")]
@@ -121,7 +120,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_f64(self, value: f64) -> Result<Value> {
-        Ok(Value::Static(StaticNode::F64(value)))
+        Ok(Value::F64(value))
     }
 
     #[inline]
@@ -142,7 +141,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_unit(self) -> Result<Value> {
-        Ok(Value::Static(StaticNode::Null))
+        Ok(Value::Null)
     }
 
     #[inline]

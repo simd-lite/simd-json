@@ -1,6 +1,7 @@
 use crate::*;
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
+use std::slice;
 
 impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de>
 where
@@ -17,12 +18,16 @@ where
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            Node::String(s) => visitor.visit_borrowed_str(s),
-            Node::Static(StaticNode::Null) => visitor.visit_unit(),
-            Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
-            Node::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
-            Node::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
-            Node::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            Node::String(len, p, _) => unsafe {
+                visitor.visit_borrowed_str(str::from_utf8_unchecked(
+                    slice::from_raw_parts::<'de, u8>(p, len as usize),
+                ))
+            },
+            Node::Null => visitor.visit_unit(),
+            Node::Bool(b) => visitor.visit_bool(b),
+            Node::F64(n) => visitor.visit_f64(n),
+            Node::I64(n) => visitor.visit_i64(n),
+            Node::U64(n) => visitor.visit_u64(n),
             Node::Array(len) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
             Node::Object(len) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
         }
@@ -48,7 +53,7 @@ where
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
+            Node::Bool(b) => visitor.visit_bool(b),
             _c => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
@@ -60,8 +65,12 @@ where
     where
         V: Visitor<'de>,
     {
-        if let Ok(Node::String(s)) = self.next() {
-            visitor.visit_borrowed_str(s)
+        if let Ok(Node::String(len, p, _)) = self.next() {
+            unsafe {
+                visitor.visit_borrowed_str(str::from_utf8_unchecked(
+                    slice::from_raw_parts::<'de, u8>(p, len as usize),
+                ))
+            }
         } else {
             Err(self.error(ErrorType::ExpectedString))
         }
@@ -72,8 +81,13 @@ where
     where
         V: Visitor<'de>,
     {
-        if let Ok(Node::String(s)) = self.next() {
-            visitor.visit_str(s)
+        if let Ok(Node::String(len, p, _)) = self.next() {
+            unsafe {
+                visitor.visit_str(str::from_utf8_unchecked(slice::from_raw_parts::<'de, u8>(
+                    p,
+                    len as usize,
+                )))
+            }
         } else {
             Err(self.error(ErrorType::ExpectedString))
         }
@@ -189,7 +203,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if stry!(self.peek()) == Node::Static(StaticNode::Null) {
+        if stry!(self.peek()) == Node::Null {
             self.skip();
             visitor.visit_unit()
         } else {
@@ -203,7 +217,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != Node::Static(StaticNode::Null) {
+        if stry!(self.next()) != Node::Null {
             return Err(self.error(ErrorType::ExpectedNull));
         }
         visitor.visit_unit()

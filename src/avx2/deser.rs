@@ -18,7 +18,7 @@ impl<'de> Deserializer<'de> {
         input: &'de [u8],
         buffer: &'invoke mut [u8],
         mut idx: usize,
-    ) -> Result<&'de str> {
+    ) -> Result<u32> {
         use ErrorType::*;
         let input: &mut [u8] = unsafe { std::mem::transmute(input) };
         // Add 1 to skip the initial "
@@ -77,10 +77,7 @@ impl<'de> Deserializer<'de> {
                 // we advance the point, accounting for the fact that we have a NULl termination
 
                 len += quote_dist as usize;
-                unsafe {
-                    let v = input.get_unchecked(idx..idx + len) as *const [u8] as *const str;
-                    return Ok(&*v);
-                }
+                return Ok(len as u32);
 
                 // we compare the pointers since we care if they are 'at the same spot'
                 // not if they are the same value
@@ -154,9 +151,7 @@ impl<'de> Deserializer<'de> {
                     input
                         .get_unchecked_mut(idx + len..idx + len + dst_i)
                         .clone_from_slice(&buffer.get_unchecked(..dst_i));
-                    let v =
-                        input.get_unchecked(idx..idx + len + dst_i) as *const [u8] as *const str;
-                    return Ok(&*v);
+                    return Ok((len + dst_i) as u32);
                 }
 
                 // we compare the pointers since we care if they are 'at the same spot'

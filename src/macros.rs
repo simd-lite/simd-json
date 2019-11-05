@@ -264,15 +264,15 @@ macro_rules! json_internal {
     //////////////////////////////////////////////////////////////////////////
 
     (null) => {
-        $crate::value::owned::Value::Static($crate::StaticNode::Null)
+        $crate::value::owned::Value::Null
     };
 
     (true) => {
-        $crate::value::owned::Value::Static($crate::StaticNode::Bool(true))
+        $crate::value::owned::Value::Bool(true)
     };
 
     (false) => {
-        $crate::value::owned::Value::Static($crate::StaticNode::Bool(false))
+        $crate::value::owned::Value::Bool(false)
     };
 
     ([]) => {

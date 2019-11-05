@@ -162,7 +162,7 @@ mod known_key;
 #[cfg(feature = "known-key")]
 pub use known_key::{Error as KnownKeyError, KnownKey};
 
-pub use crate::tape::{Node, StaticNode, Tape};
+pub use crate::tape::{Node, Tape};
 
 /// Creates a tape from the input for later consumption
 pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Node<'input>>> {
@@ -342,7 +342,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Static(StaticNode::Null)));
+        assert_eq!(to_value(&mut d1), Ok(Value::Null));
     }
 
     #[test]
@@ -525,8 +525,8 @@ mod tests {
             to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::Array(vec![]),
-                Value::Static(StaticNode::Null),
-                Value::Static(StaticNode::Null),
+                Value::Null,
+                Value::Null,
             ]))
         );
         assert_eq!(v_simd, v_serde);
@@ -645,10 +645,7 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![
-                Value::from(Object::new()),
-                Value::Static(StaticNode::Null)
-            ]))
+            Ok(Value::Array(vec![Value::from(Object::new()), Value::Null]))
         );
     }
 
@@ -667,7 +664,7 @@ mod tests {
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
-        assert_eq!(to_value(&mut d1), Ok(Value::Static(StaticNode::Null)));
+        assert_eq!(to_value(&mut d1), Ok(Value::Null));
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
@@ -680,10 +677,7 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![
-                Value::Static(StaticNode::Null),
-                Value::Static(StaticNode::Null),
-            ]))
+            Ok(Value::Array(vec![Value::Null, Value::Null,]))
         );
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
@@ -699,8 +693,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![
-                Value::Static(StaticNode::Null),
-                Value::Static(StaticNode::Null),
+                Value::Null,
+                Value::Null,
             ])]))
         );
 
@@ -721,8 +715,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![Value::Array(vec![
-                Value::Static(StaticNode::Null),
-                Value::Static(StaticNode::Null),
+                Value::Null,
+                Value::Null,
             ])])]))
         );
     }
@@ -1059,10 +1053,8 @@ mod tests {
     //6.576692109929364e305
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
-            Just(Value::Static(StaticNode::Null)),
-            any::<bool>()
-                .prop_map(StaticNode::Bool)
-                .prop_map(Value::Static),
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
             // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // The float parsing of simd and serde are too different
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),
@@ -1085,10 +1077,8 @@ mod tests {
 
     fn arb_json_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
-            Just(Value::Static(StaticNode::Null)),
-            any::<bool>()
-                .prop_map(StaticNode::Bool)
-                .prop_map(Value::Static),
+            Just(Value::Null),
+            any::<bool>().prop_map(Value::Bool),
             //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),

@@ -1,5 +1,4 @@
 use crate::value::borrowed::Value;
-use crate::StaticNode;
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
 };
@@ -11,11 +10,11 @@ impl<'a> Serialize for Value<'a> {
         S: ser::Serializer,
     {
         match self {
-            Value::Static(StaticNode::Null) => serializer.serialize_unit(),
-            Value::Static(StaticNode::Bool(b)) => serializer.serialize_bool(*b),
-            Value::Static(StaticNode::F64(f)) => serializer.serialize_f64(*f),
-            Value::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
-            Value::Static(StaticNode::U64(i)) => serializer.serialize_u64(*i),
+            Value::Null => serializer.serialize_unit(),
+            Value::Bool(b) => serializer.serialize_bool(*b),
+            Value::F64(n) => serializer.serialize_f64(*n),
+            Value::I64(n) => serializer.serialize_i64(*n),
+            Value::U64(n) => serializer.serialize_u64(*n),
             Value::String(Cow::Borrowed(s)) => serializer.serialize_str(s),
             Value::String(Cow::Owned(s)) => serializer.serialize_str(&s),
             Value::Array(v) => {
