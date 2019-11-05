@@ -9,7 +9,7 @@
 [Code Coverage]: https://codecov.io/gh/simd-lite/simdjson-rs/badge.svg
 [codecov.io]: https://codecov.io/gh/simd-lite/simdjson-rs
 
-**Rust port of extremely fast [simdjson](https://github.com/lemire/simdjson) JSON parser with [serde](serde.rs) compatibility.**
+**Rust port of extremely fast [simdjson](https://github.com/lemire/simdjson) JSON parser with [serde][1] compatibility.**
 
 ---
 
@@ -66,4 +66,6 @@ at your option.
 
 However it ports a lot of code from [simdjson](https://github.com/lemire/simdjson) so their work and copyright on that should be respected along side.
 
-The [serde](serde.rs) integration is based on their example and serde-json so again, their copyright should as well be respected.
+The [serde][1] integration is based on their example and serde-json so again, their copyright should as well be respected.
+
+[1]: https://serde.rs
