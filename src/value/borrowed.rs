@@ -27,7 +27,7 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
 }
 
 /// Borrowed JSON-DOM Value, consider using the `ValueTrait`
-/// to access it's content
+/// to access its content
 #[derive(Debug, Clone)]
 pub enum Value<'v> {
     /// Static values
@@ -96,11 +96,7 @@ impl<'v> ValueTrait for Value<'v> {
     #[inline]
     fn value_type(&self) -> ValueType {
         match self {
-            Self::Static(StaticNode::Null) => ValueType::Null,
-            Self::Static(StaticNode::Bool(_)) => ValueType::Bool,
-            Self::Static(StaticNode::F64(_)) => ValueType::F64,
-            Self::Static(StaticNode::I64(_)) => ValueType::I64,
-            Self::Static(StaticNode::U64(_)) => ValueType::U64,
+            Self::Static(s) => s.value_type(),
             Self::String(_) => ValueType::String,
             Self::Array(_) => ValueType::Array,
             Self::Object(_) => ValueType::Object,
