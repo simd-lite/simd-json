@@ -323,7 +323,7 @@ impl<'de> Deserializer<'de> {
                 *get_mut!(stack, depth) = (StackState::Start, last_start, cnt);
 
                 last_start = r_i;
-                insert_res!(Node::Object(0));
+                insert_res!(Node::Object(0, 0));
 
                 depth += 1;
                 cnt = 1;
@@ -347,7 +347,7 @@ impl<'de> Deserializer<'de> {
                 *get_mut!(stack, depth) = (StackState::Start, last_start, cnt);
 
                 last_start = r_i;
-                insert_res!(Node::Array(0));
+                insert_res!(Node::Array(0, 0));
 
                 depth += 1;
                 cnt = 1;
@@ -511,7 +511,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Object, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(Node::Object(0));
+                            insert_res!(Node::Object(0, 0));
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -522,7 +522,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Object, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(Node::Array(0));
+                            insert_res!(Node::Array(0, 0));
                             depth += 1;
                             cnt = 1;
                             array_begin!();
@@ -540,7 +540,11 @@ impl<'de> Deserializer<'de> {
                     depth -= 1;
                     unsafe {
                         match res.get_unchecked_mut(last_start) {
-                            Node::Array(ref mut len) | Node::Object(ref mut len) => *len = cnt,
+                            Node::Array(ref mut len, ref mut end)
+                            | Node::Object(ref mut len, ref mut end) => {
+                                *len = cnt;
+                                *end = r_i;
+                            }
                             _ => unreachable!(),
                         };
                     }
@@ -617,7 +621,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Array, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(Node::Object(0));
+                            insert_res!(Node::Object(0, 0));
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -628,7 +632,7 @@ impl<'de> Deserializer<'de> {
                                     (StackState::Array, last_start, cnt);
                             }
                             last_start = r_i;
-                            insert_res!(Node::Array(0));
+                            insert_res!(Node::Array(0, 0));
                             depth += 1;
                             cnt = 1;
                             array_begin!();

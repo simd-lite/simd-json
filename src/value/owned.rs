@@ -220,8 +220,8 @@ impl<'de> OwnedDeserializer<'de> {
         match self.de.next_() {
             Node::Static(s) => Value::Static(s),
             Node::String(s) => Value::from(s),
-            Node::Array(len) => self.parse_array(len),
-            Node::Object(len) => self.parse_map(len),
+            Node::Array(len, _) => self.parse_array(len),
+            Node::Object(len, _) => self.parse_map(len),
         }
     }
 
