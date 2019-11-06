@@ -55,7 +55,7 @@ default = ["swar-number-parsing", "serde_impl"]
 known-key = [ "halfbrown/fxhash" ]
 # use 8 number at once parsing strategy
 swar-number-parsing = []
-# serde compatibilitya
+# serde compatibility
 serde_impl = [ "serde", "serde_json", "halfbrown/serde" ]
 # Support for ARM NEON SIMD
 neon = ["simd-lite"]
