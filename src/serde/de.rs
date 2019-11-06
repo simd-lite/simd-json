@@ -23,8 +23,8 @@ where
             Node::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
             Node::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
             Node::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
-            Node::Array(len) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
-            Node::Object(len) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
+            Node::Array(len, _) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
+            Node::Object(len, _) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
         }
     }
 
@@ -218,7 +218,7 @@ where
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if let Ok(Node::Array(len)) = self.next() {
+        if let Ok(Node::Array(len, _)) = self.next() {
             // Give the visitor access to each element of the sequence.
             visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
         } else {
@@ -281,7 +281,7 @@ where
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if let Ok(Node::Object(len)) = self.next() {
+        if let Ok(Node::Object(len, _)) = self.next() {
             // Give the visitor access to each element of the sequence.
             visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
         } else {

@@ -14,11 +14,11 @@ pub enum Node<'input> {
     /// An `Object` with the given `size` starts here.
     /// the following values are keys and values, alternating
     /// however values can be nested and have a length thsemlfs.
-    Object(usize),
+    Object(usize, usize),
     /// An array with a given size starts here. The next `size`
     /// elements belong to it - values can be nested and have a
     /// `size` of their own.
-    Array(usize),
+    Array(usize, usize),
     /// A static value that is interned into the tape, it can
     /// be directly taken and isn't nested.
     Static(StaticNode),
