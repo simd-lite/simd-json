@@ -12,28 +12,24 @@ pub const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 
 #[derive(Debug)]
 struct SimdInput {
-    lo: __m256i,
-    hi: __m256i,
+    v0: __m256i,
+    v1: __m256i,
 }
 
 fn fill_input(ptr: &[u8]) -> SimdInput {
     unsafe {
         #[allow(clippy::cast_ptr_alignment)]
         SimdInput {
-            lo: _mm256_loadu_si256(ptr.as_ptr() as *const __m256i),
-            hi: _mm256_loadu_si256(ptr.as_ptr().add(32) as *const __m256i),
+            v0: _mm256_loadu_si256(ptr.as_ptr() as *const __m256i),
+            v1: _mm256_loadu_si256(ptr.as_ptr().add(32) as *const __m256i),
         }
     }
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-unsafe fn check_utf8(
-    input: &SimdInput,
-    has_error: &mut __m256i,
-    previous: &mut AvxProcessedUtfBytes,
-) {
+unsafe fn check_utf8(input: &SimdInput, has_error: &mut __m256i, previous: &mut ProcessedUtfBytes) {
     let highbit: __m256i = _mm256_set1_epi8(static_cast_i8!(0x80_u8));
-    if (_mm256_testz_si256(_mm256_or_si256(input.lo, input.hi), highbit)) == 1 {
+    if (_mm256_testz_si256(_mm256_or_si256(input.v0, input.v1), highbit)) == 1 {
         // it is ascii, we just check continuation
         *has_error = _mm256_or_si256(
             _mm256_cmpgt_epi8(
@@ -47,8 +43,8 @@ unsafe fn check_utf8(
         );
     } else {
         // it is not ascii so we have to do heavy work
-        *previous = avxcheck_utf8_bytes(input.lo, &previous, has_error);
-        *previous = avxcheck_utf8_bytes(input.hi, &previous, has_error);
+        *previous = check_utf8_bytes(input.v0, &previous, has_error);
+        *previous = check_utf8_bytes(input.v1, &previous, has_error);
     }
 }
 
@@ -56,13 +52,12 @@ unsafe fn check_utf8(
 /// cheaper in AVX512.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
+    #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
     unsafe {
-        #[allow(clippy::cast_possible_wrap)]
         let mask: __m256i = _mm256_set1_epi8(m as i8);
-        let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.lo, mask);
+        let cmp_res_0: __m256i = _mm256_cmpeq_epi8(input.v0, mask);
         let res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)));
-        let cmp_res_1: __m256i = _mm256_cmpeq_epi8(input.hi, mask);
-        #[allow(clippy::cast_sign_loss)]
+        let cmp_res_1: __m256i = _mm256_cmpeq_epi8(input.v1, mask);
         let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
         res_0 | (res_1 << 32)
     }
@@ -71,12 +66,11 @@ fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
 // find all values less than or equal than the content of maxval (using unsigned arithmetic)
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m256i) -> u64 {
+    #[allow(clippy::cast_sign_loss)]
     unsafe {
-        let cmp_res_0: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.lo), maxval);
-        // TODO: c++ uses static cast, here what are the implications?
+        let cmp_res_0: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.v0), maxval);
         let res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(cmp_res_0)));
-        let cmp_res_1: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.hi), maxval);
-        #[allow(clippy::cast_sign_loss)]
+        let cmp_res_1: __m256i = _mm256_cmpeq_epi8(_mm256_max_epu8(maxval, input.v1), maxval);
         let res_1: u64 = _mm256_movemask_epi8(cmp_res_1) as u64;
         res_0 | (res_1 << 32)
     }
@@ -166,6 +160,7 @@ unsafe fn find_quote_mask_and_bits(
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(clippy::cast_sign_loss)]
 unsafe fn find_whitespace_and_structurals(
     input: &SimdInput,
     whitespace: &mut u64,
@@ -203,18 +198,18 @@ unsafe fn find_whitespace_and_structurals(
     let whitespace_shufti_mask: __m256i = _mm256_set1_epi8(0x18);
 
     let v_lo: __m256i = _mm256_and_si256(
-        _mm256_shuffle_epi8(low_nibble_mask, input.lo),
+        _mm256_shuffle_epi8(low_nibble_mask, input.v0),
         _mm256_shuffle_epi8(
             high_nibble_mask,
-            _mm256_and_si256(_mm256_srli_epi32(input.lo, 4), _mm256_set1_epi8(0x7f)),
+            _mm256_and_si256(_mm256_srli_epi32(input.v0, 4), _mm256_set1_epi8(0x7f)),
         ),
     );
 
     let v_hi: __m256i = _mm256_and_si256(
-        _mm256_shuffle_epi8(low_nibble_mask, input.hi),
+        _mm256_shuffle_epi8(low_nibble_mask, input.v1),
         _mm256_shuffle_epi8(
             high_nibble_mask,
-            _mm256_and_si256(_mm256_srli_epi32(input.hi, 4), _mm256_set1_epi8(0x7f)),
+            _mm256_and_si256(_mm256_srli_epi32(input.v1, 4), _mm256_set1_epi8(0x7f)),
         ),
     );
     let tmp_lo: __m256i = _mm256_cmpeq_epi8(
@@ -227,7 +222,6 @@ unsafe fn find_whitespace_and_structurals(
     );
 
     let structural_res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_lo)));
-    #[allow(clippy::cast_sign_loss)]
     let structural_res_1: u64 = _mm256_movemask_epi8(tmp_hi) as u64;
     *structurals = !(structural_res_0 | (structural_res_1 << 32));
 
@@ -241,7 +235,6 @@ unsafe fn find_whitespace_and_structurals(
     );
 
     let ws_res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_ws_lo)));
-    #[allow(clippy::cast_sign_loss)]
     let ws_res_1: u64 = _mm256_movemask_epi8(tmp_ws_hi) as u64;
     *whitespace = !(ws_res_0 | (ws_res_1 << 32));
 }
@@ -357,7 +350,9 @@ fn finalize_structurals(
 impl<'de> Deserializer<'de> {
     //#[inline(never)]
     #[allow(clippy::cast_possible_truncation)]
-    pub unsafe fn find_structural_bits(input: &[u8]) -> std::result::Result<Vec<u32>, ErrorType> {
+    pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
         // 6 is a heuristic number to estimate it turns out a rate of 1/6 structural caracters lears
         // almost never to relocations.
@@ -365,7 +360,7 @@ impl<'de> Deserializer<'de> {
         structural_indexes.push(0); // push extra root element
 
         let mut has_error: __m256i = _mm256_setzero_si256();
-        let mut previous = AvxProcessedUtfBytes::default();
+        let mut previous = ProcessedUtfBytes::default();
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
 
