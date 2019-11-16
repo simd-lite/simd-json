@@ -193,10 +193,7 @@ fn unsigned_lteq_against_input(input: &SimdInput, maxval: uint8x16_t) -> u64 {
 // backslashes, which modifies our subsequent search for odd-length
 // sequences of backslashes in an obvious way.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-unsafe fn find_odd_backslash_sequences(
-    input: &SimdInput,
-    prev_iter_ends_odd_backslash: &mut u64,
-) -> u64 {
+fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
     const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
     const ODD_BITS: u64 = !EVEN_BITS;
 
@@ -429,7 +426,7 @@ fn finalize_structurals(
     structurals
 }
 
-pub fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> ParseStringHelper {
+pub fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
     unsafe {
         let quote_mask = vmovq_n_u8(b'"');
         let bs_mask = vmovq_n_u8(b'\\');
@@ -450,10 +447,10 @@ pub fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> ParseStrin
         let sum0 = vpaddq_u8(sum0, sum1);
         let sum0 = vpaddq_u8(sum0, sum0);
 
-        ParseStringHelper {
-            bs_bits: vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0),
-            quote_bits: vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1),
-        }
+        (
+            vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0),
+            vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1),
+        )
     }
 }
 
@@ -502,7 +499,7 @@ impl<'de> Deserializer<'de> {
               __builtin_prefetch(buf + idx + 128);
             #endif
              */
-            let input: SimdInput = fill_input(input.get_unchecked(idx as usize..));
+            let input = fill_input(input.get_unchecked(idx as usize..));
             check_utf8(&input, &mut utf8_state);
             // detect odd sequences of backslashes
             let odd_ends: u64 =
@@ -608,10 +605,4 @@ impl<'de> Deserializer<'de> {
             Err(ErrorType::InvalidUTF8)
         }
     }
-}
-
-// Holds backslashes and quotes locations.
-pub struct ParseStringHelper {
-    pub bs_bits: u32,
-    pub quote_bits: u32,
 }

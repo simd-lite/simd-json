@@ -15,7 +15,6 @@ impl<'de> Deserializer<'de> {
     ) -> Result<&'de str> {
         use ErrorType::*;
         let input: &mut [u8] = unsafe { std::mem::transmute(input) };
-
         // Add 1 to skip the initial "
         idx += 1;
         let mut padding = [0_u8; 32];
@@ -29,9 +28,6 @@ impl<'de> Deserializer<'de> {
         let mut src_i: usize = 0;
         let mut len = src_i;
         loop {
-            // store to dest unconditionally - we can overwrite the bits we don't like
-            // later
-
             let (v0, v1) = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 16 wide
                 #[allow(clippy::cast_ptr_alignment)]
@@ -54,10 +50,7 @@ impl<'de> Deserializer<'de> {
                 }
             };
 
-            let ParseStringHelper {
-                bs_bits,
-                quote_bits,
-            } = find_bs_bits_and_quote_bits(v0, v1);
+            let (bs_bits, quote_bits) = find_bs_bits_and_quote_bits(v0, v1);
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit
@@ -81,22 +74,24 @@ impl<'de> Deserializer<'de> {
                 // we compare the pointers since we care if they are 'at the same spot'
                 // not if they are the same value
             }
-            if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
+            if (quote_bits.wrapping_sub(1) & bs_bits) == 0 {
+                // they are the same. Since they can't co-occur, it means we encountered
+                // neither.
+                src_i += 32;
+                len += 32;
+            } else {
                 // Move to the 'bad' character
                 let bs_dist: u32 = bs_bits.trailing_zeros();
                 len += bs_dist as usize;
                 src_i += bs_dist as usize;
                 break;
-            } else {
-                // they are the same. Since they can't co-occur, it means we encountered
-                // neither.
-                src_i += 32;
-                len += 32;
             }
         }
 
         let mut dst_i: usize = 0;
 
+        // To be more conform with upstream
+        #[allow(clippy::if_not_else)]
         loop {
             let (v0, v1) = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 16 wide
@@ -128,10 +123,7 @@ impl<'de> Deserializer<'de> {
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
-            let ParseStringHelper {
-                bs_bits,
-                quote_bits,
-            } = find_bs_bits_and_quote_bits(v0, v1);
+            let (bs_bits, quote_bits) = find_bs_bits_and_quote_bits(v0, v1);
 
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
                 // we encountered quotes first. Move dst to point to quotes and exit

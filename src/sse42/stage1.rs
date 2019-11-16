@@ -31,11 +31,7 @@ fn fill_input(ptr: &[u8]) -> SimdInput {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-unsafe fn check_utf8(
-    input: &SimdInput,
-    has_error: &mut __m128i,
-    previous: &mut AvxProcessedUtfBytes,
-) {
+unsafe fn check_utf8(input: &SimdInput, has_error: &mut __m128i, previous: &mut ProcessedUtfBytes) {
     let highbit: __m128i = _mm_set1_epi8(static_cast_i8!(0x80_u8));
     if (_mm_testz_si128(_mm_or_si128(input.v0, input.v1), highbit)) == 1 {
         // it is ascii, we just check continuation
@@ -48,8 +44,8 @@ unsafe fn check_utf8(
         );
     } else {
         // it is not ascii so we have to do heavy work
-        *previous = avxcheck_utf8_bytes(input.v0, &previous, has_error);
-        *previous = avxcheck_utf8_bytes(input.v1, &previous, has_error);
+        *previous = check_utf8_bytes(input.v0, &previous, has_error);
+        *previous = check_utf8_bytes(input.v1, &previous, has_error);
     }
 
     if (_mm_testz_si128(_mm_or_si128(input.v2, input.v3), highbit)) == 1 {
@@ -63,8 +59,8 @@ unsafe fn check_utf8(
         );
     } else {
         // it is not ascii so we have to do heavy work
-        *previous = avxcheck_utf8_bytes(input.v2, &previous, has_error);
-        *previous = avxcheck_utf8_bytes(input.v3, &previous, has_error);
+        *previous = check_utf8_bytes(input.v2, &previous, has_error);
+        *previous = check_utf8_bytes(input.v3, &previous, has_error);
     }
 }
 
@@ -409,7 +405,7 @@ impl<'de> Deserializer<'de> {
         structural_indexes.push(0); // push extra root element
 
         let mut has_error: __m128i = _mm_setzero_si128();
-        let mut previous = AvxProcessedUtfBytes::default();
+        let mut previous = ProcessedUtfBytes::default();
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
 
@@ -444,7 +440,7 @@ impl<'de> Deserializer<'de> {
               __builtin_prefetch(buf + idx + 128);
             #endif
              */
-            let input: SimdInput = fill_input(input.get_unchecked(idx as usize..));
+            let input = fill_input(input.get_unchecked(idx as usize..));
             check_utf8(&input, &mut has_error, &mut previous);
             // detect odd sequences of backslashes
             let odd_ends: u64 =

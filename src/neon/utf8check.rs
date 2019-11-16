@@ -178,7 +178,7 @@ fn check_overlong(
     }
 }
 
-pub struct ProcessedUtfBytes {
+pub(crate) struct ProcessedUtfBytes {
     rawbytes: int8x16_t,
     high_nibbles: int8x16_t,
     pub carried_continuations: int8x16_t,
@@ -188,7 +188,7 @@ impl Default for ProcessedUtfBytes {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         unsafe {
-            ProcessedUtfBytes {
+            Self {
                 rawbytes: vdupq_n_s8(0x00),
                 high_nibbles: vdupq_n_s8(0x00),
                 carried_continuations: vdupq_n_s8(0x00),
@@ -211,7 +211,7 @@ fn count_nibbles(bytes: int8x16_t, answer: &mut ProcessedUtfBytes) {
 // check whether the current bytes are valid UTF-8
 // at the end of the function, previous gets updated
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn check_utf8_bytes(
+pub(crate) fn check_utf8_bytes(
     current_bytes: int8x16_t,
     previous: &mut ProcessedUtfBytes,
     has_error: &mut int8x16_t,

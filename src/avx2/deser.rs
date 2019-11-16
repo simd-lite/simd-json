@@ -11,7 +11,6 @@ use crate::Deserializer;
 pub use crate::Result;
 
 impl<'de> Deserializer<'de> {
-    // Allow it to keep in sync with upstream
     #[allow(clippy::if_not_else, mutable_transmutes, clippy::transmute_ptr_to_ptr)]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse_str_<'invoke>(
@@ -30,8 +29,8 @@ impl<'de> Deserializer<'de> {
         // This is safe since we check sub's lenght in the range access above and only
         // create sub sliced form sub to `sub.len()`.
 
-        let mut src_i: usize = 0;
         let src: &[u8] = unsafe { input.get_unchecked(idx..) };
+        let mut src_i: usize = 0;
         let mut len = src_i;
         loop {
             let v: __m256i = if src.len() >= src_i + 32 {
@@ -85,22 +84,24 @@ impl<'de> Deserializer<'de> {
                 // we compare the pointers since we care if they are 'at the same spot'
                 // not if they are the same value
             }
-            if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
+            if (quote_bits.wrapping_sub(1) & bs_bits) == 0 {
+                // they are the same. Since they can't co-occur, it means we encountered
+                // neither.
+                src_i += 32;
+                len += 32;
+            } else {
                 // Move to the 'bad' character
                 let bs_dist: u32 = bs_bits.trailing_zeros();
                 len += bs_dist as usize;
                 src_i += bs_dist as usize;
                 break;
-            } else {
-                // they are the same. Since they can't co-occur, it means we encountered
-                // neither.
-                src_i += 32;
-                len += 32;
             }
         }
 
         let mut dst_i: usize = 0;
 
+        // To be more conform with upstream
+        #[allow(clippy::if_not_else)]
         loop {
             let v: __m256i = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 32 wide

@@ -36,7 +36,7 @@ fn push_last_2bytes_of_a_to_b(a: __m128i, b: __m128i) -> __m128i {
 
 // all byte values must be no larger than 0xF4
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn avxcheck_smaller_than_0xf4(current_bytes: __m128i, has_error: &mut __m128i) {
+fn check_smaller_than_0xf4(current_bytes: __m128i, has_error: &mut __m128i) {
     // unsigned, saturates to 0 below max
     *has_error = unsafe {
         _mm_or_si128(
@@ -47,7 +47,7 @@ fn avxcheck_smaller_than_0xf4(current_bytes: __m128i, has_error: &mut __m128i) {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn avxcontinuation_lengths(high_nibbles: __m128i) -> __m128i {
+fn continuation_lengths(high_nibbles: __m128i) -> __m128i {
     unsafe {
         _mm_shuffle_epi8(
             _mm_setr_epi8(
@@ -63,41 +63,37 @@ fn avxcontinuation_lengths(high_nibbles: __m128i) -> __m128i {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn avxcarry_continuations(initial_lengths: __m128i, previous_carries: __m128i) -> __m128i {
-    unsafe {
-        let right1: __m128i = _mm_subs_epu8(
-            push_last_byte_of_a_to_b(previous_carries, initial_lengths),
-            _mm_set1_epi8(1),
-        );
-        let sum: __m128i = _mm_add_epi8(initial_lengths, right1);
-        let right2: __m128i = _mm_subs_epu8(
-            push_last_2bytes_of_a_to_b(previous_carries, sum),
-            _mm_set1_epi8(2),
-        );
-        _mm_add_epi8(sum, right2)
-    }
+unsafe fn carry_continuations(initial_lengths: __m128i, previous_carries: __m128i) -> __m128i {
+    let right1: __m128i = _mm_subs_epu8(
+        push_last_byte_of_a_to_b(previous_carries, initial_lengths),
+        _mm_set1_epi8(1),
+    );
+    let sum: __m128i = _mm_add_epi8(initial_lengths, right1);
+    let right2: __m128i = _mm_subs_epu8(
+        push_last_2bytes_of_a_to_b(previous_carries, sum),
+        _mm_set1_epi8(2),
+    );
+    _mm_add_epi8(sum, right2)
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn avxcheck_continuations(initial_lengths: __m128i, carries: __m128i, has_error: &mut __m128i) {
+unsafe fn check_continuations(initial_lengths: __m128i, carries: __m128i, has_error: &mut __m128i) {
     // overlap || underlap
     // carry > length && length > 0 || !(carry > length) && !(length > 0)
     // (carries > length) == (lengths > 0)
-    unsafe {
-        let overunder: __m128i = _mm_cmpeq_epi8(
-            _mm_cmpgt_epi8(carries, initial_lengths),
-            _mm_cmpgt_epi8(initial_lengths, _mm_setzero_si128()),
-        );
+    let overunder: __m128i = _mm_cmpeq_epi8(
+        _mm_cmpgt_epi8(carries, initial_lengths),
+        _mm_cmpgt_epi8(initial_lengths, _mm_setzero_si128()),
+    );
 
-        *has_error = _mm_or_si128(*has_error, overunder);
-    }
+    *has_error = _mm_or_si128(*has_error, overunder);
 }
 
 // when 0xED is found, next byte must be no larger than 0x9F
 // when 0xF4 is found, next byte must be no larger than 0x8F
 // next byte must be continuation, ie sign bit is set, so signed < is ok
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn avxcheck_first_continuation_max(
+fn check_first_continuation_max(
     current_bytes: __m128i,
     off1_current_bytes: __m128i,
     has_error: &mut __m128i,
@@ -128,7 +124,7 @@ fn avxcheck_first_continuation_max(
 // F       => < F1 && < 90
 // else      false && false
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn avxcheck_overlong(
+fn check_overlong(
     current_bytes: __m128i,
     off1_current_bytes: __m128i,
     hibits: __m128i,
@@ -187,13 +183,13 @@ fn avxcheck_overlong(
     }
 }
 
-pub(crate) struct AvxProcessedUtfBytes {
+pub(crate) struct ProcessedUtfBytes {
     rawbytes: __m128i,
     high_nibbles: __m128i,
     pub carried_continuations: __m128i,
 }
 
-impl Default for AvxProcessedUtfBytes {
+impl Default for ProcessedUtfBytes {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         unsafe {
@@ -207,7 +203,7 @@ impl Default for AvxProcessedUtfBytes {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn avx_count_nibbles(bytes: __m128i, answer: &mut AvxProcessedUtfBytes) {
+fn count_nibbles(bytes: __m128i, answer: &mut ProcessedUtfBytes) {
     answer.rawbytes = bytes;
     answer.high_nibbles = unsafe { _mm_and_si128(_mm_srli_epi16(bytes, 4), _mm_set1_epi8(0x0F)) };
 }
@@ -215,32 +211,34 @@ fn avx_count_nibbles(bytes: __m128i, answer: &mut AvxProcessedUtfBytes) {
 // check whether the current bytes are valid UTF-8
 // at the end of the function, previous gets updated
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub(crate) fn avxcheck_utf8_bytes(
+pub(crate) fn check_utf8_bytes(
     current_bytes: __m128i,
-    previous: &AvxProcessedUtfBytes,
+    previous: &ProcessedUtfBytes,
     has_error: &mut __m128i,
-) -> AvxProcessedUtfBytes {
-    let mut pb = AvxProcessedUtfBytes::default();
-    avx_count_nibbles(current_bytes, &mut pb);
+) -> ProcessedUtfBytes {
+    let mut pb = ProcessedUtfBytes::default();
+    unsafe {
+        count_nibbles(current_bytes, &mut pb);
 
-    avxcheck_smaller_than_0xf4(current_bytes, has_error);
+        check_smaller_than_0xf4(current_bytes, has_error);
 
-    let initial_lengths: __m128i = avxcontinuation_lengths(pb.high_nibbles);
+        let initial_lengths: __m128i = continuation_lengths(pb.high_nibbles);
 
-    pb.carried_continuations =
-        avxcarry_continuations(initial_lengths, previous.carried_continuations);
+        pb.carried_continuations =
+            carry_continuations(initial_lengths, previous.carried_continuations);
 
-    avxcheck_continuations(initial_lengths, pb.carried_continuations, has_error);
+        check_continuations(initial_lengths, pb.carried_continuations, has_error);
 
-    let off1_current_bytes: __m128i = push_last_byte_of_a_to_b(previous.rawbytes, pb.rawbytes);
-    avxcheck_first_continuation_max(current_bytes, off1_current_bytes, has_error);
+        let off1_current_bytes: __m128i = push_last_byte_of_a_to_b(previous.rawbytes, pb.rawbytes);
+        check_first_continuation_max(current_bytes, off1_current_bytes, has_error);
 
-    avxcheck_overlong(
-        current_bytes,
-        off1_current_bytes,
-        pb.high_nibbles,
-        previous.high_nibbles,
-        has_error,
-    );
-    pb
+        check_overlong(
+            current_bytes,
+            off1_current_bytes,
+            pb.high_nibbles,
+            previous.high_nibbles,
+            has_error,
+        );
+        pb
+    }
 }
