@@ -211,7 +211,7 @@ fn count_nibbles(bytes: int8x16_t, answer: &mut ProcessedUtfBytes) {
 // check whether the current bytes are valid UTF-8
 // at the end of the function, previous gets updated
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn check_utf8_bytes(
+pub(crate) fn check_utf8_bytes(
     current_bytes: int8x16_t,
     previous: &mut ProcessedUtfBytes,
     has_error: &mut int8x16_t,
