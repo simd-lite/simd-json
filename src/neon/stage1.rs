@@ -426,7 +426,7 @@ fn finalize_structurals(
     structurals
 }
 
-pub fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> ParseStringHelper {
+pub fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
     unsafe {
         let quote_mask = vmovq_n_u8(b'"');
         let bs_mask = vmovq_n_u8(b'\\');
