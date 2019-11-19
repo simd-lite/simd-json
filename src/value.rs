@@ -17,7 +17,7 @@
 ///
 /// Objects can be treated as hashmap's for the most part
 /// ```rust
-/// use simd_json::{OwnedValue as Value, ValueTrait};
+/// use simd_json::{OwnedValue as Value, Value as ValueTrait, ValueBuilder, MutableValue};
 /// let mut v = Value::object();
 /// v.insert("key", 42);
 /// assert_eq!(v.get("key").unwrap(), &42);
@@ -29,7 +29,7 @@
 /// Arrays can be treated as vectors for the most part
 ///
 /// ```rust
-/// use simd_json::{OwnedValue as Value, ValueTrait};
+/// use simd_json::{OwnedValue as Value, Value as ValueTrait, ValueBuilder, MutableValue};
 /// let mut v = Value::array();
 /// v.push("zero");
 /// v.push(1);
@@ -42,7 +42,7 @@
 ///
 /// Nested changes are also possible:
 /// ```rust
-/// use simd_json::{OwnedValue as Value, ValueTrait};
+/// use simd_json::{OwnedValue as Value, Value as ValueTrait, ValueBuilder, MutableValue};
 /// let mut o = Value::object();
 /// o.insert("key", Value::array());
 /// o["key"].push(Value::object());

@@ -124,8 +124,11 @@ enum StackState {
 }
 
 impl<'de> Deserializer<'de> {
-    #[allow(clippy::cognitive_complexity)]
-    pub fn build_tape(input: &'de mut [u8], structural_indexes: &[u32]) -> Result<Vec<Node<'de>>> {
+    #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
+    pub(crate) fn build_tape(
+        input: &'de mut [u8],
+        structural_indexes: &[u32],
+    ) -> Result<Vec<Node<'de>>> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
         let mut res: Vec<Node<'de>> = Vec::with_capacity(structural_indexes.len());

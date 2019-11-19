@@ -170,7 +170,8 @@ impl<'de> Deserializer<'de> {
     #[allow(
         clippy::cast_sign_loss,
         clippy::cast_possible_wrap,
-        clippy::cast_precision_loss
+        clippy::cast_precision_loss,
+        clippy::too_many_lines
     )]
     fn parse_float(idx: usize, p: &[u8], negative: bool) -> Result<StaticNode> {
         let mut digitcount = if negative { 1 } else { 0 };
@@ -381,9 +382,10 @@ impl<'de> Deserializer<'de> {
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         clippy::cast_precision_loss,
-        clippy::cast_possible_wrap
+        clippy::cast_possible_wrap,
+        clippy::too_many_lines
     )]
-    pub fn parse_number_int(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
+    pub(crate) fn parse_number_int(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
         let mut byte_count = if negative { 1 } else { 0 };
         let mut ignore_count: u8 = 0;
         //let startdigits: *const u8 = p;
