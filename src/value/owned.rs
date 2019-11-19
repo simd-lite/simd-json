@@ -4,7 +4,7 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::value::{ValueTrait, ValueType};
+use crate::value::{MutableValue, Value as ValueTrait, ValueBuilder, ValueType};
 use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::convert::TryFrom;
@@ -42,9 +42,7 @@ pub enum Value {
     Object(Box<Object>),
 }
 
-impl ValueTrait for Value {
-    type Key = String;
-
+impl ValueBuilder for Value {
     #[inline]
     fn array() -> Self {
         Self::Array(Vec::new())
@@ -57,6 +55,28 @@ impl ValueTrait for Value {
     fn null() -> Self {
         Self::Static(StaticNode::Null)
     }
+}
+
+impl MutableValue for Value {
+    type Key = String;
+    #[inline]
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
+        match self {
+            Self::Array(a) => Some(a),
+            _ => None,
+        }
+    }
+    #[inline]
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as MutableValue>::Key, Self>> {
+        match self {
+            Self::Object(m) => Some(m),
+            _ => None,
+        }
+    }
+}
+
+impl ValueTrait for Value {
+    type Key = String;
 
     #[inline]
     fn value_type(&self) -> ValueType {
@@ -139,23 +159,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
-        match self {
-            Self::Array(a) => Some(a),
-            _ => None,
-        }
-    }
-
-    #[inline]
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
-        match self {
-            Self::Object(m) => Some(m),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -261,7 +265,7 @@ impl<'de> OwnedDeserializer<'de> {
 mod test {
     #![allow(clippy::cognitive_complexity)]
     use super::*;
-    use crate::value::{AccessError, ValueTrait};
+    use crate::value::{AccessError, Value as ValueTrait};
 
     #[test]
     fn object_access() {

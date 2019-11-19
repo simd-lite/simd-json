@@ -109,9 +109,9 @@ pub enum ValueType {
 }
 
 use std::ops::{Index, IndexMut};
-/// The `ValueTrait` exposes common interface for values, this allows using both
-/// `BorrowedValue` and `OwnedValue` nearly interchangable
-pub trait ValueTrait:
+
+/// Support of builder methods for traits.
+pub trait ValueBuilder:
     Default
     + From<i8>
     + From<i16>
@@ -126,46 +126,19 @@ pub trait ValueTrait:
     + From<String>
     + From<bool>
     + From<()>
-    + Index<usize>
-    + IndexMut<usize>
-    + PartialEq<i8>
-    + PartialEq<i16>
-    + PartialEq<i32>
-    + PartialEq<i64>
-    + PartialEq<i128>
-    + PartialEq<u8>
-    + PartialEq<u16>
-    + PartialEq<u32>
-    + PartialEq<u64>
-    + PartialEq<u128>
-    + PartialEq<f32>
-    + PartialEq<f64>
-    + PartialEq<String>
-    + PartialEq<bool>
-    + PartialEq<()>
 {
-    /// The type for Objects
-    type Key;
-
     /// Returns an empty array
     fn array() -> Self;
     /// Returns an empty object
     fn object() -> Self;
     /// Returns anull value
     fn null() -> Self;
+}
 
-    /// Gets a ref to a value based on a key, returns `None` if the
-    /// current Value isn't an Object or doesn't contain the key
-    /// it was asked for.
-    #[inline]
-    fn get<Q: ?Sized>(&self, k: &Q) -> Option<&Self>
-    where
-        Self::Key: Borrow<Q> + Hash + Eq,
-        Q: Hash + Eq,
-    {
-        self.as_object().and_then(|a| a.get(k))
-    }
-
+/// Mutatability for values
+pub trait MutableValue: IndexMut<usize> + Value + Sized {
+    /// The type for Objects
+    type Key;
     /// Tries to insert into this `Value` as an `Object`.
     /// Will return an `AccessError::NotAnObject` if called
     /// on a `Value` that isn't an object - otherwise will
@@ -173,9 +146,9 @@ pub trait ValueTrait:
     #[inline]
     fn insert<K, V>(&mut self, k: K, v: V) -> std::result::Result<Option<Self>, AccessError>
     where
-        K: Into<Self::Key>,
+        K: Into<<Self as MutableValue>::Key>,
         V: Into<Self>,
-        Self::Key: Hash + Eq,
+        <Self as MutableValue>::Key: Hash + Eq,
     {
         self.as_object_mut()
             .ok_or(AccessError::NotAnObject)
@@ -189,7 +162,7 @@ pub trait ValueTrait:
     #[inline]
     fn remove<Q: ?Sized>(&mut self, k: &Q) -> std::result::Result<Option<Self>, AccessError>
     where
-        Self::Key: Borrow<Q> + Hash + Eq,
+        <Self as MutableValue>::Key: Borrow<Q> + Hash + Eq,
         Q: Hash + Eq,
     {
         self.as_object_mut()
@@ -221,15 +194,60 @@ pub trait ValueTrait:
             .ok_or(AccessError::NotAnArray)
             .map(Vec::pop)
     }
-
     /// Same as `get` but returns a mutable ref instead
     //    fn get_amut(&mut self, k: &str) -> Option<&mut Self>;
     fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut Self>
     where
-        Self::Key: Borrow<Q> + Hash + Eq,
+        <Self as MutableValue>::Key: Borrow<Q> + Hash + Eq,
         Q: Hash + Eq,
     {
         self.as_object_mut().and_then(|m| m.get_mut(&k))
+    }
+
+    /// Same as `get_idx` but returns a mutable ref instead
+    #[inline]
+    fn get_idx_mut(&mut self, i: usize) -> Option<&mut Self> {
+        self.as_array_mut().and_then(|a| a.get_mut(i))
+    }
+    /// Tries to represent the value as an array and returns a mutable refference to it
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>>;
+    /// Tries to represent the value as an object and returns a mutable refference to it
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as MutableValue>::Key, Self>>;
+}
+/// The `Value` exposes common interface for values, this allows using both
+/// `BorrowedValue` and `OwnedValue` nearly interchangable
+pub trait Value:
+    Sized
+    + Index<usize>
+    + PartialEq<i8>
+    + PartialEq<i16>
+    + PartialEq<i32>
+    + PartialEq<i64>
+    + PartialEq<i128>
+    + PartialEq<u8>
+    + PartialEq<u16>
+    + PartialEq<u32>
+    + PartialEq<u64>
+    + PartialEq<u128>
+    + PartialEq<f32>
+    + PartialEq<f64>
+    + PartialEq<String>
+    + PartialEq<bool>
+    + PartialEq<()>
+{
+    /// The type for Objects
+    type Key;
+
+    /// Gets a ref to a value based on a key, returns `None` if the
+    /// current Value isn't an Object or doesn't contain the key
+    /// it was asked for.
+    #[inline]
+    fn get<Q: ?Sized>(&self, k: &Q) -> Option<&Self>
+    where
+        Self::Key: Borrow<Q> + Hash + Eq,
+        Q: Hash + Eq,
+    {
+        self.as_object().and_then(|a| a.get(k))
     }
 
     /// Gets a ref to a value based on n index, returns `None` if the
@@ -238,12 +256,6 @@ pub trait ValueTrait:
     #[inline]
     fn get_idx(&self, i: usize) -> Option<&Self> {
         self.as_array().and_then(|a| a.get(i))
-    }
-
-    /// Same as `get_idx` but returns a mutable ref instead
-    #[inline]
-    fn get_idx_mut(&mut self, i: usize) -> Option<&mut Self> {
-        self.as_array_mut().and_then(|a| a.get_mut(i))
     }
 
     /// Returns the type of the current Valye
@@ -419,8 +431,7 @@ pub trait ValueTrait:
 
     /// Tries to represent the value as an array and returns a refference to it
     fn as_array(&self) -> Option<&Vec<Self>>;
-    /// Tries to represent the value as an array and returns a mutable refference to it
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>>;
+
     /// returns true if the current value can be represented as an array
     #[inline]
     fn is_array(&self) -> bool {
@@ -429,8 +440,7 @@ pub trait ValueTrait:
 
     /// Tries to represent the value as an object and returns a refference to it
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>>;
-    /// Tries to represent the value as an object and returns a mutable refference to it
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>>;
+
     /// returns true if the current value can be represented as an object
     #[inline]
     fn is_object(&self) -> bool {

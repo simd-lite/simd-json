@@ -4,7 +4,7 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::value::{ValueTrait, ValueType};
+use crate::value::{MutableValue, Value as ValueTrait, ValueBuilder, ValueType};
 use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::borrow::Cow;
@@ -77,9 +77,7 @@ impl<'v> Value<'v> {
     }
 }
 
-impl<'v> ValueTrait for Value<'v> {
-    type Key = Cow<'v, str>;
-
+impl<'v> ValueBuilder for Value<'v> {
     #[inline]
     fn array() -> Self {
         Self::Array(Vec::new())
@@ -92,6 +90,28 @@ impl<'v> ValueTrait for Value<'v> {
     fn null() -> Self {
         Self::Static(StaticNode::Null)
     }
+}
+
+impl<'v> MutableValue for Value<'v> {
+    type Key = Cow<'v, str>;
+    #[inline]
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
+        match self {
+            Self::Array(a) => Some(a),
+            _ => None,
+        }
+    }
+    #[inline]
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as MutableValue>::Key, Self>> {
+        match self {
+            Self::Object(m) => Some(m),
+            _ => None,
+        }
+    }
+}
+
+impl<'v> ValueTrait for Value<'v> {
+    type Key = Cow<'v, str>;
 
     #[inline]
     fn value_type(&self) -> ValueType {
@@ -175,23 +195,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     #[inline]
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
-        match self {
-            Self::Array(a) => Some(a),
-            _ => None,
-        }
-    }
-
-    #[inline]
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
-        match self {
-            Self::Object(m) => Some(m),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -296,7 +300,7 @@ impl<'de> BorrowDeserializer<'de> {
 mod test {
     #![allow(clippy::cognitive_complexity)]
     use super::*;
-    use crate::value::{AccessError, ValueTrait};
+    use crate::value::{AccessError, Value as ValueTrait};
 
     #[test]
     fn object_access() {
