@@ -18,10 +18,11 @@ impl<'de> Deserializer<'de> {
         clippy::too_many_lines,
         clippy::cast_ptr_alignment,
         clippy::cast_possible_wrap,
-        clippy::if_not_else
+        clippy::if_not_else,
+        clippy::too_many_lines
     )]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_str_<'invoke>(
+    pub(crate) fn parse_str_<'invoke>(
         input: &'de [u8],
         buffer: &'invoke mut [u8],
         mut idx: usize,
