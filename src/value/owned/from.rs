@@ -15,6 +15,12 @@ impl From<crate::BorrowedValue<'_>> for Value {
     }
 }
 
+impl From<StaticNode> for Value {
+    #[inline]
+    fn from(s: StaticNode) -> Self {
+        Self::Static(s)
+    }
+}
 /********* str_ **********/
 
 impl From<&str> for Value {

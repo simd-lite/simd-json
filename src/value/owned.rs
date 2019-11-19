@@ -44,16 +44,14 @@ pub enum Value {
 
 impl ValueBuilder for Value {
     #[inline]
-    fn array() -> Self {
-        Self::Array(Vec::new())
-    }
-    #[inline]
-    fn object() -> Self {
-        Self::Object(Box::new(Object::new()))
-    }
-    #[inline]
     fn null() -> Self {
         Self::Static(StaticNode::Null)
+    }
+    fn array_with_capacity(capacity: usize) -> Self {
+        Self::Array(Vec::with_capacity(capacity))
+    }
+    fn object_with_capacity(capacity: usize) -> Self {
+        Self::Object(Box::new(Object::with_capacity(capacity)))
     }
 }
 

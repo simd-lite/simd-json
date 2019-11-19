@@ -59,11 +59,14 @@ pub mod owned;
 pub mod tape;
 pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
 pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
+use crate::{Deserializer, Result};
 use halfbrown::HashMap;
 use std::borrow::Borrow;
 use std::convert::TryInto;
 use std::fmt;
 use std::hash::Hash;
+use std::marker::PhantomData;
+use tape::{Node, StaticNode};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// An access error for `ValueType`
@@ -113,6 +116,7 @@ use std::ops::{Index, IndexMut};
 /// Support of builder methods for traits.
 pub trait ValueBuilder:
     Default
+    + From<StaticNode>
     + From<i8>
     + From<i16>
     + From<i32>
@@ -127,10 +131,18 @@ pub trait ValueBuilder:
     + From<bool>
     + From<()>
 {
+    /// Returns an empty array with a given capacity
+    fn array_with_capacity(capacity: usize) -> Self;
+    /// Returns an empty object with a given capacity
+    fn object_with_capacity(capacity: usize) -> Self;
     /// Returns an empty array
-    fn array() -> Self;
+    fn array() -> Self {
+        Self::array_with_capacity(0)
+    }
     /// Returns an empty object
-    fn object() -> Self;
+    fn object() -> Self {
+        Self::object_with_capacity(0)
+    }
     /// Returns anull value
     fn null() -> Self;
 }
@@ -445,5 +457,82 @@ pub trait Value:
     #[inline]
     fn is_object(&self) -> bool {
         self.as_object().is_some()
+    }
+}
+
+/// Parses a slice of butes into a Value dom. This function will
+/// rewrite the slice to de-escape strings.
+/// As we reference parts of the input slice the resulting dom
+/// has the dame lifetime as the slice it was created from.
+pub fn deserialize<'de, Value, Key>(s: &'de mut [u8]) -> Result<Value>
+where
+    Value: ValueBuilder + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Key: Hash + Eq + From<&'de str>,
+{
+    match Deserializer::from_slice(s) {
+        Ok(de) => Ok(ValueDeserializer::from_deserializer(de).parse()),
+        Err(e) => Err(e),
+    }
+}
+struct ValueDeserializer<'de, Value, Key>
+where
+    Value: ValueBuilder + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Key: Hash + Eq + From<&'de str>,
+{
+    de: Deserializer<'de>,
+    _marker: PhantomData<(Value, Key)>,
+}
+
+impl<'de, Value, Key> ValueDeserializer<'de, Value, Key>
+where
+    Value: ValueBuilder + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Key: Hash + Eq + From<&'de str>,
+{
+    pub fn from_deserializer(de: Deserializer<'de>) -> Self {
+        Self {
+            de,
+            _marker: PhantomData::default(),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    pub fn parse(&mut self) -> Value {
+        match self.de.next_() {
+            Node::Static(s) => Value::from(s),
+            Node::String(s) => Value::from(s),
+            Node::Array(len, _) => self.parse_array(len),
+            Node::Object(len, _) => self.parse_map(len),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_array(&mut self, len: usize) -> Value {
+        // Rust doens't optimize the normal loop away here
+        // so we write our own avoiding the lenght
+        // checks during push
+        let mut res = Vec::with_capacity(len);
+        unsafe {
+            res.set_len(len);
+            for i in 0..len {
+                std::ptr::write(res.get_unchecked_mut(i), self.parse());
+            }
+        }
+        Value::from(res)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_map(&mut self, len: usize) -> Value {
+        let mut res: HashMap<Key, Value> = HashMap::with_capacity(len);
+
+        // Since we checked if it's empty we know that we at least have one
+        // element so we eat this
+        for _ in 0..len {
+            if let Node::String(key) = self.de.next_() {
+                res.insert_nocheck(key.into(), self.parse());
+            } else {
+                unreachable!()
+            }
+        }
+        Value::from(res)
     }
 }
