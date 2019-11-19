@@ -120,8 +120,8 @@ impl From<u32> for Value {
 
 impl From<u64> for Value {
     #[inline]
+    #[allow(clippy::cast_possible_wrap)]
     fn from(i: u64) -> Self {
-        #[allow(clippy::cast_possible_wrap)]
         Self::Static(StaticNode::U64(i))
     }
 }

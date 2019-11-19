@@ -85,9 +85,9 @@ struct SimdInput {
     v3: uint8x16_t,
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 fn fill_input(ptr: &[u8]) -> SimdInput {
     unsafe {
-        #[allow(clippy::cast_ptr_alignment)]
         SimdInput {
             v0: vld1q_u8(ptr.as_ptr() as *const u8),
             v1: vld1q_u8(ptr.as_ptr().add(16) as *const u8),
@@ -341,6 +341,7 @@ unsafe fn find_whitespace_and_structurals(
 // needs to be large enough to handle this
 //TODO: usize was u32 here does this matter?
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(clippy::cast_ptr_alignment)]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     let cnt: usize = bits.count_ones() as usize;
     let mut l = base.len();
@@ -377,7 +378,6 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
 
             let v: int32x4_t = mem::transmute([v0, v1, v2, v3]);
             let v: int32x4_t = vaddq_s32(idx_64_v, v);
-            #[allow(clippy::cast_ptr_alignment)]
             std::ptr::write(base.as_mut_ptr().add(l) as *mut int32x4_t, v);
         }
         l += 4;

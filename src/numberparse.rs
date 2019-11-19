@@ -101,9 +101,9 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // http://0x80.pl/articles/swar-digits-validate.html
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[allow(clippy::cast_ptr_alignment)]
 fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
     // We know what we're doing right? :P
-    #[allow(clippy::cast_ptr_alignment)]
     let val: u64 = unsafe { *(chars.as_ptr() as *const u64) };
 
     //    let val: __m64 = *(chars as *const __m64);

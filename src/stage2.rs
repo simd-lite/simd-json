@@ -43,10 +43,7 @@ macro_rules! get {
 #[cfg(not(feature = "safe"))]
 macro_rules! get {
     ($a:expr, $i:expr) => {{
-        #[allow(unused_unsafe)]
-        unsafe {
-            $a.get_unchecked($i)
-        }
+        unsafe { $a.get_unchecked($i) }
     }};
 }
 
@@ -60,15 +57,12 @@ macro_rules! get_mut {
 #[cfg(not(feature = "safe"))]
 macro_rules! get_mut {
     ($a:expr, $i:expr) => {{
-        #[allow(unused_unsafe)]
-        unsafe {
-            $a.get_unchecked_mut($i)
-        }
+        unsafe { $a.get_unchecked_mut($i) }
     }};
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-#[allow(clippy::cast_ptr_alignment)]
+#[allow(clippy::cast_ptr_alignment, unused_unsafe)]
 pub fn is_valid_false_atom(loc: &[u8]) -> bool {
     // TODO: this is ugly and probably copies data every time
     let mut error: u64;
@@ -93,7 +87,7 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-#[allow(clippy::cast_ptr_alignment)]
+#[allow(clippy::cast_ptr_alignment, unused_unsafe)]
 pub fn is_valid_null_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
     let mut error: u64;
@@ -124,7 +118,7 @@ enum StackState {
 }
 
 impl<'de> Deserializer<'de> {
-    #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
+    #[allow(clippy::cognitive_complexity, clippy::too_many_lines, unused_unsafe)]
     pub(crate) fn build_tape(
         input: &'de mut [u8],
         structural_indexes: &[u32],
@@ -163,7 +157,6 @@ impl<'de> Deserializer<'de> {
                         // We need to ensure that rust doens't
                         // try to free strings that we never
                         // allocated
-                        #[allow(unused_unsafe)]
                         unsafe {
                             res.set_len(r_i);
                         };
@@ -301,7 +294,6 @@ impl<'de> Deserializer<'de> {
                 // We need to ensure that rust doens't
                 // try to free strings that we never
                 // allocated
-                #[allow(unused_unsafe)]
                 unsafe {
                     res.set_len(r_i);
                 };
@@ -311,7 +303,6 @@ impl<'de> Deserializer<'de> {
                 // We need to ensure that rust doens't
                 // try to free strings that we never
                 // allocated
-                #[allow(unused_unsafe)]
                 unsafe {
                     res.set_len(r_i);
                 };

@@ -112,8 +112,8 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[allow(clippy::cast_sign_loss)]
     fn as_u64(&self) -> Option<u64> {
-        #[allow(clippy::cast_sign_loss)]
         match self {
             Self::Static(StaticNode::I64(i)) => u64::try_from(*i).ok(),
             Self::Static(StaticNode::U64(i)) => Some(*i),
@@ -130,8 +130,8 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[allow(clippy::cast_precision_loss)]
     fn cast_f64(&self) -> Option<f64> {
-        #[allow(clippy::cast_precision_loss)]
         match self {
             Self::Static(StaticNode::F64(i)) => Some(*i),
             Self::Static(StaticNode::I64(i)) => Some(*i as f64),
@@ -642,16 +642,16 @@ mod test {
             prop_assert_eq!(owned, decoded)
         }
         #[test]
+        #[allow(clippy::float_cmp)]
         fn prop_f64_cmp(f in proptest::num::f64::NORMAL) {
-            #[allow(clippy::float_cmp)]
             let v: Value = f.into();
             prop_assert_eq!(v, f)
 
         }
 
         #[test]
+        #[allow(clippy::float_cmp)]
         fn prop_f32_cmp(f in proptest::num::f32::NORMAL) {
-            #[allow(clippy::float_cmp)]
             let v: Value = f.into();
             prop_assert_eq!(v, f)
 
@@ -682,8 +682,8 @@ mod test {
             prop_assert_eq!(v, f)
         }
 
-        #[allow(clippy::cast_possible_truncation)]
         #[test]
+        #[allow(clippy::cast_possible_truncation)]
         fn prop_usize_cmp(f in proptest::num::usize::ANY) {
             let v: Value = f.into();
             prop_assert_eq!(v, f)

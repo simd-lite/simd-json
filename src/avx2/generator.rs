@@ -7,6 +7,7 @@ use crate::value::generator::ESCAPED;
 use std::io;
 
 #[inline(always)]
+#[allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
 pub(crate) unsafe fn write_str_simd<W>(
     writer: &mut W,
     string: &mut &[u8],
@@ -18,13 +19,10 @@ where
 {
     let zero = _mm256_set1_epi8(0);
     let lower_quote_range = _mm256_set1_epi8(0x1F as i8);
-    #[allow(clippy::cast_possible_wrap)]
     let quote = _mm256_set1_epi8(b'"' as i8);
-    #[allow(clippy::cast_possible_wrap)]
     let backslash = _mm256_set1_epi8(b'\\' as i8);
     while *len - *idx >= 32 {
         // Load 32 bytes of data;
-        #[allow(clippy::cast_ptr_alignment)]
         let data: __m256i = _mm256_loadu_si256(string.as_ptr().add(*idx) as *const __m256i);
         // Test the data against being backslash and quote.
         let bs_or_quote = _mm256_or_si256(
