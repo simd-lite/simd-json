@@ -6,7 +6,7 @@
 
 use super::{Object, Value};
 use crate::value::generator::*;
-use crate::value::ValueTrait;
+use crate::value::Value as ValueTrait;
 use crate::{stry, StaticNode};
 use std::io;
 use std::io::Write;

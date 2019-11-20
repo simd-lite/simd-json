@@ -17,7 +17,7 @@
 ///
 /// Objects can be treated as hashmap's for the most part
 /// ```rust
-/// use simd_json::{OwnedValue as Value, ValueTrait};
+/// use simd_json::{OwnedValue as Value, Value as ValueTrait, ValueBuilder, MutableValue};
 /// let mut v = Value::object();
 /// v.insert("key", 42);
 /// assert_eq!(v.get("key").unwrap(), &42);
@@ -29,7 +29,7 @@
 /// Arrays can be treated as vectors for the most part
 ///
 /// ```rust
-/// use simd_json::{OwnedValue as Value, ValueTrait};
+/// use simd_json::{OwnedValue as Value, Value as ValueTrait, ValueBuilder, MutableValue};
 /// let mut v = Value::array();
 /// v.push("zero");
 /// v.push(1);
@@ -42,7 +42,7 @@
 ///
 /// Nested changes are also possible:
 /// ```rust
-/// use simd_json::{OwnedValue as Value, ValueTrait};
+/// use simd_json::{OwnedValue as Value, Value as ValueTrait, ValueBuilder, MutableValue};
 /// let mut o = Value::object();
 /// o.insert("key", Value::array());
 /// o["key"].push(Value::object());
@@ -59,11 +59,14 @@ pub mod owned;
 pub mod tape;
 pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
 pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
+use crate::{Deserializer, Result};
 use halfbrown::HashMap;
 use std::borrow::Borrow;
 use std::convert::TryInto;
 use std::fmt;
 use std::hash::Hash;
+use std::marker::PhantomData;
+use tape::{Node, StaticNode};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// An access error for `ValueType`
@@ -109,10 +112,11 @@ pub enum ValueType {
 }
 
 use std::ops::{Index, IndexMut};
-/// The `ValueTrait` exposes common interface for values, this allows using both
-/// `BorrowedValue` and `OwnedValue` nearly interchangable
-pub trait ValueTrait:
+
+/// Support of builder methods for traits.
+pub trait ValueBuilder:
     Default
+    + From<StaticNode>
     + From<i8>
     + From<i16>
     + From<i32>
@@ -126,46 +130,27 @@ pub trait ValueTrait:
     + From<String>
     + From<bool>
     + From<()>
-    + Index<usize>
-    + IndexMut<usize>
-    + PartialEq<i8>
-    + PartialEq<i16>
-    + PartialEq<i32>
-    + PartialEq<i64>
-    + PartialEq<i128>
-    + PartialEq<u8>
-    + PartialEq<u16>
-    + PartialEq<u32>
-    + PartialEq<u64>
-    + PartialEq<u128>
-    + PartialEq<f32>
-    + PartialEq<f64>
-    + PartialEq<String>
-    + PartialEq<bool>
-    + PartialEq<()>
 {
-    /// The type for Objects
-    type Key;
-
+    /// Returns an empty array with a given capacity
+    fn array_with_capacity(capacity: usize) -> Self;
+    /// Returns an empty object with a given capacity
+    fn object_with_capacity(capacity: usize) -> Self;
     /// Returns an empty array
-    fn array() -> Self;
+    fn array() -> Self {
+        Self::array_with_capacity(0)
+    }
     /// Returns an empty object
-    fn object() -> Self;
+    fn object() -> Self {
+        Self::object_with_capacity(0)
+    }
     /// Returns anull value
     fn null() -> Self;
+}
 
-    /// Gets a ref to a value based on a key, returns `None` if the
-    /// current Value isn't an Object or doesn't contain the key
-    /// it was asked for.
-    #[inline]
-    fn get<Q: ?Sized>(&self, k: &Q) -> Option<&Self>
-    where
-        Self::Key: Borrow<Q> + Hash + Eq,
-        Q: Hash + Eq,
-    {
-        self.as_object().and_then(|a| a.get(k))
-    }
-
+/// Mutatability for values
+pub trait MutableValue: IndexMut<usize> + Value + Sized {
+    /// The type for Objects
+    type Key;
     /// Tries to insert into this `Value` as an `Object`.
     /// Will return an `AccessError::NotAnObject` if called
     /// on a `Value` that isn't an object - otherwise will
@@ -173,9 +158,9 @@ pub trait ValueTrait:
     #[inline]
     fn insert<K, V>(&mut self, k: K, v: V) -> std::result::Result<Option<Self>, AccessError>
     where
-        K: Into<Self::Key>,
+        K: Into<<Self as MutableValue>::Key>,
         V: Into<Self>,
-        Self::Key: Hash + Eq,
+        <Self as MutableValue>::Key: Hash + Eq,
     {
         self.as_object_mut()
             .ok_or(AccessError::NotAnObject)
@@ -189,7 +174,7 @@ pub trait ValueTrait:
     #[inline]
     fn remove<Q: ?Sized>(&mut self, k: &Q) -> std::result::Result<Option<Self>, AccessError>
     where
-        Self::Key: Borrow<Q> + Hash + Eq,
+        <Self as MutableValue>::Key: Borrow<Q> + Hash + Eq,
         Q: Hash + Eq,
     {
         self.as_object_mut()
@@ -221,15 +206,60 @@ pub trait ValueTrait:
             .ok_or(AccessError::NotAnArray)
             .map(Vec::pop)
     }
-
     /// Same as `get` but returns a mutable ref instead
     //    fn get_amut(&mut self, k: &str) -> Option<&mut Self>;
     fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut Self>
     where
-        Self::Key: Borrow<Q> + Hash + Eq,
+        <Self as MutableValue>::Key: Borrow<Q> + Hash + Eq,
         Q: Hash + Eq,
     {
         self.as_object_mut().and_then(|m| m.get_mut(&k))
+    }
+
+    /// Same as `get_idx` but returns a mutable ref instead
+    #[inline]
+    fn get_idx_mut(&mut self, i: usize) -> Option<&mut Self> {
+        self.as_array_mut().and_then(|a| a.get_mut(i))
+    }
+    /// Tries to represent the value as an array and returns a mutable refference to it
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>>;
+    /// Tries to represent the value as an object and returns a mutable refference to it
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as MutableValue>::Key, Self>>;
+}
+/// The `Value` exposes common interface for values, this allows using both
+/// `BorrowedValue` and `OwnedValue` nearly interchangable
+pub trait Value:
+    Sized
+    + Index<usize>
+    + PartialEq<i8>
+    + PartialEq<i16>
+    + PartialEq<i32>
+    + PartialEq<i64>
+    + PartialEq<i128>
+    + PartialEq<u8>
+    + PartialEq<u16>
+    + PartialEq<u32>
+    + PartialEq<u64>
+    + PartialEq<u128>
+    + PartialEq<f32>
+    + PartialEq<f64>
+    + PartialEq<String>
+    + PartialEq<bool>
+    + PartialEq<()>
+{
+    /// The type for Objects
+    type Key;
+
+    /// Gets a ref to a value based on a key, returns `None` if the
+    /// current Value isn't an Object or doesn't contain the key
+    /// it was asked for.
+    #[inline]
+    fn get<Q: ?Sized>(&self, k: &Q) -> Option<&Self>
+    where
+        Self::Key: Borrow<Q> + Hash + Eq,
+        Q: Hash + Eq,
+    {
+        self.as_object().and_then(|a| a.get(k))
     }
 
     /// Gets a ref to a value based on n index, returns `None` if the
@@ -238,12 +268,6 @@ pub trait ValueTrait:
     #[inline]
     fn get_idx(&self, i: usize) -> Option<&Self> {
         self.as_array().and_then(|a| a.get(i))
-    }
-
-    /// Same as `get_idx` but returns a mutable ref instead
-    #[inline]
-    fn get_idx_mut(&mut self, i: usize) -> Option<&mut Self> {
-        self.as_array_mut().and_then(|a| a.get_mut(i))
     }
 
     /// Returns the type of the current Valye
@@ -419,8 +443,7 @@ pub trait ValueTrait:
 
     /// Tries to represent the value as an array and returns a refference to it
     fn as_array(&self) -> Option<&Vec<Self>>;
-    /// Tries to represent the value as an array and returns a mutable refference to it
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>>;
+
     /// returns true if the current value can be represented as an array
     #[inline]
     fn is_array(&self) -> bool {
@@ -429,11 +452,87 @@ pub trait ValueTrait:
 
     /// Tries to represent the value as an object and returns a refference to it
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>>;
-    /// Tries to represent the value as an object and returns a mutable refference to it
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>>;
+
     /// returns true if the current value can be represented as an object
     #[inline]
     fn is_object(&self) -> bool {
         self.as_object().is_some()
+    }
+}
+
+/// Parses a slice of butes into a Value dom. This function will
+/// rewrite the slice to de-escape strings.
+/// As we reference parts of the input slice the resulting dom
+/// has the dame lifetime as the slice it was created from.
+pub fn deserialize<'de, Value, Key>(s: &'de mut [u8]) -> Result<Value>
+where
+    Value: ValueBuilder + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Key: Hash + Eq + From<&'de str>,
+{
+    match Deserializer::from_slice(s) {
+        Ok(de) => Ok(ValueDeserializer::from_deserializer(de).parse()),
+        Err(e) => Err(e),
+    }
+}
+struct ValueDeserializer<'de, Value, Key>
+where
+    Value: ValueBuilder + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Key: Hash + Eq + From<&'de str>,
+{
+    de: Deserializer<'de>,
+    _marker: PhantomData<(Value, Key)>,
+}
+
+impl<'de, Value, Key> ValueDeserializer<'de, Value, Key>
+where
+    Value: ValueBuilder + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Key: Hash + Eq + From<&'de str>,
+{
+    pub fn from_deserializer(de: Deserializer<'de>) -> Self {
+        Self {
+            de,
+            _marker: PhantomData::default(),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    pub fn parse(&mut self) -> Value {
+        match self.de.next_() {
+            Node::Static(s) => Value::from(s),
+            Node::String(s) => Value::from(s),
+            Node::Array(len, _) => self.parse_array(len),
+            Node::Object(len, _) => self.parse_map(len),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_array(&mut self, len: usize) -> Value {
+        // Rust doens't optimize the normal loop away here
+        // so we write our own avoiding the lenght
+        // checks during push
+        let mut res = Vec::with_capacity(len);
+        unsafe {
+            res.set_len(len);
+            for i in 0..len {
+                std::ptr::write(res.get_unchecked_mut(i), self.parse());
+            }
+        }
+        Value::from(res)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn parse_map(&mut self, len: usize) -> Value {
+        let mut res: HashMap<Key, Value> = HashMap::with_capacity(len);
+
+        // Since we checked if it's empty we know that we at least have one
+        // element so we eat this
+        for _ in 0..len {
+            if let Node::String(key) = self.de.next_() {
+                res.insert_nocheck(key.into(), self.parse());
+            } else {
+                unreachable!()
+            }
+        }
+        Value::from(res)
     }
 }

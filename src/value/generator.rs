@@ -4,7 +4,7 @@
 //
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
-use crate::value::ValueTrait;
+use crate::value::Value as ValueTrait;
 use std::io;
 use std::io::Write;
 use std::marker::PhantomData;

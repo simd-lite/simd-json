@@ -18,9 +18,9 @@ struct SimdInput {
     v3: __m128i,
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 fn fill_input(ptr: &[u8]) -> SimdInput {
     unsafe {
-        #[allow(clippy::cast_ptr_alignment)]
         SimdInput {
             v0: _mm_loadu_si128(ptr.as_ptr() as *const __m128i),
             v1: _mm_loadu_si128(ptr.as_ptr().add(16) as *const __m128i),
@@ -67,8 +67,8 @@ unsafe fn check_utf8(input: &SimdInput, has_error: &mut __m128i, previous: &mut 
 /// a straightforward comparison of a mask against input. 5 uops; would be
 /// cheaper in AVX512.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
 fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
-    #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
     unsafe {
         let mask: __m128i = _mm_set1_epi8(m as i8);
         let cmp_res_0: __m128i = _mm_cmpeq_epi8(input.v0, mask);
@@ -85,8 +85,8 @@ fn cmp_mask_against_input(input: &SimdInput, m: u8) -> u64 {
 
 // find all values less than or equal than the content of maxval (using unsigned arithmetic)
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(clippy::cast_sign_loss)]
 fn unsigned_lteq_against_input(input: &SimdInput, maxval: __m128i) -> u64 {
-    #[allow(clippy::cast_sign_loss)]
     unsafe {
         let cmp_res_0: __m128i = _mm_cmpeq_epi8(_mm_max_epu8(maxval, input.v0), maxval);
         let res_0: u64 = u64::from(static_cast_u32!(_mm_movemask_epi8(cmp_res_0)));
@@ -152,6 +152,7 @@ fn find_odd_backslash_sequences(input: &SimdInput, prev_iter_ends_odd_backslash:
 // sequences outside quotes; these
 // backslash sequences (of any length) will be detected elsewhere.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(overflowing_literals, clippy::cast_sign_loss)]
 unsafe fn find_quote_mask_and_bits(
     input: &SimdInput,
     odd_ends: u64,
@@ -162,7 +163,6 @@ unsafe fn find_quote_mask_and_bits(
     *quote_bits = cmp_mask_against_input(&input, b'"');
     *quote_bits &= !odd_ends;
     // remove from the valid quoted region the unescapted characters.
-    #[allow(overflowing_literals, clippy::cast_sign_loss)]
     let mut quote_mask: u64 = _mm_cvtsi128_si64(_mm_clmulepi64_si128(
         _mm_set_epi64x(0, static_cast_i64!(*quote_bits)),
         _mm_set1_epi8(0xFF),
@@ -303,6 +303,7 @@ unsafe fn find_whitespace_and_structurals(
 // needs to be large enough to handle this
 //TODO: usize was u32 here does this matter?
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
 fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     let cnt: usize = bits.count_ones() as usize;
     let mut l = base.len();
@@ -327,7 +328,6 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
     }
 
     while bits != 0 {
-        #[allow(clippy::cast_possible_wrap)]
         unsafe {
             let v0 = bits.trailing_zeros() as i32;
             bits &= bits.wrapping_sub(1);
@@ -340,7 +340,6 @@ fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
 
             let v: __m128i = _mm_set_epi32(v3, v2, v1, v0);
             let v: __m128i = _mm_add_epi32(idx_64_v, v);
-            #[allow(clippy::cast_ptr_alignment)]
             _mm_storeu_si128(base.as_mut_ptr().add(l) as *mut __m128i, v);
         }
         l += 4;

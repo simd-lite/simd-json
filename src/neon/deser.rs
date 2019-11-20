@@ -6,9 +6,17 @@ use crate::Result;
 use simd_lite::aarch64::*;
 
 impl<'de> Deserializer<'de> {
-    #[allow(clippy::if_not_else, mutable_transmutes, clippy::transmute_ptr_to_ptr)]
+    #[allow(
+        clippy::if_not_else,
+        mutable_transmutes,
+        clippy::transmute_ptr_to_ptr,
+        clippy::cast_ptr_alignment,
+        clippy::if_not_else,
+        clippy::cast_ptr_alignment,
+        clippy::too_many_lines
+    )]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_str_<'invoke>(
+    pub(crate) fn parse_str_<'invoke>(
         input: &'de [u8],
         buffer: &'invoke mut [u8],
         mut idx: usize,
@@ -30,7 +38,6 @@ impl<'de> Deserializer<'de> {
         loop {
             let (v0, v1) = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 16 wide
-                #[allow(clippy::cast_ptr_alignment)]
                 unsafe {
                     (
                         vld1q_u8(src.get_unchecked(src_i..src_i + 16).as_ptr()),
@@ -91,11 +98,9 @@ impl<'de> Deserializer<'de> {
         let mut dst_i: usize = 0;
 
         // To be more conform with upstream
-        #[allow(clippy::if_not_else)]
         loop {
             let (v0, v1) = if src.len() >= src_i + 32 {
                 // This is safe since we ensure src is at least 16 wide
-                #[allow(clippy::cast_ptr_alignment)]
                 unsafe {
                     (
                         vld1q_u8(src.get_unchecked(src_i..src_i + 16).as_ptr()),

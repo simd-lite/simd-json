@@ -82,32 +82,32 @@ where
     // The `parse_signed` function is generic over the integer type `T` so here
     // it is invoked with `T=i8`. The next 8 methods are similar.
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: i64 = stry!(self.parse_signed());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_i8(v as i8)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: i64 = stry!(self.parse_signed());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_i16(v as i16)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: i64 = stry!(self.parse_signed());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_i32(v as i32)
     }
 
@@ -120,32 +120,32 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: u64 = stry!(self.parse_unsigned());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_u8(v as u8)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: u64 = stry!(self.parse_unsigned());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_u16(v as u16)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: u64 = stry!(self.parse_unsigned());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_u32(v as u32)
     }
 
@@ -158,12 +158,12 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: f64 = stry!(self.parse_double());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_f32(v as f32)
     }
 

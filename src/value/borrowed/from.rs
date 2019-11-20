@@ -16,6 +16,12 @@ impl<'a> From<OwnedValue> for Value<'a> {
     }
 }
 
+impl<'v> From<StaticNode> for Value<'v> {
+    #[inline]
+    fn from(s: StaticNode) -> Self {
+        Self::Static(s)
+    }
+}
 /********* str_ **********/
 impl<'v> From<&'v str> for Value<'v> {
     #[inline]

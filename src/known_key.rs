@@ -1,4 +1,4 @@
-use crate::{ValueTrait, ValueType};
+use crate::{MutableValue, Value as ValueTrait, ValueType};
 use halfbrown::RawEntryMut;
 use std::borrow::{Borrow, Cow};
 use std::fmt;
@@ -96,8 +96,8 @@ impl<'key> KnownKey<'key> {
     where
         'key: 'value,
         'value: 'borrow,
-        V: ValueTrait + 'value,
-        V::Key: Hash + Eq + Borrow<str>,
+        V: MutableValue + 'value,
+        <V as MutableValue>::Key: Hash + Eq + Borrow<str>,
     {
         target.as_object_mut().and_then(|m| {
             match m
@@ -147,8 +147,8 @@ impl<'key> KnownKey<'key> {
     where
         'key: 'value,
         'value: 'borrow,
-        V: ValueTrait + 'value,
-        V::Key: Hash + Eq + Borrow<str> + From<Cow<'key, str>>,
+        V: ValueTrait + MutableValue + 'value,
+        <V as MutableValue>::Key: Hash + Eq + Borrow<str> + From<Cow<'key, str>>,
         F: FnOnce() -> V,
     {
         if !target.is_object() {
@@ -198,8 +198,8 @@ impl<'key> KnownKey<'key> {
     where
         'key: 'value,
         'value: 'borrow,
-        V: ValueTrait + 'value,
-        V::Key: Hash + Eq + Borrow<str> + From<Cow<'key, str>>,
+        V: MutableValue + 'value,
+        <V as MutableValue>::Key: Hash + Eq + Borrow<str> + From<Cow<'key, str>>,
     {
         if !target.is_object() {
             return Err(Error::NotAnObject(target.value_type()));
@@ -225,7 +225,7 @@ mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::*;
     use crate::borrowed::*;
-    use crate::{BorrowedValue, ValueTrait};
+    use crate::{BorrowedValue, Value as ValueTrait, ValueBuilder};
 
     #[test]
     fn known_key() {

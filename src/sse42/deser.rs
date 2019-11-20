@@ -11,9 +11,16 @@ use crate::Deserializer;
 pub use crate::Result;
 
 impl<'de> Deserializer<'de> {
-    #[allow(clippy::if_not_else, mutable_transmutes, clippy::transmute_ptr_to_ptr)]
+    #[allow(
+        clippy::if_not_else,
+        mutable_transmutes,
+        clippy::transmute_ptr_to_ptr,
+        clippy::cast_ptr_alignment,
+        clippy::cast_possible_wrap,
+        clippy::too_many_lines
+    )]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse_str_<'invoke>(
+    pub(crate) fn parse_str_<'invoke>(
         input: &'de [u8],
         buffer: &'invoke mut [u8],
         mut idx: usize,
@@ -35,17 +42,13 @@ impl<'de> Deserializer<'de> {
         loop {
             let v: __m128i = if src.len() >= src_i + 16 {
                 // This is safe since we ensure src is at least 16 wide
-                #[allow(clippy::cast_ptr_alignment)]
-                unsafe {
-                    _mm_loadu_si128(src.as_ptr().add(src_i) as *const __m128i)
-                }
+                unsafe { _mm_loadu_si128(src.as_ptr().add(src_i) as *const __m128i) }
             } else {
                 unsafe {
                     padding
                         .get_unchecked_mut(..src.len() - src_i)
                         .clone_from_slice(src.get_unchecked(src_i..));
                     // This is safe since we ensure src is at least 32 wide
-                    #[allow(clippy::cast_ptr_alignment)]
                     _mm_loadu_si128(padding.as_ptr() as *const __m128i)
                 }
             };
@@ -55,11 +58,9 @@ impl<'de> Deserializer<'de> {
             let bs_bits: u32 = unsafe {
                 static_cast_u32!(_mm_movemask_epi8(_mm_cmpeq_epi8(
                     v,
-                    #[allow(clippy::cast_possible_wrap)]
                     _mm_set1_epi8(b'\\' as i8)
                 )))
             };
-            #[allow(clippy::cast_possible_wrap)]
             let quote_mask = unsafe { _mm_cmpeq_epi8(v, _mm_set1_epi8(b'"' as i8)) };
             let quote_bits = unsafe { static_cast_u32!(_mm_movemask_epi8(quote_mask)) };
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
@@ -101,40 +102,30 @@ impl<'de> Deserializer<'de> {
         let mut dst_i: usize = 0;
 
         // To be more conform with upstream
-        #[allow(clippy::if_not_else)]
         loop {
             let v: __m128i = if src.len() >= src_i + 16 {
                 // This is safe since we ensure src is at least 16 wide
-                #[allow(clippy::cast_ptr_alignment)]
-                unsafe {
-                    _mm_loadu_si128(src.as_ptr().add(src_i) as *const __m128i)
-                }
+                unsafe { _mm_loadu_si128(src.as_ptr().add(src_i) as *const __m128i) }
             } else {
                 unsafe {
                     padding
                         .get_unchecked_mut(..src.len() - src_i)
                         .clone_from_slice(src.get_unchecked(src_i..));
                     // This is safe since we ensure src is at least 16 wide
-                    #[allow(clippy::cast_ptr_alignment)]
                     _mm_loadu_si128(padding.as_ptr() as *const __m128i)
                 }
             };
 
-            #[allow(clippy::cast_ptr_alignment)]
-            unsafe {
-                _mm_storeu_si128(buffer.as_mut_ptr().add(dst_i) as *mut __m128i, v)
-            };
+            unsafe { _mm_storeu_si128(buffer.as_mut_ptr().add(dst_i) as *mut __m128i, v) };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
             let bs_bits: u32 = unsafe {
                 static_cast_u32!(_mm_movemask_epi8(_mm_cmpeq_epi8(
                     v,
-                    #[allow(clippy::cast_possible_wrap)]
                     _mm_set1_epi8(b'\\' as i8)
                 )))
             };
-            #[allow(clippy::cast_possible_wrap)]
             let quote_mask = unsafe { _mm_cmpeq_epi8(v, _mm_set1_epi8(b'"' as i8)) };
             let quote_bits = unsafe { static_cast_u32!(_mm_movemask_epi8(quote_mask)) };
             if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {

@@ -246,8 +246,8 @@ mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::serde::from_slice;
     use super::{
-        owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
-        Deserializer,
+        deserialize, owned::to_value, owned::Object, owned::Value, to_borrowed_value,
+        to_owned_value, BorrowedValue, Deserializer, OwnedValue,
     };
     use crate::tape::*;
     use halfbrown::HashMap;
@@ -1122,7 +1122,17 @@ mod tests {
             let mut encoded: Vec<u8> = Vec::new();
             let _ = val.write(&mut encoded);
             println!("{}", String::from_utf8_lossy(&encoded.clone()));
-            let res = to_owned_value(&mut encoded).expect("can't convert");
+            let mut e = encoded.clone();
+            let res = to_owned_value(&mut e).expect("can't convert");
+            assert_eq!(val, res);
+            let mut e = encoded.clone();
+            let res = to_borrowed_value(&mut e).expect("can't convert");
+            assert_eq!(val, res);
+            let mut e = encoded.clone();
+            let res: OwnedValue = deserialize(&mut e).expect("can't convert");
+            assert_eq!(val, res);
+            let mut e = encoded.clone();
+            let res: BorrowedValue = deserialize(&mut e).expect("can't convert");
             assert_eq!(val, res);
         }
 

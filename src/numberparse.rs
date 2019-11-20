@@ -101,9 +101,9 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // http://0x80.pl/articles/swar-digits-validate.html
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[allow(clippy::cast_ptr_alignment)]
 fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
     // We know what we're doing right? :P
-    #[allow(clippy::cast_ptr_alignment)]
     let val: u64 = unsafe { *(chars.as_ptr() as *const u64) };
 
     //    let val: __m64 = *(chars as *const __m64);
@@ -170,7 +170,8 @@ impl<'de> Deserializer<'de> {
     #[allow(
         clippy::cast_sign_loss,
         clippy::cast_possible_wrap,
-        clippy::cast_precision_loss
+        clippy::cast_precision_loss,
+        clippy::too_many_lines
     )]
     fn parse_float(idx: usize, p: &[u8], negative: bool) -> Result<StaticNode> {
         let mut digitcount = if negative { 1 } else { 0 };
@@ -381,9 +382,10 @@ impl<'de> Deserializer<'de> {
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         clippy::cast_precision_loss,
-        clippy::cast_possible_wrap
+        clippy::cast_possible_wrap,
+        clippy::too_many_lines
     )]
-    pub fn parse_number_int(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
+    pub(crate) fn parse_number_int(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
         let mut byte_count = if negative { 1 } else { 0 };
         let mut ignore_count: u8 = 0;
         //let startdigits: *const u8 = p;
@@ -579,7 +581,7 @@ impl<'de> Deserializer<'de> {
 mod test {
     #![allow(clippy::default_trait_access)]
     use crate::value::owned::to_value;
-    use crate::value::ValueTrait;
+    use crate::value::Value as ValueTrait;
     use float_cmp::approx_eq;
 
     #[test]

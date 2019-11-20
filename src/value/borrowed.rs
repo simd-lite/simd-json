@@ -4,7 +4,7 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::value::{ValueTrait, ValueType};
+use crate::value::{MutableValue, Value as ValueTrait, ValueBuilder, ValueType};
 use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::borrow::Cow;
@@ -77,21 +77,39 @@ impl<'v> Value<'v> {
     }
 }
 
-impl<'v> ValueTrait for Value<'v> {
-    type Key = Cow<'v, str>;
-
-    #[inline]
-    fn array() -> Self {
-        Self::Array(Vec::new())
-    }
-    #[inline]
-    fn object() -> Self {
-        Self::Object(Box::new(Object::new()))
-    }
+impl<'v> ValueBuilder for Value<'v> {
     #[inline]
     fn null() -> Self {
         Self::Static(StaticNode::Null)
     }
+    fn array_with_capacity(capacity: usize) -> Self {
+        Self::Array(Vec::with_capacity(capacity))
+    }
+    fn object_with_capacity(capacity: usize) -> Self {
+        Self::Object(Box::new(Object::with_capacity(capacity)))
+    }
+}
+
+impl<'v> MutableValue for Value<'v> {
+    type Key = Cow<'v, str>;
+    #[inline]
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
+        match self {
+            Self::Array(a) => Some(a),
+            _ => None,
+        }
+    }
+    #[inline]
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as MutableValue>::Key, Self>> {
+        match self {
+            Self::Object(m) => Some(m),
+            _ => None,
+        }
+    }
+}
+
+impl<'v> ValueTrait for Value<'v> {
+    type Key = Cow<'v, str>;
 
     #[inline]
     fn value_type(&self) -> ValueType {
@@ -129,8 +147,8 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     #[inline]
+    #[allow(clippy::cast_sign_loss)]
     fn as_u64(&self) -> Option<u64> {
-        #[allow(clippy::cast_sign_loss)]
         match self {
             Self::Static(StaticNode::I64(i)) => u64::try_from(*i).ok(),
             Self::Static(StaticNode::U64(i)) => Some(*i),
@@ -147,8 +165,8 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     #[inline]
+    #[allow(clippy::cast_precision_loss)]
     fn cast_f64(&self) -> Option<f64> {
-        #[allow(clippy::cast_precision_loss)]
         match self {
             Self::Static(StaticNode::F64(i)) => Some(*i),
             Self::Static(StaticNode::I64(i)) => Some(*i as f64),
@@ -175,23 +193,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     #[inline]
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
-        match self {
-            Self::Array(a) => Some(a),
-            _ => None,
-        }
-    }
-
-    #[inline]
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
-        match self {
-            Self::Object(m) => Some(m),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -296,7 +298,7 @@ impl<'de> BorrowDeserializer<'de> {
 mod test {
     #![allow(clippy::cognitive_complexity)]
     use super::*;
-    use crate::value::{AccessError, ValueTrait};
+    use crate::value::{AccessError, Value as ValueTrait};
 
     #[test]
     fn object_access() {
@@ -688,16 +690,16 @@ mod test {
             prop_assert_eq!(borrowed, decoded)
         }
         #[test]
+        #[allow(clippy::float_cmp)]
         fn prop_f64_cmp(f in proptest::num::f64::NORMAL) {
-            #[allow(clippy::float_cmp)]
             let v: Value = f.into();
             prop_assert_eq!(v, f)
 
         }
 
         #[test]
+        #[allow(clippy::float_cmp)]
         fn prop_f32_cmp(f in proptest::num::f32::NORMAL) {
-            #[allow(clippy::float_cmp)]
             let v: Value = f.into();
             prop_assert_eq!(v, f)
 
@@ -728,8 +730,8 @@ mod test {
             prop_assert_eq!(v, f)
         }
 
-        #[allow(clippy::cast_possible_truncation)]
         #[test]
+        #[allow(clippy::cast_possible_truncation)]
         fn prop_usize_cmp(f in proptest::num::usize::ANY) {
             let v: Value = f.into();
             prop_assert_eq!(v, f)
