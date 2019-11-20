@@ -7,7 +7,7 @@ use crate::value::generator::ESCAPED;
 use std::io;
 
 #[inline(always)]
-pub unsafe fn write_str_simd<W>(
+pub(crate) unsafe fn write_str_simd<W>(
     writer: &mut W,
     string: &mut &[u8],
     len: &mut usize,
