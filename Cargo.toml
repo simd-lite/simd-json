@@ -29,6 +29,9 @@ simd-lite = { version = "0.1.0", optional = true }
 # for float comparison
 float-cmp = "0.5"
 
+# because dev dependenceis can't be optional ...
+alloc_counter = {version = "0.0.3", optional = true}
+
 
 
 
@@ -59,6 +62,8 @@ swar-number-parsing = []
 serde_impl = [ "serde", "serde_json", "halfbrown/serde" ]
 # Support for ARM NEON SIMD
 neon = ["simd-lite"]
+# for testing allocations
+alloc = ["alloc_counter"]
 # don't inline code - used for debugging
 no-inline = []
 # uses safe slice access ([]) instead of get_unsafe
