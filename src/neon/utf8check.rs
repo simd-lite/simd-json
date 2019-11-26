@@ -1,3 +1,4 @@
+use crate::*;
 use simd_lite::aarch64::*;
 use simd_lite::NeonInit;
 
@@ -178,13 +179,7 @@ fn check_overlong(
     }
 }
 
-pub(crate) struct ProcessedUtfBytes {
-    rawbytes: int8x16_t,
-    high_nibbles: int8x16_t,
-    pub carried_continuations: int8x16_t,
-}
-
-impl Default for ProcessedUtfBytes {
+impl Default for ProcessedUtfBytes<int8x16_t> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         unsafe {
@@ -198,7 +193,7 @@ impl Default for ProcessedUtfBytes {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn count_nibbles(bytes: int8x16_t, answer: &mut ProcessedUtfBytes) {
+fn count_nibbles(bytes: int8x16_t, answer: &mut ProcessedUtfBytes<int8x16_t>) {
     answer.rawbytes = bytes;
     answer.high_nibbles = unsafe {
         vandq_s8(
@@ -213,9 +208,9 @@ fn count_nibbles(bytes: int8x16_t, answer: &mut ProcessedUtfBytes) {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn check_utf8_bytes(
     current_bytes: int8x16_t,
-    previous: &mut ProcessedUtfBytes,
+    previous: &mut ProcessedUtfBytes<int8x16_t>,
     has_error: &mut int8x16_t,
-) -> ProcessedUtfBytes {
+) -> ProcessedUtfBytes<int8x16_t> {
     let mut pb = ProcessedUtfBytes::default();
     unsafe {
         count_nibbles(current_bytes, &mut pb);

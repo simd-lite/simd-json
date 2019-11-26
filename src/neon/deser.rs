@@ -1,9 +1,38 @@
 use crate::error::ErrorType;
-use crate::neon::stage1::*;
+use crate::neon::stage1::bit_mask;
 use crate::stringparse::*;
 use crate::Deserializer;
 use crate::Result;
 use simd_lite::aarch64::*;
+
+#[cfg_attr(not(feature = "no-inline"), inline(always))]
+fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
+    unsafe {
+        let quote_mask = vmovq_n_u8(b'"');
+        let bs_mask = vmovq_n_u8(b'\\');
+        let bit_mask = bit_mask();
+
+        let cmp_bs_0: uint8x16_t = vceqq_u8(v0, bs_mask);
+        let cmp_bs_1: uint8x16_t = vceqq_u8(v1, bs_mask);
+        let cmp_qt_0: uint8x16_t = vceqq_u8(v0, quote_mask);
+        let cmp_qt_1: uint8x16_t = vceqq_u8(v1, quote_mask);
+
+        let cmp_bs_0 = vandq_u8(cmp_bs_0, bit_mask);
+        let cmp_bs_1 = vandq_u8(cmp_bs_1, bit_mask);
+        let cmp_qt_0 = vandq_u8(cmp_qt_0, bit_mask);
+        let cmp_qt_1 = vandq_u8(cmp_qt_1, bit_mask);
+
+        let sum0: uint8x16_t = vpaddq_u8(cmp_bs_0, cmp_bs_1);
+        let sum1: uint8x16_t = vpaddq_u8(cmp_qt_0, cmp_qt_1);
+        let sum0 = vpaddq_u8(sum0, sum1);
+        let sum0 = vpaddq_u8(sum0, sum0);
+
+        (
+            vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 0),
+            vgetq_lane_u32(vreinterpretq_u32_u8(sum0), 1),
+        )
+    }
+}
 
 impl<'de> Deserializer<'de> {
     #[allow(
