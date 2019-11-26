@@ -183,13 +183,7 @@ fn check_overlong(
     }
 }
 
-pub(crate) struct ProcessedUtfBytes {
-    rawbytes: __m128i,
-    high_nibbles: __m128i,
-    pub carried_continuations: __m128i,
-}
-
-impl Default for ProcessedUtfBytes {
+impl Default for ProcessedUtfBytes<__m128i> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         unsafe {
@@ -203,7 +197,7 @@ impl Default for ProcessedUtfBytes {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-fn count_nibbles(bytes: __m128i, answer: &mut ProcessedUtfBytes) {
+fn count_nibbles(bytes: __m128i, answer: &mut ProcessedUtfBytes<__m128i>) {
     answer.rawbytes = bytes;
     answer.high_nibbles = unsafe { _mm_and_si128(_mm_srli_epi16(bytes, 4), _mm_set1_epi8(0x0F)) };
 }
@@ -213,9 +207,9 @@ fn count_nibbles(bytes: __m128i, answer: &mut ProcessedUtfBytes) {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn check_utf8_bytes(
     current_bytes: __m128i,
-    previous: &ProcessedUtfBytes,
+    previous: &ProcessedUtfBytes<__m128i>,
     has_error: &mut __m128i,
-) -> ProcessedUtfBytes {
+) -> ProcessedUtfBytes<__m128i> {
     let mut pb = ProcessedUtfBytes::default();
     unsafe {
         count_nibbles(current_bytes, &mut pb);
