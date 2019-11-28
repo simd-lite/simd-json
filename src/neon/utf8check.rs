@@ -56,8 +56,8 @@ impl Default for ProcessedUtfBytes<int8x16_t> {
 
 impl Utf8Check<int8x16_t> for ProcessedUtfBytes<int8x16_t> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn new_processed_utf_bytes() -> ProcessedUtfBytes<int8x16_t> {
-        ProcessedUtfBytes::default()
+    fn new_processed_utf_bytes() -> Self {
+        Self::default()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -189,11 +189,7 @@ impl Utf8Check<int8x16_t> for ProcessedUtfBytes<int8x16_t> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn count_nibbles(bytes: int8x16_t, answer: &mut ProcessedUtfBytes<int8x16_t>) {
         answer.rawbytes = bytes;
-        answer.high_nibbles = unsafe {
-            vandq_s8(
-                vreinterpretq_s8_u8(vshrq_n_u8(vreinterpretq_u8_s8(bytes), 4)),
-                vmovq_n_s8(0x0F),
-            )
-        };
+        answer.high_nibbles =
+            unsafe { vreinterpretq_s8_u8(vshrq_n_u8(vreinterpretq_u8_s8(bytes), 4)) };
     }
 }

@@ -150,7 +150,6 @@ mod stage2;
 /// simd-json JSON-DOM value
 pub mod value;
 
-#[cfg(not(target_feature = "neon"))]
 use std::mem;
 use std::str;
 
@@ -173,24 +172,68 @@ pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Node<'input>>> {
     Ok(de.tape)
 }
 
+pub(crate) struct Utf8CheckingState<T> {
+    has_error: T,
+    previous: ProcessedUtfBytes<T>,
+}
+
 pub(crate) trait Stage1Parse<T> {
+    fn new_utf8_checking_state() -> Utf8CheckingState<T>;
+
+    fn compute_quote_mask(quote_bits: u64) -> u64;
+
     fn cmp_mask_against_input(&self, m: u8) -> u64;
 
-    fn check_utf8(&self, has_error: &mut T, previous: &mut ProcessedUtfBytes<T>);
+    fn check_utf8(&self, state: &mut Utf8CheckingState<T>);
+
+    fn check_utf8_errors(state: &Utf8CheckingState<T>) -> bool;
 
     fn unsigned_lteq_against_input(&self, maxval: T) -> u64;
 
+    fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64);
+
+    fn flatten_bits(base: &mut Vec<u32>, idx: u32, bits: u64);
+
+    // return both the quote mask (which is a half-open mask that covers the first
+    // quote in an unescaped quote pair and everything in the quote pair) and the
+    // quote bits, which are the simple unescaped quoted bits.
+    //
+    // We also update the prev_iter_inside_quote value to tell the next iteration
+    // whether we finished the final iteration inside a quote pair; if so, this
+    // inverts our behavior of whether we're inside quotes for the next iteration.
+    //
+    // Note that we don't do any error checking to see if we have backslash
+    // sequences outside quotes; these
+    // backslash sequences (of any length) will be detected elsewhere.
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(overflowing_literals, clippy::cast_sign_loss)]
     fn find_quote_mask_and_bits(
         &self,
         odd_ends: u64,
         prev_iter_inside_quote: &mut u64,
         quote_bits: &mut u64,
         error_mask: &mut u64,
-    ) -> u64;
-
-    fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64);
-
-    fn flatten_bits(base: &mut Vec<u32>, idx: u32, bits: u64);
+    ) -> u64 {
+        unsafe {
+            *quote_bits = self.cmp_mask_against_input(b'"');
+            *quote_bits &= !odd_ends;
+            // remove from the valid quoted region the unescapted characters.
+            let mut quote_mask: u64 = Self::compute_quote_mask(*quote_bits);
+            quote_mask ^= *prev_iter_inside_quote;
+            // All Unicode characters may be placed within the
+            // quotation marks, except for the characters that MUST be escaped:
+            // quotation mark, reverse solidus, and the control characters (U+0000
+            //through U+001F).
+            // https://tools.ietf.org/html/rfc8259
+            let unescaped: u64 = self.unsigned_lteq_against_input(Self::fill_s8(0x1F));
+            *error_mask |= quote_mask & unescaped;
+            // right shift of a signed value expected to be well-defined and standard
+            // compliant as of C++20,
+            // John Regher from Utah U. says this is fine code
+            *prev_iter_inside_quote = static_cast_u64!(static_cast_i64!(quote_mask) >> 63);
+            quote_mask
+        }
+    }
 
     // return a bitvector indicating where we have characters that end an odd-length
     // sequence of backslashes (and thus change the behavior of the next character
@@ -275,8 +318,7 @@ pub(crate) trait Stage1Parse<T> {
         structurals
     }
 
-    fn is_error_detected(has_error: T) -> bool;
-
+    fn fill_s8(n: i8) -> T;
     fn zero() -> T;
 }
 
@@ -362,8 +404,7 @@ impl<'de> Deserializer<'de> {
         let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
-        let mut has_error = SimdInput::zero();
-        let mut previous = ProcessedUtfBytes::default();
+        let mut state = SimdInput::new_utf8_checking_state();
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
 
@@ -399,7 +440,7 @@ impl<'de> Deserializer<'de> {
             #endif
              */
             let input = SimdInput::new(input.get_unchecked(idx as usize..));
-            input.check_utf8(&mut has_error, &mut previous);
+            input.check_utf8(&mut state);
             // detect odd sequences of backslashes
             let odd_ends: u64 =
                 input.find_odd_backslash_sequences(&mut prev_iter_ends_odd_backslash);
@@ -443,7 +484,7 @@ impl<'de> Deserializer<'de> {
                 .copy_from(input.as_ptr().add(idx), len as usize - idx);
             let input = SimdInput::new(&tmpbuf);
 
-            input.check_utf8(&mut has_error, &mut previous);
+            input.check_utf8(&mut state);
 
             // detect odd sequences of backslashes
             let odd_ends: u64 =
@@ -497,7 +538,7 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        if SimdInput::is_error_detected(has_error) {
+        if SimdInput::check_utf8_errors(&state) {
             Err(ErrorType::InvalidUTF8)
         } else {
             Ok(structural_indexes)

@@ -6,6 +6,52 @@ use std::arch::x86_64::*;
 
 use crate::utf8check::*;
 
+macro_rules! initial_mins {
+    () => {
+        _mm_setr_epi8(
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128, // 10xx => false
+            static_cast_i8!(0xC2_u8),
+            -128,                     // 110x
+            static_cast_i8!(0xE1_u8), // 1110
+            static_cast_i8!(0xF1_u8), // 1111
+        )
+    };
+}
+
+macro_rules! second_mins {
+    () => {
+        _mm_setr_epi8(
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128,
+            -128, // 10xx => false
+            127,
+            127,                      // 110x => true
+            static_cast_i8!(0xA0_u8), // 1110
+            static_cast_i8!(0x90_u8), // 1111
+        )
+    };
+}
+
 impl Default for ProcessedUtfBytes<__m128i> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
@@ -21,8 +67,8 @@ impl Default for ProcessedUtfBytes<__m128i> {
 
 impl Utf8Check<__m128i> for ProcessedUtfBytes<__m128i> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn new_processed_utf_bytes() -> ProcessedUtfBytes<__m128i> {
-        ProcessedUtfBytes::default()
+    fn new_processed_utf_bytes() -> Self {
+        Self::default()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -137,51 +183,11 @@ impl Utf8Check<__m128i> for ProcessedUtfBytes<__m128i> {
     ) {
         unsafe {
             let off1_hibits: __m128i = Self::push_last_byte_of_a_to_b(previous_hibits, hibits);
-            let initial_mins: __m128i = _mm_shuffle_epi8(
-                _mm_setr_epi8(
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128, // 10xx => false
-                    static_cast_i8!(0xC2_u8),
-                    -128,                     // 110x
-                    static_cast_i8!(0xE1_u8), // 1110
-                    static_cast_i8!(0xF1_u8), // 1111
-                ),
-                off1_hibits,
-            );
+            let initial_mins: __m128i = _mm_shuffle_epi8(initial_mins!(), off1_hibits);
 
             let initial_under: __m128i = _mm_cmpgt_epi8(initial_mins, off1_current_bytes);
 
-            let second_mins: __m128i = _mm_shuffle_epi8(
-                _mm_setr_epi8(
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128,
-                    -128, // 10xx => false
-                    127,
-                    127,                      // 110x => true
-                    static_cast_i8!(0xA0_u8), // 1110
-                    static_cast_i8!(0x90_u8), // 1111
-                ),
-                off1_hibits,
-            );
+            let second_mins: __m128i = _mm_shuffle_epi8(second_mins!(), off1_hibits);
             let second_under: __m128i = _mm_cmpgt_epi8(second_mins, current_bytes);
             *has_error = _mm_or_si128(*has_error, _mm_and_si128(initial_under, second_under));
         }

@@ -8,6 +8,24 @@ use std::arch::x86_64::*;
 
 use std::mem;
 
+macro_rules! low_nibble_mask {
+    () => {
+        _mm256_setr_epi8(
+            16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1,
+            2, 9, 0, 0,
+        )
+    };
+}
+
+macro_rules! high_nibble_mask {
+    () => {
+        _mm256_setr_epi8(
+            8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3,
+            2, 1, 0, 0,
+        )
+    };
+}
+
 pub const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
 pub const SIMDINPUT_LENGTH: usize = 64;
 
@@ -32,27 +50,52 @@ impl SimdInput {
 
 impl Stage1Parse<__m256i> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn check_utf8(&self, has_error: &mut __m256i, previous: &mut ProcessedUtfBytes<__m256i>) {
+    fn new_utf8_checking_state() -> Utf8CheckingState<__m256i> {
+        Utf8CheckingState {
+            has_error: Self::zero(),
+            previous: ProcessedUtfBytes::default(),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn compute_quote_mask(quote_bits: u64) -> u64 {
+        unsafe {
+            _mm_cvtsi128_si64(_mm_clmulepi64_si128(
+                _mm_set_epi64x(0, static_cast_i64!(quote_bits)),
+                _mm_set1_epi8(-1_i8 /* 0xFF */),
+                0,
+            )) as u64
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn check_utf8(&self, state: &mut Utf8CheckingState<__m256i>) {
         unsafe {
             let highbit: __m256i = _mm256_set1_epi8(static_cast_i8!(0x80_u8));
             if (_mm256_testz_si256(_mm256_or_si256(self.v0, self.v1), highbit)) == 1 {
                 // it is ascii, we just check continuation
-                *has_error = _mm256_or_si256(
+                state.has_error = _mm256_or_si256(
                     _mm256_cmpgt_epi8(
-                        previous.carried_continuations,
+                        state.previous.carried_continuations,
                         _mm256_setr_epi8(
                             9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
                             9, 9, 9, 9, 9, 9, 9, 1,
                         ),
                     ),
-                    *has_error,
+                    state.has_error,
                 );
             } else {
                 // it is not ascii so we have to do heavy work
-                *previous =
-                    ProcessedUtfBytes::<__m256i>::check_utf8_bytes(self.v0, &previous, has_error);
-                *previous =
-                    ProcessedUtfBytes::<__m256i>::check_utf8_bytes(self.v1, &previous, has_error);
+                state.previous = ProcessedUtfBytes::<__m256i>::check_utf8_bytes(
+                    self.v0,
+                    &state.previous,
+                    &mut state.has_error,
+                );
+                state.previous = ProcessedUtfBytes::<__m256i>::check_utf8_bytes(
+                    self.v1,
+                    &state.previous,
+                    &mut state.has_error,
+                );
             }
         }
     }
@@ -84,51 +127,6 @@ impl Stage1Parse<__m256i> for SimdInput {
         }
     }
 
-    // return both the quote mask (which is a half-open mask that covers the first
-    // quote in an unescaped quote pair and everything in the quote pair) and the
-    // quote bits, which are the simple unescaped quoted bits.
-    //
-    // We also update the prev_iter_inside_quote value to tell the next iteration
-    // whether we finished the final iteration inside a quote pair; if so, this
-    // inverts our behavior of whether we're inside quotes for the next iteration.
-    //
-    // Note that we don't do any error checking to see if we have backslash
-    // sequences outside quotes; these
-    // backslash sequences (of any length) will be detected elsewhere.
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    #[allow(overflowing_literals, clippy::cast_sign_loss)]
-    fn find_quote_mask_and_bits(
-        &self,
-        odd_ends: u64,
-        prev_iter_inside_quote: &mut u64,
-        quote_bits: &mut u64,
-        error_mask: &mut u64,
-    ) -> u64 {
-        unsafe {
-            *quote_bits = self.cmp_mask_against_input(b'"');
-            *quote_bits &= !odd_ends;
-            // remove from the valid quoted region the unescapted characters.
-            let mut quote_mask: u64 = _mm_cvtsi128_si64(_mm_clmulepi64_si128(
-                _mm_set_epi64x(0, static_cast_i64!(*quote_bits)),
-                _mm_set1_epi8(0xFF),
-                0,
-            )) as u64;
-            quote_mask ^= *prev_iter_inside_quote;
-            // All Unicode characters may be placed within the
-            // quotation marks, except for the characters that MUST be escaped:
-            // quotation mark, reverse solidus, and the control characters (U+0000
-            //through U+001F).
-            // https://tools.ietf.org/html/rfc8259
-            let unescaped: u64 = self.unsigned_lteq_against_input(_mm256_set1_epi8(0x1F));
-            *error_mask |= quote_mask & unescaped;
-            // right shift of a signed value expected to be well-defined and standard
-            // compliant as of C++20,
-            // John Regher from Utah U. says this is fine code
-            *prev_iter_inside_quote = static_cast_u64!(static_cast_i64!(quote_mask) >> 63);
-            quote_mask
-        }
-    }
-
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     #[allow(clippy::cast_sign_loss)]
     fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64) {
@@ -150,16 +148,8 @@ impl Stage1Parse<__m256i> for SimdInput {
             // * carriage return 0x0d
             // these go into the next 2 buckets of the comparison (8/16)
 
-            // TODO: const?
-            let low_nibble_mask: __m256i = _mm256_setr_epi8(
-                16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 8,
-                12, 1, 2, 9, 0, 0,
-            );
-            // TODO: const?
-            let high_nibble_mask: __m256i = _mm256_setr_epi8(
-                8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0,
-                3, 2, 1, 0, 0,
-            );
+            let low_nibble_mask: __m256i = low_nibble_mask!();
+            let high_nibble_mask: __m256i = high_nibble_mask!();
 
             let structural_shufti_mask: __m256i = _mm256_set1_epi8(0x7);
             let whitespace_shufti_mask: __m256i = _mm256_set1_epi8(0x18);
@@ -270,8 +260,13 @@ impl Stage1Parse<__m256i> for SimdInput {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn is_error_detected(has_error: __m256i) -> bool {
-        unsafe { _mm256_testz_si256(has_error, has_error) == 0 }
+    fn check_utf8_errors(state: &Utf8CheckingState<__m256i>) -> bool {
+        unsafe { _mm256_testz_si256(state.has_error, state.has_error) == 0 }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn fill_s8(n: i8) -> __m256i {
+        unsafe { _mm256_set1_epi8(n) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]

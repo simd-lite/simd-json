@@ -15,6 +15,10 @@
 
 ## readme (for real!)
 
+### simdjson version
+
+**Currently tracking version 0.2.x of simdjson upstream (work in progress, feedback welcome!).**
+
 ### CPU target
 
 To be able to take advantage of simdjson your system needs to be SIMD compatible. This means to compile with native cpu support and the given features. Look at [The cargo config in this repository](.cargo/config) to get an example.
