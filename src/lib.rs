@@ -112,6 +112,7 @@ mod macros;
 mod error;
 mod numberparse;
 mod stringparse;
+mod utf8check;
 
 #[cfg(target_feature = "avx2")]
 mod avx2;
@@ -143,6 +144,8 @@ pub use crate::neon::deser::*;
 #[cfg(all(target_feature = "neon", feature = "neon"))]
 use crate::neon::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 
+use crate::utf8check::ProcessedUtfBytes;
+
 mod stage2;
 /// simd-json JSON-DOM value
 pub mod value;
@@ -168,12 +171,6 @@ pub use crate::tape::{Node, StaticNode, Tape};
 pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Node<'input>>> {
     let de = stry!(Deserializer::from_slice(s));
     Ok(de.tape)
-}
-
-pub(crate) struct ProcessedUtfBytes<T> {
-    pub rawbytes: T,
-    pub high_nibbles: T,
-    pub carried_continuations: T,
 }
 
 pub(crate) trait Stage1Parse<T> {

@@ -1,5 +1,6 @@
 #![allow(dead_code)]
-use crate::sse42::utf8check::*;
+use crate::utf8check::Utf8Check;
+
 use crate::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -50,8 +51,8 @@ impl Stage1Parse<__m128i> for SimdInput {
                 );
             } else {
                 // it is not ascii so we have to do heavy work
-                *previous = check_utf8_bytes(self.v0, &previous, has_error);
-                *previous = check_utf8_bytes(self.v1, &previous, has_error);
+                *previous = ProcessedUtfBytes::check_utf8_bytes(self.v0, &previous, has_error);
+                *previous = ProcessedUtfBytes::check_utf8_bytes(self.v1, &previous, has_error);
             }
 
             if (_mm_testz_si128(_mm_or_si128(self.v2, self.v3), highbit)) == 1 {
@@ -65,8 +66,8 @@ impl Stage1Parse<__m128i> for SimdInput {
                 );
             } else {
                 // it is not ascii so we have to do heavy work
-                *previous = check_utf8_bytes(self.v2, &previous, has_error);
-                *previous = check_utf8_bytes(self.v3, &previous, has_error);
+                *previous = ProcessedUtfBytes::check_utf8_bytes(self.v2, &previous, has_error);
+                *previous = ProcessedUtfBytes::check_utf8_bytes(self.v3, &previous, has_error);
             }
         }
     }

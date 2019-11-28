@@ -1,6 +1,5 @@
 #![allow(dead_code)]
-
-use crate::neon::utf8check::*;
+use crate::utf8check::Utf8Check;
 use crate::*;
 use simd_lite::aarch64::*;
 use simd_lite::NeonInit;
@@ -124,10 +123,26 @@ impl Stage1Parse<int8x16_t> for SimdInput {
                 ));
             } else {
                 // it is not ascii so we have to do heavy work
-                *previous = check_utf8_bytes(vreinterpretq_s8_u8(self.v0), previous, has_error);
-                *previous = check_utf8_bytes(vreinterpretq_s8_u8(self.v1), previous, has_error);
-                *previous = check_utf8_bytes(vreinterpretq_s8_u8(self.v2), previous, has_error);
-                *previous = check_utf8_bytes(vreinterpretq_s8_u8(self.v3), previous, has_error);
+                *previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
+                    vreinterpretq_s8_u8(self.v0),
+                    previous,
+                    has_error,
+                );
+                *previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
+                    vreinterpretq_s8_u8(self.v1),
+                    previous,
+                    has_error,
+                );
+                *previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
+                    vreinterpretq_s8_u8(self.v2),
+                    previous,
+                    has_error,
+                );
+                *previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
+                    vreinterpretq_s8_u8(self.v3),
+                    previous,
+                    has_error,
+                );
             }
         }
     }

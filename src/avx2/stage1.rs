@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::avx2::utf8check::*;
+use crate::utf8check::Utf8Check;
 use crate::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -49,8 +49,10 @@ impl Stage1Parse<__m256i> for SimdInput {
                 );
             } else {
                 // it is not ascii so we have to do heavy work
-                *previous = check_utf8_bytes(self.v0, &previous, has_error);
-                *previous = check_utf8_bytes(self.v1, &previous, has_error);
+                *previous =
+                    ProcessedUtfBytes::<__m256i>::check_utf8_bytes(self.v0, &previous, has_error);
+                *previous =
+                    ProcessedUtfBytes::<__m256i>::check_utf8_bytes(self.v1, &previous, has_error);
             }
         }
     }
