@@ -264,15 +264,15 @@ macro_rules! json_internal {
     //////////////////////////////////////////////////////////////////////////
 
     (null) => {
-        $crate::value::owned::Value::Null
+        $crate::value::owned::Value::Static($crate::StaticNode::Null)
     };
 
     (true) => {
-        $crate::value::owned::Value::Bool(true)
+        $crate::value::owned::Value::Static($crate::StaticNode::Bool(true))
     };
 
     (false) => {
-        $crate::value::owned::Value::Bool(false)
+        $crate::value::owned::Value::Static($crate::StaticNode::Bool(false))
     };
 
     ([]) => {
@@ -288,7 +288,7 @@ macro_rules! json_internal {
     };
 
     ({ $($tt:tt)+ }) => {
-        $crate::value::owned::Value::Object({
+        $crate::value::owned::Value::from({
             let mut object = $crate::value::owned::Object::new();
             json_internal!(@object object () ($($tt)+) ($($tt)+));
             object
@@ -415,12 +415,12 @@ mod test {
     #[test]
     fn array() {
         let v: OwnedValue = json!(vec![1]);
-        assert_eq!(OwnedValue::Array(vec![OwnedValue::I64(1)]), v);
+        assert_eq!(OwnedValue::from(vec![1u64]), v);
     }
 
     #[test]
     fn obj() {
         let v: OwnedValue = json!(hashmap! {"test" => 1});
-        assert_eq!(OwnedValue::Object(hashmap! {"test".into() => 1.into()}), v);
+        assert_eq!(OwnedValue::from(hashmap! {"test".into() => 1.into()}), v);
     }
 }

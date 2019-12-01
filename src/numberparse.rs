@@ -1,5 +1,6 @@
 use crate::charutils::*;
 use crate::unlikely;
+use crate::StaticNode;
 use crate::*;
 
 #[cfg(target_arch = "x86")]
@@ -100,9 +101,9 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // http://0x80.pl/articles/swar-digits-validate.html
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[allow(clippy::cast_ptr_alignment)]
 fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
     // We know what we're doing right? :P
-    #[allow(clippy::cast_ptr_alignment)]
     let val: u64 = unsafe { *(chars.as_ptr() as *const u64) };
 
     //    let val: __m64 = *(chars as *const __m64);
@@ -115,15 +116,14 @@ fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
         == 0x3333_3333_3333_3333)
 }
 
-pub enum Number {
-    F64(f64),
-    I64(i64),
-}
-
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[allow(
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    clippy::cast_ptr_alignment
+)]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
-    #[allow(clippy::cast_sign_loss, clippy::cast_possible_wrap)]
     unsafe {
         // this actually computes *16* values so we are being wasteful.
         let ascii0: __m128i = _mm_set1_epi8(b'0' as i8);
@@ -132,7 +132,6 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
         let mul_1_100: __m128i = _mm_setr_epi16(100, 1, 100, 1, 100, 1, 100, 1);
         let mul_1_10000: __m128i = _mm_setr_epi16(10000, 1, 10000, 1, 10000, 1, 10000, 1);
         // We know what we're doing right? :P
-        #[allow(clippy::cast_ptr_alignment)]
         let input: __m128i = _mm_sub_epi8(
             _mm_loadu_si128(chars.get_unchecked(0..16).as_ptr() as *const __m128i),
             ascii0,
@@ -171,12 +170,14 @@ impl<'de> Deserializer<'de> {
     #[allow(
         clippy::cast_sign_loss,
         clippy::cast_possible_wrap,
-        clippy::cast_precision_loss
+        clippy::cast_precision_loss,
+        clippy::too_many_lines
     )]
-    fn parse_float(&self, p: &[u8], negative: bool) -> Result<Number> {
+    fn parse_float(idx: usize, p: &[u8], negative: bool) -> Result<StaticNode> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: f64;
         let mut digit: u8;
+        let mut d;
         if unsafe { *p.get_unchecked(digitcount) } == b'0' {
             // 0 cannot be followed by an integer
             digitcount += 1;
@@ -196,13 +197,17 @@ impl<'de> Deserializer<'de> {
             let mut fraction_weight: u64 = 10;
             digitcount += 1;
             //let mut fractionalweight: f64 = 1.0;
-            if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
-                digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
+            d = unsafe { *p.get_unchecked(digitcount) };
+            if is_integer(d) {
+                digit = d - b'0';
                 digitcount += 1;
                 fraction += u64::from(digit);
-            //i = i + f64::from(digit) * fractionalweight;
             } else {
-                return Err(self.error(ErrorType::InvalidNumber));
+                return Err(Self::raw_error(
+                    idx + digitcount,
+                    d as char,
+                    ErrorType::InvalidNumber,
+                ));
             }
 
             while is_integer(unsafe { *p.get_unchecked(digitcount) })
@@ -236,30 +241,43 @@ impl<'de> Deserializer<'de> {
             } else if unsafe { *p.get_unchecked(digitcount) } == b'+' {
                 digitcount += 1;
             }
-            if !is_integer(unsafe { *p.get_unchecked(digitcount) }) {
-                return Err(self.error(ErrorType::Parser));
+            d = unsafe { *p.get_unchecked(digitcount) };
+            if !is_integer(d) {
+                return Err(Self::raw_error(
+                    idx + digitcount,
+                    d as char,
+                    ErrorType::InvalidNumber,
+                ));
             }
             digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
             let mut expnumber: u32 = u32::from(digit); // exponential part
             digitcount += 1;
-            if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
-                digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
+            d = unsafe { *p.get_unchecked(digitcount) };
+            if is_integer(d) {
+                digit = d - b'0';
                 expnumber = 10 * expnumber + u32::from(digit);
                 digitcount += 1;
             }
-            if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
-                digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
+            d = unsafe { *p.get_unchecked(digitcount) };
+            if is_integer(d) {
+                digit = d - b'0';
                 expnumber = 10 * expnumber + u32::from(digit);
                 digitcount += 1;
             }
-            if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
-                digit = unsafe { *p.get_unchecked(digitcount) } - b'0';
+            d = unsafe { *p.get_unchecked(digitcount) };
+            if is_integer(d) {
+                digit = d - b'0';
                 expnumber = 10 * expnumber + u32::from(digit);
                 digitcount += 1;
             }
-            if is_integer(unsafe { *p.get_unchecked(digitcount) }) {
+            d = unsafe { *p.get_unchecked(digitcount) };
+            if is_integer(d) {
                 // we refuse to parse this
-                return Err(self.error(ErrorType::Parser));
+                return Err(Self::raw_error(
+                    idx + digitcount,
+                    d as char,
+                    ErrorType::InvalidNumber,
+                ));
             }
             let exponent: i32 = if negexp {
                 -(expnumber as i32)
@@ -268,18 +286,24 @@ impl<'de> Deserializer<'de> {
             };
             if (exponent > 308) || (exponent < -323) {
                 // we refuse to parse this
-                return Err(self.error(ErrorType::InvalidExponent));
+                return Err(Self::raw_error(
+                    idx + digitcount,
+                    d as char,
+                    ErrorType::InvalidExponent,
+                ));
             }
             i *= POWER_OF_TEN[(323 + exponent) as usize];
         }
-        if is_not_structural_or_whitespace(unsafe { *p.get_unchecked(digitcount) }) != 0 {
-            return Err(self.error(ErrorType::Parser));
-        }
 
-        if is_structural_or_whitespace(unsafe { *p.get_unchecked(digitcount) }) == 0 {
-            Err(self.error(ErrorType::Parser))
+        d = unsafe { *p.get_unchecked(digitcount) };
+        if is_structural_or_whitespace(d) == 0 {
+            Err(Self::raw_error(
+                idx + digitcount,
+                d as char,
+                ErrorType::InvalidNumber,
+            ))
         } else {
-            Ok(Number::F64(if negative { -i } else { i }))
+            Ok(StaticNode::F64(if negative { -i } else { i }))
         }
     }
 
@@ -293,7 +317,7 @@ impl<'de> Deserializer<'de> {
     ///
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
-    fn parse_large_integer(&self, buf: &[u8], negative: bool) -> Result<Number> {
+    fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: u64;
         let mut d = unsafe { *buf.get_unchecked(digitcount) };
@@ -318,36 +342,50 @@ impl<'de> Deserializer<'de> {
                 {
                     i = i1;
                 } else {
-                    return Err(self.error(ErrorType::Overflow));
+                    return Err(Self::raw_error(
+                        idx + digitcount,
+                        d as char,
+                        ErrorType::Overflow,
+                    ));
                 }
                 digitcount += 1;
                 d = unsafe { *buf.get_unchecked(digitcount) };
             }
         }
 
-        if negative {
-            if i >= 9_223_372_036_854_775_808 {
-                //i64::min_value() * -1
-                return Err(self.error(ErrorType::Overflow));
-            }
-        } else if i > i64::max_value() as u64 {
-            return Err(self.error(ErrorType::Overflow));
+        if negative && i >= 9_223_372_036_854_775_808 {
+            //i64::min_value() * -1
+            return Err(Self::raw_error(
+                idx + digitcount,
+                d as char,
+                ErrorType::Overflow,
+            ));
         }
 
         if is_structural_or_whitespace(d) == 0 {
-            Err(self.error(ErrorType::InvalidNumber))
+            Err(Self::raw_error(
+                idx + digitcount,
+                d as char,
+                ErrorType::InvalidNumber,
+            ))
         } else if negative {
-            Ok(Number::I64(-(i as i64)))
+            Ok(StaticNode::I64(-(i as i64)))
         } else {
-            Ok(Number::I64(i as i64))
+            Ok(StaticNode::U64(i))
         }
     }
 
     // parse the number at buf + offset
     // define JSON_TEST_NUMBERS for unit testing
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    pub fn parse_number_int(&self, buf: &[u8], negative: bool) -> Result<Number> {
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss,
+        clippy::cast_possible_wrap,
+        clippy::too_many_lines
+    )]
+    pub(crate) fn parse_number_int(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
         let mut byte_count = if negative { 1 } else { 0 };
         let mut ignore_count: u8 = 0;
         //let startdigits: *const u8 = p;
@@ -359,13 +397,21 @@ impl<'de> Deserializer<'de> {
             byte_count += 1;
             d = unsafe { *buf.get_unchecked(byte_count) };
             if is_not_structural_or_whitespace_or_exponent_or_decimal(d) {
-                return Err(self.error(ErrorType::InvalidNumber));
+                return Err(Self::raw_error(
+                    idx + byte_count,
+                    d as char,
+                    ErrorType::InvalidNumber,
+                ));
             }
             i = 0;
         } else {
             if !is_integer(d) {
                 // must start with an integer
-                return Err(self.error(ErrorType::InvalidNumber));
+                return Err(Self::raw_error(
+                    idx + byte_count,
+                    d as char,
+                    ErrorType::InvalidNumber,
+                ));
             }
             digit = d - b'0';
             i = u64::from(digit);
@@ -380,7 +426,11 @@ impl<'de> Deserializer<'de> {
                 if let Some(i1) = i.checked_add(u64::from(digit)) {
                     i = i1;
                 } else {
-                    return Err(self.error(ErrorType::Overflow));
+                    return Err(Self::raw_error(
+                        idx + byte_count,
+                        d as char,
+                        ErrorType::Overflow,
+                    ));
                 }
                 //i = 10 * i + u64::from(digit); // might overflow
                 byte_count += 1;
@@ -398,7 +448,11 @@ impl<'de> Deserializer<'de> {
                 byte_count += 1;
                 i = i.wrapping_mul(10).wrapping_add(u64::from(digit));
             } else {
-                return Err(self.error(ErrorType::InvalidNumber));
+                return Err(Self::raw_error(
+                    idx + byte_count,
+                    d as char,
+                    ErrorType::InvalidNumber,
+                ));
             }
             // this helps if we have lots of decimals!
             // this turns out to be frequent enough.
@@ -443,7 +497,11 @@ impl<'de> Deserializer<'de> {
                 d = unsafe { *buf.get_unchecked(byte_count) };
             }
             if !is_integer(d) {
-                return Err(self.error(ErrorType::InvalidNumber));
+                return Err(Self::raw_error(
+                    idx + byte_count,
+                    d as char,
+                    ErrorType::InvalidNumber,
+                ));
             }
             digit = d - b'0';
             expnumber = i16::from(digit);
@@ -466,7 +524,11 @@ impl<'de> Deserializer<'de> {
             }
             if is_integer(d) {
                 // we refuse to parse this
-                return Err(self.error(ErrorType::InvalidNumber));
+                return Err(Self::raw_error(
+                    idx + byte_count,
+                    d as char,
+                    ErrorType::InvalidNumber,
+                ));
             }
             exponent += i64::from(if negexp { -expnumber } else { expnumber });
         }
@@ -475,34 +537,40 @@ impl<'de> Deserializer<'de> {
                 // this is uncommon!!!
                 // this is almost never going to get called!!!
                 // we start anew, going slowly!!!
-                return self.parse_float(buf, negative);
+                return Self::parse_float(idx, buf, negative);
             }
             ///////////
             // We want 0.1e1 to be a float.
             //////////
             if i == 0 {
-                Number::F64(0.0)
+                StaticNode::F64(0.0)
             } else {
                 if (exponent > 308) || (exponent < -323) {
                     //FIXME Parse it as a expensive float perhaps
-                    return self.parse_float(buf, negative);
+                    return Self::parse_float(idx, buf, negative);
                 }
 
-                #[allow(clippy::cast_precision_loss)]
                 let mut d1: f64 = i as f64;
                 d1 *= POWER_OF_TEN[(323 + exponent) as usize];
-                Number::F64(if negative { d1 * -1.0 } else { d1 })
+                StaticNode::F64(if negative { d1 * -1.0 } else { d1 })
             }
         } else {
             if unlikely!(byte_count >= 18) {
                 // this is uncommon!!!
-                return self.parse_large_integer(buf, negative);
+                return Self::parse_large_integer(idx, buf, negative);
             }
-            #[allow(clippy::cast_possible_wrap)]
-            Number::I64((if negative { i.wrapping_neg() } else { i }) as i64)
+            if negative {
+                StaticNode::I64((i as i64).wrapping_neg())
+            } else {
+                StaticNode::U64(i)
+            }
         };
         if is_structural_or_whitespace(d) == 0 {
-            Err(self.error(ErrorType::InvalidNumber))
+            Err(Self::raw_error(
+                idx + byte_count,
+                d as char,
+                ErrorType::InvalidNumber,
+            ))
         } else {
             Ok(v)
         }
@@ -513,7 +581,7 @@ impl<'de> Deserializer<'de> {
 mod test {
     #![allow(clippy::default_trait_access)]
     use crate::value::owned::to_value;
-    use crate::value::ValueTrait;
+    use crate::value::Value as ValueTrait;
     use float_cmp::approx_eq;
 
     #[test]
@@ -526,6 +594,31 @@ mod test {
         let mut too_small = unsafe { too_small.as_bytes_mut() };
         let v_too_small = to_value(&mut too_small);
         assert!(v_too_small.is_err());
+        let mut too_big = String::from("1e1000");
+        let mut too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(&mut too_big);
+        assert!(v_too_big.is_err());
+        let mut too_small = String::from("1e-1000");
+        let mut too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(&mut too_small);
+        assert!(v_too_small.is_err());
+
+        let mut too_big = String::from("100000000000000000000000000000000000000000000e309");
+        let mut too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(&mut too_big);
+        assert!(v_too_big.is_err());
+        let mut too_small = String::from("100000000000000000000000000000000000000000000e-324");
+        let mut too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(&mut too_small);
+        assert!(v_too_small.is_err());
+        let mut too_big = String::from("100000000000000000000000000000000000000000000e1000");
+        let mut too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(&mut too_big);
+        assert!(v_too_big.is_err());
+        let mut too_small = String::from("100000000000000000000000000000000000000000000e-1000");
+        let mut too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(&mut too_small);
+        assert!(v_too_small.is_err());
     }
 
     #[test]
@@ -535,6 +628,34 @@ mod test {
         let r = to_value(&mut i);
         assert!(r.is_err());
         let mut i = String::from("1.e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("100000000000000000000000000000000000000000000.");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("100000000000000000000000000000000000000000000.e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn bad_e() {
+        let mut i = String::from("1.0e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("1.0e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("100000000000000000000000000000000000000000000.0e");
+        let mut i = unsafe { i.as_bytes_mut() };
+        let r = to_value(&mut i);
+        assert!(r.is_err());
+        let mut i = String::from("100000000000000000000000000000000000000000000.0ee");
         let mut i = unsafe { i.as_bytes_mut() };
         let r = to_value(&mut i);
         assert!(r.is_err());

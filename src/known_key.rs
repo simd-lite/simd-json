@@ -1,4 +1,4 @@
-use crate::{ValueTrait, ValueType};
+use crate::{MutableValue, Value as ValueTrait, ValueType};
 use halfbrown::RawEntryMut;
 use std::borrow::{Borrow, Cow};
 use std::fmt;
@@ -18,6 +18,8 @@ pub enum Error {
     /// The target passed wasn't an object
     NotAnObject(ValueType),
 }
+
+#[cfg_attr(tarpaulin, skip)]
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -94,8 +96,8 @@ impl<'key> KnownKey<'key> {
     where
         'key: 'value,
         'value: 'borrow,
-        V: ValueTrait + 'value,
-        V::Key: Hash + Eq + Borrow<str>,
+        V: MutableValue + 'value,
+        <V as MutableValue>::Key: Hash + Eq + Borrow<str>,
     {
         target.as_object_mut().and_then(|m| {
             match m
@@ -145,8 +147,8 @@ impl<'key> KnownKey<'key> {
     where
         'key: 'value,
         'value: 'borrow,
-        V: ValueTrait + 'value,
-        V::Key: Hash + Eq + Borrow<str> + From<Cow<'key, str>>,
+        V: ValueTrait + MutableValue + 'value,
+        <V as MutableValue>::Key: Hash + Eq + Borrow<str> + From<Cow<'key, str>>,
         F: FnOnce() -> V,
     {
         if !target.is_object() {
@@ -196,8 +198,8 @@ impl<'key> KnownKey<'key> {
     where
         'key: 'value,
         'value: 'borrow,
-        V: ValueTrait + 'value,
-        V::Key: Hash + Eq + Borrow<str> + From<Cow<'key, str>>,
+        V: MutableValue + 'value,
+        <V as MutableValue>::Key: Hash + Eq + Borrow<str> + From<Cow<'key, str>>,
     {
         if !target.is_object() {
             return Err(Error::NotAnObject(target.value_type()));
@@ -223,7 +225,7 @@ mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::*;
     use crate::borrowed::*;
-    use crate::{BorrowedValue, ValueTrait};
+    use crate::{BorrowedValue, Value as ValueTrait, ValueBuilder};
 
     #[test]
     fn known_key() {
@@ -233,10 +235,10 @@ mod tests {
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::Object(o);
+        let mut v = BorrowedValue::from(o);
 
-        assert!(key1.lookup(&BorrowedValue::Null).is_none());
-        assert!(key2.lookup(&BorrowedValue::Null).is_none());
+        assert!(key1.lookup(&BorrowedValue::null()).is_none());
+        assert!(key2.lookup(&BorrowedValue::null()).is_none());
         assert!(key1.lookup(&v).is_some());
         assert!(key2.lookup(&v).is_none());
         assert!(key1.lookup_mut(&mut v).is_some());
@@ -251,9 +253,9 @@ mod tests {
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::Object(o);
+        let mut v = BorrowedValue::from(o);
 
-        let mut v1 = BorrowedValue::Null;
+        let mut v1 = BorrowedValue::null();
         assert!(key1.insert(&mut v1, 2.into()).is_err());
         assert!(key2.insert(&mut v1, 2.into()).is_err());
         assert_eq!(key1.insert(&mut v, 2.into()).unwrap(), Some(1.into()));
@@ -270,9 +272,9 @@ mod tests {
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::Object(o);
+        let mut v = BorrowedValue::from(o);
 
-        let mut v1 = BorrowedValue::Null;
+        let mut v1 = BorrowedValue::null();
         assert!(key1.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
         assert!(key2.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
 
@@ -294,10 +296,10 @@ mod tests {
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
         o.insert("key".into(), 1.into());
-        let v = BorrowedValue::Object(o);
+        let v = BorrowedValue::from(o);
 
-        assert!(key1.lookup(&BorrowedValue::Null).is_none());
-        assert!(key2.lookup(&BorrowedValue::Null).is_none());
+        assert!(key1.lookup(&BorrowedValue::null()).is_none());
+        assert!(key2.lookup(&BorrowedValue::null()).is_none());
         assert!(key1.lookup(&v).is_some());
         assert!(key2.lookup(&v).is_none());
     }
@@ -310,9 +312,9 @@ mod tests {
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::Object(o);
+        let mut v = BorrowedValue::from(o);
 
-        let mut v1 = BorrowedValue::Null;
+        let mut v1 = BorrowedValue::null();
         assert!(key1.insert(&mut v1, 2.into()).is_err());
         assert!(key2.insert(&mut v1, 2.into()).is_err());
         assert_eq!(key1.insert(&mut v, 2.into()).unwrap(), Some(1.into()));

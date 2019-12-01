@@ -1,9 +1,11 @@
-use crate::numberparse::Number;
 use crate::*;
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
 
-impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
+impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de>
+where
+    'de: 'a,
+{
     type Error = Error;
 
     // Look at the input data to decide what Serde data model type to
@@ -15,25 +17,14 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            b'"' => {
-                // We don't do the short string optimisation as serde requires
-                // additional checks
-                visitor.visit_borrowed_str(stry!(self.parse_str_()))
-            }
-            b'n' => visitor.visit_unit(),
-            b't' => visitor.visit_bool(true),
-            b'f' => visitor.visit_bool(false),
-            b'-' => match stry!(self.parse_number(true)) {
-                Number::F64(n) => visitor.visit_f64(n),
-                Number::I64(n) => visitor.visit_i64(n),
-            },
-            b'0'..=b'9' => match stry!(self.parse_number(false)) {
-                Number::F64(n) => visitor.visit_f64(n),
-                Number::I64(n) => visitor.visit_i64(n),
-            },
-            b'[' => visitor.visit_seq(CommaSeparated::new(&mut self)),
-            b'{' => visitor.visit_map(CommaSeparated::new(&mut self)),
-            _c => Err(self.error(ErrorType::UnexpectedCharacter)),
+            Node::String(s) => visitor.visit_borrowed_str(s),
+            Node::Static(StaticNode::Null) => visitor.visit_unit(),
+            Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
+            Node::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
+            Node::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
+            Node::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            Node::Array(len, _) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
+            Node::Object(len, _) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
         }
     }
 
@@ -57,8 +48,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match stry!(self.next()) {
-            b't' => visitor.visit_bool(true),
-            b'f' => visitor.visit_bool(false),
+            Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
             _c => Err(self.error(ErrorType::ExpectedBoolean)),
         }
     }
@@ -70,15 +60,11 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != b'"' {
-            return Err(self.error(ErrorType::ExpectedString));
+        if let Ok(Node::String(s)) = self.next() {
+            visitor.visit_borrowed_str(s)
+        } else {
+            Err(self.error(ErrorType::ExpectedString))
         }
-        if let Some(next) = self.structural_indexes.get(self.idx + 1) {
-            if *next as usize - self.iidx < 32 {
-                return visitor.visit_borrowed_str(stry!(self.parse_str_()));
-            }
-        }
-        visitor.visit_borrowed_str(stry!(self.parse_str_()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -86,46 +72,42 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != b'"' {
-            return Err(self.error(ErrorType::ExpectedString));
+        if let Ok(Node::String(s)) = self.next() {
+            visitor.visit_str(s)
+        } else {
+            Err(self.error(ErrorType::ExpectedString))
         }
-        if let Some(next) = self.structural_indexes.get(self.idx + 1) {
-            if *next as usize - self.iidx < 32 {
-                return visitor.visit_str(stry!(self.parse_str_()));
-            }
-        }
-        visitor.visit_str(stry!(self.parse_str_()))
     }
 
     // The `parse_signed` function is generic over the integer type `T` so here
     // it is invoked with `T=i8`. The next 8 methods are similar.
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: i64 = stry!(self.parse_signed());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_i8(v as i8)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: i64 = stry!(self.parse_signed());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_i16(v as i16)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: i64 = stry!(self.parse_signed());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_i32(v as i32)
     }
 
@@ -138,32 +120,32 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: u64 = stry!(self.parse_unsigned());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_u8(v as u8)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: u64 = stry!(self.parse_unsigned());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_u16(v as u16)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: u64 = stry!(self.parse_unsigned());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_u32(v as u32)
     }
 
@@ -176,12 +158,12 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_truncation)]
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let v: f64 = stry!(self.parse_double());
-        #[allow(clippy::cast_possible_truncation)]
         visitor.visit_f32(v as f32)
     }
 
@@ -207,7 +189,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.peek()) == b'n' {
+        if stry!(self.peek()) == Node::Static(StaticNode::Null) {
             self.skip();
             visitor.visit_unit()
         } else {
@@ -221,7 +203,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != b'n' {
+        if stry!(self.next()) != Node::Static(StaticNode::Null) {
             return Err(self.error(ErrorType::ExpectedNull));
         }
         visitor.visit_unit()
@@ -236,9 +218,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if stry!(self.next()) == b'[' {
+        if let Ok(Node::Array(len, _)) = self.next() {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_seq(CommaSeparated::new(&mut self))
+            visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
         } else {
             Err(self.error(ErrorType::ExpectedArray))
         }
@@ -256,10 +238,10 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let r = self.deserialize_seq(visitor);
+        self.deserialize_seq(visitor)
         // tuples have a known length damn you serde ...
-        self.skip();
-        r
+        //self.skip();
+        // r
     }
 
     // Tuple structs look just like sequences in JSON.
@@ -299,9 +281,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if stry!(self.next()) == b'{' {
+        if let Ok(Node::Object(len, _)) = self.next() {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_map(CommaSeparated::new(&mut self))
+            visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
         } else {
             Err(self.error(ErrorType::ExpectedMap))
         }
@@ -332,18 +314,13 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 // element.
 struct CommaSeparated<'a, 'de: 'a> {
     de: &'a mut Deserializer<'de>,
-    first: bool,
     len: usize,
 }
 
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn new(de: &'a mut Deserializer<'de>) -> Self {
-        CommaSeparated {
-            first: true,
-            len: de.count_elements(),
-            de,
-        }
+    fn new(de: &'a mut Deserializer<'de>, len: usize) -> Self {
+        CommaSeparated { len, de }
     }
 }
 
@@ -358,14 +335,8 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
         T: DeserializeSeed<'de>,
     {
         if self.len == 0 {
-            self.de.skip();
             Ok(None)
         } else {
-            if self.first {
-                self.first = false;
-            } else {
-                self.de.skip();
-            }
             self.len -= 1;
             seed.deserialize(&mut *self.de).map(Some)
         }
@@ -387,13 +358,9 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
         K: DeserializeSeed<'de>,
     {
         if self.len == 0 {
-            if self.first {
-                self.de.skip();
-            }
             Ok(None)
         } else {
             self.len -= 1;
-            self.first = false;
             seed.deserialize(&mut *self.de).map(Some)
         }
     }
@@ -403,12 +370,8 @@ impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        // Skip the ':'
-        self.de.skip();
         // read the value
-        let r = seed.deserialize(&mut *self.de);
-        self.de.skip();
-        r
+        seed.deserialize(&mut *self.de)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

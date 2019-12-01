@@ -4,15 +4,13 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::value::{ValueTrait, ValueType};
-use crate::{stry, unlikely, Deserializer, ErrorType, Result};
+use crate::value::{MutableValue, Value as ValueTrait, ValueBuilder, ValueType};
+use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
+use std::convert::TryFrom;
 use std::fmt;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 
-/// Representation of a JSON object
-#[deprecated(since = "0.1.21", note = "Please use Object instead")]
-pub type Map = Object;
 /// Representation of a JSON object
 pub type Object = HashMap<String, Value>;
 
@@ -22,8 +20,10 @@ pub type Object = HashMap<String, Value>;
 /// owned memory whereever required thus returning a value without
 /// a lifetime.
 pub fn to_value(s: &mut [u8]) -> Result<Value> {
-    let de = stry!(Deserializer::from_slice(s));
-    OwnedDeserializer::from_deserializer(de).parse()
+    match Deserializer::from_slice(s) {
+        Ok(de) => Ok(OwnedDeserializer::from_deserializer(de).parse()),
+        Err(e) => Err(e),
+    }
 }
 
 /// Owned JSON-DOM Value, consider using the `ValueTrait`
@@ -32,89 +32,115 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
 /// for getting rid of lifetimes.
 #[derive(Debug, Clone)]
 pub enum Value {
-    /// null
-    Null,
-    /// boolean type
-    Bool(bool),
-    /// float type
-    F64(f64),
-    /// integer type
-    I64(i64),
+    /// Static values
+    Static(StaticNode),
     /// string type
     String(String),
     /// array type
     Array(Vec<Value>),
     /// object type
-    Object(Object),
+    Object(Box<Object>),
+}
+
+impl ValueBuilder for Value {
+    #[inline]
+    fn null() -> Self {
+        Self::Static(StaticNode::Null)
+    }
+    fn array_with_capacity(capacity: usize) -> Self {
+        Self::Array(Vec::with_capacity(capacity))
+    }
+    fn object_with_capacity(capacity: usize) -> Self {
+        Self::Object(Box::new(Object::with_capacity(capacity)))
+    }
+}
+
+impl MutableValue for Value {
+    type Key = String;
+    #[inline]
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
+        match self {
+            Self::Array(a) => Some(a),
+            _ => None,
+        }
+    }
+    #[inline]
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as MutableValue>::Key, Self>> {
+        match self {
+            Self::Object(m) => Some(m),
+            _ => None,
+        }
+    }
 }
 
 impl ValueTrait for Value {
     type Key = String;
 
+    #[inline]
     fn value_type(&self) -> ValueType {
         match self {
-            Self::Null => ValueType::Null,
-            Self::Bool(_) => ValueType::Bool,
-            Self::F64(_) => ValueType::F64,
-            Self::I64(_) => ValueType::I64,
+            Self::Static(s) => s.value_type(),
             Self::String(_) => ValueType::String,
             Self::Array(_) => ValueType::Array,
             Self::Object(_) => ValueType::Object,
         }
     }
 
+    #[inline]
     fn is_null(&self) -> bool {
         match self {
-            Self::Null => true,
+            Self::Static(StaticNode::Null) => true,
             _ => false,
         }
     }
 
+    #[inline]
     fn as_bool(&self) -> Option<bool> {
         match self {
-            Self::Bool(b) => Some(*b),
+            Self::Static(StaticNode::Bool(b)) => Some(*b),
             _ => None,
         }
     }
 
+    #[inline]
     fn as_i64(&self) -> Option<i64> {
         match self {
-            Self::I64(i) => Some(*i),
+            Self::Static(StaticNode::I64(i)) => Some(*i),
+            Self::Static(StaticNode::U64(i)) => i64::try_from(*i).ok(),
             _ => None,
         }
     }
 
+    #[inline]
+    #[allow(clippy::cast_sign_loss)]
     fn as_u64(&self) -> Option<u64> {
-        #[allow(clippy::cast_sign_loss)]
         match self {
-            Self::I64(i) if *i >= 0 => Some(*i as u64),
+            Self::Static(StaticNode::I64(i)) => u64::try_from(*i).ok(),
+            Self::Static(StaticNode::U64(i)) => Some(*i),
             _ => None,
         }
     }
 
+    #[inline]
     fn as_f64(&self) -> Option<f64> {
         match self {
-            Self::F64(i) => Some(*i),
+            Self::Static(StaticNode::F64(i)) => Some(*i),
             _ => None,
         }
     }
 
+    #[inline]
+    #[allow(clippy::cast_precision_loss)]
     fn cast_f64(&self) -> Option<f64> {
-        #[allow(clippy::cast_precision_loss)]
         match self {
-            Self::F64(i) => Some(*i),
-            Self::I64(i) => Some(*i as f64),
+            Self::Static(StaticNode::F64(i)) => Some(*i),
+            Self::Static(StaticNode::I64(i)) => Some(*i as f64),
+            Self::Static(StaticNode::U64(i)) => Some(*i as f64),
             _ => None,
         }
     }
 
-    fn as_string(&self) -> Option<String> {
-        match self {
-            Self::String(s) => Some(s.clone()),
-            _ => None,
-        }
-    }
-
+    #[inline]
     fn as_str(&self) -> Option<&str> {
         match self {
             Self::String(s) => Some(s.as_str()),
@@ -122,6 +148,7 @@ impl ValueTrait for Value {
         }
     }
 
+    #[inline]
     fn as_array(&self) -> Option<&Vec<Self>> {
         match self {
             Self::Array(a) => Some(a),
@@ -129,20 +156,8 @@ impl ValueTrait for Value {
         }
     }
 
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
-        match self {
-            Self::Array(a) => Some(a),
-            _ => None,
-        }
-    }
-
+    #[inline]
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
-        match self {
-            Self::Object(m) => Some(m),
-            _ => None,
-        }
-    }
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -150,14 +165,11 @@ impl ValueTrait for Value {
     }
 }
 
+#[cfg_attr(tarpaulin, skip)]
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Null => f.write_str("null"),
-            Self::Bool(false) => f.write_str("false"),
-            Self::Bool(true) => f.write_str("true"),
-            Self::I64(n) => f.write_str(&n.to_string()),
-            Self::F64(n) => f.write_str(&n.to_string()),
+            Self::Static(s) => s.fmt(f),
             Self::String(s) => write!(f, "{}", s),
             Self::Array(a) => write!(f, "{:?}", a),
             Self::Object(o) => write!(f, "{:?}", o),
@@ -167,15 +179,33 @@ impl fmt::Display for Value {
 
 impl Index<&str> for Value {
     type Output = Self;
-    fn index(&self, index: &str) -> &Self {
-        static NULL: Value = Value::Null;
-        self.get(index).unwrap_or(&NULL)
+    fn index(&self, index: &str) -> &Self::Output {
+        self.get(index).unwrap()
+    }
+}
+
+impl Index<usize> for Value {
+    type Output = Self;
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get_idx(index).unwrap()
+    }
+}
+
+impl IndexMut<&str> for Value {
+    fn index_mut(&mut self, index: &str) -> &mut Self::Output {
+        self.get_mut(index).unwrap()
+    }
+}
+
+impl IndexMut<usize> for Value {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.get_idx_mut(index).unwrap()
     }
 }
 
 impl Default for Value {
     fn default() -> Self {
-        Self::Null
+        Self::Static(StaticNode::Null)
     }
 }
 
@@ -188,76 +218,44 @@ impl<'de> OwnedDeserializer<'de> {
         Self { de }
     }
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    pub fn parse(&mut self) -> Result<Value> {
+    pub fn parse(&mut self) -> Value {
         match self.de.next_() {
-            b'"' => self.de.parse_str_().map(Value::from),
-            b'n' => Ok(Value::Null),
-            b't' => Ok(Value::Bool(true)),
-            b'f' => Ok(Value::Bool(false)),
-            b'-' => self.de.parse_number_root(true).map(Value::from),
-            b'0'..=b'9' => self.de.parse_number_root(false).map(Value::from),
-            b'[' => self.parse_array(),
-            b'{' => self.parse_map(),
-            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
+            Node::Static(s) => Value::Static(s),
+            Node::String(s) => Value::from(s),
+            Node::Array(len, _) => self.parse_array(len),
+            Node::Object(len, _) => self.parse_map(len),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_value(&mut self) -> Result<Value> {
-        match self.de.next_() {
-            b'"' => self.de.parse_str_().map(Value::from),
-            b'n' => Ok(Value::Null),
-            b't' => Ok(Value::Bool(true)),
-            b'f' => Ok(Value::Bool(false)),
-            b'-' => self.de.parse_number(true).map(Value::from),
-            b'0'..=b'9' => self.de.parse_number(false).map(Value::from),
-            b'[' => self.parse_array(),
-            b'{' => self.parse_map(),
-            _c => Err(self.de.error(ErrorType::UnexpectedCharacter)),
+    fn parse_array(&mut self, len: usize) -> Value {
+        // Rust doens't optimize the normal loop away here
+        // so we write our own avoiding the lenght
+        // checks during push
+        let mut res = Vec::with_capacity(len);
+        unsafe {
+            res.set_len(len);
+            for i in 0..len {
+                std::ptr::write(res.get_unchecked_mut(i), self.parse())
+            }
         }
+        Value::Array(res)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_array(&mut self) -> Result<Value> {
-        let es = self.de.count_elements();
-        if unlikely!(es == 0) {
-            self.de.skip();
-            return Ok(Value::Array(Vec::new()));
+    fn parse_map(&mut self, len: usize) -> Value {
+        let mut res = Object::with_capacity(len);
+
+        for _ in 0..len {
+            if let Node::String(key) = self.de.next_() {
+                // We have to call parse short str twice since parse_short_str
+                // does not move the cursor forward
+                res.insert_nocheck(key.into(), self.parse());
+            } else {
+                unreachable!()
+            }
         }
-        let mut res = Vec::with_capacity(es);
-
-        for _i in 0..es {
-            res.push(stry!(self.parse_value()));
-            self.de.skip();
-        }
-        Ok(Value::Array(res))
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_map(&mut self) -> Result<Value> {
-        // We short cut for empty arrays
-        let es = self.de.count_elements();
-
-        if unlikely!(es == 0) {
-            self.de.skip();
-            return Ok(Value::Object(Object::new()));
-        }
-
-        let mut res = Object::with_capacity(es);
-
-        // Since we checked if it's empty we know that we at least have one
-        // element so we eat this
-
-        for _ in 0..es {
-            self.de.skip();
-            let key = stry!(self.de.parse_str_());
-            // We have to call parse short str twice since parse_short_str
-            // does not move the cursor forward
-            self.de.skip();
-            res.insert_nocheck(key.into(), stry!(self.parse_value()));
-            self.de.skip();
-        }
-        Ok(Value::Object(res))
+        Value::from(res)
     }
 }
 
@@ -265,6 +263,31 @@ impl<'de> OwnedDeserializer<'de> {
 mod test {
     #![allow(clippy::cognitive_complexity)]
     use super::*;
+    use crate::value::{AccessError, Value as ValueTrait};
+
+    #[test]
+    fn object_access() {
+        let mut v = Value::null();
+        assert_eq!(v.insert("key", ()), Err(AccessError::NotAnObject));
+        assert_eq!(v.remove("key"), Err(AccessError::NotAnObject));
+        let mut v = Value::object();
+        assert_eq!(v.insert("key", 1), Ok(None));
+        assert_eq!(v.insert("key", 2), Ok(Some(Value::from(1))));
+        assert_eq!(v.remove("key"), Ok(Some(Value::from(2))));
+    }
+
+    #[test]
+    fn array_access() {
+        let mut v = Value::null();
+        assert_eq!(v.push("key"), Err(AccessError::NotAnArray));
+        assert_eq!(v.pop(), Err(AccessError::NotAnArray));
+        let mut v = Value::array();
+        assert_eq!(v.push(1), Ok(()));
+        assert_eq!(v.push(2), Ok(()));
+        assert_eq!(v.pop(), Ok(Some(Value::from(2))));
+        assert_eq!(v.pop(), Ok(Some(Value::from(1))));
+        assert_eq!(v.pop(), Ok(None));
+    }
 
     #[test]
     fn conversions_i64() {
@@ -571,10 +594,16 @@ mod test {
     use proptest::prelude::*;
     fn arb_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
-            Just(Value::Null),
-            any::<bool>().prop_map(Value::Bool),
-            any::<i64>().prop_map(Value::I64),
-            any::<f64>().prop_map(Value::F64),
+            Just(Value::Static(StaticNode::Null)),
+            any::<bool>()
+                .prop_map(StaticNode::Bool)
+                .prop_map(Value::Static),
+            any::<i64>()
+                .prop_map(StaticNode::I64)
+                .prop_map(Value::Static),
+            any::<f64>()
+                .prop_map(StaticNode::F64)
+                .prop_map(Value::Static),
             ".*".prop_map(Value::from),
         ];
         leaf.prop_recursive(
@@ -586,7 +615,7 @@ mod test {
                     // Take the inner strategy and make the two recursive cases.
                     prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
                     prop::collection::hash_map(".*", inner.clone(), 0..10)
-                        .prop_map(|m| Value::Object(m.into_iter().collect())),
+                        .prop_map(|m| m.into_iter().collect()),
                 ]
             },
         )
@@ -613,16 +642,16 @@ mod test {
             prop_assert_eq!(owned, decoded)
         }
         #[test]
+        #[allow(clippy::float_cmp)]
         fn prop_f64_cmp(f in proptest::num::f64::NORMAL) {
-            #[allow(clippy::float_cmp)]
             let v: Value = f.into();
             prop_assert_eq!(v, f)
 
         }
 
         #[test]
+        #[allow(clippy::float_cmp)]
         fn prop_f32_cmp(f in proptest::num::f32::NORMAL) {
-            #[allow(clippy::float_cmp)]
             let v: Value = f.into();
             prop_assert_eq!(v, f)
 
@@ -648,14 +677,14 @@ mod test {
             prop_assert_eq!(v, f)
         }
         #[test]
-        fn prop_u64_cmp(f in (0_u64..=(i64::max_value() as u64))) {
+        fn prop_u64_cmp(f in proptest::num::u64::ANY) {
             let v: Value = f.into();
             prop_assert_eq!(v, f)
         }
 
-        #[allow(clippy::cast_possible_truncation)]
         #[test]
-        fn prop_usize_cmp(f in (0_usize..=(i64::max_value() as usize))) {
+        #[allow(clippy::cast_possible_truncation)]
+        fn prop_usize_cmp(f in proptest::num::usize::ANY) {
             let v: Value = f.into();
             prop_assert_eq!(v, f)
         }

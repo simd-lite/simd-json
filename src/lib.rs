@@ -111,15 +111,15 @@ mod charutils;
 mod macros;
 mod error;
 mod numberparse;
-mod parsedjson;
 mod stringparse;
+mod utf8check;
 
 #[cfg(target_feature = "avx2")]
 mod avx2;
 #[cfg(target_feature = "avx2")]
 pub use crate::avx2::deser::*;
 #[cfg(target_feature = "avx2")]
-use crate::avx2::stage1::SIMDJSON_PADDING;
+use crate::avx2::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 
 #[cfg(all(
     any(target_arch = "x86", target_arch = "x86_64"),
@@ -135,21 +135,21 @@ pub use crate::sse42::deser::*;
     any(target_arch = "x86", target_arch = "x86_64"),
     not(target_feature = "avx2")
 ))]
-use crate::sse42::stage1::SIMDJSON_PADDING;
+use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 
 #[cfg(all(target_feature = "neon", feature = "neon"))]
 mod neon;
 #[cfg(all(target_feature = "neon", feature = "neon"))]
 pub use crate::neon::deser::*;
 #[cfg(all(target_feature = "neon", feature = "neon"))]
-use crate::neon::stage1::SIMDJSON_PADDING;
+use crate::neon::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
+
+use crate::utf8check::ProcessedUtfBytes;
 
 mod stage2;
 /// simd-json JSON-DOM value
 pub mod value;
 
-use crate::numberparse::Number;
-#[cfg(not(target_feature = "neon"))]
 use std::mem;
 use std::str;
 
@@ -164,23 +164,179 @@ mod known_key;
 #[cfg(feature = "known-key")]
 pub use known_key::{Error as KnownKeyError, KnownKey};
 
+pub use crate::tape::{Node, StaticNode, Tape};
+
+/// Creates a tape from the input for later consumption
+pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Node<'input>>> {
+    let de = stry!(Deserializer::from_slice(s));
+    Ok(de.tape)
+}
+
+pub(crate) struct Utf8CheckingState<T> {
+    has_error: T,
+    previous: ProcessedUtfBytes<T>,
+}
+
+pub(crate) trait Stage1Parse<T> {
+    fn new_utf8_checking_state() -> Utf8CheckingState<T>;
+
+    fn compute_quote_mask(quote_bits: u64) -> u64;
+
+    fn cmp_mask_against_input(&self, m: u8) -> u64;
+
+    fn check_utf8(&self, state: &mut Utf8CheckingState<T>);
+
+    fn check_utf8_errors(state: &Utf8CheckingState<T>) -> bool;
+
+    fn unsigned_lteq_against_input(&self, maxval: T) -> u64;
+
+    fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64);
+
+    fn flatten_bits(base: &mut Vec<u32>, idx: u32, bits: u64);
+
+    // return both the quote mask (which is a half-open mask that covers the first
+    // quote in an unescaped quote pair and everything in the quote pair) and the
+    // quote bits, which are the simple unescaped quoted bits.
+    //
+    // We also update the prev_iter_inside_quote value to tell the next iteration
+    // whether we finished the final iteration inside a quote pair; if so, this
+    // inverts our behavior of whether we're inside quotes for the next iteration.
+    //
+    // Note that we don't do any error checking to see if we have backslash
+    // sequences outside quotes; these
+    // backslash sequences (of any length) will be detected elsewhere.
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(overflowing_literals, clippy::cast_sign_loss)]
+    fn find_quote_mask_and_bits(
+        &self,
+        odd_ends: u64,
+        prev_iter_inside_quote: &mut u64,
+        quote_bits: &mut u64,
+        error_mask: &mut u64,
+    ) -> u64 {
+        unsafe {
+            *quote_bits = self.cmp_mask_against_input(b'"');
+            *quote_bits &= !odd_ends;
+            // remove from the valid quoted region the unescapted characters.
+            let mut quote_mask: u64 = Self::compute_quote_mask(*quote_bits);
+            quote_mask ^= *prev_iter_inside_quote;
+            // All Unicode characters may be placed within the
+            // quotation marks, except for the characters that MUST be escaped:
+            // quotation mark, reverse solidus, and the control characters (U+0000
+            //through U+001F).
+            // https://tools.ietf.org/html/rfc8259
+            let unescaped: u64 = self.unsigned_lteq_against_input(Self::fill_s8(0x1F));
+            *error_mask |= quote_mask & unescaped;
+            // right shift of a signed value expected to be well-defined and standard
+            // compliant as of C++20,
+            // John Regher from Utah U. says this is fine code
+            *prev_iter_inside_quote = static_cast_u64!(static_cast_i64!(quote_mask) >> 63);
+            quote_mask
+        }
+    }
+
+    // return a bitvector indicating where we have characters that end an odd-length
+    // sequence of backslashes (and thus change the behavior of the next character
+    // to follow). A even-length sequence of backslashes, and, for that matter, the
+    // largest even-length prefix of our odd-length sequence of backslashes, simply
+    // modify the behavior of the backslashes themselves.
+    // We also update the prev_iter_ends_odd_backslash reference parameter to
+    // indicate whether we end an iteration on an odd-length sequence of
+    // backslashes, which modifies our subsequent search for odd-length
+    // sequences of backslashes in an obvious way.
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn find_odd_backslash_sequences(&self, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
+        const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
+        const ODD_BITS: u64 = !EVEN_BITS;
+
+        let bs_bits: u64 = self.cmp_mask_against_input(b'\\');
+        let start_edges: u64 = bs_bits & !(bs_bits << 1);
+        // flip lowest if we have an odd-length run at the end of the prior
+        // iteration
+        let even_start_mask: u64 = EVEN_BITS ^ *prev_iter_ends_odd_backslash;
+        let even_starts: u64 = start_edges & even_start_mask;
+        let odd_starts: u64 = start_edges & !even_start_mask;
+        let even_carries: u64 = bs_bits.wrapping_add(even_starts);
+
+        // must record the carry-out of our odd-carries out of bit 63; this
+        // indicates whether the sense of any edge going to the next iteration
+        // should be flipped
+        let (mut odd_carries, iter_ends_odd_backslash) = bs_bits.overflowing_add(odd_starts);
+
+        odd_carries |= *prev_iter_ends_odd_backslash;
+        // push in bit zero as a potential end
+        // if we had an odd-numbered run at the
+        // end of the previous iteration
+        *prev_iter_ends_odd_backslash = if iter_ends_odd_backslash { 0x1 } else { 0x0 };
+        let even_carry_ends: u64 = even_carries & !bs_bits;
+        let odd_carry_ends: u64 = odd_carries & !bs_bits;
+        let even_start_odd_end: u64 = even_carry_ends & ODD_BITS;
+        let odd_start_even_end: u64 = odd_carry_ends & EVEN_BITS;
+        let odd_ends: u64 = even_start_odd_end | odd_start_even_end;
+        odd_ends
+    }
+
+    // return a updated structural bit vector with quoted contents cleared out and
+    // pseudo-structural characters added to the mask
+    // updates prev_iter_ends_pseudo_pred which tells us whether the previous
+    // iteration ended on a whitespace or a structural character (which means that
+    // the next iteration
+    // will have a pseudo-structural character at its start)
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn finalize_structurals(
+        mut structurals: u64,
+        whitespace: u64,
+        quote_mask: u64,
+        quote_bits: u64,
+        prev_iter_ends_pseudo_pred: &mut u64,
+    ) -> u64 {
+        // mask off anything inside quotes
+        structurals &= !quote_mask;
+        // add the real quote bits back into our bitmask as well, so we can
+        // quickly traverse the strings we've spent all this trouble gathering
+        structurals |= quote_bits;
+        // Now, establish "pseudo-structural characters". These are non-whitespace
+        // characters that are (a) outside quotes and (b) have a predecessor that's
+        // either whitespace or a structural character. This means that subsequent
+        // passes will get a chance to encounter the first character of every string
+        // of non-whitespace and, if we're parsing an atom like true/false/null or a
+        // number we can stop at the first whitespace or structural character
+        // following it.
+
+        // a qualified predecessor is something that can happen 1 position before an
+        // psuedo-structural character
+        let pseudo_pred: u64 = structurals | whitespace;
+
+        let shifted_pseudo_pred: u64 = (pseudo_pred << 1) | *prev_iter_ends_pseudo_pred;
+        *prev_iter_ends_pseudo_pred = pseudo_pred >> 63;
+        let pseudo_structurals: u64 = shifted_pseudo_pred & (!whitespace) & (!quote_mask);
+        structurals |= pseudo_structurals;
+
+        // now, we've used our close quotes all we need to. So let's switch them off
+        // they will be off in the quote mask and on in quote bits.
+        structurals &= !(quote_bits & !quote_mask);
+        structurals
+    }
+
+    fn fill_s8(n: i8) -> T;
+    fn zero() -> T;
+}
+
 pub(crate) struct Deserializer<'de> {
-    // This string starts with the input data and characters are truncated off
-    // the beginning as data is parsed.
-    input: &'de mut [u8],
-    //data: Vec<u8>,
-    strings: Vec<u8>,
-    structural_indexes: Vec<u32>,
+    // Note: we use the 2nd part as both index and lenght since only one is ever
+    // used (array / object use len) everything else uses idx
+    pub(crate) tape: Vec<Node<'de>>,
     idx: usize,
-    counts: Vec<usize>,
-    str_offset: usize,
-    iidx: usize,
 }
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(&self, error: ErrorType) -> Error {
-        Error::new(self.idx, self.iidx, self.c() as char, error)
+        Deserializer::raw_error(0, '?', error)
+    }
+
+    fn raw_error(idx: usize, c: char, error: ErrorType) -> Error {
+        Error::new(idx, c, error)
     }
     // By convention, `Deserializer` constructors are named like `from_xyz`.
     // That way basic use cases are satisfied by something like
@@ -217,87 +373,176 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let counts = Deserializer::validate(input, &structural_indexes)?;
+        let tape = Deserializer::build_tape(input, &structural_indexes)?;
 
-        // Set length to allow slice access in ARM code
-        let mut strings = Vec::with_capacity(len + SIMDJSON_PADDING);
-        unsafe {
-            strings.set_len(len + SIMDJSON_PADDING);
-        }
-
-        Ok(Deserializer {
-            counts,
-            structural_indexes,
-            input,
-            idx: 0,
-            strings,
-            str_offset: 0,
-            iidx: 0,
-        })
+        Ok(Deserializer { tape, idx: 0 })
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn skip(&mut self) {
         self.idx += 1;
-        self.iidx = unsafe { *self.structural_indexes.get_unchecked(self.idx) as usize };
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn c(&self) -> u8 {
-        unsafe {
-            *self
-                .input
-                .get_unchecked(*self.structural_indexes.get_unchecked(self.idx) as usize)
-        }
     }
 
     // pull out the check so we don't need to
     // stry every time
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next_(&mut self) -> u8 {
+    fn next_(&mut self) -> Node<'de> {
         unsafe {
             self.idx += 1;
-            self.iidx = *self.structural_indexes.get_unchecked(self.idx) as usize;
-            *self.input.get_unchecked(self.iidx)
+            *self.tape.get_unchecked(self.idx)
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn count_elements(&self) -> usize {
-        unsafe { *self.counts.get_unchecked(self.idx) }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_root(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
+    //#[inline(never)]
+    #[allow(clippy::cast_possible_truncation)]
+    pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
-        let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
-        copy[len] = 0;
-        unsafe {
-            copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-        };
-        self.parse_number_int(&copy, minus)
-    }
+        // 6 is a heuristic number to estimate it turns out a rate of 1/6 structural caracters lears
+        // almost never to relocations.
+        let mut structural_indexes = Vec::with_capacity(len / 6);
+        structural_indexes.push(0); // push extra root element
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        let len = input.len();
-        if len < SIMDJSON_PADDING {
-            let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
-            unsafe {
-                copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-            };
-            self.parse_number_int(&copy, minus)
+        let mut state = SimdInput::new_utf8_checking_state();
+        // we have padded the input out to 64 byte multiple with the remainder being
+        // zeros
+
+        // persistent state across loop
+        // does the last iteration end with an odd-length sequence of backslashes?
+        // either 0 or 1, but a 64-bit value
+        let mut prev_iter_ends_odd_backslash: u64 = 0;
+        // does the previous iteration end inside a double-quote pair?
+        let mut prev_iter_inside_quote: u64 = 0;
+        // either all zeros or all ones
+        // does the previous iteration end on something that is a predecessor of a
+        // pseudo-structural character - i.e. whitespace or a structural character
+        // effectively the very first char is considered to follow "whitespace" for
+        // the
+        // purposes of pseudo-structural character detection so we initialize to 1
+        let mut prev_iter_ends_pseudo_pred: u64 = 1;
+
+        // structurals are persistent state across loop as we flatten them on the
+        // subsequent iteration into our array pointed to be base_ptr.
+        // This is harmless on the first iteration as structurals==0
+        // and is done for performance reasons; we can hide some of the latency of the
+        // expensive carryless multiply in the previous step with this work
+        let mut structurals: u64 = 0;
+
+        let lenminus64: usize = if len < 64 { 0 } else { len as usize - 64 };
+        let mut idx: usize = 0;
+        let mut error_mask: u64 = 0; // for unescaped characters within strings (ASCII code points < 0x20)
+
+        while idx < lenminus64 {
+            /*
+            #ifndef _MSC_VER
+              __builtin_prefetch(buf + idx + 128);
+            #endif
+             */
+            let input = SimdInput::new(input.get_unchecked(idx as usize..));
+            input.check_utf8(&mut state);
+            // detect odd sequences of backslashes
+            let odd_ends: u64 =
+                input.find_odd_backslash_sequences(&mut prev_iter_ends_odd_backslash);
+
+            // detect insides of quote pairs ("quote_mask") and also our quote_bits
+            // themselves
+            let mut quote_bits: u64 = 0;
+            let quote_mask: u64 = input.find_quote_mask_and_bits(
+                odd_ends,
+                &mut prev_iter_inside_quote,
+                &mut quote_bits,
+                &mut error_mask,
+            );
+
+            // take the previous iterations structural bits, not our current iteration,
+            // and flatten
+            #[allow(clippy::cast_possible_truncation)]
+            SimdInput::flatten_bits(&mut structural_indexes, idx as u32, structurals);
+
+            let mut whitespace: u64 = 0;
+            input.find_whitespace_and_structurals(&mut whitespace, &mut structurals);
+
+            // fixup structurals to reflect quotes and add pseudo-structural characters
+            structurals = SimdInput::finalize_structurals(
+                structurals,
+                whitespace,
+                quote_mask,
+                quote_bits,
+                &mut prev_iter_ends_pseudo_pred,
+            );
+            idx += SIMDINPUT_LENGTH;
+        }
+
+        // we use a giant copy-paste which is ugly.
+        // but otherwise the string needs to be properly padded or else we
+        // risk invalidating the UTF-8 checks.
+        if idx < len {
+            let mut tmpbuf: [u8; SIMDINPUT_LENGTH] = [0x20; SIMDINPUT_LENGTH];
+            tmpbuf
+                .as_mut_ptr()
+                .copy_from(input.as_ptr().add(idx), len as usize - idx);
+            let input = SimdInput::new(&tmpbuf);
+
+            input.check_utf8(&mut state);
+
+            // detect odd sequences of backslashes
+            let odd_ends: u64 =
+                input.find_odd_backslash_sequences(&mut prev_iter_ends_odd_backslash);
+
+            // detect insides of quote pairs ("quote_mask") and also our quote_bits
+            // themselves
+            let mut quote_bits: u64 = 0;
+            let quote_mask: u64 = input.find_quote_mask_and_bits(
+                odd_ends,
+                &mut prev_iter_inside_quote,
+                &mut quote_bits,
+                &mut error_mask,
+            );
+
+            // take the previous iterations structural bits, not our current iteration,
+            // and flatten
+            SimdInput::flatten_bits(&mut structural_indexes, idx as u32, structurals);
+
+            let mut whitespace: u64 = 0;
+            input.find_whitespace_and_structurals(&mut whitespace, &mut structurals);
+
+            // fixup structurals to reflect quotes and add pseudo-structural characters
+            structurals = SimdInput::finalize_structurals(
+                structurals,
+                whitespace,
+                quote_mask,
+                quote_bits,
+                &mut prev_iter_ends_pseudo_pred,
+            );
+            idx += SIMDINPUT_LENGTH;
+        }
+        // This test isn't in upstream, for some reason the error mask is et for then.
+        if prev_iter_inside_quote != 0 {
+            return Err(ErrorType::Syntax);
+        }
+        // finally, flatten out the remaining structurals from the last iteration
+        SimdInput::flatten_bits(&mut structural_indexes, idx as u32, structurals);
+
+        // a valid JSON file cannot have zero structural indexes - we should have
+        // found something (note that we compare to 1 as we always add the root!)
+        if structural_indexes.len() == 1 {
+            return Err(ErrorType::EOF);
+        }
+
+        if structural_indexes.last() > Some(&(len as u32)) {
+            return Err(ErrorType::InternalError);
+        }
+
+        if error_mask != 0 {
+            return Err(ErrorType::Syntax);
+        }
+
+        if SimdInput::check_utf8_errors(&state) {
+            Err(ErrorType::InvalidUTF8)
         } else {
-            self.parse_number_int(input, minus)
+            Ok(structural_indexes)
         }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_number_(&mut self, minus: bool) -> Result<Number> {
-        let input = unsafe { &self.input.get_unchecked(self.iidx..) };
-        self.parse_number_int(input, minus)
     }
 }
 
@@ -306,9 +551,10 @@ mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::serde::from_slice;
     use super::{
-        owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
-        Deserializer,
+        deserialize, owned::to_value, owned::Object, owned::Value, to_borrowed_value,
+        to_owned_value, BorrowedValue, Deserializer, OwnedValue,
     };
+    use crate::tape::*;
     use halfbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
@@ -319,7 +565,7 @@ mod tests {
         let mut d = String::from("[]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 0);
+        assert_eq!(simd.tape[1], Node::Array(0, 2));
     }
 
     #[test]
@@ -327,7 +573,7 @@ mod tests {
         let mut d = String::from("[1]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 1);
+        assert_eq!(simd.tape[1], Node::Array(1, 3));
     }
 
     #[test]
@@ -335,7 +581,7 @@ mod tests {
         let mut d = String::from("[1,2]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 2);
+        assert_eq!(simd.tape[1], Node::Array(2, 4));
     }
 
     #[test]
@@ -343,8 +589,8 @@ mod tests {
         let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 3);
-        assert_eq!(simd.counts[4], 1);
+        assert_eq!(simd.tape[1], Node::Array(3, 6));
+        assert_eq!(simd.tape[3], Node::Array(1, 5));
     }
 
     #[test]
@@ -352,8 +598,8 @@ mod tests {
         let mut d = String::from("[[],null,null]");
         let mut d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(&mut d).expect("");
-        assert_eq!(simd.counts[1], 3);
-        assert_eq!(simd.counts[2], 0);
+        assert_eq!(simd.tape[1], Node::Array(3, 5));
+        assert_eq!(simd.tape[2], Node::Array(0, 3));
     }
 
     #[test]
@@ -401,7 +647,7 @@ mod tests {
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
-        assert_eq!(to_value(&mut d1), Ok(Value::Null));
+        assert_eq!(to_value(&mut d1), Ok(Value::Static(StaticNode::Null)));
     }
 
     #[test]
@@ -584,8 +830,8 @@ mod tests {
             to_value(&mut d1),
             Ok(Value::Array(vec![
                 Value::Array(vec![]),
-                Value::Null,
-                Value::Null,
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
             ]))
         );
         assert_eq!(v_simd, v_serde);
@@ -705,8 +951,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![
-                Value::Object(Object::new()),
-                Value::Null
+                Value::from(Object::new()),
+                Value::Static(StaticNode::Null)
             ]))
         );
     }
@@ -726,7 +972,7 @@ mod tests {
         let mut d1 = d.clone();
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
-        assert_eq!(to_value(&mut d1), Ok(Value::Null));
+        assert_eq!(to_value(&mut d1), Ok(Value::Static(StaticNode::Null)));
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
@@ -739,7 +985,10 @@ mod tests {
         let mut d = unsafe { d.as_bytes_mut() };
         assert_eq!(
             to_value(&mut d1),
-            Ok(Value::Array(vec![Value::Null, Value::Null,]))
+            Ok(Value::Array(vec![
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
+            ]))
         );
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
@@ -755,8 +1004,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![
-                Value::Null,
-                Value::Null,
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
             ])]))
         );
 
@@ -777,8 +1026,8 @@ mod tests {
         assert_eq!(
             to_value(&mut d1),
             Ok(Value::Array(vec![Value::Array(vec![Value::Array(vec![
-                Value::Null,
-                Value::Null,
+                Value::Static(StaticNode::Null),
+                Value::Static(StaticNode::Null),
             ])])]))
         );
     }
@@ -841,7 +1090,7 @@ mod tests {
         assert_eq!(v_simd, v_serde);
         let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
-        assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
+        assert_eq!(dbg!(to_value(&mut d1)), Ok(Value::from(h)));
     }
 
     #[test]
@@ -856,7 +1105,7 @@ mod tests {
         let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
         h.insert("badger".into(), Value::from("snot"));
-        assert_eq!(to_value(&mut d1), Ok(Value::Object(h)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(h)));
     }
 
     #[test]
@@ -934,7 +1183,7 @@ mod tests {
     }
 
     #[test]
-    fn obj() {
+    fn obj1() {
         let mut d = String::from(r#"{"a": 1, "b":1}"#);
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Obj = serde_json::from_slice(d).expect("serde_json");
@@ -1115,8 +1364,10 @@ mod tests {
     //6.576692109929364e305
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
-            Just(Value::Null),
-            any::<bool>().prop_map(Value::Bool),
+            Just(Value::Static(StaticNode::Null)),
+            any::<bool>()
+                .prop_map(StaticNode::Bool)
+                .prop_map(Value::Static),
             // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // The float parsing of simd and serde are too different
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),
@@ -1139,8 +1390,10 @@ mod tests {
 
     fn arb_json_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
-            Just(Value::Null),
-            any::<bool>().prop_map(Value::Bool),
+            Just(Value::Static(StaticNode::Null)),
+            any::<bool>()
+                .prop_map(StaticNode::Bool)
+                .prop_map(Value::Static),
             //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
             any::<i64>().prop_map(|i| json!(i)),
             ".*".prop_map(Value::from),
@@ -1174,7 +1427,17 @@ mod tests {
             let mut encoded: Vec<u8> = Vec::new();
             let _ = val.write(&mut encoded);
             println!("{}", String::from_utf8_lossy(&encoded.clone()));
-            let res = to_owned_value(&mut encoded).expect("can't convert");
+            let mut e = encoded.clone();
+            let res = to_owned_value(&mut e).expect("can't convert");
+            assert_eq!(val, res);
+            let mut e = encoded.clone();
+            let res = to_borrowed_value(&mut e).expect("can't convert");
+            assert_eq!(val, res);
+            let mut e = encoded.clone();
+            let res: OwnedValue = deserialize(&mut e).expect("can't convert");
+            assert_eq!(val, res);
+            let mut e = encoded.clone();
+            let res: BorrowedValue = deserialize(&mut e).expect("can't convert");
             assert_eq!(val, res);
         }
 

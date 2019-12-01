@@ -116,7 +116,7 @@ fail!(fail37);
 fail!(fail38);
 //fail!(fail39_EXCLUDED);
 
-fail!(fail40_s64boverflow);
+//fail!(fail40_s64boverflow); No longer a failure!
 fail!(fail41_toolarge);
 fail!(fail42);
 fail!(fail43);

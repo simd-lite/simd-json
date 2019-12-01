@@ -2,8 +2,8 @@ use std::env;
 
 #[cfg(feature = "perf")]
 mod int {
-    const ROUNDS: usize = 10000;
-    const WARMUP: usize = 2000;
+    const ROUNDS: usize = 2000;
+    const WARMUP: usize = 200;
     use colored::*;
     use perfcnt::linux::{HardwareEventType, PerfCounterBuilderLinux};
     use perfcnt::{AbstractPerfCounter, PerfCounter};

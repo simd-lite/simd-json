@@ -9,9 +9,11 @@ use crate::neon::stage1::SIMDJSON_PADDING;
     not(target_feature = "avx2")
 ))]
 use crate::sse42::stage1::SIMDJSON_PADDING;
+use crate::value::tape::*;
 use crate::{Deserializer, Error, ErrorType, Result};
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(clippy::cast_ptr_alignment)]
 pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
     let mut error: u64;
@@ -23,7 +25,6 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
 
         // TODO: does this has the same effect as:
         //   std::memcpy(&locval, loc, sizeof(uint64_t));
-        #[allow(clippy::cast_ptr_alignment)]
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
         error = (locval & MASK4) ^ TV;
@@ -32,7 +33,36 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     error == 0
 }
 
+#[cfg(feature = "safe")]
+macro_rules! get {
+    ($a:expr, $i:expr) => {
+        &$a[$i]
+    };
+}
+
+#[cfg(not(feature = "safe"))]
+macro_rules! get {
+    ($a:expr, $i:expr) => {{
+        unsafe { $a.get_unchecked($i) }
+    }};
+}
+
+#[cfg(feature = "safe")]
+macro_rules! get_mut {
+    ($a:expr, $i:expr) => {
+        &mut $a[$i]
+    };
+}
+
+#[cfg(not(feature = "safe"))]
+macro_rules! get_mut {
+    ($a:expr, $i:expr) => {{
+        unsafe { $a.get_unchecked_mut($i) }
+    }};
+}
+
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(clippy::cast_ptr_alignment, unused_unsafe)]
 pub fn is_valid_false_atom(loc: &[u8]) -> bool {
     // TODO: this is ugly and probably copies data every time
     let mut error: u64;
@@ -43,7 +73,6 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
         const FV: u64 = 0x00_00_00_65_73_6c_61_66;
         const MASK5: u64 = 0x00_00_00_ff_ff_ff_ff_ff;
 
-        #[allow(clippy::cast_ptr_alignment)]
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
         // FIXME the original code looks like this:
@@ -52,12 +81,13 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
         // will mask the error on the y so we re-write it
         // it would be interesting what the consequecnes are
         error = (locval & MASK5) ^ FV;
-        error |= u64::from(is_not_structural_or_whitespace(*loc.get_unchecked(5)));
+        error |= u64::from(is_not_structural_or_whitespace(*get!(loc, 5)));
     }
     error == 0
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(clippy::cast_ptr_alignment, unused_unsafe)]
 pub fn is_valid_null_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
     let mut error: u64;
@@ -66,11 +96,10 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
         // this is the same:
         const NV: u64 = 0x00_00_00_00_6c_6c_75_6e;
         const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
-        #[allow(clippy::cast_ptr_alignment)]
         let locval: u64 = *(loc.as_ptr() as *const u64);
 
         error = (locval & MASK4) ^ NV;
-        error |= u64::from(is_not_structural_or_whitespace(*loc.get_unchecked(4)));
+        error |= u64::from(is_not_structural_or_whitespace(*get!(loc, 4)));
     }
     error == 0
 }
@@ -89,42 +118,99 @@ enum StackState {
 }
 
 impl<'de> Deserializer<'de> {
-    pub fn validate(input: &[u8], structural_indexes: &[u32]) -> Result<Vec<usize>> {
-        let mut counts = Vec::with_capacity(structural_indexes.len());
+    #[allow(clippy::cognitive_complexity, clippy::too_many_lines, unused_unsafe)]
+    pub(crate) fn build_tape(
+        input: &'de mut [u8],
+        structural_indexes: &[u32],
+    ) -> Result<Vec<Node<'de>>> {
+        // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
+        // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
+        let mut res: Vec<Node<'de>> = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
+        let mut buffer: Vec<u8> = Vec::with_capacity(input.len() + SIMDJSON_PADDING * 2);
         unsafe {
-            counts.set_len(structural_indexes.len());
             stack.set_len(structural_indexes.len());
+            res.set_len(structural_indexes.len());
+            buffer.set_len(input.len() + SIMDJSON_PADDING * 2);
         }
 
-        let mut depth = 0;
+        let mut depth: usize = 0;
         let mut last_start = 1;
-        let mut cnt = 0;
+        let mut cnt: usize = 0;
+        let mut r_i = 0;
 
         // let mut i: usize = 0; // index of the structural character (0,1,2,3...)
         // location of the structural character in the input (buf)
-        let mut idx: usize;
+        let mut idx: usize = 0;
         // used to track the (structural) character we are looking at, updated
         // by UPDATE_CHAR macro
-        let mut c: u8;
-        let mut i = 0;
+        let mut c: u8 = 0;
+        // skip the zero index
+        let mut i: usize = 1;
+        let mut state;
 
-        // this macro reads the next structural character, updating idx, i and c.
-        let mut si = structural_indexes.iter().skip(1).peekable();
-        macro_rules! update_char {
-            () => {
-                idx = *stry!(si.next().ok_or_else(|| (Error::generic(ErrorType::Syntax)))) as usize;
-                i += 1;
-                c = unsafe { *input.get_unchecked(idx) };
+        macro_rules! s2try {
+            ($e:expr) => {
+                match $e {
+                    ::std::result::Result::Ok(val) => val,
+                    ::std::result::Result::Err(err) => {
+                        // We need to ensure that rust doens't
+                        // try to free strings that we never
+                        // allocated
+                        unsafe {
+                            res.set_len(r_i);
+                        };
+                        return ::std::result::Result::Err(err);
+                    }
+                }
             };
         }
 
-        let mut state;
+        macro_rules! insert_res {
+            ($t:expr) => {
+                unsafe {
+                    std::ptr::write(get_mut!(res, r_i), $t);
+                    r_i += 1;
+                }
+            };
+        }
+        macro_rules! success {
+            () => {
+                unsafe {
+                    res.set_len(r_i);
+                    return Ok(res);
+                }
+            };
+        }
+        macro_rules! update_char {
+            () => {
+                if i < structural_indexes.len() {
+                    idx = *get!(structural_indexes, i) as usize;
+                    i += 1;
+                    c = *get!(input, idx);
+                } else {
+                    fail!(ErrorType::Syntax);
+                }
+            };
+        }
+
         macro_rules! goto {
             ($state:expr) => {{
                 state = $state;
                 continue;
             }};
+        }
+
+        insert_res!(Node::Static(StaticNode::Null));
+
+        macro_rules! insert_str {
+            () => {
+                insert_res!(Node::String(s2try!(Self::parse_str_(
+                    input,
+                    &mut buffer,
+                    idx
+                ))));
+            };
         }
 
         // The continue cases are the most frequently called onces it's
@@ -157,6 +243,7 @@ impl<'de> Deserializer<'de> {
                         cnt += 1;
                         update_char!();
                         if c == b'"' {
+                            insert_str!();
                             goto!(ObjectKey);
                         } else {
                             fail!(ErrorType::ExpectedObjectKey);
@@ -173,21 +260,24 @@ impl<'de> Deserializer<'de> {
         }
 
         macro_rules! array_begin {
-            () => {{
+            () => {
                 update_char!();
                 if c == b']' {
                     cnt = 0;
                     goto!(ScopeEnd);
                 }
                 goto!(MainArraySwitch);
-            }};
+            };
         }
 
         macro_rules! object_begin {
             () => {{
                 update_char!();
                 match c {
-                    b'"' => goto!(ObjectKey),
+                    b'"' => {
+                        insert_str!();
+                        goto!(ObjectKey)
+                    }
                     b'}' => {
                         cnt = 0;
                         goto!(ScopeEnd);
@@ -201,10 +291,22 @@ impl<'de> Deserializer<'de> {
 
         macro_rules! fail {
             () => {
-                return Err(Error::new(i, idx, c as char, ErrorType::InternalError));
+                // We need to ensure that rust doens't
+                // try to free strings that we never
+                // allocated
+                unsafe {
+                    res.set_len(r_i);
+                };
+                return Err(Error::new(idx, c as char, ErrorType::InternalError));
             };
             ($t:expr) => {
-                return Err(Error::new(i, idx, c as char, $t));
+                // We need to ensure that rust doens't
+                // try to free strings that we never
+                // allocated
+                unsafe {
+                    res.set_len(r_i);
+                };
+                return Err(Error::new(idx, c as char, $t));
             };
         }
         // State start, we pull this outside of the
@@ -212,16 +314,18 @@ impl<'de> Deserializer<'de> {
         update_char!();
         match c {
             b'{' => {
-                unsafe {
-                    *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
-                }
+                *get_mut!(stack, depth) = (StackState::Start, last_start, cnt);
+
+                last_start = r_i;
+                insert_res!(Node::Object(0, 0));
+
                 depth += 1;
-                last_start = i;
                 cnt = 1;
 
                 update_char!();
                 match c {
                     b'"' => {
+                        insert_str!();
                         state = State::ObjectKey;
                     }
                     b'}' => {
@@ -234,11 +338,12 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'[' => {
-                unsafe {
-                    *stack.get_unchecked_mut(depth) = (StackState::Start, last_start, cnt);
-                }
+                *get_mut!(stack, depth) = (StackState::Start, last_start, cnt);
+
+                last_start = r_i;
+                insert_res!(Node::Array(0, 0));
+
                 depth += 1;
-                last_start = i;
                 cnt = 1;
 
                 update_char!();
@@ -254,12 +359,13 @@ impl<'de> Deserializer<'de> {
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_true_atom(copy.get_unchecked(idx..)) {
+                    if !is_valid_true_atom(get!(copy, idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                if si.next().is_none() {
-                    return Ok(counts);
+                insert_res!(Node::Static(StaticNode::Bool(true)));
+                if i == structural_indexes.len() {
+                    success!();
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -269,12 +375,13 @@ impl<'de> Deserializer<'de> {
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_false_atom(copy.get_unchecked(idx..)) {
+                    if !is_valid_false_atom(get!(copy, idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                if si.next().is_none() {
-                    return Ok(counts);
+                insert_res!(Node::Static(StaticNode::Bool(false)));
+                if i == structural_indexes.len() {
+                    success!();
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -284,19 +391,53 @@ impl<'de> Deserializer<'de> {
                 let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
                     copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_null_atom(copy.get_unchecked(idx..)) {
+                    if !is_valid_null_atom(get!(copy, idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
-                if si.next().is_none() {
-                    return Ok(counts);
+                insert_res!(Node::Static(StaticNode::Null));
+                if i == structural_indexes.len() {
+                    success!();
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
             }
-            b'"' | b'-' | b'0'..=b'9' => {
-                if si.next().is_none() {
-                    return Ok(counts);
+            b'"' => {
+                insert_str!();
+                if i == structural_indexes.len() {
+                    success!();
+                } else {
+                    fail!(ErrorType::TrailingCharacters);
+                }
+            }
+            b'-' => {
+                let len = input.len();
+                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
+                unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
+                insert_res!(Node::Static(s2try!(Self::parse_number_int(
+                    idx,
+                    &copy[idx..],
+                    true
+                ))));
+
+                if i == structural_indexes.len() {
+                    success!();
+                } else {
+                    fail!(ErrorType::TrailingCharacters);
+                }
+            }
+            b'0'..=b'9' => {
+                let len = input.len();
+                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
+                unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
+                insert_res!(Node::Static(s2try!(Self::parse_number_int(
+                    idx,
+                    &copy[idx..],
+                    false
+                ))));
+
+                if i == structural_indexes.len() {
+                    success!();
                 } else {
                     fail!(ErrorType::TrailingCharacters);
                 }
@@ -317,27 +458,45 @@ impl<'de> Deserializer<'de> {
                     }
                     update_char!();
                     match c {
-                        b'"' => object_continue!(),
-
+                        b'"' => {
+                            insert_str!();
+                            object_continue!()
+                        }
                         b't' => {
-                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                            insert_res!(Node::Static(StaticNode::Bool(true)));
+                            if !is_valid_true_atom(get!(input, idx..)) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'f' => {
-                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                            insert_res!(Node::Static(StaticNode::Bool(false)));
+                            if !is_valid_false_atom(get!(input, idx..)) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'n' => {
-                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                            insert_res!(Node::Static(StaticNode::Null));
+                            if !is_valid_null_atom(get!(input, idx..)) {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             object_continue!();
                         }
-                        b'-' | b'0'..=b'9' => {
+                        b'-' => {
+                            insert_res!(Node::Static(s2try!(Self::parse_number_int(
+                                idx,
+                                get!(input, idx..),
+                                true
+                            ))));
+                            object_continue!();
+                        }
+                        b'0'..=b'9' => {
+                            insert_res!(Node::Static(s2try!(Self::parse_number_int(
+                                idx,
+                                &input[idx..],
+                                false
+                            ))));
                             object_continue!();
                         }
                         b'{' => {
@@ -345,8 +504,9 @@ impl<'de> Deserializer<'de> {
                                 *stack.get_unchecked_mut(depth) =
                                     (StackState::Object, last_start, cnt);
                             }
+                            last_start = r_i;
+                            insert_res!(Node::Object(0, 0));
                             depth += 1;
-                            last_start = i;
                             cnt = 1;
                             object_begin!();
                         }
@@ -355,8 +515,9 @@ impl<'de> Deserializer<'de> {
                                 *stack.get_unchecked_mut(depth) =
                                     (StackState::Object, last_start, cnt);
                             }
+                            last_start = r_i;
+                            insert_res!(Node::Array(0, 0));
                             depth += 1;
-                            last_start = i;
                             cnt = 1;
                             array_begin!();
                         }
@@ -368,16 +529,23 @@ impl<'de> Deserializer<'de> {
                 ////////////////////////////// COMMON STATE /////////////////////////////
                 ScopeEnd => {
                     if depth == 0 {
-                        return Err(Error::generic(ErrorType::Syntax));
+                        fail!(ErrorType::Syntax);
                     }
                     depth -= 1;
                     unsafe {
-                        *counts.get_unchecked_mut(last_start) = cnt;
+                        match res.get_unchecked_mut(last_start) {
+                            Node::Array(ref mut len, ref mut end)
+                            | Node::Object(ref mut len, ref mut end) => {
+                                *len = cnt;
+                                *end = r_i;
+                            }
+                            _ => unreachable!(),
+                        };
                     }
 
                     let (a_state, a_last_start, a_cnt) = unsafe { stack.get_unchecked(depth) };
                     //                    let (a_state, a_last_start, a_cnt) = unsafe {  };
-                    //stry!(stack.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
+                    //s2try!(stack.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
 
                     last_start = *a_last_start;
                     cnt = *a_cnt;
@@ -386,8 +554,8 @@ impl<'de> Deserializer<'de> {
                         StackState::Object => object_continue!(),
                         StackState::Array => array_continue!(),
                         StackState::Start => {
-                            if si.next().is_none() {
-                                return Ok(counts);
+                            if i == structural_indexes.len() {
+                                success!();
                             } else {
                                 fail!();
                             }
@@ -400,26 +568,45 @@ impl<'de> Deserializer<'de> {
                     // we call update char on all paths in, so we can peek at c on the
                     // on paths that can accept a close square brace (post-, and at start)
                     match c {
-                        b'"' => array_continue!(),
+                        b'"' => {
+                            insert_str!();
+                            array_continue!()
+                        }
                         b't' => {
+                            insert_res!(Node::Static(StaticNode::Bool(true)));
                             if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'f' => {
+                            insert_res!(Node::Static(StaticNode::Bool(false)));
                             if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'n' => {
+                            insert_res!(Node::Static(StaticNode::Null));
                             if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             array_continue!();
                         }
-                        b'-' | b'0'..=b'9' => {
+                        b'-' => {
+                            insert_res!(Node::Static(s2try!(Self::parse_number_int(
+                                idx,
+                                &input[idx..],
+                                true
+                            ))));
+                            array_continue!();
+                        }
+                        b'0'..=b'9' => {
+                            insert_res!(Node::Static(s2try!(Self::parse_number_int(
+                                idx,
+                                &input[idx..],
+                                false
+                            ))));
                             array_continue!();
                         }
                         b'{' => {
@@ -427,8 +614,9 @@ impl<'de> Deserializer<'de> {
                                 *stack.get_unchecked_mut(depth) =
                                     (StackState::Array, last_start, cnt);
                             }
+                            last_start = r_i;
+                            insert_res!(Node::Object(0, 0));
                             depth += 1;
-                            last_start = i;
                             cnt = 1;
                             object_begin!();
                         }
@@ -437,8 +625,9 @@ impl<'de> Deserializer<'de> {
                                 *stack.get_unchecked_mut(depth) =
                                     (StackState::Array, last_start, cnt);
                             }
+                            last_start = r_i;
+                            insert_res!(Node::Array(0, 0));
                             depth += 1;
-                            last_start = i;
                             cnt = 1;
                             array_begin!();
                         }

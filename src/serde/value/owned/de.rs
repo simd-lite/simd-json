@@ -1,4 +1,5 @@
 use crate::value::owned::{Object, Value};
+use crate::StaticNode;
 use crate::{stry, Error};
 use serde::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Unexpected, Visitor,
@@ -6,7 +7,6 @@ use serde::de::{
 use serde::forward_to_deserialize_any;
 use serde_ext::de::IntoDeserializer;
 use std::borrow::Cow;
-use std::convert::TryInto;
 use std::fmt;
 
 impl<'de> de::Deserializer<'de> for Value {
@@ -20,10 +20,11 @@ impl<'de> de::Deserializer<'de> for Value {
         V: Visitor<'de>,
     {
         match self {
-            Self::Null => visitor.visit_unit(),
-            Self::Bool(b) => visitor.visit_bool(b),
-            Self::I64(n) => visitor.visit_i64(n),
-            Self::F64(n) => visitor.visit_f64(n),
+            Self::Static(StaticNode::Null) => visitor.visit_unit(),
+            Self::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
+            Self::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
+            Self::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            Self::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
             Self::String(s) => visitor.visit_string(s),
             Self::Array(a) => visit_array(a, visitor),
             Self::Object(o) => visit_object(o, visitor),
@@ -55,7 +56,7 @@ where
     }
 }
 
-fn visit_object<'de, V>(object: Object, visitor: V) -> Result<V::Value, Error>
+fn visit_object<'de, V>(object: Box<Object>, visitor: V) -> Result<V::Value, Error>
 where
     V: Visitor<'de>,
 {
@@ -143,7 +144,8 @@ struct ObjectDeserializer {
 }
 
 impl ObjectDeserializer {
-    fn new(map: Object) -> Self {
+    #[allow(clippy::boxed_local, clippy::needless_pass_by_value)]
+    fn new(map: Box<Object>) -> Self {
         Self {
             iter: map.into_iter(),
             value: None,
@@ -404,19 +406,19 @@ impl<'de> Visitor<'de> for ValueVisitor {
     /****************** unit ******************/
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_unit<E>(self) -> Result<Self::Value, E> {
-        Ok(Value::Null)
+        Ok(Value::Static(StaticNode::Null))
     }
 
     /****************** bool ******************/
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
-        Ok(Value::Bool(value))
+        Ok(Value::Static(StaticNode::Bool(value)))
     }
 
     /****************** Option ******************/
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_none<E>(self) -> Result<Self::Value, E> {
-        Ok(Value::Null)
+        Ok(Value::Static(StaticNode::Null))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -441,7 +443,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(i64::from(value)))
+        Ok(Value::Static(StaticNode::I64(i64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -449,7 +451,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(i64::from(value)))
+        Ok(Value::Static(StaticNode::I64(i64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -457,7 +459,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(i64::from(value)))
+        Ok(Value::Static(StaticNode::I64(i64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -465,7 +467,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(value))
+        Ok(Value::Static(StaticNode::I64(value)))
     }
 
     /****************** u64 ******************/
@@ -475,7 +477,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(i64::from(value)))
+        Ok(Value::Static(StaticNode::U64(u64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -483,7 +485,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(i64::from(value)))
+        Ok(Value::Static(StaticNode::U64(u64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -491,7 +493,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::I64(i64::from(value)))
+        Ok(Value::Static(StaticNode::U64(u64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -499,12 +501,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        if let Ok(v) = value.try_into() {
-            #[allow(clippy::cast_possible_wrap)]
-            Ok(Value::I64(v))
-        } else {
-            Err(E::custom(format!("Integer out of range: {}", value)))
-        }
+        Ok(Value::Static(StaticNode::U64(value)))
     }
 
     /****************** f64 ******************/
@@ -514,7 +511,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::F64(f64::from(value)))
+        Ok(Value::Static(StaticNode::F64(f64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -522,7 +519,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::F64(value))
+        Ok(Value::Static(StaticNode::F64(value)))
     }
 
     /****************** stringy stuff ******************/
@@ -600,7 +597,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
             let v = map.next_value()?;
             m.insert(k, v);
         }
-        Ok(Value::Object(m))
+        Ok(Value::from(m))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

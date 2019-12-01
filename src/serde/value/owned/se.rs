@@ -1,6 +1,6 @@
 use super::to_value;
 use crate::value::owned::{Object, Value};
-use crate::{stry, Error, ErrorType, Result};
+use crate::{stry, Error, ErrorType, Result, StaticNode};
 use serde::ser::{self, Serialize};
 use serde_ext::ser::{SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait};
 
@@ -12,10 +12,11 @@ impl Serialize for Value {
         S: ser::Serializer,
     {
         match self {
-            Self::Bool(b) => serializer.serialize_bool(*b),
-            Self::Null => serializer.serialize_unit(),
-            Self::F64(f) => serializer.serialize_f64(*f),
-            Self::I64(i) => serializer.serialize_i64(*i),
+            Self::Static(StaticNode::Bool(b)) => serializer.serialize_bool(*b),
+            Self::Static(StaticNode::Null) => serializer.serialize_unit(),
+            Self::Static(StaticNode::F64(f)) => serializer.serialize_f64(*f),
+            Self::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
+            Self::Static(StaticNode::U64(i)) => serializer.serialize_u64(*i),
             Self::String(s) => serializer.serialize_str(&s),
             Self::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
@@ -56,7 +57,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_bool(self, value: bool) -> Result<Value> {
-        Ok(Value::Bool(value))
+        Ok(Value::Static(StaticNode::Bool(value)))
     }
 
     #[inline]
@@ -75,7 +76,7 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_i64(self, value: i64) -> Result<Value> {
-        Ok(Value::I64(value))
+        Ok(Value::Static(StaticNode::I64(value)))
     }
 
     #[cfg(feature = "arbitrary_precision")]
@@ -101,9 +102,9 @@ impl serde::Serializer for Serializer {
     }
 
     #[inline]
+    #[allow(clippy::cast_possible_wrap)]
     fn serialize_u64(self, value: u64) -> Result<Value> {
-        #[allow(clippy::cast_possible_wrap)]
-        Ok(Value::I64(value as i64))
+        Ok(Value::Static(StaticNode::I64(value as i64)))
     }
 
     #[cfg(feature = "arbitrary_precision")]
@@ -120,7 +121,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_f64(self, value: f64) -> Result<Value> {
-        Ok(Value::F64(value))
+        Ok(Value::Static(StaticNode::F64(value)))
     }
 
     #[inline]
@@ -136,13 +137,12 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Value> {
-        let vec = value.iter().map(|&b| Value::I64(b.into())).collect();
-        Ok(Value::Array(vec))
+        Ok(value.iter().cloned().collect())
     }
 
     #[inline]
     fn serialize_unit(self) -> Result<Value> {
-        Ok(Value::Null)
+        Ok(Value::Static(StaticNode::Null))
     }
 
     #[inline]
@@ -178,9 +178,9 @@ impl serde::Serializer for Serializer {
     where
         T: Serialize,
     {
-        let mut values = Object::new();
+        let mut values = Object::with_capacity(1);
         values.insert(variant.into(), stry!(to_value(&value)));
-        Ok(Value::Object(values))
+        Ok(Value::from(values))
     }
 
     #[inline]
@@ -341,11 +341,11 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     }
 
     fn end(self) -> Result<Value> {
-        let mut object = Object::new();
+        let mut object = Object::with_capacity(1);
 
         object.insert(self.name, Value::Array(self.vec));
 
-        Ok(Value::Object(object))
+        Ok(Value::from(object))
     }
 }
 
@@ -396,7 +396,7 @@ impl serde::ser::SerializeMap for SerializeMap {
 
     fn end(self) -> Result<Value> {
         match self {
-            Self::Map { map, .. } => Ok(Value::Object(map)),
+            Self::Map { map, .. } => Ok(Value::from(map)),
             #[cfg(feature = "arbitrary_precision")]
             Self::Number { .. } => unreachable!(),
             #[cfg(feature = "raw_value")]
@@ -648,11 +648,11 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     }
 
     fn end(self) -> Result<Value> {
-        let mut object = Object::new();
+        let mut object = Object::with_capacity(1);
 
-        object.insert(self.name, Value::Object(self.map));
+        object.insert(self.name, Value::from(self.map));
 
-        Ok(Value::Object(object))
+        Ok(Value::from(object))
     }
 }
 
@@ -718,13 +718,13 @@ mod test {
     use proptest::prelude::*;
     prop_compose! {
       fn obj_case()(
-        v_i128 in any::<i64>().prop_map(|v| v as i128),
+        v_i128 in any::<i64>().prop_map(i128::from),
         v_i64 in any::<i64>(),
         v_i32 in any::<i32>(),
         v_i16 in any::<i16>(),
         v_i8 in any::<i8>(),
-        v_u128 in any::<u32>().prop_map(|v| v as u128),
-        v_u64 in any::<u32>().prop_map(|v| v as u64),
+        v_u128 in any::<u64>().prop_map(u128::from),
+        v_u64 in any::<u64>(),
         v_usize in any::<u32>().prop_map(|v| v as usize),
         v_u32 in any::<u32>(),
         v_u66 in any::<u16>(),
@@ -746,7 +746,7 @@ mod test {
             v_u8,
             v_bool,
             v_str,
-            ..Default::default()
+            ..Obj::default()
         }
       }
     }

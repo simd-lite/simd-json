@@ -9,9 +9,9 @@
 mod de;
 mod value;
 pub use self::value::*;
-use crate::numberparse::Number;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use crate::{BorrowedValue, OwnedValue};
+use crate::{Node, StaticNode};
 use serde_ext::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
@@ -23,8 +23,6 @@ type ConvertResult<T> = std::result::Result<T, SerdeConversionError>;
 pub enum SerdeConversionError {
     /// Serde can not reflect NAN or Infinity
     NanOrInfinity,
-    /// A integer was to large, simd-json uses i64 for all integers
-    IntegerTooLarge,
     /// Something horrible went wrong, please open a ticket at <https://simd-json.rs>
     Oops,
 }
@@ -33,7 +31,6 @@ impl std::fmt::Display for SerdeConversionError {
         use SerdeConversionError::*;
         match self {
             NanOrInfinity => write!(f, "JSON can not represent NAN or Infinity values"),
-            IntegerTooLarge => write!(f, "Integer value is too large to fit in a i64"),
             Oops => write!(
                 f,
                 "Unreachable code is reachable, oops - please open a bug with simdjson-rs"
@@ -52,7 +49,6 @@ where
     T: Deserialize<'a>,
 {
     let mut deserializer = stry!(Deserializer::from_slice(s));
-
     T::deserialize(&mut deserializer)
 }
 /// parses a str  using a serde deserializer.
@@ -85,66 +81,48 @@ impl serde_ext::ser::Error for Error {
 // Functions purely used by serde
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next(&mut self) -> Result<u8> {
-        unsafe {
-            self.idx += 1;
-            if let Some(idx) = self.structural_indexes.get(self.idx) {
-                self.iidx = *idx as usize;
-                let r = *self.input.get_unchecked(self.iidx);
-                Ok(r)
-            } else {
-                Err(self.error(ErrorType::Syntax))
-            }
-        }
+    fn next(&mut self) -> Result<Node<'de>> {
+        self.idx += 1;
+        self.tape
+            .get(self.idx)
+            .copied()
+            .ok_or_else(|| self.error(ErrorType::Syntax))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn peek(&self) -> Result<u8> {
-        if let Some(idx) = self.structural_indexes.get(self.idx + 1) {
-            unsafe { Ok(*self.input.get_unchecked(*idx as usize)) }
-        } else {
-            Err(self.error(ErrorType::UnexpectedEnd))
-        }
+    fn peek(&self) -> Result<Node> {
+        self.tape
+            .get(self.idx + 1)
+            .copied()
+            .ok_or_else(|| self.error(ErrorType::UnexpectedEnd))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_signed(&mut self) -> Result<i64> {
         match self.next_() {
-            b'-' => match stry!(self.parse_number(true)) {
-                Number::I64(n) => Ok(n),
-                _ => Err(self.error(ErrorType::ExpectedSigned)),
-            },
-            b'0'..=b'9' => match stry!(self.parse_number(false)) {
-                Number::I64(n) => Ok(n),
-                _ => Err(self.error(ErrorType::ExpectedSigned)),
-            },
+            Node::Static(StaticNode::I64(i)) => Ok(i),
+            Node::Static(StaticNode::U64(n)) => n
+                .try_into()
+                .map_err(|_| self.error(ErrorType::ExpectedSigned)),
             _ => Err(self.error(ErrorType::ExpectedSigned)),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
     fn parse_unsigned(&mut self) -> Result<u64> {
-        #[allow(clippy::cast_sign_loss)]
         match self.next_() {
-            b'0'..=b'9' => match stry!(self.parse_number(false)) {
-                Number::I64(n) => Ok(n as u64),
-                _ => Err(self.error(ErrorType::ExpectedUnsigned)),
-            },
+            Node::Static(StaticNode::U64(n)) => Ok(n),
             _ => Err(self.error(ErrorType::ExpectedUnsigned)),
         }
     }
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {
-        #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
         match self.next_() {
-            b'-' => match stry!(self.parse_number(true)) {
-                Number::F64(n) => Ok(n),
-                Number::I64(n) => Ok(n as f64),
-            },
-            b'0'..=b'9' => match stry!(self.parse_number(false)) {
-                Number::F64(n) => Ok(n),
-                Number::I64(n) => Ok(n as f64),
-            },
+            Node::Static(StaticNode::F64(n)) => Ok(n),
+            Node::Static(StaticNode::I64(n)) => Ok(n as f64),
+            Node::Static(StaticNode::U64(n)) => Ok(n as f64),
             _ => Err(self.error(ErrorType::ExpectedFloat)),
         }
     }
@@ -155,34 +133,28 @@ impl TryFrom<serde_json::Value> for OwnedValue {
     fn try_from(item: serde_json::Value) -> ConvertResult<Self> {
         use serde_json::Value;
         Ok(match item {
-            Value::Null => Self::Null,
-            Value::Bool(b) => Self::Bool(b),
+            Value::Null => Self::Static(StaticNode::Null),
+            Value::Bool(b) => Self::Static(StaticNode::Bool(b)),
             Value::Number(b) => {
                 if let Some(n) = b.as_i64() {
-                    Self::I64(n)
+                    Self::Static(StaticNode::I64(n))
                 } else if let Some(n) = b.as_u64() {
-                    if n > i64::max_value() as u64 {
-                        return Err(SerdeConversionError::IntegerTooLarge);
-                    }
-                    #[allow(clippy::cast_possible_wrap)]
-                    Self::I64(n as i64)
+                    Self::Static(StaticNode::U64(n))
                 } else if let Some(n) = b.as_f64() {
-                    Self::F64(n)
+                    Self::Static(StaticNode::F64(n))
                 } else {
                     return Err(SerdeConversionError::Oops);
                 }
             }
             Value::String(b) => Self::String(b),
-            Value::Array(a) => Self::Array(
-                a.into_iter()
-                    .map(|v| v.try_into())
-                    .collect::<ConvertResult<Vec<Self>>>()?,
-            ),
-            Value::Object(o) => Self::Object(
-                o.into_iter()
-                    .map(|(k, v)| Ok((k, v.try_into()?)))
-                    .collect::<ConvertResult<crate::value::owned::Object>>()?,
-            ),
+            Value::Array(a) => a
+                .into_iter()
+                .map(Self::try_from)
+                .collect::<ConvertResult<Self>>()?,
+            Value::Object(o) => o
+                .into_iter()
+                .map(|(k, v)| Ok((k, Self::try_from(v)?)))
+                .collect::<ConvertResult<Self>>()?,
         })
     }
 }
@@ -192,10 +164,11 @@ impl TryInto<serde_json::Value> for OwnedValue {
     fn try_into(self) -> ConvertResult<serde_json::Value> {
         use serde_json::Value;
         Ok(match self {
-            Self::Null => Value::Null,
-            Self::Bool(b) => Value::Bool(b),
-            Self::I64(n) => Value::Number(n.into()),
-            Self::F64(n) => {
+            Self::Static(StaticNode::Null) => Value::Null,
+            Self::Static(StaticNode::Bool(b)) => Value::Bool(b),
+            Self::Static(StaticNode::I64(n)) => Value::Number(n.into()),
+            Self::Static(StaticNode::U64(n)) => Value::Number(n.into()),
+            Self::Static(StaticNode::F64(n)) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)
                 } else {
@@ -221,36 +194,27 @@ impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
     type Error = SerdeConversionError;
     fn try_from(item: serde_json::Value) -> ConvertResult<Self> {
         use serde_json::Value;
-        Ok(match item {
-            Value::Null => BorrowedValue::Null,
-            Value::Bool(b) => BorrowedValue::Bool(b),
+        match item {
+            Value::Null => Ok(BorrowedValue::from(())),
+            Value::Bool(b) => Ok(BorrowedValue::from(b)),
             Value::Number(b) => {
                 if let Some(n) = b.as_i64() {
-                    BorrowedValue::I64(n)
+                    Ok(Self::from(n))
                 } else if let Some(n) = b.as_u64() {
-                    if n > i64::max_value() as u64 {
-                        return Err(SerdeConversionError::IntegerTooLarge);
-                    }
-                    #[allow(clippy::cast_possible_wrap)]
-                    BorrowedValue::I64(n as i64)
+                    Ok(Self::from(n))
                 } else if let Some(n) = b.as_f64() {
-                    BorrowedValue::F64(n)
+                    Ok(Self::from(n))
                 } else {
-                    return Err(SerdeConversionError::Oops);
+                    Err(SerdeConversionError::Oops)
                 }
             }
-            Value::String(b) => BorrowedValue::String(b.into()),
-            Value::Array(a) => BorrowedValue::Array(
-                a.into_iter()
-                    .map(|v| v.try_into())
-                    .collect::<ConvertResult<Vec<BorrowedValue>>>()?,
-            ),
-            Value::Object(o) => BorrowedValue::Object(
-                o.into_iter()
-                    .map(|(k, v)| Ok((k.into(), v.try_into()?)))
-                    .collect::<ConvertResult<crate::value::borrowed::Object>>()?,
-            ),
-        })
+            Value::String(b) => Ok(Self::String(b.into())),
+            Value::Array(a) => a.into_iter().map(Self::try_from).collect(),
+            Value::Object(o) => o
+                .into_iter()
+                .map(|(k, v)| Ok((k, Self::try_from(v)?)))
+                .collect(),
+        }
     }
 }
 
@@ -259,10 +223,11 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
     fn try_into(self) -> ConvertResult<serde_json::Value> {
         use serde_json::Value;
         Ok(match self {
-            BorrowedValue::Null => Value::Null,
-            BorrowedValue::Bool(b) => Value::Bool(b),
-            BorrowedValue::I64(n) => Value::Number(n.into()),
-            BorrowedValue::F64(n) => {
+            BorrowedValue::Static(StaticNode::Null) => Value::Null,
+            BorrowedValue::Static(StaticNode::Bool(b)) => Value::Bool(b),
+            BorrowedValue::Static(StaticNode::I64(n)) => Value::Number(n.into()),
+            BorrowedValue::Static(StaticNode::U64(n)) => Value::Number(n.into()),
+            BorrowedValue::Static(StaticNode::F64(n)) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)
                 } else {

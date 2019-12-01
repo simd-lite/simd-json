@@ -4,7 +4,7 @@
 //
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
-use crate::value::ValueTrait;
+use crate::value::Value as ValueTrait;
 use std::io;
 use std::io::Write;
 use std::marker::PhantomData;
@@ -139,7 +139,10 @@ pub trait BaseGenerator {
     #[inline(always)]
     fn write_int(&mut self, num: i64) -> io::Result<()> {
         itoa::write(self.get_writer(), num).map(|_| ())
-        //self.write(num.to_string().as_bytes())
+    }
+    #[inline(always)]
+    fn write_uint(&mut self, num: u64) -> io::Result<()> {
+        itoa::write(self.get_writer(), num).map(|_| ())
     }
 }
 
