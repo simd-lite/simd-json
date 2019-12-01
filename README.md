@@ -2,8 +2,8 @@
 
 [Build Status ARM]: https://cloud.drone.io/api/badges/simd-lite/simdjson-rs/status.svg
 [drone.io]: https://cloud.drone.io/simd-lite/simdjson-rs
-[Build Status]: https://github.com/simd-lite/simdjson-rs/workflows/Rust%20%28tests%29/badge.svg
-[Sanity]: https://github.com/simd-lite/simdjson-rs/workflows/Rust%20%28sanity%20checks%29/badge.svg
+[Build Status]: https://github.com/simd-lite/simdjson-rs/workflows/Tests/badge.svg
+[Quality]: https://github.com/simd-lite/simdjson-rs/workflows/Sanity/badge.svg
 [simd-json.rs]: https://simd-json.rs
 [Latest Version]: https://img.shields.io/crates/v/simd-json.svg
 [crates.io]: https://crates.io/crates/simd-json
