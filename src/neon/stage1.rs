@@ -1,6 +1,5 @@
 #![allow(dead_code)]
-
-use crate::neon::utf8check::*;
+use crate::utf8check::Utf8Check;
 use crate::*;
 use simd_lite::aarch64::*;
 use simd_lite::NeonInit;
@@ -51,16 +50,6 @@ pub unsafe fn neon_movemask_bulk(
 pub const SIMDJSON_PADDING: usize = mem::size_of::<uint8x16_t>() * 4;
 pub const SIMDINPUT_LENGTH: usize = 64;
 
-unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
-    vgetq_lane_u64(
-        vreinterpretq_u64_u8(mem::transmute(vmull_p64(
-            mem::transmute(-1 as i64),
-            mem::transmute(quote_bits as i64),
-        ))),
-        0,
-    )
-}
-
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn check_ascii(si: &SimdInput) -> bool {
     let highbit: uint8x16_t = vdupq_n_u8(0x80);
@@ -101,16 +90,28 @@ impl SimdInput {
 
 impl Stage1Parse<int8x16_t> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn is_error_detected(has_error: int8x16_t) -> bool {
-        unsafe {
-            let has_error_128: i128 = mem::transmute(has_error);
-
-            has_error_128 != 0
+    fn new_utf8_checking_state() -> Utf8CheckingState<int8x16_t> {
+        Utf8CheckingState {
+            has_error: Self::zero(),
+            previous: ProcessedUtfBytes::default(),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn check_utf8(&self, has_error: &mut int8x16_t, previous: &mut ProcessedUtfBytes<int8x16_t>) {
+    fn compute_quote_mask(quote_bits: u64) -> u64 {
+        unsafe {
+            vgetq_lane_u64(
+                vreinterpretq_u64_u8(mem::transmute(vmull_p64(
+                    mem::transmute(-1 as i64),
+                    mem::transmute(quote_bits as i64),
+                ))),
+                0,
+            )
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn check_utf8(&self, state: &mut Utf8CheckingState<int8x16_t>) {
         unsafe {
             if check_ascii(self) {
                 // All bytes are ascii. Therefore the byte that was just before must be
@@ -118,16 +119,32 @@ impl Stage1Parse<int8x16_t> for SimdInput {
                 // are arbitrary values.
                 let verror: int8x16_t =
                     int8x16_t::new([9i8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1]);
-                *has_error = vreinterpretq_s8_u8(vorrq_u8(
-                    vcgtq_s8(previous.carried_continuations, verror),
-                    vreinterpretq_u8_s8(*has_error),
+                state.has_error = vreinterpretq_s8_u8(vorrq_u8(
+                    vcgtq_s8(state.previous.carried_continuations, verror),
+                    vreinterpretq_u8_s8(state.has_error),
                 ));
             } else {
                 // it is not ascii so we have to do heavy work
-                *previous = check_utf8_bytes(vreinterpretq_s8_u8(self.v0), previous, has_error);
-                *previous = check_utf8_bytes(vreinterpretq_s8_u8(self.v1), previous, has_error);
-                *previous = check_utf8_bytes(vreinterpretq_s8_u8(self.v2), previous, has_error);
-                *previous = check_utf8_bytes(vreinterpretq_s8_u8(self.v3), previous, has_error);
+                state.previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
+                    vreinterpretq_s8_u8(self.v0),
+                    &state.previous,
+                    &mut state.has_error,
+                );
+                state.previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
+                    vreinterpretq_s8_u8(self.v1),
+                    &state.previous,
+                    &mut state.has_error,
+                );
+                state.previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
+                    vreinterpretq_s8_u8(self.v2),
+                    &state.previous,
+                    &mut state.has_error,
+                );
+                state.previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
+                    vreinterpretq_s8_u8(self.v3),
+                    &state.previous,
+                    &mut state.has_error,
+                );
             }
         }
     }
@@ -156,47 +173,6 @@ impl Stage1Parse<int8x16_t> for SimdInput {
             let cmp_res_2: uint8x16_t = vcleq_u8(self.v2, maxval);
             let cmp_res_3: uint8x16_t = vcleq_u8(self.v3, maxval);
             neon_movemask_bulk(cmp_res_0, cmp_res_1, cmp_res_2, cmp_res_3)
-        }
-    }
-
-    // return both the quote mask (which is a half-open mask that covers the first
-    // quote in an unescaped quote pair and everything in the quote pair) and the
-    // quote bits, which are the simple unescaped quoted bits.
-    //
-    // We also update the prev_iter_inside_quote value to tell the next iteration
-    // whether we finished the final iteration inside a quote pair; if so, this
-    // inverts our behavior of whether we're inside quotes for the next iteration.
-    //
-    // Note that we don't do any error checking to see if we have backslash
-    // sequences outside quotes; these
-    // backslash sequences (of any length) will be detected elsewhere.
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn find_quote_mask_and_bits(
-        &self,
-        odd_ends: u64,
-        prev_iter_inside_quote: &mut u64,
-        quote_bits: &mut u64,
-        error_mask: &mut u64,
-    ) -> u64 {
-        unsafe {
-            *quote_bits = self.cmp_mask_against_input(b'"');
-            *quote_bits &= !odd_ends;
-            // remove from the valid quoted region the unescapted characters.
-            let mut quote_mask: u64 = compute_quote_mask(*quote_bits);
-
-            quote_mask ^= *prev_iter_inside_quote;
-            // All Unicode characters may be placed within the
-            // quotation marks, except for the characters that MUST be escaped:
-            // quotation mark, reverse solidus, and the control characters (U+0000
-            //through U+001F).
-            // https://tools.ietf.org/html/rfc8259
-            let unescaped: u64 = self.unsigned_lteq_against_input(vmovq_n_s8(0x1F));
-            *error_mask |= quote_mask & unescaped;
-            // right shift of a signed value expected to be well-defined and standard
-            // compliant as of C++20,
-            // John Regher from Utah U. says this is fine code
-            *prev_iter_inside_quote = static_cast_u64!(static_cast_i64!(quote_mask) >> 63);
-            quote_mask
         }
     }
 
@@ -318,6 +294,20 @@ impl Stage1Parse<int8x16_t> for SimdInput {
             }
             l += 4;
         }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn check_utf8_errors(state: &Utf8CheckingState<int8x16_t>) -> bool {
+        unsafe {
+            let has_error_128: i128 = mem::transmute(state.has_error);
+
+            has_error_128 != 0
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn fill_s8(n: i8) -> int8x16_t {
+        unsafe { vmovq_n_s8(n) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
