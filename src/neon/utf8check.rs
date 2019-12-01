@@ -187,7 +187,7 @@ impl Utf8Check<int8x16_t> for ProcessedUtfBytes<int8x16_t> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn count_nibbles(bytes: int8x16_t, answer: &mut ProcessedUtfBytes<int8x16_t>) {
+    fn count_nibbles(bytes: int8x16_t, answer: &mut Self) {
         answer.rawbytes = bytes;
         answer.high_nibbles =
             unsafe { vreinterpretq_s8_u8(vshrq_n_u8(vreinterpretq_u8_s8(bytes), 4)) };
