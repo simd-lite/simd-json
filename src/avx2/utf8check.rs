@@ -236,7 +236,7 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn count_nibbles(bytes: __m256i, answer: &mut ProcessedUtfBytes<__m256i>) {
+    fn count_nibbles(bytes: __m256i, answer: &mut Self) {
         answer.rawbytes = bytes;
         answer.high_nibbles =
             unsafe { _mm256_and_si256(_mm256_srli_epi16(bytes, 4), _mm256_set1_epi8(0x0F)) };
