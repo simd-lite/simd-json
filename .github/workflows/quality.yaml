@@ -1,4 +1,4 @@
-name: Rust (sanity checks)
+name: Quality
 
 on: [push]
 
