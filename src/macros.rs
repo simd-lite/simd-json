@@ -74,7 +74,9 @@
 ///             "serde",
 ///             "json"
 ///         ]
-///     }
+///     },
+///     "empty_obj": {},
+///     "empty_array": [],
 /// }).into();
 /// ````
 #[macro_export(local_inner_macros)]
@@ -284,7 +286,7 @@ macro_rules! json_internal {
     };
 
     ({}) => {
-        $crate::value::owned::Value::Object($crate::value::owned::Object::new())
+        $crate::value::owned::Value::object()
     };
 
     ({ $($tt:tt)+ }) => {
@@ -416,11 +418,19 @@ mod test {
     fn array() {
         let v: OwnedValue = json!(vec![1]);
         assert_eq!(OwnedValue::from(vec![1u64]), v);
+        let v: OwnedValue = json!([1]);
+        assert_eq!(OwnedValue::from(vec![1u64]), v);
+        let v: OwnedValue = json!([]);
+        assert_eq!(OwnedValue::array(), v);
     }
 
     #[test]
     fn obj() {
         let v: OwnedValue = json!(hashmap! {"test" => 1});
         assert_eq!(OwnedValue::from(hashmap! {"test".into() => 1.into()}), v);
+        let v: OwnedValue = json!({"test": 1});
+        assert_eq!(OwnedValue::from(hashmap! {"test".into() => 1.into()}), v);
+        let v: OwnedValue = json!({});
+        assert_eq!(OwnedValue::object(), v);
     }
 }
