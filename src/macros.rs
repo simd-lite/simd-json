@@ -286,7 +286,10 @@ macro_rules! json_internal {
     };
 
     ({}) => {
-        $crate::value::owned::Value::object()
+        {
+            use $crate::ValueBuilder;
+            $crate::value::owned::Value::object()
+        }
     };
 
     ({ $($tt:tt)+ }) => {
