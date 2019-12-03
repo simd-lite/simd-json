@@ -30,7 +30,7 @@ simd-lite = { version = "0.1.0", optional = true }
 float-cmp = "0.5"
 
 # because dev dependenceis can't be optional ...
-alloc_counter = {version = "0.0.3", optional = true}
+alloc_counter = {version = "0.0.4", optional = true}
 
 
 
