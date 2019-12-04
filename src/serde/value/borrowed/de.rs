@@ -182,6 +182,15 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Static(StaticNode::I64(value)))
     }
 
+    #[cfg(feature = "128bit")]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_i128<E>(self, value: i128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::Static(StaticNode::I128(value)))
+    }
+
     /****************** u64 ******************/
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -214,6 +223,15 @@ impl<'de> Visitor<'de> for ValueVisitor {
         E: de::Error,
     {
         Ok(Value::Static(StaticNode::U64(value)))
+    }
+
+    #[cfg(feature = "128bit")]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_u128<E>(self, value: u128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::Static(StaticNode::U128(value)))
     }
 
     /****************** f64 ******************/

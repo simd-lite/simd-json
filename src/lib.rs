@@ -964,24 +964,13 @@ mod tests {
             r#"{"name": "max_unsafe_auto_id_timestamp", "value": -9223372036854776000}"#,
         );
 
-        let mut d1 = d.clone();
-        let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
-        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(v_simd, v_serde);
         let mut o = Value::object();
         o.insert("name", "max_unsafe_auto_id_timestamp")
             .expect("failed to set key");
-        o.insert("value", -9223372036854776000.0)
+        o.insert("value", -9223372036854776000_i128)
             .expect("failed to set key");
-        assert_eq!(
-            to_value(&mut d1),
-            Ok(Value::Array(vec![
-                Value::from(Object::new()),
-                Value::Static(StaticNode::Null)
-            ]))
-        );
+        assert_eq!(to_value(&mut d), Ok(o));
     }
 
     #[test]
@@ -994,7 +983,7 @@ mod tests {
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
-        let v_simd: serde_json::Value = dbg!(from_slice(&mut d)).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
         assert_eq!(v_simd, v_serde);
         let mut o = Value::object();
         o.insert("name", "max_unsafe_auto_id_timestamp")

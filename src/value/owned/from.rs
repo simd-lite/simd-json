@@ -95,6 +95,13 @@ impl From<i64> for Value {
         Self::Static(StaticNode::I64(i))
     }
 }
+#[cfg(feature = "128bit")]
+impl From<i128> for Value {
+    #[inline]
+    fn from(i: i128) -> Self {
+        Self::Static(StaticNode::I128(i))
+    }
+}
 
 /********* u_ **********/
 impl From<u8> for Value {
@@ -123,6 +130,14 @@ impl From<u64> for Value {
     #[allow(clippy::cast_possible_wrap)]
     fn from(i: u64) -> Self {
         Self::Static(StaticNode::U64(i))
+    }
+}
+
+#[cfg(feature = "128bit")]
+impl From<u128> for Value {
+    #[inline]
+    fn from(i: u128) -> Self {
+        Self::Static(StaticNode::U128(i))
     }
 }
 

@@ -91,8 +91,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: i64 = stry!(self.parse_signed());
-        visitor.visit_i8(v as i8)
+        visitor.visit_i8(stry!(self.parse_i8()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -101,8 +100,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: i64 = stry!(self.parse_signed());
-        visitor.visit_i16(v as i16)
+        visitor.visit_i16(stry!(self.parse_i16()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -111,8 +109,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: i64 = stry!(self.parse_signed());
-        visitor.visit_i32(v as i32)
+        visitor.visit_i32(stry!(self.parse_i32()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -120,7 +117,15 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i64(stry!(self.parse_signed()))
+        visitor.visit_i64(stry!(self.parse_i64()))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_i128(stry!(self.parse_i128()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -129,8 +134,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: u64 = stry!(self.parse_unsigned());
-        visitor.visit_u8(v as u8)
+        visitor.visit_u8(stry!(self.parse_u8()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -139,8 +143,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: u64 = stry!(self.parse_unsigned());
-        visitor.visit_u16(v as u16)
+        visitor.visit_u16(stry!(self.parse_u16()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -149,8 +152,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: u64 = stry!(self.parse_unsigned());
-        visitor.visit_u32(v as u32)
+        visitor.visit_u32(stry!(self.parse_u32()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -158,7 +160,15 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u64(stry!(self.parse_unsigned()))
+        visitor.visit_u64(stry!(self.parse_u64()))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u128(stry!(self.parse_u128()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -307,7 +317,7 @@ where
     }
 
     forward_to_deserialize_any! {
-            i128 u128 char
+            char
             bytes byte_buf enum
             identifier ignored_any
     }

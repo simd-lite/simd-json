@@ -315,6 +315,7 @@ impl<'de> Deserializer<'de> {
     ///
     /// This function will almost never be called!!!
     ///
+    #[cfg(not(feature = "128bit"))]
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
     fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
@@ -372,6 +373,77 @@ impl<'de> Deserializer<'de> {
             unsafe { Ok(StaticNode::I64(static_cast_i64!(i.wrapping_neg()))) }
         } else {
             Ok(StaticNode::U64(i))
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline(never)]
+    #[allow(clippy::cast_possible_wrap)]
+    fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
+        use std::convert::TryFrom;
+        let mut digitcount = if negative { 1 } else { 0 };
+        let mut i: u128;
+        let mut d = unsafe { *buf.get_unchecked(digitcount) };
+        let mut digit: u8;
+
+        if d == b'0' {
+            digitcount += 1;
+            d = unsafe { *buf.get_unchecked(digitcount) };
+            i = 0;
+        } else {
+            digit = d - b'0';
+            i = u128::from(digit);
+            digitcount += 1;
+            d = unsafe { *buf.get_unchecked(digitcount) };
+            // the is_made_of_eight_digits_fast routine is unlikely to help here because
+            // we rarely see large integer parts like 123456789
+            while is_integer(d) {
+                digit = d - b'0';
+                if let Some(i1) = i
+                    .checked_mul(10)
+                    .and_then(|i| i.checked_add(u128::from(digit)))
+                {
+                    i = i1;
+                } else {
+                    return Err(Self::raw_error(
+                        idx + digitcount,
+                        d as char,
+                        ErrorType::Overflow,
+                    ));
+                }
+                digitcount += 1;
+                d = unsafe { *buf.get_unchecked(digitcount) };
+            }
+        }
+
+        if negative && i > 170_141_183_460_469_231_731_687_303_715_884_105_728_u128 {
+            //i64::min_value() * -1
+            return Err(Self::raw_error(
+                idx + digitcount,
+                d as char,
+                ErrorType::Overflow,
+            ));
+        }
+
+        if is_structural_or_whitespace(d) == 0 {
+            Err(Self::raw_error(
+                idx + digitcount,
+                d as char,
+                ErrorType::InvalidNumber,
+            ))
+        } else if negative {
+            let i = unsafe { static_cast_i128!(i.wrapping_neg()) };
+            if let Some(i) = i64::try_from(i).ok() {
+                Ok(StaticNode::I64(i))
+            } else {
+                Ok(StaticNode::I128(i))
+            }
+        } else {
+            if let Some(i) = u64::try_from(i).ok() {
+                Ok(StaticNode::U64(i))
+            } else {
+                Ok(StaticNode::U128(i))
+            }
         }
     }
 

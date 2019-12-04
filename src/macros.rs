@@ -392,6 +392,14 @@ macro_rules! static_cast_i64 {
     };
 }
 
+/// static cast to an i64
+#[macro_export]
+macro_rules! static_cast_i128 {
+    ($v:expr) => {
+        mem::transmute::<_, i128>($v)
+    };
+}
+
 /// static cast to an u64
 #[macro_export]
 macro_rules! static_cast_u64 {

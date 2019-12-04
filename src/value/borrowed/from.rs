@@ -87,6 +87,14 @@ impl<'v> From<i64> for Value<'v> {
     }
 }
 
+#[cfg(feature = "128bit")]
+impl<'v> From<i128> for Value<'v> {
+    #[inline]
+    fn from(i: i128) -> Self {
+        Value::Static(StaticNode::I128(i))
+    }
+}
+
 /********* u_ **********/
 impl<'v> From<u8> for Value<'v> {
     #[inline]
@@ -113,6 +121,14 @@ impl<'v> From<u64> for Value<'v> {
     #[inline]
     fn from(i: u64) -> Self {
         Value::Static(StaticNode::U64(i))
+    }
+}
+
+#[cfg(feature = "128bit")]
+impl<'v> From<u128> for Value<'v> {
+    #[inline]
+    fn from(i: u128) -> Self {
+        Value::Static(StaticNode::U128(i))
     }
 }
 

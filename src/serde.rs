@@ -11,7 +11,7 @@ mod value;
 pub use self::value::*;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use crate::{BorrowedValue, OwnedValue};
-use crate::{Node, StaticNode};
+use crate::{Node, StaticNode, Value};
 use serde_ext::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
@@ -98,24 +98,115 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_signed(&mut self) -> Result<i64> {
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_u8(&mut self) -> Result<u8> {
         match self.next_() {
-            Node::Static(StaticNode::I64(i)) => Ok(i),
-            Node::Static(StaticNode::U64(n)) => n
-                .try_into()
-                .map_err(|_| self.error(ErrorType::ExpectedSigned)),
+            Node::Static(s) => s
+                .as_u8()
+                .ok_or_else(|| self.error(ErrorType::ExpectedUnsigned)),
+            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_u16(&mut self) -> Result<u16> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_u16()
+                .ok_or_else(|| self.error(ErrorType::ExpectedUnsigned)),
+            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_u32(&mut self) -> Result<u32> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_u32()
+                .ok_or_else(|| self.error(ErrorType::ExpectedUnsigned)),
+            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_u64(&mut self) -> Result<u64> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_u64()
+                .ok_or_else(|| self.error(ErrorType::ExpectedUnsigned)),
+            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_u128(&mut self) -> Result<u128> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_u128()
+                .ok_or_else(|| self.error(ErrorType::ExpectedUnsigned)),
+            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_i8(&mut self) -> Result<i8> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_i8()
+                .ok_or_else(|| self.error(ErrorType::ExpectedSigned)),
             _ => Err(self.error(ErrorType::ExpectedSigned)),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_unsigned(&mut self) -> Result<u64> {
+    fn parse_i16(&mut self) -> Result<i16> {
         match self.next_() {
-            Node::Static(StaticNode::U64(n)) => Ok(n),
-            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+            Node::Static(s) => s
+                .as_i16()
+                .ok_or_else(|| self.error(ErrorType::ExpectedSigned)),
+            _ => Err(self.error(ErrorType::ExpectedSigned)),
         }
     }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_i32(&mut self) -> Result<i32> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_i32()
+                .ok_or_else(|| self.error(ErrorType::ExpectedSigned)),
+            _ => Err(self.error(ErrorType::ExpectedSigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_i64(&mut self) -> Result<i64> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_i64()
+                .ok_or_else(|| self.error(ErrorType::ExpectedSigned)),
+            _ => Err(self.error(ErrorType::ExpectedSigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_i128(&mut self) -> Result<i128> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_i128()
+                .ok_or_else(|| self.error(ErrorType::ExpectedSigned)),
+            _ => Err(self.error(ErrorType::ExpectedSigned)),
+        }
+    }
+
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {

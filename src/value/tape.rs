@@ -1,8 +1,13 @@
 /// A tape of a parsed json, all values are extracted and validated and
 /// can be used without further computation.
-use crate::ValueType;
+mod cmp;
+use crate::{Value as ValueTrait, ValueType};
 use float_cmp::approx_eq;
+use halfbrown::HashMap;
+use std::convert::TryFrom;
 use std::fmt;
+use std::ops::{Index, IndexMut};
+
 /// `Tape`
 pub struct Tape<'input>(Vec<Node<'input>>);
 
@@ -43,6 +48,145 @@ pub enum StaticNode {
     Bool(bool),
     /// The null value
     Null,
+}
+
+impl Index<&str> for StaticNode {
+    type Output = ();
+    #[inline]
+    fn index(&self, _index: &str) -> &Self::Output {
+        panic!("Not supported")
+    }
+}
+
+impl Index<usize> for StaticNode {
+    type Output = (Self);
+    #[inline]
+    fn index(&self, _index: usize) -> &Self::Output {
+        panic!("Not supported")
+    }
+}
+
+impl IndexMut<&str> for StaticNode {
+    #[inline]
+    fn index_mut(&mut self, _index: &str) -> &mut Self::Output {
+        panic!("Not supported")
+    }
+}
+
+impl IndexMut<usize> for StaticNode {
+    #[inline]
+    fn index_mut(&mut self, _index: usize) -> &mut Self::Output {
+        panic!("Not supported")
+    }
+}
+
+impl ValueTrait for StaticNode {
+    type Key = ();
+
+    #[inline]
+    fn value_type(&self) -> ValueType {
+        self.value_type()
+    }
+
+    #[inline]
+    fn is_null(&self) -> bool {
+        self == &StaticNode::Null
+    }
+
+    #[inline]
+    fn as_bool(&self) -> Option<bool> {
+        match self {
+            StaticNode::Bool(b) => Some(*b),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    fn as_i64(&self) -> Option<i64> {
+        match self {
+            Self::I64(i) => Some(*i),
+            Self::U64(i) => i64::try_from(*i).ok(),
+            #[cfg(feature = "128bit")]
+            Self::I128(i) => i64::try_from(*i).ok(),
+            #[cfg(feature = "128bit")]
+            Self::U128(i) => i64::try_from(*i).ok(),
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline]
+    fn as_i128(&self) -> Option<i128> {
+        match self {
+            Self::I128(i) => Some(*i),
+            Self::U128(i) => i128::try_from(*i).ok(),
+            Self::I64(i) => Some(*i as i128),
+            Self::U64(i) => i128::try_from(*i).ok(),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    #[allow(clippy::cast_sign_loss)]
+    fn as_u64(&self) -> Option<u64> {
+        match self {
+            Self::I64(i) => u64::try_from(*i).ok(),
+            Self::U64(i) => Some(*i),
+            #[cfg(feature = "128bit")]
+            Self::I128(i) => u64::try_from(*i).ok(),
+            #[cfg(feature = "128bit")]
+            Self::U128(i) => u64::try_from(*i).ok(),
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline]
+    #[allow(clippy::cast_sign_loss)]
+    fn as_u128(&self) -> Option<u128> {
+        match self {
+            Self::U128(i) => Some(*i),
+            Self::I128(i) => u128::try_from(*i).ok(),
+            Self::I64(i) => u128::try_from(*i).ok(),
+            Self::U64(i) => Some(*i as u128),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    fn as_f64(&self) -> Option<f64> {
+        match self {
+            Self::F64(i) => Some(*i),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    #[allow(clippy::cast_precision_loss)]
+    fn cast_f64(&self) -> Option<f64> {
+        match self {
+            Self::F64(i) => Some(*i),
+            Self::I64(i) => Some(*i as f64),
+            Self::U64(i) => Some(*i as f64),
+            #[cfg(feature = "128bit")]
+            Self::I128(i) => Some(*i as f64),
+            #[cfg(feature = "128bit")]
+            Self::U128(i) => Some(*i as f64),
+            _ => None,
+        }
+    }
+    #[inline]
+    fn as_str(&self) -> Option<&str> {
+        None
+    }
+    #[inline]
+    fn as_array(&self) -> Option<&Vec<Self>> {
+        None
+    }
+    #[inline]
+    fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
+        None
+    }
 }
 
 impl StaticNode {
