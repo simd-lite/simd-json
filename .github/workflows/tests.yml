@@ -19,6 +19,7 @@ jobs:
         features:
           - ''
           - '--features known-key'
+          - '--features 128bit'
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v1
