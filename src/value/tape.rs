@@ -59,7 +59,7 @@ impl Index<&str> for StaticNode {
 }
 
 impl Index<usize> for StaticNode {
-    type Output = (Self);
+    type Output = ();
     #[inline]
     fn index(&self, _index: usize) -> &Self::Output {
         panic!("Not supported")
