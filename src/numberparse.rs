@@ -353,7 +353,7 @@ impl<'de> Deserializer<'de> {
             }
         }
 
-        if negative && i >= 9_223_372_036_854_775_808 {
+        if negative && i > 9_223_372_036_854_775_808 {
             //i64::min_value() * -1
             return Err(Self::raw_error(
                 idx + digitcount,
@@ -369,7 +369,7 @@ impl<'de> Deserializer<'de> {
                 ErrorType::InvalidNumber,
             ))
         } else if negative {
-            Ok(StaticNode::I64(-(i as i64)))
+            unsafe { Ok(StaticNode::I64(static_cast_i64!(i.wrapping_neg()))) }
         } else {
             Ok(StaticNode::U64(i))
         }
@@ -560,7 +560,7 @@ impl<'de> Deserializer<'de> {
                 return Self::parse_large_integer(idx, buf, negative);
             }
             if negative {
-                StaticNode::I64((i as i64).wrapping_neg())
+                unsafe { StaticNode::I64(static_cast_i64!(i.wrapping_neg())) }
             } else {
                 StaticNode::U64(i)
             }
