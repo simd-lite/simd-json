@@ -15,8 +15,12 @@ impl Serialize for Value {
             Self::Static(StaticNode::Bool(b)) => serializer.serialize_bool(*b),
             Self::Static(StaticNode::Null) => serializer.serialize_unit(),
             Self::Static(StaticNode::F64(f)) => serializer.serialize_f64(*f),
-            Self::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
-            Self::Static(StaticNode::U64(i)) => serializer.serialize_u64(*i),
+            Value::Static(StaticNode::U64(i)) => serializer.serialize_u64(*i),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::U128(i)) => serializer.serialize_u128(*i),
+            Value::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::I128(i)) => serializer.serialize_i128(*i),
             Self::String(s) => serializer.serialize_str(&s),
             Self::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;

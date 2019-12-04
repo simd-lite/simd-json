@@ -99,8 +99,14 @@ pub enum ValueType {
     Bool,
     /// a signed integer type
     I64,
+    #[cfg(feature = "128bit")]
+    /// a 128 bit signed integer
+    I128,
     /// a unsigned integer type
     U64,
+    #[cfg(feature = "128bit")]
+    /// a 128 bit unsiged integer
+    U128,
     /// a float type
     F64,
     /// a string type

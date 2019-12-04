@@ -51,7 +51,9 @@ harness = false
 
 
 [features]
-default = ["swar-number-parsing", "serde_impl"]
+default = ["swar-number-parsing", "serde_impl", "128bit"]
+# Support for 128 bit integers
+128bit = []
 # used for enabeling known keys in favour of a slower
 # hasher that is not protected against hash collision
 # attacks

@@ -167,7 +167,11 @@ impl TryInto<serde_json::Value> for OwnedValue {
             Self::Static(StaticNode::Null) => Value::Null,
             Self::Static(StaticNode::Bool(b)) => Value::Bool(b),
             Self::Static(StaticNode::I64(n)) => Value::Number(n.into()),
+            #[cfg(feature = "128bit")] // FIXME error for too large numbers
+            Self::Static(StaticNode::I128(n)) => Value::Number((n as i64).into()),
             Self::Static(StaticNode::U64(n)) => Value::Number(n.into()),
+            #[cfg(feature = "128bit")] // FIXME error for too large numbers
+            Self::Static(StaticNode::U128(n)) => Value::Number((n as u64).into()),
             Self::Static(StaticNode::F64(n)) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)
@@ -226,7 +230,11 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
             BorrowedValue::Static(StaticNode::Null) => Value::Null,
             BorrowedValue::Static(StaticNode::Bool(b)) => Value::Bool(b),
             BorrowedValue::Static(StaticNode::I64(n)) => Value::Number(n.into()),
+            #[cfg(feature = "128bit")] // FIXME error for too large numbers
+            BorrowedValue::Static(StaticNode::I128(n)) => Value::Number((n as i64).into()),
             BorrowedValue::Static(StaticNode::U64(n)) => Value::Number(n.into()),
+            #[cfg(feature = "128bit")] // FIXME error for too large numbers
+            BorrowedValue::Static(StaticNode::U128(n)) => Value::Number((n as u64).into()),
             BorrowedValue::Static(StaticNode::F64(n)) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)

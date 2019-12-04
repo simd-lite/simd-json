@@ -85,7 +85,11 @@ trait Generator: BaseGenerator {
         match *json {
             Value::Static(StaticNode::Null) => self.write(b"null"),
             Value::Static(StaticNode::I64(number)) => self.write_int(number),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::I128(number)) => self.write_int128(number),
             Value::Static(StaticNode::U64(number)) => self.write_uint(number),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::U128(number)) => self.write_uint128(number),
             Value::Static(StaticNode::F64(number)) => self.write_float(number),
             Value::Static(StaticNode::Bool(true)) => self.write(b"true"),
             Value::Static(StaticNode::Bool(false)) => self.write(b"false"),

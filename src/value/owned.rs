@@ -107,6 +107,22 @@ impl ValueTrait for Value {
         match self {
             Self::Static(StaticNode::I64(i)) => Some(*i),
             Self::Static(StaticNode::U64(i)) => i64::try_from(*i).ok(),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::I128(i)) => i64::try_from(*i).ok(),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::U128(i)) => i64::try_from(*i).ok(),
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline]
+    fn as_i128(&self) -> Option<i128> {
+        match self {
+            Self::Static(StaticNode::I128(i)) => Some(*i),
+            Self::Static(StaticNode::U128(i)) => i128::try_from(*i).ok(),
+            Self::Static(StaticNode::I64(i)) => Some(*i as i128),
+            Self::Static(StaticNode::U64(i)) => i128::try_from(*i).ok(),
             _ => None,
         }
     }
@@ -117,6 +133,23 @@ impl ValueTrait for Value {
         match self {
             Self::Static(StaticNode::I64(i)) => u64::try_from(*i).ok(),
             Self::Static(StaticNode::U64(i)) => Some(*i),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::I128(i)) => u64::try_from(*i).ok(),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::U128(i)) => u64::try_from(*i).ok(),
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline]
+    #[allow(clippy::cast_sign_loss)]
+    fn as_u128(&self) -> Option<u128> {
+        match self {
+            Self::Static(StaticNode::U128(i)) => Some(*i),
+            Self::Static(StaticNode::I128(i)) => u128::try_from(*i).ok(),
+            Self::Static(StaticNode::I64(i)) => u128::try_from(*i).ok(),
+            Self::Static(StaticNode::U64(i)) => Some(*i as u128),
             _ => None,
         }
     }
@@ -136,6 +169,10 @@ impl ValueTrait for Value {
             Self::Static(StaticNode::F64(i)) => Some(*i),
             Self::Static(StaticNode::I64(i)) => Some(*i as f64),
             Self::Static(StaticNode::U64(i)) => Some(*i as f64),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::I128(i)) => Some(*i as f64),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::U128(i)) => Some(*i as f64),
             _ => None,
         }
     }

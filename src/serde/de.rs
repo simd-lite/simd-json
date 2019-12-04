@@ -22,7 +22,11 @@ where
             Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
             Node::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
             Node::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
+            #[cfg(feature = "128bit")]
+            Node::Static(StaticNode::I128(n)) => visitor.visit_i128(n),
             Node::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            #[cfg(feature = "128bit")]
+            Node::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
             Node::Array(len, _) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
             Node::Object(len, _) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
         }

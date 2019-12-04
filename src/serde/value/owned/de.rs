@@ -23,7 +23,11 @@ impl<'de> de::Deserializer<'de> for Value {
             Self::Static(StaticNode::Null) => visitor.visit_unit(),
             Self::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
             Self::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::I128(n)) => visitor.visit_i128(n),
             Self::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
             Self::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
             Self::String(s) => visitor.visit_string(s),
             Self::Array(a) => visit_array(a, visitor),

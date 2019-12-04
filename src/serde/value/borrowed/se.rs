@@ -14,8 +14,12 @@ impl<'a> Serialize for Value<'a> {
             Value::Static(StaticNode::Null) => serializer.serialize_unit(),
             Value::Static(StaticNode::Bool(b)) => serializer.serialize_bool(*b),
             Value::Static(StaticNode::F64(f)) => serializer.serialize_f64(*f),
-            Value::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
             Value::Static(StaticNode::U64(i)) => serializer.serialize_u64(*i),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::U128(i)) => serializer.serialize_u128(*i),
+            Value::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::I128(i)) => serializer.serialize_i128(*i),
             Value::String(Cow::Borrowed(s)) => serializer.serialize_str(s),
             Value::String(Cow::Owned(s)) => serializer.serialize_str(&s),
             Value::Array(v) => {
