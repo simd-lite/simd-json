@@ -90,13 +90,13 @@ impl ValueTrait for StaticNode {
 
     #[inline]
     fn is_null(&self) -> bool {
-        self == &StaticNode::Null
+        self == &Self::Null
     }
 
     #[inline]
     fn as_bool(&self) -> Option<bool> {
         match self {
-            StaticNode::Bool(b) => Some(*b),
+            Self::Bool(b) => Some(*b),
             _ => None,
         }
     }
@@ -120,7 +120,7 @@ impl ValueTrait for StaticNode {
         match self {
             Self::I128(i) => Some(*i),
             Self::U128(i) => i128::try_from(*i).ok(),
-            Self::I64(i) => Some(*i as i128),
+            Self::I64(i) => Some(i128::from(*i)),
             Self::U64(i) => i128::try_from(*i).ok(),
             _ => None,
         }
@@ -148,7 +148,7 @@ impl ValueTrait for StaticNode {
             Self::U128(i) => Some(*i),
             Self::I128(i) => u128::try_from(*i).ok(),
             Self::I64(i) => u128::try_from(*i).ok(),
-            Self::U64(i) => Some(*i as u128),
+            Self::U64(i) => Some(u128::from(*i)),
             _ => None,
         }
     }
@@ -240,29 +240,29 @@ impl<'a> PartialEq for StaticNode {
 
             (Self::U64(v1), Self::I64(v2)) if *v2 >= 0 => (*v2 as u64).eq(v1),
             #[cfg(feature = "128bit")]
-            (Self::U64(v1), Self::I128(v2)) if *v2 >= 0 => (*v2 as u128).eq(&(*v1 as u128)),
+            (Self::U64(v1), Self::I128(v2)) if *v2 >= 0 => (*v2 as u128).eq(&u128::from(*v1)),
             #[cfg(feature = "128bit")]
-            (Self::U64(v1), Self::U128(v2)) => v2.eq(&(*v1 as u128)),
+            (Self::U64(v1), Self::U128(v2)) => v2.eq(&u128::from(*v1)),
 
             (Self::I64(v1), Self::U64(v2)) if *v1 >= 0 => (*v1 as u64).eq(v2),
             #[cfg(feature = "128bit")]
-            (Self::I64(v1), Self::I128(v2)) => (*v2 as i128).eq(&(*v1 as i128)),
+            (Self::I64(v1), Self::I128(v2)) => (*v2 as i128).eq(&i128::from(*v1)),
             #[cfg(feature = "128bit")]
             (Self::I64(v1), Self::U128(v2)) if *v1 >= 0 => v2.eq(&(*v1 as u128)),
 
             #[cfg(feature = "128bit")]
             (Self::U128(v1), Self::I128(v2)) if *v2 >= 0 => (*v2 as u128).eq(v1),
             #[cfg(feature = "128bit")]
-            (Self::U128(v1), Self::U64(v2)) => v1.eq(&((*v2) as u128)),
+            (Self::U128(v1), Self::U64(v2)) => v1.eq(&u128::from(*v2)),
             #[cfg(feature = "128bit")]
-            (Self::U128(v1), Self::I64(v2)) if *v2 >= 0 => v1.eq(&((*v2) as u128)),
+            (Self::U128(v1), Self::I64(v2)) if *v2 >= 0 => v1.eq(&(*v2 as u128)),
 
             #[cfg(feature = "128bit")]
             (Self::I128(v1), Self::U128(v2)) if *v1 >= 0 => (*v1 as u128).eq(v2),
             #[cfg(feature = "128bit")]
-            (Self::I128(v1), Self::U64(v2)) => v1.eq(&((*v2) as i128)),
+            (Self::I128(v1), Self::U64(v2)) => v1.eq(&i128::from(*v2)),
             #[cfg(feature = "128bit")]
-            (Self::I128(v1), Self::I64(v2)) => v1.eq(&((*v2) as i128)),
+            (Self::I128(v1), Self::I64(v2)) => v1.eq(&i128::from(*v2)),
             _ => false,
         }
     }

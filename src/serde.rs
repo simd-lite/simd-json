@@ -23,6 +23,8 @@ type ConvertResult<T> = std::result::Result<T, SerdeConversionError>;
 pub enum SerdeConversionError {
     /// Serde can not reflect NAN or Infinity
     NanOrInfinity,
+    /// The number is out of the 64 bit bound
+    NumberOutOfBounds,
     /// Something horrible went wrong, please open a ticket at <https://simd-json.rs>
     Oops,
 }
@@ -31,6 +33,7 @@ impl std::fmt::Display for SerdeConversionError {
         use SerdeConversionError::*;
         match self {
             NanOrInfinity => write!(f, "JSON can not represent NAN or Infinity values"),
+            NumberOutOfBounds => write!(f, "Serde can not represent 128 bit values"),
             Oops => write!(
                 f,
                 "Unreachable code is reachable, oops - please open a bug with simdjson-rs"
@@ -259,10 +262,18 @@ impl TryInto<serde_json::Value> for OwnedValue {
             Self::Static(StaticNode::Bool(b)) => Value::Bool(b),
             Self::Static(StaticNode::I64(n)) => Value::Number(n.into()),
             #[cfg(feature = "128bit")] // FIXME error for too large numbers
-            Self::Static(StaticNode::I128(n)) => Value::Number((n as i64).into()),
+            Self::Static(StaticNode::I128(n)) => Value::Number(
+                i64::try_from(n)
+                    .map_err(|_| SerdeConversionError::NumberOutOfBounds)?
+                    .into(),
+            ),
             Self::Static(StaticNode::U64(n)) => Value::Number(n.into()),
             #[cfg(feature = "128bit")] // FIXME error for too large numbers
-            Self::Static(StaticNode::U128(n)) => Value::Number((n as u64).into()),
+            Self::Static(StaticNode::U128(n)) => Value::Number(
+                u64::try_from(n)
+                    .map_err(|_| SerdeConversionError::NumberOutOfBounds)?
+                    .into(),
+            ),
             Self::Static(StaticNode::F64(n)) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)
@@ -322,10 +333,18 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
             BorrowedValue::Static(StaticNode::Bool(b)) => Value::Bool(b),
             BorrowedValue::Static(StaticNode::I64(n)) => Value::Number(n.into()),
             #[cfg(feature = "128bit")] // FIXME error for too large numbers
-            BorrowedValue::Static(StaticNode::I128(n)) => Value::Number((n as i64).into()),
+            BorrowedValue::Static(StaticNode::I128(n)) => Value::Number(
+                i64::try_from(n)
+                    .map_err(|_| SerdeConversionError::NumberOutOfBounds)?
+                    .into(),
+            ),
             BorrowedValue::Static(StaticNode::U64(n)) => Value::Number(n.into()),
             #[cfg(feature = "128bit")] // FIXME error for too large numbers
-            BorrowedValue::Static(StaticNode::U128(n)) => Value::Number((n as u64).into()),
+            BorrowedValue::Static(StaticNode::U128(n)) => Value::Number(
+                u64::try_from(n)
+                    .map_err(|_| SerdeConversionError::NumberOutOfBounds)?
+                    .into(),
+            ),
             BorrowedValue::Static(StaticNode::F64(n)) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)

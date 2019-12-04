@@ -433,17 +433,15 @@ impl<'de> Deserializer<'de> {
             ))
         } else if negative {
             let i = unsafe { static_cast_i128!(i.wrapping_neg()) };
-            if let Some(i) = i64::try_from(i).ok() {
+            if let Ok(i) = i64::try_from(i) {
                 Ok(StaticNode::I64(i))
             } else {
                 Ok(StaticNode::I128(i))
             }
+        } else if let Ok(i) = u64::try_from(i) {
+            Ok(StaticNode::U64(i))
         } else {
-            if let Some(i) = u64::try_from(i).ok() {
-                Ok(StaticNode::U64(i))
-            } else {
-                Ok(StaticNode::U128(i))
-            }
+            Ok(StaticNode::U128(i))
         }
     }
 
