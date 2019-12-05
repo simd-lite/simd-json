@@ -1499,6 +1499,7 @@ mod tests {
 
         #[test]
         fn prop_json(d in arb_json()) {
+            use super::{OwnedValue, deserialize};
             if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
                 let mut d1 = d.clone();
                 let d1 = unsafe{ d1.as_bytes_mut()};
@@ -1508,13 +1509,14 @@ mod tests {
                 let d2 = unsafe{ d2.as_bytes_mut()};
                 let mut d3 = d.clone();
                 let d3 = unsafe{ d3.as_bytes_mut()};
+                let mut d4 = d.clone();
+                let d4 = unsafe{ d4.as_bytes_mut()};
                 assert_eq!(v_simd_serde, v_serde);
-                let v_simd_owned = to_owned_value(d2);
-                assert!(v_simd_owned.is_ok());
-                let v_simd_borrowed = to_borrowed_value(d3);
-                dbg!(&v_simd_borrowed);
-                assert!(v_simd_borrowed.is_ok());
-                assert_eq!(v_simd_owned.expect("simd-error"), super::OwnedValue::from(v_simd_borrowed.expect("simd-error")));
+                let v_simd_owned = to_owned_value(d2).expect("to_owned_value failed");
+                let v_simd_borrowed = to_borrowed_value(d3).expect("to_borrowed_value failed");
+                assert_eq!(v_simd_borrowed, v_simd_owned);
+                let v_deserialize: OwnedValue = deserialize(d4).expect("deserialize failed");
+                assert_eq!(v_deserialize, v_simd_owned);
             }
 
         }
