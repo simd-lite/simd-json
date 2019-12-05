@@ -106,6 +106,9 @@ extern crate serde as serde_ext;
 /// serde related helper functions
 pub mod serde;
 
+/// Default trait imports;
+pub mod prelude;
+
 mod charutils;
 #[macro_use]
 mod macros;

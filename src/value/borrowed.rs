@@ -1,5 +1,25 @@
 ///A dom object that references the raw input data to avoid allocations
-// it tradecs having lifetimes for a gain in performance.
+/// it tradecs having lifetimes for a gain in performance.
+///
+/// Access via array indexes is possible:
+/// ```rust
+/// use simd_json::{BorrowedValue, json};
+/// use simd_json::prelude::*;
+/// let mut a = json!([1, 2, 3]);
+/// assert_eq!(a[1], 2);
+/// a[1] = 42.into();
+/// assert_eq!(a[1], 42);
+/// ```
+///
+/// Access via object keys is possible as well:
+/// ```rust
+/// use simd_json::{BorrowedValue, json};
+/// use simd_json::prelude::*;
+/// let mut a = json!({"key": "not the value"});
+/// assert_eq!(a["key"], "not the value");
+/// a["key"] = "value".into();
+/// assert_eq!(a["key"], "value");
+/// ```
 mod cmp;
 mod from;
 mod serialize;
@@ -337,6 +357,39 @@ mod test {
         assert_eq!(v.pop(), Ok(None));
     }
 
+    #[cfg(feature = "128bit")]
+    #[test]
+    fn conversions_i128() {
+        let v = Value::from(i128::max_value());
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(!v.is_i64());
+        assert!(!v.is_u64());
+        assert!(!v.is_i32());
+        assert!(!v.is_u32());
+        assert!(!v.is_i16());
+        assert!(!v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
+        let v = Value::from(i128::min_value());
+        assert!(v.is_i128());
+        assert!(!v.is_u128());
+        assert!(!v.is_i64());
+        assert!(!v.is_u64());
+        assert!(!v.is_i32());
+        assert!(!v.is_u32());
+        assert!(!v.is_i16());
+        assert!(!v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
+    }
+
     #[test]
     fn conversions_i64() {
         let v = Value::from(i64::max_value());
@@ -482,6 +535,25 @@ mod test {
         assert!(v.is_u8());
         assert!(!v.is_f64());
         assert!(!v.is_f32());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
+    }
+
+    #[cfg(feature = "128bit")]
+    #[test]
+    fn conversions_u128() {
+        let v = Value::from(u128::min_value());
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(v.is_i32());
+        assert!(v.is_u32());
+        assert!(v.is_i16());
+        assert!(v.is_u16());
+        assert!(v.is_i8());
+        assert!(v.is_u8());
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
