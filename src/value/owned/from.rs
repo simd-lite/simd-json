@@ -200,7 +200,7 @@ impl From<Object> for Value {
 
 impl From<std::collections::HashMap<String, Value>> for Value {
     #[inline]
-    fn from(v: std::collections::HashMap<String, Value>) -> Self {
-        Value::from(v.into_iter().collect::<Object>())
+    fn from(v: std::collections::HashMap<String, Self>) -> Self {
+        Self::from(v.into_iter().collect::<Object>())
     }
 }
