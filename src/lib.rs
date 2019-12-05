@@ -552,8 +552,8 @@ mod tests {
     use super::serde::from_slice;
     use super::value::{MutableValue, ValueBuilder};
     use super::{
-        deserialize, owned::to_value, owned::Object, owned::Value, to_borrowed_value,
-        to_owned_value, BorrowedValue, Deserializer, OwnedValue,
+        owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
+        Deserializer,
     };
     use crate::tape::*;
     use halfbrown::HashMap;
@@ -1427,11 +1427,14 @@ mod tests {
     fn arb_json_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
             Just(Value::Static(StaticNode::Null)),
-            any::<bool>()
-                .prop_map(StaticNode::Bool)
-                .prop_map(Value::Static),
+            any::<bool>().prop_map(Value::from),
             //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
-            any::<i64>().prop_map(|i| json!(i)),
+            any::<i64>().prop_map(Value::from),
+            any::<u64>().prop_map(Value::from),
+            #[cfg(feature = "128bit")]
+            any::<i128>().prop_map(Value::from),
+            #[cfg(feature = "128bit")]
+            any::<u128>().prop_map(Value::from),
             ".*".prop_map(Value::from),
         ];
         leaf.prop_recursive(
@@ -1441,8 +1444,8 @@ mod tests {
             |inner| {
                 prop_oneof![
                     // Take the inner strategy and make the two recursive cases.
-                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| json!(v)),
-                    prop::collection::hash_map(".*", inner, 0..10).prop_map(|m| json!(m)),
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::from),
+                    prop::collection::hash_map(".*", inner, 0..10).prop_map(Value::from),
                 ]
             },
         )
@@ -1469,12 +1472,16 @@ mod tests {
             let mut e = encoded.clone();
             let res = to_borrowed_value(&mut e).expect("can't convert");
             assert_eq!(val, res);
-            let mut e = encoded.clone();
-            let res: OwnedValue = deserialize(&mut e).expect("can't convert");
-            assert_eq!(val, res);
-            let mut e = encoded.clone();
-            let res: BorrowedValue = deserialize(&mut e).expect("can't convert");
-            assert_eq!(val, res);
+            #[cfg(not(feature = "128bit"))]
+            { // we can't dop 128 bit w/ serde
+                use crate::{deserialize, BorrowedValue, OwnedValue};
+                let mut e = encoded.clone();
+                let res: OwnedValue = deserialize(&mut e).expect("can't convert");
+                assert_eq!(val, res);
+                let mut e = encoded.clone();
+                let res: BorrowedValue = deserialize(&mut e).expect("can't convert");
+                assert_eq!(val, res);
+            }
         }
 
     }

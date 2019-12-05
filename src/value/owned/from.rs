@@ -197,3 +197,10 @@ impl From<Object> for Value {
         Self::Object(Box::new(v))
     }
 }
+
+impl From<std::collections::HashMap<String, Value>> for Value {
+    #[inline]
+    fn from(v: std::collections::HashMap<String, Value>) -> Self {
+        Value::from(v.into_iter().collect::<Object>())
+    }
+}
