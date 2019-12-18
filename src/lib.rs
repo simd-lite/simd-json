@@ -971,7 +971,7 @@ mod tests {
         let mut o = Value::object();
         o.insert("name", "max_unsafe_auto_id_timestamp")
             .expect("failed to set key");
-        o.insert("value", -9223372036854776000_i128)
+        o.insert("value", -9_223_372_036_854_776_000_i128)
             .expect("failed to set key");
         assert_eq!(to_value(&mut d), Ok(o));
     }

@@ -428,9 +428,9 @@ mod test {
     #[test]
     fn array() {
         let v: OwnedValue = json!(vec![1]);
-        assert_eq!(OwnedValue::from(vec![1u64]), v);
+        assert_eq!(OwnedValue::from(vec![1_u64]), v);
         let v: OwnedValue = json!([1]);
-        assert_eq!(OwnedValue::from(vec![1u64]), v);
+        assert_eq!(OwnedValue::from(vec![1_u64]), v);
         let v: OwnedValue = json!([]);
         assert_eq!(OwnedValue::array(), v);
     }
