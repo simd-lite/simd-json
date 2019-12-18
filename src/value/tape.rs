@@ -336,7 +336,7 @@ mod test {
         let v = StaticNode::Null;
         let a = v["test"];
     }
-    
+
     #[test]
     #[should_panic]
     fn mut_object_index() {
