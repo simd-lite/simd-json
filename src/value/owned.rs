@@ -304,8 +304,10 @@ mod test {
         assert_eq!(v.remove("key"), Err(AccessError::NotAnObject));
         let mut v = Value::object();
         assert_eq!(v.insert("key", 1), Ok(None));
+        assert_eq!(v["key"], 1);
         assert_eq!(v.insert("key", 2), Ok(Some(Value::from(1))));
-        assert_eq!(v.remove("key"), Ok(Some(Value::from(2))));
+        v["key"] = 3.into();
+        assert_eq!(v.remove("key"), Ok(Some(Value::from(3))));
     }
 
     #[test]
@@ -609,7 +611,9 @@ mod test {
         assert!(v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-    }
+        let v = Value::from("not a f64");
+        assert!(!v.is_f64_castable());
+}
 
     #[test]
     fn conversions_f32() {

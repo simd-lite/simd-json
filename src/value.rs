@@ -80,6 +80,8 @@ pub enum AccessError {
     /// wasn't.
     NotAnArray,
 }
+
+#[cfg_attr(tarpaulin, skip)]
 impl fmt::Display for AccessError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
