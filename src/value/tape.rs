@@ -84,9 +84,31 @@ impl IndexMut<usize> for StaticNode {
 impl ValueTrait for StaticNode {
     type Key = ();
 
+    #[cfg(not(feature = "128bit"))]
     #[inline]
     fn value_type(&self) -> ValueType {
-        self.value_type()
+        match self {
+            Self::Null => ValueType::Null,
+            Self::Bool(_) => ValueType::Bool,
+            Self::F64(_) => ValueType::F64,
+            Self::I64(_) => ValueType::I64,
+
+            Self::U64(_) => ValueType::U64,
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline]
+    fn value_type(&self) -> ValueType {
+        match self {
+            Self::Null => ValueType::Null,
+            Self::Bool(_) => ValueType::Bool,
+            Self::F64(_) => ValueType::F64,
+            Self::I128(_) => ValueType::I128,
+            Self::I64(_) => ValueType::I64,
+            Self::U128(_) => ValueType::U128,
+            Self::U64(_) => ValueType::U64,
+        }
     }
 
     #[inline]
@@ -102,14 +124,23 @@ impl ValueTrait for StaticNode {
         }
     }
 
+    #[cfg(not(feature = "128bit"))]
     #[inline]
     fn as_i64(&self) -> Option<i64> {
         match self {
             Self::I64(i) => Some(*i),
             Self::U64(i) => i64::try_from(*i).ok(),
-            #[cfg(feature = "128bit")]
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline]
+    fn as_i64(&self) -> Option<i64> {
+        match self {
+            Self::I64(i) => Some(*i),
+            Self::U64(i) => i64::try_from(*i).ok(),
             Self::I128(i) => i64::try_from(*i).ok(),
-            #[cfg(feature = "128bit")]
             Self::U128(i) => i64::try_from(*i).ok(),
             _ => None,
         }
@@ -127,20 +158,29 @@ impl ValueTrait for StaticNode {
         }
     }
 
+    #[cfg(not(feature = "128bit"))]
     #[inline]
     #[allow(clippy::cast_sign_loss)]
     fn as_u64(&self) -> Option<u64> {
         match self {
             Self::I64(i) => u64::try_from(*i).ok(),
             Self::U64(i) => Some(*i),
-            #[cfg(feature = "128bit")]
-            Self::I128(i) => u64::try_from(*i).ok(),
-            #[cfg(feature = "128bit")]
-            Self::U128(i) => u64::try_from(*i).ok(),
             _ => None,
         }
     }
 
+    #[cfg(feature = "128bit")]
+    #[inline]
+    #[allow(clippy::cast_sign_loss)]
+    fn as_u64(&self) -> Option<u64> {
+        match self {
+            Self::I64(i) => u64::try_from(*i).ok(),
+            Self::U64(i) => Some(*i),
+            Self::I128(i) => u64::try_from(*i).ok(),
+            Self::U128(i) => u64::try_from(*i).ok(),
+            _ => None,
+        }
+    }
     #[cfg(feature = "128bit")]
     #[inline]
     #[allow(clippy::cast_sign_loss)]
@@ -162,6 +202,7 @@ impl ValueTrait for StaticNode {
         }
     }
 
+    #[cfg(not(feature = "128bit"))]
     #[inline]
     #[allow(clippy::cast_precision_loss)]
     fn cast_f64(&self) -> Option<f64> {
@@ -169,9 +210,19 @@ impl ValueTrait for StaticNode {
             Self::F64(i) => Some(*i),
             Self::I64(i) => Some(*i as f64),
             Self::U64(i) => Some(*i as f64),
-            #[cfg(feature = "128bit")]
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline]
+    #[allow(clippy::cast_precision_loss)]
+    fn cast_f64(&self) -> Option<f64> {
+        match self {
+            Self::F64(i) => Some(*i),
+            Self::I64(i) => Some(*i as f64),
+            Self::U64(i) => Some(*i as f64),
             Self::I128(i) => Some(*i as f64),
-            #[cfg(feature = "128bit")]
             Self::U128(i) => Some(*i as f64),
             _ => None,
         }
@@ -190,42 +241,35 @@ impl ValueTrait for StaticNode {
     }
 }
 
-impl StaticNode {
-    /// The type of a static value
-    pub fn value_type(&self) -> ValueType {
-        match self {
-            Self::Null => ValueType::Null,
-            Self::Bool(_) => ValueType::Bool,
-            Self::F64(_) => ValueType::F64,
-            #[cfg(feature = "128bit")]
-            Self::I128(_) => ValueType::I128,
-            Self::I64(_) => ValueType::I64,
-            #[cfg(feature = "128bit")]
-            Self::U128(_) => ValueType::U128,
-            Self::U64(_) => ValueType::U64,
-        }
-    }
-}
-
 #[cfg_attr(tarpaulin, skip)]
 impl<'v> fmt::Display for StaticNode {
+    #[cfg(not(feature = "128bit"))]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Null => write!(f, "null"),
             Self::Bool(b) => write!(f, "{}", b),
             Self::I64(n) => write!(f, "{}", n),
-            #[cfg(feature = "128bit")]
-            Self::I128(n) => write!(f, "{}", n),
             Self::U64(n) => write!(f, "{}", n),
-            #[cfg(feature = "128bit")]
-            Self::U128(n) => write!(f, "{}", n),
             Self::F64(n) => write!(f, "{}", n),
+        }
+    }
+    #[cfg(feature = "128bit")]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Null => write!(f, "null"),
+            Self::Bool(b) => write!(f, "{}", b),
+            Self::I64(n) => write!(f, "{}", n),
+            Self::U64(n) => write!(f, "{}", n),
+            Self::F64(n) => write!(f, "{}", n),
+            Self::I128(n) => write!(f, "{}", n),
+            Self::U128(n) => write!(f, "{}", n),
         }
     }
 }
 
 #[allow(clippy::cast_sign_loss, clippy::default_trait_access)]
 impl<'a> PartialEq for StaticNode {
+    #[cfg(not(feature = "128bit"))]
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -233,36 +277,39 @@ impl<'a> PartialEq for StaticNode {
             (Self::Bool(v1), Self::Bool(v2)) => v1.eq(v2),
             (Self::F64(v1), Self::F64(v2)) => approx_eq!(f64, *v1, *v2),
             (Self::U64(v1), Self::U64(v2)) => v1.eq(v2),
-            #[cfg(feature = "128bit")]
+            (Self::I64(v1), Self::I64(v2)) => v1.eq(v2),
+            (Self::U64(v1), Self::I64(v2)) if *v2 >= 0 => (*v2 as u64).eq(v1),
+            (Self::I64(v1), Self::U64(v2)) if *v1 >= 0 => (*v1 as u64).eq(v2),
+            _ => false,
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Null, Self::Null) => true,
+            (Self::Bool(v1), Self::Bool(v2)) => v1.eq(v2),
+            (Self::F64(v1), Self::F64(v2)) => approx_eq!(f64, *v1, *v2),
+            (Self::U64(v1), Self::U64(v2)) => v1.eq(v2),
             (Self::U128(v1), Self::U128(v2)) => v1.eq(v2),
             (Self::I64(v1), Self::I64(v2)) => v1.eq(v2),
-            #[cfg(feature = "128bit")]
             (Self::I128(v1), Self::I128(v2)) => v1.eq(v2),
 
             (Self::U64(v1), Self::I64(v2)) if *v2 >= 0 => (*v2 as u64).eq(v1),
-            #[cfg(feature = "128bit")]
             (Self::U64(v1), Self::I128(v2)) if *v2 >= 0 => (*v2 as u128).eq(&u128::from(*v1)),
-            #[cfg(feature = "128bit")]
             (Self::U64(v1), Self::U128(v2)) => v2.eq(&u128::from(*v1)),
 
             (Self::I64(v1), Self::U64(v2)) if *v1 >= 0 => (*v1 as u64).eq(v2),
-            #[cfg(feature = "128bit")]
             (Self::I64(v1), Self::I128(v2)) => (*v2 as i128).eq(&i128::from(*v1)),
-            #[cfg(feature = "128bit")]
             (Self::I64(v1), Self::U128(v2)) if *v1 >= 0 => v2.eq(&(*v1 as u128)),
 
-            #[cfg(feature = "128bit")]
             (Self::U128(v1), Self::I128(v2)) if *v2 >= 0 => (*v2 as u128).eq(v1),
-            #[cfg(feature = "128bit")]
             (Self::U128(v1), Self::U64(v2)) => v1.eq(&u128::from(*v2)),
-            #[cfg(feature = "128bit")]
             (Self::U128(v1), Self::I64(v2)) if *v2 >= 0 => v1.eq(&(*v2 as u128)),
 
-            #[cfg(feature = "128bit")]
             (Self::I128(v1), Self::U128(v2)) if *v1 >= 0 => (*v1 as u128).eq(v2),
-            #[cfg(feature = "128bit")]
             (Self::I128(v1), Self::U64(v2)) => v1.eq(&i128::from(*v2)),
-            #[cfg(feature = "128bit")]
             (Self::I128(v1), Self::I64(v2)) => v1.eq(&i128::from(*v2)),
             _ => false,
         }
@@ -652,7 +699,6 @@ mod test {
         }
         let v = Value::from(());
         assert!(!v.is_i64());
-        #[cfg(feature = "128bit")]
         assert!(!v.is_i128());
     }
 
@@ -670,7 +716,6 @@ mod test {
         }
         let v = Value::from(());
         assert!(!v.is_u64());
-        #[cfg(feature = "128bit")]
         assert!(!v.is_u128());
     }
 
@@ -686,6 +731,31 @@ mod test {
     #[test]
     fn default() {
         assert_eq!(Value::default(), Value::Null)
+    }
+
+    #[test]
+    fn mixed_int_cmp() {
+        assert_eq!(Value::from(1_u64), Value::from(1_i64));
+        assert_eq!(Value::from(1_i64), Value::from(1_u64));
+    }
+
+    #[test]
+    #[cfg(feature = "128bit")]
+    fn mixed_int_cmp_128() {
+        assert_eq!(Value::from(1_u64), Value::from(1_u128));
+        assert_eq!(Value::from(1_u64), Value::from(1_i128));
+        assert_eq!(Value::from(1_i64), Value::from(1_u128));
+        assert_eq!(Value::from(1_i64), Value::from(1_i128));
+
+        assert_eq!(Value::from(1_u128), Value::from(1_u128));
+        assert_eq!(Value::from(1_u128), Value::from(1_i128));
+        assert_eq!(Value::from(1_u128), Value::from(1_u64));
+        assert_eq!(Value::from(1_u128), Value::from(1_i64));
+
+        assert_eq!(Value::from(1_i128), Value::from(1_u128));
+        assert_eq!(Value::from(1_i128), Value::from(1_i128));
+        assert_eq!(Value::from(1_i128), Value::from(1_u64));
+        assert_eq!(Value::from(1_i128), Value::from(1_i64));
     }
 
     #[test]

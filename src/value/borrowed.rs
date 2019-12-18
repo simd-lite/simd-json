@@ -713,7 +713,6 @@ mod test {
         }
         let v = Value::from("no i64");
         assert!(!v.is_i64());
-        #[cfg(feature = "128bit")]
         assert!(!v.is_i128());
     }
 

@@ -3,9 +3,9 @@ use crate::unlikely;
 use crate::StaticNode;
 use crate::*;
 
-#[cfg(target_arch = "x86")]
+#[cfg(all(target_arch = "x86", feature = "swar-number-parsing"))]
 use std::arch::x86::*;
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "swar-number-parsing"))]
 use std::arch::x86_64::*;
 
 const POWER_OF_TEN: [f64; 632] = [
@@ -100,6 +100,7 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // at a glance, it looks better than Mula's
 // http://0x80.pl/articles/swar-digits-validate.html
 
+#[cfg(all(feature = "swar-number-parsing"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[allow(clippy::cast_ptr_alignment)]
 fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
@@ -117,7 +118,10 @@ fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    feature = "swar-number-parsing"
+))]
 #[allow(
     clippy::cast_sign_loss,
     clippy::cast_possible_wrap,
