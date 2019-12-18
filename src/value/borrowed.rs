@@ -732,7 +732,8 @@ mod test {
         let v = Value::from("no u64");
         assert!(!v.is_u64());
         #[cfg(feature = "128bit")]
-        assert!(!v.is_u128());    }
+        assert!(!v.is_u128());
+    }
 
     #[test]
     fn conversions_null() {

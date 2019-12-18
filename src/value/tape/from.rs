@@ -1,4 +1,4 @@
-use crate::{StaticNode};
+use crate::StaticNode;
 
 /********* atoms **********/
 
@@ -111,4 +111,3 @@ impl From<f64> for StaticNode {
         Self::F64(f)
     }
 }
-

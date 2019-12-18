@@ -323,7 +323,8 @@ mod test {
         v[1] = 1.into();
         assert_eq!(v.pop(), Ok(Some(Value::from(1))));
         assert_eq!(v.pop(), Ok(Some(Value::from(0))));
-        assert_eq!(v.pop(), Ok(None));    }
+        assert_eq!(v.pop(), Ok(None));
+    }
 
     #[cfg(feature = "128bit")]
     #[test]
@@ -613,7 +614,7 @@ mod test {
         assert!(v.is_f64_castable());
         let v = Value::from("not a f64");
         assert!(!v.is_f64_castable());
-}
+    }
 
     #[test]
     fn conversions_f32() {
@@ -691,7 +692,8 @@ mod test {
         let v = Value::from("no u64");
         assert!(!v.is_u64());
         #[cfg(feature = "128bit")]
-        assert!(!v.is_u128());    }
+        assert!(!v.is_u128());
+    }
 
     #[test]
     fn conversions_null() {

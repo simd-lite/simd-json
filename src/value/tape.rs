@@ -275,15 +275,13 @@ impl Default for StaticNode {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     #![allow(clippy::cognitive_complexity)]
-    use super::*;
-    use crate::value::{Value as ValueTrait};
     use super::StaticNode as Value;
+    use super::*;
+    use crate::value::Value as ValueTrait;
 
-    
     #[test]
     #[should_panic]
     #[allow(clippy::let_unit_value)]
@@ -298,7 +296,6 @@ mod test {
         let mut v = StaticNode::Null;
         v["test"] = ();
     }
-
 
     #[test]
     #[should_panic]
@@ -623,7 +620,6 @@ mod test {
         assert!(v.is_f64_castable());
     }
 
-
     #[test]
     fn conversions_bool() {
         let v = Value::from(true);
@@ -675,7 +671,8 @@ mod test {
         let v = Value::from(());
         assert!(!v.is_u64());
         #[cfg(feature = "128bit")]
-        assert!(!v.is_u128());    }
+        assert!(!v.is_u128());
+    }
 
     #[test]
     fn conversions_null() {
@@ -686,12 +683,10 @@ mod test {
         assert!(!v.is_null());
     }
 
-
     #[test]
     fn default() {
         assert_eq!(Value::default(), Value::Null)
     }
-
 
     #[test]
     fn test_union_cmp() {

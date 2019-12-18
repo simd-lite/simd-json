@@ -716,8 +716,8 @@ mod test {
         let vec = serde_json::to_vec(&o).expect("to_vec");
         let mut vec1 = vec.clone();
         let mut vec2 = vec.clone();
-        
-        println!("{}", serde_json::to_string_pretty(&o).expect("json"));       
+
+        println!("{}", serde_json::to_string_pretty(&o).expect("json"));
         let de: Obj = from_slice(&mut vec1).expect("from_slice");
         assert_eq!(o, de);
         let val = crate::to_owned_value(&mut vec2).expect("to_owned_value");
