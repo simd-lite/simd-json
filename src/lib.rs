@@ -64,7 +64,7 @@
 //!
 //!
 //! ## Features
-//! 
+//!
 //! simd-json.rs comes with a number of features that can be toggled,
 //! the following features are intended for 'user' selection. Additional
 //! features in the `Cargo.toml` exist to work around cargo limitaitons.
@@ -98,7 +98,7 @@
 //! results, that allows memorizing hashes for well know keys and saving
 //! time on lookups. In workloads that are heavy at accessing some well
 //! known keys this can be a performance advantage.
-//! 
+//!
 //! ## Usage
 //!
 //! simdjson-rs offers two main entry points for usage:
