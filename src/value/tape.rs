@@ -331,11 +331,10 @@ mod test {
 
     #[test]
     #[should_panic]
-    #[allow(clippy::let_unit_value)]
+    #[allow(unused_variables)]
     fn object_index() {
         let v = StaticNode::Null;
         let a = v["test"];
-        assert_eq!(a, ())
     }
     #[test]
     #[should_panic]
@@ -346,11 +345,10 @@ mod test {
 
     #[test]
     #[should_panic]
-    #[allow(clippy::let_unit_value)]
+    #[allow(unused_variables)]
     fn array_index() {
         let v = StaticNode::Null;
         let a = v[0];
-        assert_eq!(a, ())
     }
     #[test]
     #[should_panic]

@@ -47,7 +47,7 @@ jobs:
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
           file: ./sse.xml
-          flags: e
+          flags: sse
   tarpaulin-avx2:
     runs-on: ubuntu-latest
     steps:
