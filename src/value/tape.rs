@@ -198,10 +198,10 @@ impl StaticNode {
             Self::F64(_) => ValueType::F64,
             #[cfg(feature = "128bit")]
             Self::I128(_) => ValueType::I128,
-            Self::U64(_) => ValueType::U64,
+            Self::I64(_) => ValueType::I64,
             #[cfg(feature = "128bit")]
             Self::U128(_) => ValueType::U128,
-            Self::I64(_) => ValueType::I64,
+            Self::U64(_) => ValueType::U64,
         }
     }
 }

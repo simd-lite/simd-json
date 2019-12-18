@@ -316,10 +316,12 @@ mod test {
         let mut v = Value::array();
         assert_eq!(v.push(1), Ok(()));
         assert_eq!(v.push(2), Ok(()));
-        assert_eq!(v.pop(), Ok(Some(Value::from(2))));
+        assert_eq!(v[0], 1);
+        v[0] = 0.into();
+        v[1] = 1.into();
         assert_eq!(v.pop(), Ok(Some(Value::from(1))));
-        assert_eq!(v.pop(), Ok(None));
-    }
+        assert_eq!(v.pop(), Ok(Some(Value::from(0))));
+        assert_eq!(v.pop(), Ok(None));    }
 
     #[cfg(feature = "128bit")]
     #[test]
@@ -630,6 +632,8 @@ mod test {
         let v = Value::from(vec![true]);
         assert!(v.is_array());
         assert_eq!(v.value_type(), ValueType::Array);
+        let v = Value::from("no array");
+        assert!(!v.is_array());
     }
 
     #[test]
@@ -637,6 +641,8 @@ mod test {
         let v = Value::from(true);
         assert!(v.is_bool());
         assert_eq!(v.value_type(), ValueType::Bool);
+        let v = Value::from("no bool");
+        assert!(!v.is_bool());
     }
 
     #[test]
@@ -644,20 +650,52 @@ mod test {
         let v = Value::from(42.0);
         assert!(v.is_f64());
         assert_eq!(v.value_type(), ValueType::F64);
+        let v = Value::from("no float");
+        assert!(!v.is_f64());
     }
 
     #[test]
     fn conversions_int() {
-        let v = Value::from(42);
+        let v = Value::from(-42);
         assert!(v.is_i64());
         assert_eq!(v.value_type(), ValueType::I64);
+        #[cfg(feature = "128bit")]
+        {
+            let v = Value::from(-42_i128);
+            assert!(v.is_i64());
+            assert!(v.is_i128());
+            assert_eq!(v.value_type(), ValueType::I128);
+        }
+        let v = Value::from("no i64");
+        assert!(!v.is_i64());
+        #[cfg(feature = "128bit")]
+        assert!(!v.is_i128());
     }
+
+    #[test]
+    fn conversions_uint() {
+        let v = Value::from(42_u64);
+        assert!(v.is_u64());
+        assert_eq!(v.value_type(), ValueType::U64);
+        #[cfg(feature = "128bit")]
+        {
+            let v = Value::from(42_u128);
+            assert!(v.is_u64());
+            assert!(v.is_u128());
+            assert_eq!(v.value_type(), ValueType::U128);
+        }
+        let v = Value::from("no u64");
+        assert!(!v.is_u64());
+        #[cfg(feature = "128bit")]
+        assert!(!v.is_u128());    }
 
     #[test]
     fn conversions_null() {
         let v = Value::from(());
         assert!(v.is_null());
         assert_eq!(v.value_type(), ValueType::Null);
+        let v = Value::from("no null");
+        assert!(!v.is_null());
     }
 
     #[test]
@@ -665,6 +703,8 @@ mod test {
         let v = Value::from(Object::new());
         assert!(v.is_object());
         assert_eq!(v.value_type(), ValueType::Object);
+        let v = Value::from("no object");
+        assert!(!v.is_object());
     }
 
     #[test]
@@ -672,7 +712,15 @@ mod test {
         let v = Value::from("bla");
         assert!(v.is_str());
         assert_eq!(v.value_type(), ValueType::String);
+        let v = Value::from(42);
+        assert!(!v.is_str());
     }
+
+    #[test]
+    fn default() {
+        assert_eq!(Value::default(), Value::null())
+    }
+
     use proptest::prelude::*;
     fn arb_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![

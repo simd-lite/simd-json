@@ -66,7 +66,7 @@ impl<'v> Value<'v> {
     pub fn into_static(self) -> Value<'static> {
         unsafe {
             use std::mem::transmute;
-            transmute(match self {
+            let r = match self {
                 Self::String(Cow::Borrowed(s)) => Self::String(Cow::Owned(s.to_owned())),
                 Self::Array(arr) => arr.into_iter().map(Value::into_static).collect(),
                 Self::Object(obj) => obj
@@ -74,7 +74,8 @@ impl<'v> Value<'v> {
                     .map(|(k, v)| (Cow::Owned(k.into_owned()), v.into_static()))
                     .collect(),
                 _ => self,
-            })
+            };
+            transmute(r)
         }
     }
 
@@ -83,7 +84,7 @@ impl<'v> Value<'v> {
     pub fn clone_static(&self) -> Value<'static> {
         unsafe {
             use std::mem::transmute;
-            transmute(match self {
+            let r = match self {
                 Self::String(s) => Self::String(Cow::Owned(s.to_string())),
                 Self::Array(arr) => arr.iter().map(Value::clone_static).collect(),
                 Self::Object(obj) => obj
@@ -91,7 +92,8 @@ impl<'v> Value<'v> {
                     .map(|(k, v)| (Cow::Owned(k.to_string()), v.clone_static()))
                     .collect(),
                 Self::Static(s) => Self::Static(*s),
-            })
+            };
+            transmute(r)
         }
     }
 }
@@ -352,8 +354,11 @@ mod test {
         let mut v = Value::array();
         assert_eq!(v.push(1), Ok(()));
         assert_eq!(v.push(2), Ok(()));
-        assert_eq!(v.pop(), Ok(Some(Value::from(2))));
+        assert_eq!(v[0], 1);
+        v[0] = 0.into();
+        v[1] = 1.into();
         assert_eq!(v.pop(), Ok(Some(Value::from(1))));
+        assert_eq!(v.pop(), Ok(Some(Value::from(0))));
         assert_eq!(v.pop(), Ok(None));
     }
 
@@ -668,6 +673,8 @@ mod test {
         let v = Value::from(vec![true]);
         assert!(v.is_array());
         assert_eq!(v.value_type(), ValueType::Array);
+        let v = Value::from("no array");
+        assert!(!v.is_array());
     }
 
     #[test]
@@ -675,6 +682,8 @@ mod test {
         let v = Value::from(true);
         assert!(v.is_bool());
         assert_eq!(v.value_type(), ValueType::Bool);
+        let v = Value::from("no bool");
+        assert!(!v.is_bool());
     }
 
     #[test]
@@ -682,20 +691,52 @@ mod test {
         let v = Value::from(42.0);
         assert!(v.is_f64());
         assert_eq!(v.value_type(), ValueType::F64);
+        let v = Value::from("no float");
+        assert!(!v.is_f64());
     }
 
     #[test]
     fn conversions_int() {
-        let v = Value::from(42);
+        let v = Value::from(-42);
         assert!(v.is_i64());
         assert_eq!(v.value_type(), ValueType::I64);
+        #[cfg(feature = "128bit")]
+        {
+            let v = Value::from(-42_i128);
+            assert!(v.is_i64());
+            assert!(v.is_i128());
+            assert_eq!(v.value_type(), ValueType::I128);
+        }
+        let v = Value::from("no i64");
+        assert!(!v.is_i64());
+        #[cfg(feature = "128bit")]
+        assert!(!v.is_i128());
     }
+
+    #[test]
+    fn conversions_uint() {
+        let v = Value::from(42_u64);
+        assert!(v.is_u64());
+        assert_eq!(v.value_type(), ValueType::U64);
+        #[cfg(feature = "128bit")]
+        {
+            let v = Value::from(42_u128);
+            assert!(v.is_u64());
+            assert!(v.is_u128());
+            assert_eq!(v.value_type(), ValueType::U128);
+        }
+        let v = Value::from("no u64");
+        assert!(!v.is_u64());
+        #[cfg(feature = "128bit")]
+        assert!(!v.is_u128());    }
 
     #[test]
     fn conversions_null() {
         let v = Value::from(());
         assert!(v.is_null());
         assert_eq!(v.value_type(), ValueType::Null);
+        let v = Value::from("no null");
+        assert!(!v.is_null());
     }
 
     #[test]
@@ -703,6 +744,8 @@ mod test {
         let v = Value::from(Object::new());
         assert!(v.is_object());
         assert_eq!(v.value_type(), ValueType::Object);
+        let v = Value::from("no object");
+        assert!(!v.is_object());
     }
 
     #[test]
@@ -710,6 +753,13 @@ mod test {
         let v = Value::from("bla");
         assert!(v.is_str());
         assert_eq!(v.value_type(), ValueType::String);
+        let v = Value::from(42);
+        assert!(!v.is_str());
+    }
+
+    #[test]
+    fn default() {
+        assert_eq!(Value::default(), Value::null())
     }
 
     use proptest::prelude::*;
