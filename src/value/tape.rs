@@ -336,6 +336,7 @@ mod test {
         let v = StaticNode::Null;
         let a = v["test"];
     }
+    
     #[test]
     #[should_panic]
     fn mut_object_index() {
@@ -350,6 +351,7 @@ mod test {
         let v = StaticNode::Null;
         let a = v[0];
     }
+
     #[test]
     #[should_panic]
     fn mut_array_index() {
@@ -357,6 +359,23 @@ mod test {
         v[0] = ();
     }
 
+    #[test]
+    fn conversion_obj() {
+        let v = StaticNode::Null;
+        assert!(!v.is_object())
+    }
+
+    #[test]
+    fn conversion_arr() {
+        let v = StaticNode::Null;
+        assert!(!v.is_array())
+    }
+
+    #[test]
+    fn conversion_str() {
+        let v = StaticNode::Null;
+        assert!(!v.is_str())
+    }
     #[cfg(feature = "128bit")]
     #[test]
     fn conversions_i128() {
