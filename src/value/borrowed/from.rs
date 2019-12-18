@@ -8,7 +8,7 @@ impl<'a> From<OwnedValue> for Value<'a> {
     #[inline]
     fn from(b: OwnedValue) -> Self {
         match b {
-            OwnedValue::Static(s) => Value::Static(s),
+            OwnedValue::Static(s) => Value::from(s),
             OwnedValue::String(s) => Value::from(s.to_string()),
             OwnedValue::Array(a) => a.into_iter().collect(),
             OwnedValue::Object(m) => m.into_iter().collect(),

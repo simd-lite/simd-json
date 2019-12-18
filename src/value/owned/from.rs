@@ -7,7 +7,7 @@ impl From<crate::BorrowedValue<'_>> for Value {
     #[inline]
     fn from(b: BorrowedValue<'_>) -> Self {
         match b {
-            BorrowedValue::Static(s) => Self::Static(s),
+            BorrowedValue::Static(s) => Self::from(s),
             BorrowedValue::String(s) => Self::from(s.to_string()),
             BorrowedValue::Array(a) => a.into_iter().collect(),
             BorrowedValue::Object(m) => m.into_iter().collect(),
