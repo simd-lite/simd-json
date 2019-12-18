@@ -63,6 +63,42 @@
 //! this library with caution.
 //!
 //!
+//! ## Features
+//! 
+//! simd-json.rs comes with a number of features that can be toggled,
+//! the following features are intended for 'user' selection. Additional
+//! features in the `Cargo.toml` exist to work around cargo limitaitons.
+//!
+//! ### swar-number-parsing (default)
+//!
+//! Enables a parsing method that will parse 8 digests at a time for
+//! floats - this is a common pattern but comes as a slight perf hit
+//! if all the floats have less then 8 digits.
+//!
+//! ### serde_impl (default)
+//!
+//! Compatibility with [serde](https://serde.rs/). This allows to use
+//! [simd-json.rs](https://simd-json.rs) to deserialize serde objects
+//! as well as serd compatibility of the different Value types.
+//! This can be disabled if serde is not used alongside simd-json.
+//!
+//! ### 128bit
+//!
+//! Support for signed and unsigned 128 bit integer. This feature
+//! is disabled by default as 128 bit integers are rare in the wild
+//! and parsing them comes as a performance penalty due to extra logic
+//! and a changed memory layout.
+//!
+//! ### known-key
+//!
+//! The known-key feature changes hasher for the objects, from ahash
+//! to fxhash, ahash is faster at hashing and provides protection
+//! against DOS attacks by forcing multiple keys into a single hashing
+//! bucket. fxhash on the other hand allows for repeatable hashing
+//! results, that allows memorizing hashes for well know keys and saving
+//! time on lookups. In workloads that are heavy at accessing some well
+//! known keys this can be a performance advantage.
+//! 
 //! ## Usage
 //!
 //! simdjson-rs offers two main entry points for usage:
