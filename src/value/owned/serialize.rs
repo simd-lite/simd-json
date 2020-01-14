@@ -15,6 +15,8 @@ use std::io::Write;
 
 impl Value {
     /// Encodes the value into it's JSON representation as a string
+    #[inline]
+    #[must_use]
     pub fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
         let _ = g.write_json(&self);
@@ -22,6 +24,8 @@ impl Value {
     }
 
     /// Encodes the value into it's JSON representation as a string (pretty printed)
+    #[inline]
+    #[must_use]
     pub fn encode_pp(&self) -> String {
         let mut g = PrettyGenerator::new(2);
         let _ = g.write_json(&self);
@@ -29,6 +33,7 @@ impl Value {
     }
 
     /// Encodes the value into it's JSON representation into a Writer
+    #[inline]
     pub fn write<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
@@ -38,6 +43,7 @@ impl Value {
     }
 
     /// Encodes the value into it's JSON representation into a Writer, pretty printed
+    #[inline]
     pub fn write_pp<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,

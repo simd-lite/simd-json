@@ -54,6 +54,7 @@ pub enum StaticNode {
 impl Index<&str> for StaticNode {
     type Output = ();
     #[inline]
+    #[must_use]
     fn index(&self, _index: &str) -> &Self::Output {
         panic!("Not supported")
     }
@@ -62,6 +63,7 @@ impl Index<&str> for StaticNode {
 impl Index<usize> for StaticNode {
     type Output = ();
     #[inline]
+    #[must_use]
     fn index(&self, _index: usize) -> &Self::Output {
         panic!("Not supported")
     }
@@ -69,6 +71,7 @@ impl Index<usize> for StaticNode {
 
 impl IndexMut<&str> for StaticNode {
     #[inline]
+    #[must_use]
     fn index_mut(&mut self, _index: &str) -> &mut Self::Output {
         panic!("Not supported")
     }
@@ -76,6 +79,7 @@ impl IndexMut<&str> for StaticNode {
 
 impl IndexMut<usize> for StaticNode {
     #[inline]
+    #[must_use]
     fn index_mut(&mut self, _index: usize) -> &mut Self::Output {
         panic!("Not supported")
     }
@@ -86,6 +90,7 @@ impl ValueTrait for StaticNode {
 
     #[cfg(not(feature = "128bit"))]
     #[inline]
+    #[must_use]
     fn value_type(&self) -> ValueType {
         match self {
             Self::Null => ValueType::Null,
@@ -99,6 +104,7 @@ impl ValueTrait for StaticNode {
 
     #[cfg(feature = "128bit")]
     #[inline]
+    #[must_use]
     fn value_type(&self) -> ValueType {
         match self {
             Self::Null => ValueType::Null,
@@ -112,11 +118,13 @@ impl ValueTrait for StaticNode {
     }
 
     #[inline]
+    #[must_use]
     fn is_null(&self) -> bool {
         self == &Self::Null
     }
 
     #[inline]
+    #[must_use]
     fn as_bool(&self) -> Option<bool> {
         match self {
             Self::Bool(b) => Some(*b),
@@ -126,6 +134,7 @@ impl ValueTrait for StaticNode {
 
     #[cfg(not(feature = "128bit"))]
     #[inline]
+    #[must_use]
     fn as_i64(&self) -> Option<i64> {
         match self {
             Self::I64(i) => Some(*i),
@@ -136,6 +145,7 @@ impl ValueTrait for StaticNode {
 
     #[cfg(feature = "128bit")]
     #[inline]
+    #[must_use]
     fn as_i64(&self) -> Option<i64> {
         match self {
             Self::I64(i) => Some(*i),
@@ -148,6 +158,7 @@ impl ValueTrait for StaticNode {
 
     #[cfg(feature = "128bit")]
     #[inline]
+    #[must_use]
     fn as_i128(&self) -> Option<i128> {
         match self {
             Self::I128(i) => Some(*i),
@@ -160,6 +171,7 @@ impl ValueTrait for StaticNode {
 
     #[cfg(not(feature = "128bit"))]
     #[inline]
+    #[must_use]
     #[allow(clippy::cast_sign_loss)]
     fn as_u64(&self) -> Option<u64> {
         match self {
@@ -171,6 +183,7 @@ impl ValueTrait for StaticNode {
 
     #[cfg(feature = "128bit")]
     #[inline]
+    #[must_use]
     #[allow(clippy::cast_sign_loss)]
     fn as_u64(&self) -> Option<u64> {
         match self {
@@ -183,6 +196,7 @@ impl ValueTrait for StaticNode {
     }
     #[cfg(feature = "128bit")]
     #[inline]
+    #[must_use]
     #[allow(clippy::cast_sign_loss)]
     fn as_u128(&self) -> Option<u128> {
         match self {
@@ -195,6 +209,7 @@ impl ValueTrait for StaticNode {
     }
 
     #[inline]
+    #[must_use]
     fn as_f64(&self) -> Option<f64> {
         match self {
             Self::F64(i) => Some(*i),
@@ -204,6 +219,7 @@ impl ValueTrait for StaticNode {
 
     #[cfg(not(feature = "128bit"))]
     #[inline]
+    #[must_use]
     #[allow(clippy::cast_precision_loss)]
     fn cast_f64(&self) -> Option<f64> {
         match self {
@@ -228,14 +244,17 @@ impl ValueTrait for StaticNode {
         }
     }
     #[inline]
+    #[must_use]
     fn as_str(&self) -> Option<&str> {
         None
     }
     #[inline]
+    #[must_use]
     fn as_array(&self) -> Option<&Vec<Self>> {
         None
     }
     #[inline]
+    #[must_use]
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
         None
     }
@@ -271,6 +290,7 @@ impl<'v> fmt::Display for StaticNode {
 impl<'a> PartialEq for StaticNode {
     #[cfg(not(feature = "128bit"))]
     #[inline]
+    #[must_use]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Null, Self::Null) => true,
@@ -286,6 +306,7 @@ impl<'a> PartialEq for StaticNode {
 
     #[cfg(feature = "128bit")]
     #[inline]
+    #[must_use]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Null, Self::Null) => true,
@@ -317,6 +338,7 @@ impl<'a> PartialEq for StaticNode {
 }
 
 impl Default for StaticNode {
+    #[must_use]
     fn default() -> Self {
         Self::Null
     }

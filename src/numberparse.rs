@@ -160,11 +160,11 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
 }
 
 impl<'de> Deserializer<'de> {
-    /// called by parse_number when we know that the output is a float,
+    /// called by `parse_number` when we know that the output is a float,
     /// but where there might be some integer overflow. The trick here is to
     /// parse using floats from the start.
     /// Do not call this function directly as it skips some of the checks from
-    /// parse_number
+    /// `parse_number`
     ///
     /// This function will almost never be called!!!
     ///
@@ -311,11 +311,11 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    /// called by parse_number when we know that the output is an integer,
+    /// called by `parse_number` when we know that the output is an integer,
     /// but where there might be some integer overflow.
     /// we want to catch overflows!
     /// Do not call this function directly as it skips some of the checks from
-    /// parse_number
+    /// `parse_number`
     ///
     /// This function will almost never be called!!!
     ///

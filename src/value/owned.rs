@@ -62,12 +62,17 @@ pub enum Value {
 
 impl ValueBuilder for Value {
     #[inline]
+    #[must_use]
     fn null() -> Self {
         Self::Static(StaticNode::Null)
     }
+    #[inline]
+    #[must_use]
     fn array_with_capacity(capacity: usize) -> Self {
         Self::Array(Vec::with_capacity(capacity))
     }
+    #[inline]
+    #[must_use]
     fn object_with_capacity(capacity: usize) -> Self {
         Self::Object(Box::new(Object::with_capacity(capacity)))
     }
@@ -76,6 +81,7 @@ impl ValueBuilder for Value {
 impl MutableValue for Value {
     type Key = String;
     #[inline]
+    #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
         match self {
             Self::Array(a) => Some(a),
@@ -83,6 +89,7 @@ impl MutableValue for Value {
         }
     }
     #[inline]
+    #[must_use]
     fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as MutableValue>::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
@@ -95,6 +102,7 @@ impl ValueTrait for Value {
     type Key = String;
 
     #[inline]
+    #[must_use]
     fn value_type(&self) -> ValueType {
         match self {
             Self::Static(s) => s.value_type(),
@@ -105,6 +113,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[must_use]
     fn is_null(&self) -> bool {
         match self {
             Self::Static(StaticNode::Null) => true,
@@ -113,6 +122,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[must_use]
     fn as_bool(&self) -> Option<bool> {
         match self {
             Self::Static(StaticNode::Bool(b)) => Some(*b),
@@ -121,6 +131,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[must_use]
     fn as_i64(&self) -> Option<i64> {
         match self {
             Self::Static(s) => s.as_i64(),
@@ -129,6 +140,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[must_use]
     fn as_i128(&self) -> Option<i128> {
         match self {
             Self::Static(s) => s.as_i128(),
@@ -137,6 +149,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[must_use]
     #[allow(clippy::cast_sign_loss)]
     fn as_u64(&self) -> Option<u64> {
         match self {
@@ -147,6 +160,7 @@ impl ValueTrait for Value {
 
     #[cfg(feature = "128bit")]
     #[inline]
+    #[must_use]
     #[allow(clippy::cast_sign_loss)]
     fn as_u128(&self) -> Option<u128> {
         match self {
@@ -156,6 +170,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[must_use]
     fn as_f64(&self) -> Option<f64> {
         match self {
             Self::Static(s) => s.as_f64(),
@@ -164,6 +179,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[must_use]
     #[allow(clippy::cast_precision_loss)]
     fn cast_f64(&self) -> Option<f64> {
         match self {
@@ -173,6 +189,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[must_use]
     fn as_str(&self) -> Option<&str> {
         match self {
             Self::String(s) => Some(s.as_str()),
@@ -181,6 +198,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[must_use]
     fn as_array(&self) -> Option<&Vec<Self>> {
         match self {
             Self::Array(a) => Some(a),
@@ -189,6 +207,7 @@ impl ValueTrait for Value {
     }
 
     #[inline]
+    #[must_use]
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
@@ -211,6 +230,8 @@ impl fmt::Display for Value {
 
 impl Index<&str> for Value {
     type Output = Self;
+    #[inline]
+    #[must_use]
     fn index(&self, index: &str) -> &Self::Output {
         self.get(index).unwrap()
     }
@@ -218,24 +239,32 @@ impl Index<&str> for Value {
 
 impl Index<usize> for Value {
     type Output = Self;
+    #[inline]
+    #[must_use]
     fn index(&self, index: usize) -> &Self::Output {
         self.get_idx(index).unwrap()
     }
 }
 
 impl IndexMut<&str> for Value {
+    #[inline]
+    #[must_use]
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
         self.get_mut(index).unwrap()
     }
 }
 
 impl IndexMut<usize> for Value {
+    #[inline]
+    #[must_use]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.get_idx_mut(index).unwrap()
     }
 }
 
 impl Default for Value {
+    #[inline]
+    #[must_use]
     fn default() -> Self {
         Self::Static(StaticNode::Null)
     }

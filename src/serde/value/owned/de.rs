@@ -168,7 +168,7 @@ impl<'de> MapAccess<'de> for ObjectDeserializer {
             Some((key, value)) => {
                 self.value = Some(value);
                 let key_de = MapKeyDeserializer {
-                    key: Cow::Owned(key.to_string()),
+                    key: Cow::Owned(key),
                 };
                 seed.deserialize(key_de).map(Some)
             }

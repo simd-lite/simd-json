@@ -1,10 +1,9 @@
-
 #[cfg(all(feature = "serde_impl", feature = "128bit"))]
 #[test]
 #[ignore] // https://github.com/serde-rs/serde/issues/1717
 fn lgostash_int_bug() {
-    use simd_json::serde::from_slice;
     use serde::Deserialize;
+    use simd_json::serde::from_slice;
     #[serde(untagged)]
     #[derive(Deserialize, Debug, PartialEq)]
     pub enum RawMessageMetricValue {
@@ -37,8 +36,8 @@ fn lgostash_int_bug() {
 #[cfg(all(feature = "serde_impl", feature = "128bit"))]
 #[test]
 fn lgostash_int_bug2() {
-    use simd_json::serde::from_slice;
     use serde::Deserialize;
+    use simd_json::serde::from_slice;
     #[derive(Deserialize, Debug, PartialEq)]
     pub struct Message {
         pub name: String,

@@ -3,7 +3,7 @@
 /// `to_owned_value` or `to_borrowed_value` as they provide much
 /// better performance.
 ///
-/// However if have to use serde for other readons or are psrsing
+/// However if have to use serde for other reasons or are parsing
 /// directly to structs this is th4 place to go.
 ///
 mod de;
@@ -89,7 +89,7 @@ impl<'de> Deserializer<'de> {
         self.tape
             .get(self.idx)
             .copied()
-            .ok_or_else(|| self.error(ErrorType::Syntax))
+            .ok_or_else(|| Self::error(ErrorType::Syntax))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -97,7 +97,7 @@ impl<'de> Deserializer<'de> {
         self.tape
             .get(self.idx + 1)
             .copied()
-            .ok_or_else(|| self.error(ErrorType::UnexpectedEnd))
+            .ok_or_else(|| Self::error(ErrorType::UnexpectedEnd))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -106,8 +106,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             Node::Static(s) => s
                 .as_u8()
-                .ok_or_else(|| self.error(ErrorType::ExpectedUnsigned)),
-            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+                .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
+            _ => Err(Self::error(ErrorType::ExpectedUnsigned)),
         }
     }
 
@@ -117,8 +117,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             Node::Static(s) => s
                 .as_u16()
-                .ok_or_else(|| self.error(ErrorType::ExpectedUnsigned)),
-            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+                .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
+            _ => Err(Self::error(ErrorType::ExpectedUnsigned)),
         }
     }
 
@@ -128,8 +128,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             Node::Static(s) => s
                 .as_u32()
-                .ok_or_else(|| self.error(ErrorType::ExpectedUnsigned)),
-            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+                .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
+            _ => Err(Self::error(ErrorType::ExpectedUnsigned)),
         }
     }
 
@@ -139,8 +139,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             Node::Static(s) => s
                 .as_u64()
-                .ok_or_else(|| self.error(ErrorType::ExpectedUnsigned)),
-            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+                .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
+            _ => Err(Self::error(ErrorType::ExpectedUnsigned)),
         }
     }
 
@@ -150,8 +150,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             Node::Static(s) => s
                 .as_u128()
-                .ok_or_else(|| self.error(ErrorType::ExpectedUnsigned)),
-            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+                .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
+            _ => Err(Self::error(ErrorType::ExpectedUnsigned)),
         }
     }
 
@@ -161,8 +161,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             Node::Static(s) => s
                 .as_i8()
-                .ok_or_else(|| self.error(ErrorType::ExpectedSigned)),
-            _ => Err(self.error(ErrorType::ExpectedSigned)),
+                .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
+            _ => Err(Self::error(ErrorType::ExpectedSigned)),
         }
     }
 
@@ -172,8 +172,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             Node::Static(s) => s
                 .as_i16()
-                .ok_or_else(|| self.error(ErrorType::ExpectedSigned)),
-            _ => Err(self.error(ErrorType::ExpectedSigned)),
+                .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
+            _ => Err(Self::error(ErrorType::ExpectedSigned)),
         }
     }
 
@@ -183,8 +183,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             Node::Static(s) => s
                 .as_i32()
-                .ok_or_else(|| self.error(ErrorType::ExpectedSigned)),
-            _ => Err(self.error(ErrorType::ExpectedSigned)),
+                .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
+            _ => Err(Self::error(ErrorType::ExpectedSigned)),
         }
     }
 
@@ -194,8 +194,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             Node::Static(s) => s
                 .as_i64()
-                .ok_or_else(|| self.error(ErrorType::ExpectedSigned)),
-            _ => Err(self.error(ErrorType::ExpectedSigned)),
+                .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
+            _ => Err(Self::error(ErrorType::ExpectedSigned)),
         }
     }
 
@@ -205,8 +205,8 @@ impl<'de> Deserializer<'de> {
         match self.next_() {
             Node::Static(s) => s
                 .as_i128()
-                .ok_or_else(|| self.error(ErrorType::ExpectedSigned)),
-            _ => Err(self.error(ErrorType::ExpectedSigned)),
+                .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
+            _ => Err(Self::error(ErrorType::ExpectedSigned)),
         }
     }
 
@@ -217,7 +217,7 @@ impl<'de> Deserializer<'de> {
             Node::Static(StaticNode::F64(n)) => Ok(n),
             Node::Static(StaticNode::I64(n)) => Ok(n as f64),
             Node::Static(StaticNode::U64(n)) => Ok(n as f64),
-            _ => Err(self.error(ErrorType::ExpectedFloat)),
+            _ => Err(Self::error(ErrorType::ExpectedFloat)),
         }
     }
 }
@@ -281,7 +281,7 @@ impl TryInto<serde_json::Value> for OwnedValue {
                     return Err(SerdeConversionError::NanOrInfinity);
                 }
             }
-            Self::String(b) => Value::String(b.to_string()),
+            Self::String(b) => Value::String(b),
             Self::Array(a) => Value::Array(
                 a.into_iter()
                     .map(|v| v.try_into())
@@ -289,7 +289,7 @@ impl TryInto<serde_json::Value> for OwnedValue {
             ),
             Self::Object(o) => Value::Object(
                 o.into_iter()
-                    .map(|(k, v)| Ok((k.to_string(), v.try_into()?)))
+                    .map(|(k, v)| Ok((k, v.try_into()?)))
                     .collect::<ConvertResult<serde_json::map::Map<String, Value>>>()?,
             ),
         })

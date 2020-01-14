@@ -53,7 +53,7 @@ where
     {
         match stry!(self.next()) {
             Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
-            _c => Err(self.error(ErrorType::ExpectedBoolean)),
+            _c => Err(Deserializer::error(ErrorType::ExpectedBoolean)),
         }
     }
 
@@ -67,7 +67,7 @@ where
         if let Ok(Node::String(s)) = self.next() {
             visitor.visit_borrowed_str(s)
         } else {
-            Err(self.error(ErrorType::ExpectedString))
+            Err(Deserializer::error(ErrorType::ExpectedString))
         }
     }
 
@@ -79,7 +79,7 @@ where
         if let Ok(Node::String(s)) = self.next() {
             visitor.visit_str(s)
         } else {
-            Err(self.error(ErrorType::ExpectedString))
+            Err(Deserializer::error(ErrorType::ExpectedString))
         }
     }
 
@@ -218,7 +218,7 @@ where
         V: Visitor<'de>,
     {
         if stry!(self.next()) != Node::Static(StaticNode::Null) {
-            return Err(self.error(ErrorType::ExpectedNull));
+            return Err(Deserializer::error(ErrorType::ExpectedNull));
         }
         visitor.visit_unit()
     }
@@ -236,7 +236,7 @@ where
             // Give the visitor access to each element of the sequence.
             visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
         } else {
-            Err(self.error(ErrorType::ExpectedArray))
+            Err(Deserializer::error(ErrorType::ExpectedArray))
         }
     }
 
@@ -299,7 +299,7 @@ where
             // Give the visitor access to each element of the sequence.
             visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
         } else {
-            Err(self.error(ErrorType::ExpectedMap))
+            Err(Deserializer::error(ErrorType::ExpectedMap))
         }
     }
 

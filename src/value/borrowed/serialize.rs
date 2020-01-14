@@ -16,6 +16,8 @@ use std::io::Write;
 
 impl<'value> Value<'value> {
     /// Encodes the value into it's JSON representation as a string
+    #[inline]
+    #[must_use]
     pub fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
         let _ = g.write_json(&self);
@@ -23,6 +25,8 @@ impl<'value> Value<'value> {
     }
 
     /// Encodes the value into it's JSON representation as a string (pretty printed)
+    #[inline]
+    #[must_use]
     pub fn encode_pp(&self) -> String {
         let mut g = PrettyGenerator::new(2);
         let _ = g.write_json(&self);

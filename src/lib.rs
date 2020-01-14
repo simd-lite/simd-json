@@ -30,7 +30,7 @@
 )]
 #![deny(missing_docs)]
 
-//! simdjson-rs is a rust port of the simejson c++ library. It follows
+//! simdjson-rs is a rust port of the simdjson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
 //! fit into the rust ecosystem.
 //!
@@ -50,11 +50,11 @@
 //!
 //! ## Performance
 //!
-//! As a rule of thumb this library tries to get as close as posible
+//! As a rule of thumb this library tries to get as close as possible
 //! to the performance of the c++ implementation, but some of the
 //! design decisions - such as parsing to a dom or a tape, weigh
 //! ergonomics over performance. In other places Rust makes it harder
-//! to achive the same level of performance.
+//! to achieve the same level of performance.
 //!
 //! ## Safety
 //!
@@ -67,7 +67,7 @@
 //!
 //! simd-json.rs comes with a number of features that can be toggled,
 //! the following features are intended for 'user' selection. Additional
-//! features in the `Cargo.toml` exist to work around cargo limitaitons.
+//! features in the `Cargo.toml` exist to work around cargo limitations.
 //!
 //! ### `swar-number-parsing` (default)
 //!
@@ -371,7 +371,7 @@ pub(crate) struct Deserializer<'de> {
 impl<'de> Deserializer<'de> {
     #[cfg(feature = "serde_impl")]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn error(&self, error: ErrorType) -> Error {
+    fn error(error: ErrorType) -> Error {
         Deserializer::raw_error(0, '?', error)
     }
 
