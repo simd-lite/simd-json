@@ -26,9 +26,9 @@ To be able to take advantage of simdjson your system needs to be SIMD compatible
 
 simd-json.rs supports AVX2, SSE4.2 and NEON.
 
-### jemalloc
+### allocator
 
-If you are writing performance centric code, make sure to use jemalloc and not the system allocator (which has now become default in rust), it gives a very noticeable boost in performance.
+For best performance we highly suggest using [mimalloc](https://crates.io/crates/mimalloc) or [jemalloc](https://crates.io/crates/jemalloc) instead of the system allocator used by default.
 
 ## serde
 
