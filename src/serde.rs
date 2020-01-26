@@ -3,7 +3,7 @@
 /// `to_owned_value` or `to_borrowed_value` as they provide much
 /// better performance.
 ///
-/// However if have to use serde for other readons or are psrsing
+/// However if have to use serde for other reasons or are parsing
 /// directly to structs this is th4 place to go.
 ///
 mod de;
@@ -11,7 +11,7 @@ mod value;
 pub use self::value::*;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use crate::{BorrowedValue, OwnedValue};
-use crate::{Node, StaticNode};
+use crate::{Node, StaticNode, Value};
 use serde_ext::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
@@ -23,6 +23,8 @@ type ConvertResult<T> = std::result::Result<T, SerdeConversionError>;
 pub enum SerdeConversionError {
     /// Serde can not reflect NAN or Infinity
     NanOrInfinity,
+    /// The number is out of the 64 bit bound
+    NumberOutOfBounds,
     /// Something horrible went wrong, please open a ticket at <https://simd-json.rs>
     Oops,
 }
@@ -31,6 +33,7 @@ impl std::fmt::Display for SerdeConversionError {
         use SerdeConversionError::*;
         match self {
             NanOrInfinity => write!(f, "JSON can not represent NAN or Infinity values"),
+            NumberOutOfBounds => write!(f, "Serde can not represent 128 bit values"),
             Oops => write!(
                 f,
                 "Unreachable code is reachable, oops - please open a bug with simdjson-rs"
@@ -86,7 +89,7 @@ impl<'de> Deserializer<'de> {
         self.tape
             .get(self.idx)
             .copied()
-            .ok_or_else(|| self.error(ErrorType::Syntax))
+            .ok_or_else(|| Self::error(ErrorType::Syntax))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -94,28 +97,119 @@ impl<'de> Deserializer<'de> {
         self.tape
             .get(self.idx + 1)
             .copied()
-            .ok_or_else(|| self.error(ErrorType::UnexpectedEnd))
+            .ok_or_else(|| Self::error(ErrorType::UnexpectedEnd))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn parse_signed(&mut self) -> Result<i64> {
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_u8(&mut self) -> Result<u8> {
         match self.next_() {
-            Node::Static(StaticNode::I64(i)) => Ok(i),
-            Node::Static(StaticNode::U64(n)) => n
-                .try_into()
-                .map_err(|_| self.error(ErrorType::ExpectedSigned)),
-            _ => Err(self.error(ErrorType::ExpectedSigned)),
+            Node::Static(s) => s
+                .as_u8()
+                .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
+            _ => Err(Self::error(ErrorType::ExpectedUnsigned)),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_unsigned(&mut self) -> Result<u64> {
+    fn parse_u16(&mut self) -> Result<u16> {
         match self.next_() {
-            Node::Static(StaticNode::U64(n)) => Ok(n),
-            _ => Err(self.error(ErrorType::ExpectedUnsigned)),
+            Node::Static(s) => s
+                .as_u16()
+                .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
+            _ => Err(Self::error(ErrorType::ExpectedUnsigned)),
         }
     }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_u32(&mut self) -> Result<u32> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_u32()
+                .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
+            _ => Err(Self::error(ErrorType::ExpectedUnsigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_u64(&mut self) -> Result<u64> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_u64()
+                .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
+            _ => Err(Self::error(ErrorType::ExpectedUnsigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_u128(&mut self) -> Result<u128> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_u128()
+                .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
+            _ => Err(Self::error(ErrorType::ExpectedUnsigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_i8(&mut self) -> Result<i8> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_i8()
+                .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
+            _ => Err(Self::error(ErrorType::ExpectedSigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_i16(&mut self) -> Result<i16> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_i16()
+                .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
+            _ => Err(Self::error(ErrorType::ExpectedSigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_i32(&mut self) -> Result<i32> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_i32()
+                .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
+            _ => Err(Self::error(ErrorType::ExpectedSigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_i64(&mut self) -> Result<i64> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_i64()
+                .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
+            _ => Err(Self::error(ErrorType::ExpectedSigned)),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_sign_loss)]
+    fn parse_i128(&mut self) -> Result<i128> {
+        match self.next_() {
+            Node::Static(s) => s
+                .as_i128()
+                .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
+            _ => Err(Self::error(ErrorType::ExpectedSigned)),
+        }
+    }
+
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {
@@ -123,7 +217,7 @@ impl<'de> Deserializer<'de> {
             Node::Static(StaticNode::F64(n)) => Ok(n),
             Node::Static(StaticNode::I64(n)) => Ok(n as f64),
             Node::Static(StaticNode::U64(n)) => Ok(n as f64),
-            _ => Err(self.error(ErrorType::ExpectedFloat)),
+            _ => Err(Self::error(ErrorType::ExpectedFloat)),
         }
     }
 }
@@ -167,7 +261,19 @@ impl TryInto<serde_json::Value> for OwnedValue {
             Self::Static(StaticNode::Null) => Value::Null,
             Self::Static(StaticNode::Bool(b)) => Value::Bool(b),
             Self::Static(StaticNode::I64(n)) => Value::Number(n.into()),
+            #[cfg(feature = "128bit")] // FIXME error for too large numbers
+            Self::Static(StaticNode::I128(n)) => Value::Number(
+                i64::try_from(n)
+                    .map_err(|_| SerdeConversionError::NumberOutOfBounds)?
+                    .into(),
+            ),
             Self::Static(StaticNode::U64(n)) => Value::Number(n.into()),
+            #[cfg(feature = "128bit")] // FIXME error for too large numbers
+            Self::Static(StaticNode::U128(n)) => Value::Number(
+                u64::try_from(n)
+                    .map_err(|_| SerdeConversionError::NumberOutOfBounds)?
+                    .into(),
+            ),
             Self::Static(StaticNode::F64(n)) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)
@@ -175,7 +281,7 @@ impl TryInto<serde_json::Value> for OwnedValue {
                     return Err(SerdeConversionError::NanOrInfinity);
                 }
             }
-            Self::String(b) => Value::String(b.to_string()),
+            Self::String(b) => Value::String(b),
             Self::Array(a) => Value::Array(
                 a.into_iter()
                     .map(|v| v.try_into())
@@ -183,7 +289,7 @@ impl TryInto<serde_json::Value> for OwnedValue {
             ),
             Self::Object(o) => Value::Object(
                 o.into_iter()
-                    .map(|(k, v)| Ok((k.to_string(), v.try_into()?)))
+                    .map(|(k, v)| Ok((k, v.try_into()?)))
                     .collect::<ConvertResult<serde_json::map::Map<String, Value>>>()?,
             ),
         })
@@ -226,7 +332,19 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
             BorrowedValue::Static(StaticNode::Null) => Value::Null,
             BorrowedValue::Static(StaticNode::Bool(b)) => Value::Bool(b),
             BorrowedValue::Static(StaticNode::I64(n)) => Value::Number(n.into()),
+            #[cfg(feature = "128bit")] // FIXME error for too large numbers
+            BorrowedValue::Static(StaticNode::I128(n)) => Value::Number(
+                i64::try_from(n)
+                    .map_err(|_| SerdeConversionError::NumberOutOfBounds)?
+                    .into(),
+            ),
             BorrowedValue::Static(StaticNode::U64(n)) => Value::Number(n.into()),
+            #[cfg(feature = "128bit")] // FIXME error for too large numbers
+            BorrowedValue::Static(StaticNode::U128(n)) => Value::Number(
+                u64::try_from(n)
+                    .map_err(|_| SerdeConversionError::NumberOutOfBounds)?
+                    .into(),
+            ),
             BorrowedValue::Static(StaticNode::F64(n)) => {
                 if let Some(n) = serde_json::Number::from_f64(n) {
                     Value::Number(n)

@@ -30,7 +30,7 @@
 )]
 #![deny(missing_docs)]
 
-//! simdjson-rs is a rust port of the simejson c++ library. It follows
+//! simdjson-rs is a rust port of the simdjson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
 //! fit into the rust ecosystem.
 //!
@@ -50,11 +50,11 @@
 //!
 //! ## Performance
 //!
-//! As a rule of thumb this library tries to get as close as posible
+//! As a rule of thumb this library tries to get as close as possible
 //! to the performance of the c++ implementation, but some of the
 //! design decisions - such as parsing to a dom or a tape, weigh
 //! ergonomics over performance. In other places Rust makes it harder
-//! to achive the same level of performance.
+//! to achieve the same level of performance.
 //!
 //! ## Safety
 //!
@@ -62,6 +62,42 @@
 //! quite a few test cases along with property based testing, please use
 //! this library with caution.
 //!
+//!
+//! ## Features
+//!
+//! simd-json.rs comes with a number of features that can be toggled,
+//! the following features are intended for 'user' selection. Additional
+//! features in the `Cargo.toml` exist to work around cargo limitations.
+//!
+//! ### `swar-number-parsing` (default)
+//!
+//! Enables a parsing method that will parse 8 digests at a time for
+//! floats - this is a common pattern but comes as a slight perf hit
+//! if all the floats have less then 8 digits.
+//!
+//! ### `serde_impl` (default)
+//!
+//! Compatibility with [serde](https://serde.rs/). This allows to use
+//! [simd-json.rs](https://simd-json.rs) to deserialize serde objects
+//! as well as serd compatibility of the different Value types.
+//! This can be disabled if serde is not used alongside simd-json.
+//!
+//! ### `128bit`
+//!
+//! Support for signed and unsigned 128 bit integer. This feature
+//! is disabled by default as 128 bit integers are rare in the wild
+//! and parsing them comes as a performance penalty due to extra logic
+//! and a changed memory layout.
+//!
+//! ### `known-key`
+//!
+//! The known-key feature changes hasher for the objects, from ahash
+//! to fxhash, ahash is faster at hashing and provides protection
+//! against DOS attacks by forcing multiple keys into a single hashing
+//! bucket. fxhash on the other hand allows for repeatable hashing
+//! results, that allows memorizing hashes for well know keys and saving
+//! time on lookups. In workloads that are heavy at accessing some well
+//! known keys this can be a performance advantage.
 //!
 //! ## Usage
 //!
@@ -105,6 +141,9 @@ extern crate serde as serde_ext;
 #[cfg(feature = "serde_impl")]
 /// serde related helper functions
 pub mod serde;
+
+/// Default trait imports;
+pub mod prelude;
 
 mod charutils;
 #[macro_use]
@@ -330,8 +369,9 @@ pub(crate) struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
+    #[cfg(feature = "serde_impl")]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn error(&self, error: ErrorType) -> Error {
+    fn error(error: ErrorType) -> Error {
         Deserializer::raw_error(0, '?', error)
     }
 
@@ -378,6 +418,7 @@ impl<'de> Deserializer<'de> {
         Ok(Deserializer { tape, idx: 0 })
     }
 
+    #[cfg(feature = "serde_impl")]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn skip(&mut self) {
         self.idx += 1;
@@ -549,16 +590,9 @@ impl<'de> Deserializer<'de> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
-    use super::serde::from_slice;
-    use super::{
-        deserialize, owned::to_value, owned::Object, owned::Value, to_borrowed_value,
-        to_owned_value, BorrowedValue, Deserializer, OwnedValue,
-    };
+    use super::{owned::Value, to_borrowed_value, to_owned_value, Deserializer};
     use crate::tape::*;
-    use halfbrown::HashMap;
     use proptest::prelude::*;
-    use serde::Deserialize;
-    use serde_json;
 
     #[test]
     fn count1() {
@@ -601,6 +635,166 @@ mod tests {
         assert_eq!(simd.tape[1], Node::Array(3, 5));
         assert_eq!(simd.tape[2], Node::Array(0, 3));
     }
+
+    #[cfg(feature = "128bit")]
+    #[test]
+    fn odd_nuber() {
+        use super::value::owned::to_value;
+        use super::value::{MutableValue, ValueBuilder};
+
+        let mut d = String::from(
+            r#"{"name": "max_unsafe_auto_id_timestamp", "value": -9223372036854776000}"#,
+        );
+
+        let mut d = unsafe { d.as_bytes_mut() };
+        let mut o = Value::object();
+        o.insert("name", "max_unsafe_auto_id_timestamp")
+            .expect("failed to set key");
+        o.insert("value", -9_223_372_036_854_776_000_i128)
+            .expect("failed to set key");
+        assert_eq!(to_value(&mut d), Ok(o));
+    }
+
+    #[cfg(feature = "128bit")]
+    #[test]
+    fn odd_nuber2() {
+        use super::value::owned::to_value;
+        use super::value::{MutableValue, ValueBuilder};
+
+        let mut d = String::from(
+            r#"{"name": "max_unsafe_auto_id_timestamp", "value": 9223372036854776000}"#,
+        );
+
+        let mut d = unsafe { d.as_bytes_mut() };
+        let mut o = Value::object();
+        o.insert("name", "max_unsafe_auto_id_timestamp")
+            .expect("failed to set key");
+        o.insert("value", 9_223_372_036_854_776_000_u128)
+            .expect("failed to set key");
+        assert_eq!(to_value(&mut d), Ok(o));
+    }
+    // How much do we care about this, it's within the same range and
+    // based on floating point math inprecisions during parsing.
+    // Is this a real issue worth improving?
+    #[test]
+    fn silly_float1() {
+        let v = Value::from(3.090_144_804_232_201_7e305);
+        let s = v.encode();
+        dbg!(&s);
+        let mut bytes = s.as_bytes().to_vec();
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        assert_eq!(v, parsed);
+    }
+
+    #[test]
+    #[ignore]
+    fn silly_float2() {
+        let v = Value::from(-6.990_585_694_841_803e305);
+        let s = v.encode();
+        dbg!(&s);
+        let mut bytes = s.as_bytes().to_vec();
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        assert_eq!(v, parsed);
+    }
+    #[cfg(not(feature = "128bit"))]
+    fn arb_json_value() -> BoxedStrategy<Value> {
+        let leaf = prop_oneof![
+            Just(Value::Static(StaticNode::Null)),
+            any::<bool>().prop_map(Value::from),
+            //(-1.0e306f64..1.0e306f64).prop_map(Value::from), // damn you float!
+            any::<i64>().prop_map(Value::from),
+            any::<u64>().prop_map(Value::from),
+            ".*".prop_map(Value::from),
+        ];
+        leaf.prop_recursive(
+            8,   // 8 levels deep
+            256, // Shoot for maximum size of 256 nodes
+            10,  // We put up to 10 items per collection
+            |inner| {
+                prop_oneof![
+                    // Take the inner strategy and make the two recursive cases.
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::from),
+                    prop::collection::hash_map(".*", inner, 0..10).prop_map(Value::from),
+                ]
+            },
+        )
+        .boxed()
+    }
+
+    #[cfg(feature = "128bit")]
+    fn arb_json_value() -> BoxedStrategy<Value> {
+        let leaf = prop_oneof![
+            Just(Value::Static(StaticNode::Null)),
+            any::<bool>().prop_map(Value::from),
+            //(-1.0e306f64..1.0e306f64).prop_map(Value::from), // damn you float!
+            any::<i64>().prop_map(Value::from),
+            any::<u64>().prop_map(Value::from),
+            any::<i128>().prop_map(Value::from),
+            any::<u128>().prop_map(Value::from),
+            ".*".prop_map(Value::from),
+        ];
+        leaf.prop_recursive(
+            8,   // 8 levels deep
+            256, // Shoot for maximum size of 256 nodes
+            10,  // We put up to 10 items per collection
+            |inner| {
+                prop_oneof![
+                    // Take the inner strategy and make the two recursive cases.
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::from),
+                    prop::collection::hash_map(".*", inner, 0..10).prop_map(Value::from),
+                ]
+            },
+        )
+        .boxed()
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            // Setting both fork and timeout is redundant since timeout implies
+            // fork, but both are shown for clarity.
+            // Disabled for code coverage, enable to track bugs
+            // fork: true,
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_json_encode_decode(val in arb_json_value()) {
+            let mut encoded: Vec<u8> = Vec::new();
+            let _ = val.write(&mut encoded);
+            println!("{}", String::from_utf8_lossy(&encoded.clone()));
+            let mut e = encoded.clone();
+            let res = to_owned_value(&mut e).expect("can't convert");
+            assert_eq!(val, res);
+            let mut e = encoded.clone();
+            let res = to_borrowed_value(&mut e).expect("can't convert");
+            assert_eq!(val, res);
+            #[cfg(not(feature = "128bit"))]
+            { // we can't dop 128 bit w/ serde
+                use crate::{deserialize, BorrowedValue, OwnedValue};
+                let mut e = encoded.clone();
+                let res: OwnedValue = deserialize(&mut e).expect("can't convert");
+                assert_eq!(val, res);
+                let mut e = encoded.clone();
+                let res: BorrowedValue = deserialize(&mut e).expect("can't convert");
+                assert_eq!(val, res);
+            }
+        }
+
+    }
+}
+
+#[cfg(feature = "serde_impl")]
+#[cfg(test)]
+mod tests_serde {
+    #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
+    use super::serde::from_slice;
+    use super::value::{MutableValue, ValueBuilder};
+    use super::{owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value};
+    use crate::tape::*;
+    use halfbrown::HashMap;
+    use proptest::prelude::*;
+    use serde::Deserialize;
+    use serde_json;
 
     #[test]
     fn empty() {
@@ -958,6 +1152,26 @@ mod tests {
     }
 
     #[test]
+    fn min_i64() {
+        let mut d = String::from(
+            r#"{"name": "max_unsafe_auto_id_timestamp", "value": -9223372036854775808}"#,
+        );
+
+        let mut d1 = d.clone();
+        let mut d1 = unsafe { d1.as_bytes_mut() };
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("");
+        assert_eq!(v_simd, v_serde);
+        let mut o = Value::object();
+        o.insert("name", "max_unsafe_auto_id_timestamp")
+            .expect("failed to set key");
+        o.insert("value", -9_223_372_036_854_775_808_i64)
+            .expect("failed to set key");
+        assert_eq!(to_value(&mut d1), Ok(o));
+    }
+
+    #[test]
     fn map2() {
         let mut d = String::from(r#"[{"\u0000":null}]"#);
         let mut d = unsafe { d.as_bytes_mut() };
@@ -1108,6 +1322,7 @@ mod tests {
         assert_eq!(to_value(&mut d1), Ok(Value::from(h)));
     }
 
+    #[cfg(feature = "serde_impl")]
     #[test]
     fn tpl1() {
         let mut d = String::from("[-65.613616999999977, 43.420273000000009]");
@@ -1242,6 +1457,7 @@ mod tests {
         assert_eq!(v_simd, v_serde)
     }
 
+    #[cfg(feature = "serde_impl")]
     #[test]
     fn event() {
         #[derive(Deserialize, Debug, PartialEq)]
@@ -1337,30 +1553,6 @@ mod tests {
         assert_eq!(v_simd, v_serde)
     }
 
-    // How much do we care about this, it's within the same range and
-    // based on floating point math inprecisions during parsing.
-    // Is this a real issue worth improving?
-    #[test]
-    fn silly_float1() {
-        let v = Value::from(3.090_144_804_232_201_7e305);
-        let s = v.encode();
-        dbg!(&s);
-        let mut bytes = s.as_bytes().to_vec();
-        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
-        assert_eq!(v, parsed);
-    }
-
-    #[test]
-    #[ignore]
-    fn silly_float2() {
-        let v = Value::from(-6.990_585_694_841_803e305);
-        let s = v.encode();
-        dbg!(&s);
-        let mut bytes = s.as_bytes().to_vec();
-        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
-        assert_eq!(v, parsed);
-    }
-
     //6.576692109929364e305
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
@@ -1368,8 +1560,8 @@ mod tests {
             any::<bool>()
                 .prop_map(StaticNode::Bool)
                 .prop_map(Value::Static),
-            // (-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // The float parsing of simd and serde are too different
-            any::<i64>().prop_map(|i| json!(i)),
+            // (-1.0e306f64..1.0e306f64).prop_map(Value::from), // The float parsing of simd and serde are too different
+            any::<i64>().prop_map(Value::from),
             ".*".prop_map(Value::from),
         ];
         leaf.prop_recursive(
@@ -1379,8 +1571,8 @@ mod tests {
             |inner| {
                 prop_oneof![
                     // Take the inner strategy and make the two recursive cases.
-                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| json!(v)),
-                    prop::collection::hash_map(".*", inner, 0..10).prop_map(|m| json!(m)),
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::from),
+                    prop::collection::hash_map(".*", inner, 0..10).prop_map(Value::from),
                 ]
             },
         )
@@ -1388,60 +1580,6 @@ mod tests {
         .boxed()
     }
 
-    fn arb_json_value() -> BoxedStrategy<Value> {
-        let leaf = prop_oneof![
-            Just(Value::Static(StaticNode::Null)),
-            any::<bool>()
-                .prop_map(StaticNode::Bool)
-                .prop_map(Value::Static),
-            //(-1.0e306f64..1.0e306f64).prop_map(|f| json!(f)), // damn you float!
-            any::<i64>().prop_map(|i| json!(i)),
-            ".*".prop_map(Value::from),
-        ];
-        leaf.prop_recursive(
-            8,   // 8 levels deep
-            256, // Shoot for maximum size of 256 nodes
-            10,  // We put up to 10 items per collection
-            |inner| {
-                prop_oneof![
-                    // Take the inner strategy and make the two recursive cases.
-                    prop::collection::vec(inner.clone(), 0..10).prop_map(|v| json!(v)),
-                    prop::collection::hash_map(".*", inner, 0..10).prop_map(|m| json!(m)),
-                ]
-            },
-        )
-        .boxed()
-    }
-
-    proptest! {
-        #![proptest_config(ProptestConfig {
-            // Setting both fork and timeout is redundant since timeout implies
-            // fork, but both are shown for clarity.
-            // Disabled for code coverage, enable to track bugs
-            // fork: true,
-            .. ProptestConfig::default()
-        })]
-
-        #[test]
-        fn prop_json_encode_decode(val in arb_json_value()) {
-            let mut encoded: Vec<u8> = Vec::new();
-            let _ = val.write(&mut encoded);
-            println!("{}", String::from_utf8_lossy(&encoded.clone()));
-            let mut e = encoded.clone();
-            let res = to_owned_value(&mut e).expect("can't convert");
-            assert_eq!(val, res);
-            let mut e = encoded.clone();
-            let res = to_borrowed_value(&mut e).expect("can't convert");
-            assert_eq!(val, res);
-            let mut e = encoded.clone();
-            let res: OwnedValue = deserialize(&mut e).expect("can't convert");
-            assert_eq!(val, res);
-            let mut e = encoded.clone();
-            let res: BorrowedValue = deserialize(&mut e).expect("can't convert");
-            assert_eq!(val, res);
-        }
-
-    }
     proptest! {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies
@@ -1453,6 +1591,7 @@ mod tests {
 
         #[test]
         fn prop_json(d in arb_json()) {
+            use super::{OwnedValue, deserialize};
             if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
                 let mut d1 = d.clone();
                 let d1 = unsafe{ d1.as_bytes_mut()};
@@ -1462,13 +1601,14 @@ mod tests {
                 let d2 = unsafe{ d2.as_bytes_mut()};
                 let mut d3 = d.clone();
                 let d3 = unsafe{ d3.as_bytes_mut()};
+                let mut d4 = d.clone();
+                let d4 = unsafe{ d4.as_bytes_mut()};
                 assert_eq!(v_simd_serde, v_serde);
-                let v_simd_owned = to_owned_value(d2);
-                assert!(v_simd_owned.is_ok());
-                let v_simd_borrowed = to_borrowed_value(d3);
-                dbg!(&v_simd_borrowed);
-                assert!(v_simd_borrowed.is_ok());
-                assert_eq!(v_simd_owned.expect("simd-error"), super::OwnedValue::from(v_simd_borrowed.expect("simd-error")));
+                let v_simd_owned = to_owned_value(d2).expect("to_owned_value failed");
+                let v_simd_borrowed = to_borrowed_value(d3).expect("to_borrowed_value failed");
+                assert_eq!(v_simd_borrowed, v_simd_owned);
+                let v_deserialize: OwnedValue = deserialize(d4).expect("deserialize failed");
+                assert_eq!(v_deserialize, v_simd_owned);
             }
 
         }

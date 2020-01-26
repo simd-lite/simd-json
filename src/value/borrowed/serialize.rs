@@ -16,6 +16,8 @@ use std::io::Write;
 
 impl<'value> Value<'value> {
     /// Encodes the value into it's JSON representation as a string
+    #[inline]
+    #[must_use]
     pub fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
         let _ = g.write_json(&self);
@@ -23,6 +25,8 @@ impl<'value> Value<'value> {
     }
 
     /// Encodes the value into it's JSON representation as a string (pretty printed)
+    #[inline]
+    #[must_use]
     pub fn encode_pp(&self) -> String {
         let mut g = PrettyGenerator::new(2);
         let _ = g.write_json(&self);
@@ -86,7 +90,11 @@ trait Generator: BaseGenerator {
         match *json {
             Value::Static(StaticNode::Null) => self.write(b"null"),
             Value::Static(StaticNode::I64(number)) => self.write_int(number),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::I128(number)) => self.write_int128(number),
             Value::Static(StaticNode::U64(number)) => self.write_uint(number),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::U128(number)) => self.write_uint128(number),
             Value::Static(StaticNode::F64(number)) => self.write_float(number),
             Value::Static(StaticNode::Bool(true)) => self.write(b"true"),
             Value::Static(StaticNode::Bool(false)) => self.write(b"false"),

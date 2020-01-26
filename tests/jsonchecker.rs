@@ -147,6 +147,8 @@ fail!(fail65);
 fail!(fail66);
 fail!(fail67);
 fail!(fail68);
+// This is not a failure on 128bit parsing
+#[cfg(not(feature = "128bit"))]
 fail!(fail69);
 
 fail!(fail70);

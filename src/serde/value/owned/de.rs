@@ -23,7 +23,11 @@ impl<'de> de::Deserializer<'de> for Value {
             Self::Static(StaticNode::Null) => visitor.visit_unit(),
             Self::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
             Self::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::I128(n)) => visitor.visit_i128(n),
             Self::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
             Self::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
             Self::String(s) => visitor.visit_string(s),
             Self::Array(a) => visit_array(a, visitor),
@@ -164,7 +168,7 @@ impl<'de> MapAccess<'de> for ObjectDeserializer {
             Some((key, value)) => {
                 self.value = Some(value);
                 let key_de = MapKeyDeserializer {
-                    key: Cow::Owned(key.to_string()),
+                    key: Cow::Owned(key),
                 };
                 seed.deserialize(key_de).map(Some)
             }
@@ -240,10 +244,14 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
     deserialize_integer_key!(deserialize_i16 => visit_i16);
     deserialize_integer_key!(deserialize_i32 => visit_i32);
     deserialize_integer_key!(deserialize_i64 => visit_i64);
+    #[cfg(feature = "128bit")]
+    deserialize_integer_key!(deserialize_i128 => visit_i128);
     deserialize_integer_key!(deserialize_u8 => visit_u8);
     deserialize_integer_key!(deserialize_u16 => visit_u16);
     deserialize_integer_key!(deserialize_u32 => visit_u32);
     deserialize_integer_key!(deserialize_u64 => visit_u64);
+    #[cfg(feature = "128bit")]
+    deserialize_integer_key!(deserialize_u128 => visit_u128);
 
     #[inline]
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -470,6 +478,15 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Static(StaticNode::I64(value)))
     }
 
+    #[cfg(feature = "128bit")]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_i128<E>(self, value: i128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::Static(StaticNode::I128(value)))
+    }
+
     /****************** u64 ******************/
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -504,6 +521,14 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Static(StaticNode::U64(value)))
     }
 
+    #[cfg(feature = "128bit")]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_u128<E>(self, value: u128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::Static(StaticNode::U128(value)))
+    }
     /****************** f64 ******************/
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

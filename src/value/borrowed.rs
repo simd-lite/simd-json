@@ -1,5 +1,25 @@
-///A dom object that references the raw input data to avoid allocations
-// it tradecs having lifetimes for a gain in performance.
+/// A dom object that references the raw input data to avoid allocations
+/// it trades having lifetimes for a gain in performance.
+///
+/// Access via array indexes is possible:
+/// ```rust
+/// use simd_json::{BorrowedValue, json};
+/// use simd_json::prelude::*;
+/// let mut a = json!([1, 2, 3]);
+/// assert_eq!(a[1], 2);
+/// a[1] = 42.into();
+/// assert_eq!(a[1], 42);
+/// ```
+///
+/// Access via object keys is possible as well:
+/// ```rust
+/// use simd_json::{BorrowedValue, json};
+/// use simd_json::prelude::*;
+/// let mut a = json!({"key": "not the value"});
+/// assert_eq!(a["key"], "not the value");
+/// a["key"] = "value".into();
+/// assert_eq!(a["key"], "value");
+/// ```
 mod cmp;
 mod from;
 mod serialize;
@@ -8,7 +28,6 @@ use crate::value::{MutableValue, Value as ValueTrait, ValueBuilder, ValueType};
 use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::borrow::Cow;
-use std::convert::TryFrom;
 use std::fmt;
 use std::ops::{Index, IndexMut};
 
@@ -44,10 +63,12 @@ impl<'v> Value<'v> {
     /// Enforces static lifetime on a borrowed value, this will
     /// force all strings to become owned COW's, the same applies for
     /// Object keys.
+    #[inline]
+    #[must_use]
     pub fn into_static(self) -> Value<'static> {
         unsafe {
             use std::mem::transmute;
-            transmute(match self {
+            let r = match self {
                 Self::String(Cow::Borrowed(s)) => Self::String(Cow::Owned(s.to_owned())),
                 Self::Array(arr) => arr.into_iter().map(Value::into_static).collect(),
                 Self::Object(obj) => obj
@@ -55,16 +76,19 @@ impl<'v> Value<'v> {
                     .map(|(k, v)| (Cow::Owned(k.into_owned()), v.into_static()))
                     .collect(),
                 _ => self,
-            })
+            };
+            transmute(r)
         }
     }
 
     /// Clones the current value and enforces a static lifetime, it works the same
     /// as `into_static` but includes cloning logic
+    #[inline]
+    #[must_use]
     pub fn clone_static(&self) -> Value<'static> {
         unsafe {
             use std::mem::transmute;
-            transmute(match self {
+            let r = match self {
                 Self::String(s) => Self::String(Cow::Owned(s.to_string())),
                 Self::Array(arr) => arr.iter().map(Value::clone_static).collect(),
                 Self::Object(obj) => obj
@@ -72,19 +96,25 @@ impl<'v> Value<'v> {
                     .map(|(k, v)| (Cow::Owned(k.to_string()), v.clone_static()))
                     .collect(),
                 Self::Static(s) => Self::Static(*s),
-            })
+            };
+            transmute(r)
         }
     }
 }
 
 impl<'v> ValueBuilder for Value<'v> {
     #[inline]
+    #[must_use]
     fn null() -> Self {
         Self::Static(StaticNode::Null)
     }
+    #[inline]
+    #[must_use]
     fn array_with_capacity(capacity: usize) -> Self {
         Self::Array(Vec::with_capacity(capacity))
     }
+    #[inline]
+    #[must_use]
     fn object_with_capacity(capacity: usize) -> Self {
         Self::Object(Box::new(Object::with_capacity(capacity)))
     }
@@ -93,6 +123,7 @@ impl<'v> ValueBuilder for Value<'v> {
 impl<'v> MutableValue for Value<'v> {
     type Key = Cow<'v, str>;
     #[inline]
+    #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
         match self {
             Self::Array(a) => Some(a),
@@ -100,6 +131,7 @@ impl<'v> MutableValue for Value<'v> {
         }
     }
     #[inline]
+    #[must_use]
     fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as MutableValue>::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
@@ -112,6 +144,7 @@ impl<'v> ValueTrait for Value<'v> {
     type Key = Cow<'v, str>;
 
     #[inline]
+    #[must_use]
     fn value_type(&self) -> ValueType {
         match self {
             Self::Static(s) => s.value_type(),
@@ -122,6 +155,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     #[inline]
+    #[must_use]
     fn is_null(&self) -> bool {
         match self {
             Self::Static(StaticNode::Null) => true,
@@ -130,6 +164,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     #[inline]
+    #[must_use]
     fn as_bool(&self) -> Option<bool> {
         match self {
             Self::Static(StaticNode::Bool(b)) => Some(*b),
@@ -138,44 +173,65 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     #[inline]
+    #[must_use]
     fn as_i64(&self) -> Option<i64> {
         match self {
-            Self::Static(StaticNode::I64(i)) => Some(*i),
-            Self::Static(StaticNode::U64(i)) => i64::try_from(*i).ok(),
+            Self::Static(s) => s.as_i64(),
             _ => None,
         }
     }
 
     #[inline]
+    #[must_use]
+    fn as_i128(&self) -> Option<i128> {
+        match self {
+            Self::Static(s) => s.as_i128(),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    #[must_use]
     #[allow(clippy::cast_sign_loss)]
     fn as_u64(&self) -> Option<u64> {
         match self {
-            Self::Static(StaticNode::I64(i)) => u64::try_from(*i).ok(),
-            Self::Static(StaticNode::U64(i)) => Some(*i),
+            Self::Static(s) => s.as_u64(),
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline]
+    #[must_use]
+    #[allow(clippy::cast_sign_loss)]
+    fn as_u128(&self) -> Option<u128> {
+        match self {
+            Self::Static(s) => s.as_u128(),
             _ => None,
         }
     }
 
     #[inline]
+    #[must_use]
     fn as_f64(&self) -> Option<f64> {
         match self {
-            Self::Static(StaticNode::F64(i)) => Some(*i),
+            Self::Static(s) => s.as_f64(),
             _ => None,
         }
     }
 
     #[inline]
+    #[must_use]
     #[allow(clippy::cast_precision_loss)]
     fn cast_f64(&self) -> Option<f64> {
         match self {
-            Self::Static(StaticNode::F64(i)) => Some(*i),
-            Self::Static(StaticNode::I64(i)) => Some(*i as f64),
-            Self::Static(StaticNode::U64(i)) => Some(*i as f64),
+            Self::Static(s) => s.cast_f64(),
             _ => None,
         }
     }
 
     #[inline]
+    #[must_use]
     fn as_str(&self) -> Option<&str> {
         use std::borrow::Borrow;
         match self {
@@ -185,6 +241,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     #[inline]
+    #[must_use]
     fn as_array(&self) -> Option<&Vec<Value<'v>>> {
         match self {
             Self::Array(a) => Some(a),
@@ -193,6 +250,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 
     #[inline]
+    #[must_use]
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
@@ -215,6 +273,8 @@ impl<'v> fmt::Display for Value<'v> {
 
 impl<'v> Index<&str> for Value<'v> {
     type Output = Value<'v>;
+    #[inline]
+    #[must_use]
     fn index(&self, index: &str) -> &Self::Output {
         self.get(index).unwrap()
     }
@@ -222,24 +282,32 @@ impl<'v> Index<&str> for Value<'v> {
 
 impl<'v> Index<usize> for Value<'v> {
     type Output = Value<'v>;
+    #[inline]
+    #[must_use]
     fn index(&self, index: usize) -> &Self::Output {
         self.get_idx(index).unwrap()
     }
 }
 
 impl<'v> IndexMut<&str> for Value<'v> {
+    #[inline]
+    #[must_use]
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
         self.get_mut(index).unwrap()
     }
 }
 
 impl<'v> IndexMut<usize> for Value<'v> {
+    #[inline]
+    #[must_use]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.get_idx_mut(index).unwrap()
     }
 }
 
 impl<'v> Default for Value<'v> {
+    #[inline]
+    #[must_use]
     fn default() -> Self {
         Self::Static(StaticNode::Null)
     }
@@ -307,8 +375,10 @@ mod test {
         assert_eq!(v.remove("key"), Err(AccessError::NotAnObject));
         let mut v = Value::object();
         assert_eq!(v.insert("key", 1), Ok(None));
+        assert_eq!(v["key"], 1);
         assert_eq!(v.insert("key", 2), Ok(Some(Value::from(1))));
-        assert_eq!(v.remove("key"), Ok(Some(Value::from(2))));
+        v["key"] = 3.into();
+        assert_eq!(v.remove("key"), Ok(Some(Value::from(3))));
     }
 
     #[test]
@@ -319,9 +389,45 @@ mod test {
         let mut v = Value::array();
         assert_eq!(v.push(1), Ok(()));
         assert_eq!(v.push(2), Ok(()));
-        assert_eq!(v.pop(), Ok(Some(Value::from(2))));
+        assert_eq!(v[0], 1);
+        v[0] = 0.into();
+        v[1] = 1.into();
         assert_eq!(v.pop(), Ok(Some(Value::from(1))));
+        assert_eq!(v.pop(), Ok(Some(Value::from(0))));
         assert_eq!(v.pop(), Ok(None));
+    }
+
+    #[cfg(feature = "128bit")]
+    #[test]
+    fn conversions_i128() {
+        let v = Value::from(i128::max_value());
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(!v.is_i64());
+        assert!(!v.is_u64());
+        assert!(!v.is_i32());
+        assert!(!v.is_u32());
+        assert!(!v.is_i16());
+        assert!(!v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
+        let v = Value::from(i128::min_value());
+        assert!(v.is_i128());
+        assert!(!v.is_u128());
+        assert!(!v.is_i64());
+        assert!(!v.is_u64());
+        assert!(!v.is_i32());
+        assert!(!v.is_u32());
+        assert!(!v.is_i16());
+        assert!(!v.is_u16());
+        assert!(!v.is_i8());
+        assert!(!v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
     }
 
     #[test]
@@ -474,6 +580,25 @@ mod test {
         assert!(v.is_f64_castable());
     }
 
+    #[cfg(feature = "128bit")]
+    #[test]
+    fn conversions_u128() {
+        let v = Value::from(u128::min_value());
+        assert!(v.is_i128());
+        assert!(v.is_u128());
+        assert!(v.is_i64());
+        assert!(v.is_u64());
+        assert!(v.is_i32());
+        assert!(v.is_u32());
+        assert!(v.is_i16());
+        assert!(v.is_u16());
+        assert!(v.is_i8());
+        assert!(v.is_u8());
+        assert!(!v.is_f64());
+        assert!(!v.is_f32());
+        assert!(v.is_f64_castable());
+    }
+
     #[test]
     fn conversions_u64() {
         let v = Value::from(u64::min_value());
@@ -560,6 +685,8 @@ mod test {
         assert!(v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
+        let v = Value::from("not a f64");
+        assert!(!v.is_f64_castable());
     }
 
     #[test]
@@ -583,6 +710,8 @@ mod test {
         let v = Value::from(vec![true]);
         assert!(v.is_array());
         assert_eq!(v.value_type(), ValueType::Array);
+        let v = Value::from("no array");
+        assert!(!v.is_array());
     }
 
     #[test]
@@ -590,6 +719,8 @@ mod test {
         let v = Value::from(true);
         assert!(v.is_bool());
         assert_eq!(v.value_type(), ValueType::Bool);
+        let v = Value::from("no bool");
+        assert!(!v.is_bool());
     }
 
     #[test]
@@ -597,13 +728,43 @@ mod test {
         let v = Value::from(42.0);
         assert!(v.is_f64());
         assert_eq!(v.value_type(), ValueType::F64);
+        let v = Value::from("no float");
+        assert!(!v.is_f64());
     }
 
     #[test]
     fn conversions_int() {
-        let v = Value::from(42);
+        let v = Value::from(-42);
         assert!(v.is_i64());
         assert_eq!(v.value_type(), ValueType::I64);
+        #[cfg(feature = "128bit")]
+        {
+            let v = Value::from(-42_i128);
+            assert!(v.is_i64());
+            assert!(v.is_i128());
+            assert_eq!(v.value_type(), ValueType::I128);
+        }
+        let v = Value::from("no i64");
+        assert!(!v.is_i64());
+        assert!(!v.is_i128());
+    }
+
+    #[test]
+    fn conversions_uint() {
+        let v = Value::from(42_u64);
+        assert!(v.is_u64());
+        assert_eq!(v.value_type(), ValueType::U64);
+        #[cfg(feature = "128bit")]
+        {
+            let v = Value::from(42_u128);
+            assert!(v.is_u64());
+            assert!(v.is_u128());
+            assert_eq!(v.value_type(), ValueType::U128);
+        }
+        let v = Value::from("no u64");
+        assert!(!v.is_u64());
+        #[cfg(feature = "128bit")]
+        assert!(!v.is_u128());
     }
 
     #[test]
@@ -611,6 +772,8 @@ mod test {
         let v = Value::from(());
         assert!(v.is_null());
         assert_eq!(v.value_type(), ValueType::Null);
+        let v = Value::from("no null");
+        assert!(!v.is_null());
     }
 
     #[test]
@@ -618,6 +781,8 @@ mod test {
         let v = Value::from(Object::new());
         assert!(v.is_object());
         assert_eq!(v.value_type(), ValueType::Object);
+        let v = Value::from("no object");
+        assert!(!v.is_object());
     }
 
     #[test]
@@ -625,6 +790,13 @@ mod test {
         let v = Value::from("bla");
         assert!(v.is_str());
         assert_eq!(v.value_type(), ValueType::String);
+        let v = Value::from(42);
+        assert!(!v.is_str());
+    }
+
+    #[test]
+    fn default() {
+        assert_eq!(Value::default(), Value::null())
     }
 
     use proptest::prelude::*;

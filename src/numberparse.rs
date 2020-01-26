@@ -3,9 +3,9 @@ use crate::unlikely;
 use crate::StaticNode;
 use crate::*;
 
-#[cfg(target_arch = "x86")]
+#[cfg(all(target_arch = "x86", feature = "swar-number-parsing"))]
 use std::arch::x86::*;
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "swar-number-parsing"))]
 use std::arch::x86_64::*;
 
 const POWER_OF_TEN: [f64; 632] = [
@@ -100,6 +100,7 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // at a glance, it looks better than Mula's
 // http://0x80.pl/articles/swar-digits-validate.html
 
+#[cfg(all(feature = "swar-number-parsing"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[allow(clippy::cast_ptr_alignment)]
 fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
@@ -117,7 +118,10 @@ fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    feature = "swar-number-parsing"
+))]
 #[allow(
     clippy::cast_sign_loss,
     clippy::cast_possible_wrap,
@@ -156,11 +160,11 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
 }
 
 impl<'de> Deserializer<'de> {
-    /// called by parse_number when we know that the output is a float,
+    /// called by `parse_number` when we know that the output is a float,
     /// but where there might be some integer overflow. The trick here is to
     /// parse using floats from the start.
     /// Do not call this function directly as it skips some of the checks from
-    /// parse_number
+    /// `parse_number`
     ///
     /// This function will almost never be called!!!
     ///
@@ -307,14 +311,15 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    /// called by parse_number when we know that the output is an integer,
+    /// called by `parse_number` when we know that the output is an integer,
     /// but where there might be some integer overflow.
     /// we want to catch overflows!
     /// Do not call this function directly as it skips some of the checks from
-    /// parse_number
+    /// `parse_number`
     ///
     /// This function will almost never be called!!!
     ///
+    #[cfg(not(feature = "128bit"))]
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
     fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
@@ -353,7 +358,7 @@ impl<'de> Deserializer<'de> {
             }
         }
 
-        if negative && i >= 9_223_372_036_854_775_808 {
+        if negative && i > 9_223_372_036_854_775_808 {
             //i64::min_value() * -1
             return Err(Self::raw_error(
                 idx + digitcount,
@@ -369,9 +374,78 @@ impl<'de> Deserializer<'de> {
                 ErrorType::InvalidNumber,
             ))
         } else if negative {
-            Ok(StaticNode::I64(-(i as i64)))
+            unsafe { Ok(StaticNode::I64(static_cast_i64!(i.wrapping_neg()))) }
         } else {
             Ok(StaticNode::U64(i))
+        }
+    }
+
+    #[cfg(feature = "128bit")]
+    #[inline(never)]
+    #[allow(clippy::cast_possible_wrap)]
+    fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
+        use std::convert::TryFrom;
+        let mut digitcount = if negative { 1 } else { 0 };
+        let mut i: u128;
+        let mut d = unsafe { *buf.get_unchecked(digitcount) };
+        let mut digit: u8;
+
+        if d == b'0' {
+            digitcount += 1;
+            d = unsafe { *buf.get_unchecked(digitcount) };
+            i = 0;
+        } else {
+            digit = d - b'0';
+            i = u128::from(digit);
+            digitcount += 1;
+            d = unsafe { *buf.get_unchecked(digitcount) };
+            // the is_made_of_eight_digits_fast routine is unlikely to help here because
+            // we rarely see large integer parts like 123456789
+            while is_integer(d) {
+                digit = d - b'0';
+                if let Some(i1) = i
+                    .checked_mul(10)
+                    .and_then(|i| i.checked_add(u128::from(digit)))
+                {
+                    i = i1;
+                } else {
+                    return Err(Self::raw_error(
+                        idx + digitcount,
+                        d as char,
+                        ErrorType::Overflow,
+                    ));
+                }
+                digitcount += 1;
+                d = unsafe { *buf.get_unchecked(digitcount) };
+            }
+        }
+
+        if negative && i > 170_141_183_460_469_231_731_687_303_715_884_105_728_u128 {
+            //i64::min_value() * -1
+            return Err(Self::raw_error(
+                idx + digitcount,
+                d as char,
+                ErrorType::Overflow,
+            ));
+        }
+
+        if is_structural_or_whitespace(d) == 0 {
+            Err(Self::raw_error(
+                idx + digitcount,
+                d as char,
+                ErrorType::InvalidNumber,
+            ))
+        } else if negative {
+            let i = unsafe { static_cast_i128!(i.wrapping_neg()) };
+            if let Ok(i) = i64::try_from(i) {
+                Ok(StaticNode::I64(i))
+            } else {
+                Ok(StaticNode::I128(i))
+            }
+        } else if let Ok(i) = u64::try_from(i) {
+            Ok(StaticNode::U64(i))
+        } else {
+            Ok(StaticNode::U128(i))
         }
     }
 
@@ -560,7 +634,7 @@ impl<'de> Deserializer<'de> {
                 return Self::parse_large_integer(idx, buf, negative);
             }
             if negative {
-                StaticNode::I64((i as i64).wrapping_neg())
+                unsafe { StaticNode::I64(static_cast_i64!(i.wrapping_neg())) }
             } else {
                 StaticNode::U64(i)
             }

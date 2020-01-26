@@ -47,7 +47,7 @@ jobs:
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
           file: ./sse.xml
-          flags: e
+          flags: sse
   tarpaulin-avx2:
     runs-on: ubuntu-latest
     steps:
@@ -86,7 +86,7 @@ jobs:
         env:
           RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
           PROPTEST_CASES: 512
-        run: cargo tarpaulin -v --features no-inline known-key --out Xml && cp cobertura.xml sse-known-key.xml
+        run: cargo tarpaulin -v --features no-inline,known-key,128bit --out Xml && cp cobertura.xml sse-known-key.xml
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
@@ -108,7 +108,7 @@ jobs:
         env:
           RUSTFLAGS: "-C target-cpu=native"
           PROPTEST_CASES: 512
-        run: cargo tarpaulin -v --features no-inline known-key --out Xml && cp cobertura.xml avx2-known-key.xml
+        run: cargo tarpaulin -v --features no-inline,known-key,128bit --out Xml && cp cobertura.xml avx2-known-key.xml
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required

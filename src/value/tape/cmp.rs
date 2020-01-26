@@ -1,54 +1,7 @@
-use super::Value;
-use crate::{BorrowedValue, Value as ValueTrait};
+use super::StaticNode;
+use crate::Value as ValueTrait;
 
-#[allow(clippy::cast_sign_loss, clippy::default_trait_access)]
-impl PartialEq<BorrowedValue<'_>> for Value {
-    #[inline]
-    #[must_use]
-    fn eq(&self, other: &BorrowedValue<'_>) -> bool {
-        match (self, other) {
-            (Self::Static(s1), BorrowedValue::Static(s2)) => s1 == s2,
-            (Self::String(v1), BorrowedValue::String(v2)) => v1.eq(v2),
-            (Self::Array(v1), BorrowedValue::Array(v2)) => v1.eq(v2),
-            (Self::Object(v1), BorrowedValue::Object(v2)) => {
-                if v1.len() != v2.len() {
-                    return false;
-                }
-                v1.iter()
-                    .all(|(key, value)| v2.get(key.as_str()).map_or(false, |v| value == v))
-            }
-            _ => false,
-        }
-    }
-}
-
-#[allow(clippy::cast_sign_loss, clippy::default_trait_access)]
-impl PartialEq for Value {
-    #[inline]
-    #[must_use]
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Static(s1), Self::Static(s2)) => s1.eq(s2),
-            (Self::String(v1), Self::String(v2)) => v1.eq(v2),
-            (Self::Array(v1), Self::Array(v2)) => v1.eq(v2),
-            (Self::Object(v1), Self::Object(v2)) => v1.eq(v2),
-            _ => false,
-        }
-    }
-}
-
-impl<T> PartialEq<&T> for Value
-where
-    Value: PartialEq<T>,
-{
-    #[inline]
-    #[must_use]
-    fn eq(&self, other: &&T) -> bool {
-        self == *other
-    }
-}
-
-impl PartialEq<()> for Value {
+impl PartialEq<()> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, _other: &()) -> bool {
@@ -56,7 +9,7 @@ impl PartialEq<()> for Value {
     }
 }
 
-impl PartialEq<bool> for Value {
+impl PartialEq<bool> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &bool) -> bool {
@@ -64,7 +17,7 @@ impl PartialEq<bool> for Value {
     }
 }
 
-impl PartialEq<str> for Value {
+impl PartialEq<str> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &str) -> bool {
@@ -72,7 +25,7 @@ impl PartialEq<str> for Value {
     }
 }
 
-impl PartialEq<&str> for Value {
+impl PartialEq<&str> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &&str) -> bool {
@@ -80,7 +33,7 @@ impl PartialEq<&str> for Value {
     }
 }
 
-impl PartialEq<String> for Value {
+impl PartialEq<String> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &String) -> bool {
@@ -88,7 +41,7 @@ impl PartialEq<String> for Value {
     }
 }
 
-impl PartialEq<i8> for Value {
+impl PartialEq<i8> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &i8) -> bool {
@@ -96,7 +49,7 @@ impl PartialEq<i8> for Value {
     }
 }
 
-impl PartialEq<i16> for Value {
+impl PartialEq<i16> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &i16) -> bool {
@@ -104,7 +57,7 @@ impl PartialEq<i16> for Value {
     }
 }
 
-impl PartialEq<i32> for Value {
+impl PartialEq<i32> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &i32) -> bool {
@@ -112,7 +65,7 @@ impl PartialEq<i32> for Value {
     }
 }
 
-impl PartialEq<i64> for Value {
+impl PartialEq<i64> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &i64) -> bool {
@@ -120,7 +73,7 @@ impl PartialEq<i64> for Value {
     }
 }
 
-impl PartialEq<i128> for Value {
+impl PartialEq<i128> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &i128) -> bool {
@@ -128,7 +81,7 @@ impl PartialEq<i128> for Value {
     }
 }
 
-impl PartialEq<u8> for Value {
+impl PartialEq<u8> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &u8) -> bool {
@@ -136,7 +89,7 @@ impl PartialEq<u8> for Value {
     }
 }
 
-impl PartialEq<u16> for Value {
+impl PartialEq<u16> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &u16) -> bool {
@@ -144,7 +97,7 @@ impl PartialEq<u16> for Value {
     }
 }
 
-impl PartialEq<u32> for Value {
+impl PartialEq<u32> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &u32) -> bool {
@@ -152,7 +105,7 @@ impl PartialEq<u32> for Value {
     }
 }
 
-impl PartialEq<u64> for Value {
+impl PartialEq<u64> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &u64) -> bool {
@@ -160,7 +113,7 @@ impl PartialEq<u64> for Value {
     }
 }
 
-impl PartialEq<usize> for Value {
+impl PartialEq<usize> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &usize) -> bool {
@@ -168,7 +121,7 @@ impl PartialEq<usize> for Value {
     }
 }
 
-impl PartialEq<u128> for Value {
+impl PartialEq<u128> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &u128) -> bool {
@@ -176,14 +129,14 @@ impl PartialEq<u128> for Value {
     }
 }
 
-impl PartialEq<f32> for Value {
+impl PartialEq<f32> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &f32) -> bool {
         self.as_f32().map(|t| t.eq(other)).unwrap_or_default()
     }
 }
-impl PartialEq<f64> for Value {
+impl PartialEq<f64> for StaticNode {
     #[inline]
     #[must_use]
     fn eq(&self, other: &f64) -> bool {

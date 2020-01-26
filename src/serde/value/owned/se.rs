@@ -15,8 +15,12 @@ impl Serialize for Value {
             Self::Static(StaticNode::Bool(b)) => serializer.serialize_bool(*b),
             Self::Static(StaticNode::Null) => serializer.serialize_unit(),
             Self::Static(StaticNode::F64(f)) => serializer.serialize_f64(*f),
-            Self::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
             Self::Static(StaticNode::U64(i)) => serializer.serialize_u64(*i),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::U128(i)) => serializer.serialize_u128(*i),
+            Self::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::I128(i)) => serializer.serialize_i128(*i),
             Self::String(s) => serializer.serialize_str(&s),
             Self::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
@@ -709,10 +713,17 @@ mod test {
     #[test]
     fn from_slice_to_object() {
         let o = Obj::default();
-        let mut vec = serde_json::to_vec(&o).expect("to_vec");
+        let vec = serde_json::to_vec(&o).expect("to_vec");
+        let mut vec1 = vec.clone();
+        let mut vec2 = vec.clone();
+
         println!("{}", serde_json::to_string_pretty(&o).expect("json"));
-        let de: Obj = from_slice(&mut vec).expect("from_slice");
+        let de: Obj = from_slice(&mut vec1).expect("from_slice");
         assert_eq!(o, de);
+        let val = crate::to_owned_value(&mut vec2).expect("to_owned_value");
+
+        let vec3 = serde_json::to_vec(&val).expect("to_vec");
+        assert_eq!(vec, vec3);
     }
 
     use proptest::prelude::*;

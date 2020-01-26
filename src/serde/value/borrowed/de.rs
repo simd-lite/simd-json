@@ -21,8 +21,12 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
         match self {
             Value::Static(StaticNode::Null) => visitor.visit_unit(),
             Value::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
-            Value::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
-            Value::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            Self::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::I128(n)) => visitor.visit_i128(n),
+            Self::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            #[cfg(feature = "128bit")]
+            Self::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
             Value::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
             Value::String(s) => match s {
                 Cow::Borrowed(s) => visitor.visit_borrowed_str(s),
@@ -178,6 +182,15 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::Static(StaticNode::I64(value)))
     }
 
+    #[cfg(feature = "128bit")]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_i128<E>(self, value: i128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::Static(StaticNode::I128(value)))
+    }
+
     /****************** u64 ******************/
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -210,6 +223,15 @@ impl<'de> Visitor<'de> for ValueVisitor {
         E: de::Error,
     {
         Ok(Value::Static(StaticNode::U64(value)))
+    }
+
+    #[cfg(feature = "128bit")]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn visit_u128<E>(self, value: u128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Value::Static(StaticNode::U128(value)))
     }
 
     /****************** f64 ******************/

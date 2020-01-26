@@ -22,7 +22,11 @@ where
             Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
             Node::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
             Node::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
+            #[cfg(feature = "128bit")]
+            Node::Static(StaticNode::I128(n)) => visitor.visit_i128(n),
             Node::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            #[cfg(feature = "128bit")]
+            Node::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
             Node::Array(len, _) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
             Node::Object(len, _) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
         }
@@ -49,7 +53,7 @@ where
     {
         match stry!(self.next()) {
             Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
-            _c => Err(self.error(ErrorType::ExpectedBoolean)),
+            _c => Err(Deserializer::error(ErrorType::ExpectedBoolean)),
         }
     }
 
@@ -63,7 +67,7 @@ where
         if let Ok(Node::String(s)) = self.next() {
             visitor.visit_borrowed_str(s)
         } else {
-            Err(self.error(ErrorType::ExpectedString))
+            Err(Deserializer::error(ErrorType::ExpectedString))
         }
     }
 
@@ -75,7 +79,7 @@ where
         if let Ok(Node::String(s)) = self.next() {
             visitor.visit_str(s)
         } else {
-            Err(self.error(ErrorType::ExpectedString))
+            Err(Deserializer::error(ErrorType::ExpectedString))
         }
     }
 
@@ -87,8 +91,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: i64 = stry!(self.parse_signed());
-        visitor.visit_i8(v as i8)
+        visitor.visit_i8(stry!(self.parse_i8()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -97,8 +100,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: i64 = stry!(self.parse_signed());
-        visitor.visit_i16(v as i16)
+        visitor.visit_i16(stry!(self.parse_i16()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -107,8 +109,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: i64 = stry!(self.parse_signed());
-        visitor.visit_i32(v as i32)
+        visitor.visit_i32(stry!(self.parse_i32()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -116,7 +117,15 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i64(stry!(self.parse_signed()))
+        visitor.visit_i64(stry!(self.parse_i64()))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_i128(stry!(self.parse_i128()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -125,8 +134,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: u64 = stry!(self.parse_unsigned());
-        visitor.visit_u8(v as u8)
+        visitor.visit_u8(stry!(self.parse_u8()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -135,8 +143,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: u64 = stry!(self.parse_unsigned());
-        visitor.visit_u16(v as u16)
+        visitor.visit_u16(stry!(self.parse_u16()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -145,8 +152,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: u64 = stry!(self.parse_unsigned());
-        visitor.visit_u32(v as u32)
+        visitor.visit_u32(stry!(self.parse_u32()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -154,7 +160,15 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u64(stry!(self.parse_unsigned()))
+        visitor.visit_u64(stry!(self.parse_u64()))
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u128(stry!(self.parse_u128()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -204,7 +218,7 @@ where
         V: Visitor<'de>,
     {
         if stry!(self.next()) != Node::Static(StaticNode::Null) {
-            return Err(self.error(ErrorType::ExpectedNull));
+            return Err(Deserializer::error(ErrorType::ExpectedNull));
         }
         visitor.visit_unit()
     }
@@ -222,7 +236,7 @@ where
             // Give the visitor access to each element of the sequence.
             visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
         } else {
-            Err(self.error(ErrorType::ExpectedArray))
+            Err(Deserializer::error(ErrorType::ExpectedArray))
         }
     }
 
@@ -285,7 +299,7 @@ where
             // Give the visitor access to each element of the sequence.
             visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
         } else {
-            Err(self.error(ErrorType::ExpectedMap))
+            Err(Deserializer::error(ErrorType::ExpectedMap))
         }
     }
 
@@ -303,7 +317,7 @@ where
     }
 
     forward_to_deserialize_any! {
-            i128 u128 char
+            char
             bytes byte_buf enum
             identifier ignored_any
     }
