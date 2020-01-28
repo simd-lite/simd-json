@@ -1,14 +1,5 @@
 #![allow(dead_code)]
-#[cfg(target_feature = "avx2")]
-use crate::avx2::stage1::SIMDJSON_PADDING;
 use crate::charutils::*;
-#[cfg(target_feature = "neon")]
-use crate::neon::stage1::SIMDJSON_PADDING;
-#[cfg(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    not(target_feature = "avx2")
-))]
-use crate::sse42::stage1::SIMDJSON_PADDING;
 use crate::value::tape::*;
 use crate::{Deserializer, Error, ErrorType, Result};
 
@@ -122,17 +113,16 @@ impl<'de> Deserializer<'de> {
     pub(crate) fn build_tape(
         input: &'de mut [u8],
         input2: &[u8],
+        buffer: &mut [u8],
         structural_indexes: &[u32],
     ) -> Result<Vec<Node<'de>>> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
         let mut res: Vec<Node<'de>> = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
-        let mut buffer: Vec<u8> = Vec::with_capacity(input.len() + SIMDJSON_PADDING * 2);
         unsafe {
             stack.set_len(structural_indexes.len());
             res.set_len(structural_indexes.len());
-            buffer.set_len(input.len() + SIMDJSON_PADDING * 2);
         }
 
         let mut depth: usize = 0;
@@ -207,10 +197,7 @@ impl<'de> Deserializer<'de> {
         macro_rules! insert_str {
             () => {
                 insert_res!(Node::String(s2try!(Self::parse_str_(
-                    input,
-                    &input2,
-                    &mut buffer,
-                    idx
+                    input, &input2, buffer, idx
                 ))));
             };
         }
