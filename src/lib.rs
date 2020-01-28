@@ -401,7 +401,6 @@ impl<'de> Deserializer<'de> {
         // we allocate double the size so we can re-use this as a input buffer
         let buffer_len = (len + SIMDJSON_PADDING * 2) * 2;
         let mut buffer: Vec<u8> = Vec::with_capacity(buffer_len);
-        dbg!(len, buffer_len);
         let align = buffer.as_slice().as_ptr().align_offset(SIMDJSON_PADDING);
         unsafe {
             buffer.set_len(len + align + 1);

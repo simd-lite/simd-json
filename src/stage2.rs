@@ -125,7 +125,6 @@ impl<'de> Deserializer<'de> {
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
         let mut res: Vec<Node<'de>> = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
-        dbg!(input2.len() / 2);
         let mut buffer: &mut [u8] = unsafe { std::mem::transmute(buffer) };
         unsafe {
             stack.set_len(structural_indexes.len());
