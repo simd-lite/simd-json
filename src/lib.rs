@@ -383,24 +383,9 @@ impl<'de> Deserializer<'de> {
     // That way basic use cases are satisfied by something like
     // `serde_json::from_str(...)` while advanced use cases that require a
     // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
-    pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
-        let len = input.len();
-
-        let mut string_buffer: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
-        unsafe {
-            string_buffer.set_len(len + SIMDJSON_PADDING);
-        };
-
-        Deserializer::from_slice_with_buffer(input, &mut string_buffer)
-    }
-
-    // By convention, `Deserializer` constructors are named like `from_xyz`.
-    // That way basic use cases are satisfied by something like
-    // `serde_json::from_str(...)` while advanced use cases that require a
-    // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
     // this takes an additional buffer to be (re) used for temporary string copying
 
-    pub fn from_slice_with_buffer(input: &'de mut [u8], string_buffer: &mut [u8]) -> Result<Self> {
+    pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
         // We have to pick an initial size of the structural indexes.
         // 6 is a heuristic that seems to work well for the benchmark
         // data and limit re-allocation frequency.
@@ -410,7 +395,6 @@ impl<'de> Deserializer<'de> {
         // let buf_start: usize = input.as_ptr() as *const () as usize;
         // let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
         let mut buffer: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING * 2);
-
         let align = buffer
             .as_slice()
             .as_ptr()
@@ -434,8 +418,7 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let tape =
-            Deserializer::build_tape(input, &buffer[align..], string_buffer, &structural_indexes)?;
+        let tape = Deserializer::build_tape(input, &buffer[align..], &structural_indexes)?;
 
         Ok(Deserializer { tape, idx: 0 })
     }
@@ -701,6 +684,16 @@ mod tests {
     #[test]
     fn silly_float1() {
         let v = Value::from(3.090_144_804_232_201_7e305);
+        let s = v.encode();
+        dbg!(&s);
+        let mut bytes = s.as_bytes().to_vec();
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        assert_eq!(v, parsed);
+    }
+
+    #[test]
+    fn simple_string() {
+        let v = Value::from("hello");
         let s = v.encode();
         dbg!(&s);
         let mut bytes = s.as_bytes().to_vec();

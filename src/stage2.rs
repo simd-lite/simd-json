@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use crate::charutils::*;
 use crate::value::tape::*;
-use crate::{Deserializer, Error, ErrorType, Result};
+use crate::{Deserializer, Error, ErrorType, Result, SIMDJSON_PADDING};
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 #[allow(clippy::cast_ptr_alignment)]
@@ -113,16 +113,18 @@ impl<'de> Deserializer<'de> {
     pub(crate) fn build_tape(
         input: &'de mut [u8],
         input2: &[u8],
-        buffer: &mut [u8],
         structural_indexes: &[u32],
     ) -> Result<Vec<Node<'de>>> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
         let mut res: Vec<Node<'de>> = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
+        let mut string_buffer: Vec<u8> = Vec::with_capacity(input.len() + SIMDJSON_PADDING);
+        let mut str_idx: usize = 0;
         unsafe {
             stack.set_len(structural_indexes.len());
             res.set_len(structural_indexes.len());
+            string_buffer.set_len(input.len())
         }
 
         let mut depth: usize = 0;
@@ -169,6 +171,7 @@ impl<'de> Deserializer<'de> {
             () => {
                 unsafe {
                     res.set_len(r_i);
+                    input.clone_from_slice(get!(string_buffer.as_slice(), ..input.len()));
                     return Ok(res);
                 }
             };
@@ -197,7 +200,11 @@ impl<'de> Deserializer<'de> {
         macro_rules! insert_str {
             () => {
                 insert_res!(Node::String(s2try!(Self::parse_str_(
-                    input, &input2, buffer, idx
+                    &input,
+                    &input2,
+                    &mut string_buffer,
+                    idx,
+                    &mut str_idx
                 ))));
             };
         }
