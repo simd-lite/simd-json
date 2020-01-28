@@ -121,6 +121,7 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines, unused_unsafe)]
     pub(crate) fn build_tape(
         input: &'de mut [u8],
+        input2: Vec<u8>,
         structural_indexes: &[u32],
     ) -> Result<Vec<Node<'de>>> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
@@ -411,12 +412,9 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'-' => {
-                let len = input.len();
-                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
-                unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
                 insert_res!(Node::Static(s2try!(Self::parse_number_int(
                     idx,
-                    &copy[idx..],
+                    get!(input2, idx..),
                     true
                 ))));
 
@@ -427,12 +425,9 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'0'..=b'9' => {
-                let len = input.len();
-                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
-                unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
                 insert_res!(Node::Static(s2try!(Self::parse_number_int(
                     idx,
-                    &copy[idx..],
+                    get!(input2, idx..),
                     false
                 ))));
 
@@ -486,7 +481,7 @@ impl<'de> Deserializer<'de> {
                         b'-' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
-                                get!(input, idx..),
+                                get!(input2, idx..),
                                 true
                             ))));
                             object_continue!();
@@ -494,7 +489,7 @@ impl<'de> Deserializer<'de> {
                         b'0'..=b'9' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
-                                &input[idx..],
+                                get!(input2, idx..),
                                 false
                             ))));
                             object_continue!();
@@ -596,7 +591,7 @@ impl<'de> Deserializer<'de> {
                         b'-' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
-                                &input[idx..],
+                                get!(input2, idx..),
                                 true
                             ))));
                             array_continue!();
@@ -604,7 +599,7 @@ impl<'de> Deserializer<'de> {
                         b'0'..=b'9' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
-                                &input[idx..],
+                                get!(input2, idx..),
                                 false
                             ))));
                             array_continue!();
