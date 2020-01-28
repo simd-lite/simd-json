@@ -10,7 +10,6 @@ repository = "https://github.com/simd-lite/simdjson-rs"
 
 [dependencies]
 halfbrown = "0.1"
-page_size = "0.4"
 itoa = "0.4"
 ryu = "1"
 

@@ -22,6 +22,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub(crate) fn parse_str_<'invoke>(
         input: &'de [u8],
+        data: &'invoke [u8],
         buffer: &'invoke mut [u8],
         mut idx: usize,
     ) -> Result<&'de str> {
@@ -29,29 +30,16 @@ impl<'de> Deserializer<'de> {
         let input: &mut [u8] = unsafe { std::mem::transmute(input) };
         // Add 1 to skip the initial "
         idx += 1;
-        let mut padding = [0_u8; 32];
-        //let mut read: usize = 0;
 
         // we include the terminal '"' so we know where to end
         // This is safe since we check sub's lenght in the range access above and only
         // create sub sliced form sub to `sub.len()`.
 
-        let src: &[u8] = unsafe { input.get_unchecked(idx..) };
+        let src: &[u8] = unsafe { data.get_unchecked(idx..) };
         let mut src_i: usize = 0;
         let mut len = src_i;
         loop {
-            let v: __m128i = if src.len() >= src_i + 16 {
-                // This is safe since we ensure src is at least 16 wide
-                unsafe { _mm_loadu_si128(src.as_ptr().add(src_i) as *const __m128i) }
-            } else {
-                unsafe {
-                    padding
-                        .get_unchecked_mut(..src.len() - src_i)
-                        .clone_from_slice(src.get_unchecked(src_i..));
-                    // This is safe since we ensure src is at least 32 wide
-                    _mm_loadu_si128(padding.as_ptr() as *const __m128i)
-                }
-            };
+            let v: __m128i = unsafe { _mm_loadu_si128(src.as_ptr().add(src_i) as *const __m128i) };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
@@ -103,18 +91,7 @@ impl<'de> Deserializer<'de> {
 
         // To be more conform with upstream
         loop {
-            let v: __m128i = if src.len() >= src_i + 16 {
-                // This is safe since we ensure src is at least 16 wide
-                unsafe { _mm_loadu_si128(src.as_ptr().add(src_i) as *const __m128i) }
-            } else {
-                unsafe {
-                    padding
-                        .get_unchecked_mut(..src.len() - src_i)
-                        .clone_from_slice(src.get_unchecked(src_i..));
-                    // This is safe since we ensure src is at least 16 wide
-                    _mm_loadu_si128(padding.as_ptr() as *const __m128i)
-                }
-            };
+            let v: __m128i = unsafe { _mm_loadu_si128(src.as_ptr().add(src_i) as *const __m128i) };
 
             unsafe { _mm_storeu_si128(buffer.as_mut_ptr().add(dst_i) as *mut __m128i, v) };
 

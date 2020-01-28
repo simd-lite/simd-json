@@ -1,14 +1,5 @@
 #![allow(dead_code)]
-#[cfg(target_feature = "avx2")]
-use crate::avx2::stage1::SIMDJSON_PADDING;
 use crate::charutils::*;
-#[cfg(target_feature = "neon")]
-use crate::neon::stage1::SIMDJSON_PADDING;
-#[cfg(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    not(target_feature = "avx2")
-))]
-use crate::sse42::stage1::SIMDJSON_PADDING;
 use crate::value::tape::*;
 use crate::{Deserializer, Error, ErrorType, Result};
 
@@ -121,17 +112,17 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines, unused_unsafe)]
     pub(crate) fn build_tape(
         input: &'de mut [u8],
+        input2: &[u8],
+        buffer: &mut [u8],
         structural_indexes: &[u32],
     ) -> Result<Vec<Node<'de>>> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to pretect against that.
         let mut res: Vec<Node<'de>> = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
-        let mut buffer: Vec<u8> = Vec::with_capacity(input.len() + SIMDJSON_PADDING * 2);
         unsafe {
             stack.set_len(structural_indexes.len());
             res.set_len(structural_indexes.len());
-            buffer.set_len(input.len() + SIMDJSON_PADDING * 2);
         }
 
         let mut depth: usize = 0;
@@ -187,7 +178,7 @@ impl<'de> Deserializer<'de> {
                 if i < structural_indexes.len() {
                     idx = *get!(structural_indexes, i) as usize;
                     i += 1;
-                    c = *get!(input, idx);
+                    c = *get!(input2, idx);
                 } else {
                     fail!(ErrorType::Syntax);
                 }
@@ -206,9 +197,7 @@ impl<'de> Deserializer<'de> {
         macro_rules! insert_str {
             () => {
                 insert_res!(Node::String(s2try!(Self::parse_str_(
-                    input,
-                    &mut buffer,
-                    idx
+                    input, &input2, buffer, idx
                 ))));
             };
         }
@@ -355,11 +344,8 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b't' => {
-                let len = input.len();
-                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
-                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_true_atom(get!(copy, idx..)) {
+                    if !is_valid_true_atom(get!(input2, idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
@@ -371,11 +357,8 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'f' => {
-                let len = input.len();
-                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
-                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_false_atom(get!(copy, idx..)) {
+                    if !is_valid_false_atom(get!(input2, idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
@@ -387,11 +370,8 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'n' => {
-                let len = input.len();
-                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
                 unsafe {
-                    copy.as_mut_ptr().copy_from(input.as_ptr(), len);
-                    if !is_valid_null_atom(get!(copy, idx..)) {
+                    if !is_valid_null_atom(get!(input2, idx..)) {
                         fail!(ErrorType::ExpectedNull); // TODO: better error
                     }
                 };
@@ -411,12 +391,9 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'-' => {
-                let len = input.len();
-                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
-                unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
                 insert_res!(Node::Static(s2try!(Self::parse_number_int(
                     idx,
-                    &copy[idx..],
+                    get!(input2, idx..),
                     true
                 ))));
 
@@ -427,12 +404,9 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'0'..=b'9' => {
-                let len = input.len();
-                let mut copy = vec![0_u8; len + SIMDJSON_PADDING];
-                unsafe { copy.as_mut_ptr().copy_from(input.as_ptr(), len) };
                 insert_res!(Node::Static(s2try!(Self::parse_number_int(
                     idx,
-                    &copy[idx..],
+                    get!(input2, idx..),
                     false
                 ))));
 
@@ -464,21 +438,21 @@ impl<'de> Deserializer<'de> {
                         }
                         b't' => {
                             insert_res!(Node::Static(StaticNode::Bool(true)));
-                            if !is_valid_true_atom(get!(input, idx..)) {
+                            if !is_valid_true_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'f' => {
                             insert_res!(Node::Static(StaticNode::Bool(false)));
-                            if !is_valid_false_atom(get!(input, idx..)) {
+                            if !is_valid_false_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             object_continue!();
                         }
                         b'n' => {
                             insert_res!(Node::Static(StaticNode::Null));
-                            if !is_valid_null_atom(get!(input, idx..)) {
+                            if !is_valid_null_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             object_continue!();
@@ -486,7 +460,7 @@ impl<'de> Deserializer<'de> {
                         b'-' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
-                                get!(input, idx..),
+                                get!(input2, idx..),
                                 true
                             ))));
                             object_continue!();
@@ -494,7 +468,7 @@ impl<'de> Deserializer<'de> {
                         b'0'..=b'9' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
-                                &input[idx..],
+                                get!(input2, idx..),
                                 false
                             ))));
                             object_continue!();
@@ -574,21 +548,21 @@ impl<'de> Deserializer<'de> {
                         }
                         b't' => {
                             insert_res!(Node::Static(StaticNode::Bool(true)));
-                            if !is_valid_true_atom(unsafe { input.get_unchecked(idx..) }) {
+                            if !is_valid_true_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'f' => {
                             insert_res!(Node::Static(StaticNode::Bool(false)));
-                            if !is_valid_false_atom(unsafe { input.get_unchecked(idx..) }) {
+                            if !is_valid_false_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedBoolean); // TODO: better error
                             }
                             array_continue!();
                         }
                         b'n' => {
                             insert_res!(Node::Static(StaticNode::Null));
-                            if !is_valid_null_atom(unsafe { input.get_unchecked(idx..) }) {
+                            if !is_valid_null_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedNull); // TODO: better error
                             }
                             array_continue!();
@@ -596,7 +570,7 @@ impl<'de> Deserializer<'de> {
                         b'-' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
-                                &input[idx..],
+                                get!(input2, idx..),
                                 true
                             ))));
                             array_continue!();
@@ -604,7 +578,7 @@ impl<'de> Deserializer<'de> {
                         b'0'..=b'9' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number_int(
                                 idx,
-                                &input[idx..],
+                                get!(input2, idx..),
                                 false
                             ))));
                             array_continue!();
