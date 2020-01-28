@@ -55,7 +55,6 @@ impl<'de> Deserializer<'de> {
         let input: &mut [u8] = unsafe { std::mem::transmute(input) };
         // Add 1 to skip the initial "
         idx += 1;
-        let mut padding = [0_u8; 32];
         //let mut read: usize = 0;
 
         // we include the terminal '"' so we know where to end
@@ -66,25 +65,11 @@ impl<'de> Deserializer<'de> {
         let mut src_i: usize = 0;
         let mut len = src_i;
         loop {
-            let (v0, v1) = if src.len() >= src_i + 32 {
-                // This is safe since we ensure src is at least 16 wide
-                unsafe {
-                    (
-                        vld1q_u8(src.get_unchecked(src_i..src_i + 16).as_ptr()),
-                        vld1q_u8(src.get_unchecked(src_i + 16..src_i + 32).as_ptr()),
-                    )
-                }
-            } else {
-                unsafe {
-                    padding
-                        .get_unchecked_mut(..src.len() - src_i)
-                        .clone_from_slice(src.get_unchecked(src_i..));
-                    // This is safe since we ensure src is at least 32 wide
-                    (
-                        vld1q_u8(padding.get_unchecked(0..16).as_ptr()),
-                        vld1q_u8(padding.get_unchecked(16..32).as_ptr()),
-                    )
-                }
+            let (v0, v1) = unsafe {
+                (
+                    vld1q_u8(src.get_unchecked(src_i..src_i + 16).as_ptr()),
+                    vld1q_u8(src.get_unchecked(src_i + 16..src_i + 32).as_ptr()),
+                )
             };
 
             let (bs_bits, quote_bits) = find_bs_bits_and_quote_bits(v0, v1);
@@ -129,25 +114,11 @@ impl<'de> Deserializer<'de> {
 
         // To be more conform with upstream
         loop {
-            let (v0, v1) = if src.len() >= src_i + 32 {
-                // This is safe since we ensure src is at least 16 wide
-                unsafe {
-                    (
-                        vld1q_u8(src.get_unchecked(src_i..src_i + 16).as_ptr()),
-                        vld1q_u8(src.get_unchecked(src_i + 16..src_i + 32).as_ptr()),
-                    )
-                }
-            } else {
-                unsafe {
-                    padding
-                        .get_unchecked_mut(..src.len() - src_i)
-                        .clone_from_slice(src.get_unchecked(src_i..));
-                    // This is safe since we ensure src is at least 32 wide
-                    (
-                        vld1q_u8(padding.get_unchecked(0..16).as_ptr()),
-                        vld1q_u8(padding.get_unchecked(16..32).as_ptr()),
-                    )
-                }
+            let (v0, v1) = unsafe {
+                (
+                    vld1q_u8(src.get_unchecked(src_i..src_i + 16).as_ptr()),
+                    vld1q_u8(src.get_unchecked(src_i + 16..src_i + 32).as_ptr()),
+                )
             };
 
             unsafe {

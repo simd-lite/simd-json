@@ -393,18 +393,20 @@ impl<'de> Deserializer<'de> {
         // let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
 
         let mut buffer: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING * 2);
+        let align = buffer.as_slice().as_ptr().align_offset(SIMDJSON_PADDING);
+        dbg!(align, SIMDJSON_PADDING);
         unsafe {
-            buffer.set_len(len + 1);
+            buffer.set_len(len + align + 1);
             buffer
                 .as_mut_slice()
-                .get_unchecked_mut(0..len)
+                .get_unchecked_mut(align..align + len)
                 .clone_from_slice(input);
-            *(buffer.get_unchecked_mut(len)) = 0;
-            buffer.set_len(len);
+            *(buffer.get_unchecked_mut(len + align)) = 0;
+            buffer.set_len(len + align);
         };
 
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
-            unsafe { Deserializer::find_structural_bits(&buffer) };
+            unsafe { Deserializer::find_structural_bits(&buffer[align..]) };
 
         let structural_indexes = match s1_result {
             Ok(i) => i,
@@ -413,7 +415,7 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let tape = Deserializer::build_tape(input, buffer, &structural_indexes)?;
+        let tape = Deserializer::build_tape(input, &buffer[align..], &structural_indexes)?;
 
         Ok(Deserializer { tape, idx: 0 })
     }

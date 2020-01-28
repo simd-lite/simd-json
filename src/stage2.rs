@@ -121,7 +121,7 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines, unused_unsafe)]
     pub(crate) fn build_tape(
         input: &'de mut [u8],
-        input2: Vec<u8>,
+        input2: &[u8],
         structural_indexes: &[u32],
     ) -> Result<Vec<Node<'de>>> {
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
