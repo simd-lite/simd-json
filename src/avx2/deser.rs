@@ -32,7 +32,6 @@ impl<'de> Deserializer<'de> {
         let input: &mut [u8] = unsafe { std::mem::transmute(input) };
         // Add 1 to skip the initial "
         idx += 1;
-        let mut padding = [0_u8; 32];
         //let mut read: usize = 0;
 
         // we include the terminal '"' so we know where to end
@@ -43,18 +42,8 @@ impl<'de> Deserializer<'de> {
         let mut src_i: usize = 0;
         let mut len = src_i;
         loop {
-            let v: __m256i = if src.len() >= src_i + 32 {
-                // This is safe since we ensure src is at least 32 wide
-                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) }
-            } else {
-                unsafe {
-                    padding
-                        .get_unchecked_mut(..src.len() - src_i)
-                        .clone_from_slice(src.get_unchecked(src_i..));
-                    // This is safe since we ensure src is at least 32 wide
-                    _mm256_loadu_si256(padding.as_ptr() as *const __m256i)
-                }
-            };
+            let v: __m256i =
+                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
@@ -106,18 +95,8 @@ impl<'de> Deserializer<'de> {
 
         // To be more conform with upstream
         loop {
-            let v: __m256i = if src.len() >= src_i + 32 {
-                // This is safe since we ensure src is at least 32 wide
-                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) }
-            } else {
-                unsafe {
-                    padding
-                        .get_unchecked_mut(..src.len() - src_i)
-                        .clone_from_slice(src.get_unchecked(src_i..));
-                    // This is safe since we ensure src is at least 32 wide
-                    _mm256_loadu_si256(padding.as_ptr() as *const __m256i)
-                }
-            };
+            let v: __m256i =
+                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) };
 
             unsafe { _mm256_storeu_si256(buffer.as_mut_ptr().add(dst_i) as *mut __m256i, v) };
 
