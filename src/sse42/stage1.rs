@@ -23,6 +23,8 @@ macro_rules! high_nibble_mask {
 
 pub const SIMDJSON_PADDING: usize = mem::size_of::<__m128i>() * 2;
 pub const SIMDINPUT_LENGTH: usize = 64;
+pub const SIMD_ZERO_COUNT: usize = 16;
+pub const SIMD_ZEROS: [u8; SIMD_ZERO_COUNT] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 #[derive(Debug)]
 pub(crate) struct SimdInput {

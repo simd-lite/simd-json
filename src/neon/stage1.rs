@@ -49,6 +49,8 @@ pub unsafe fn neon_movemask_bulk(
 
 pub const SIMDJSON_PADDING: usize = mem::size_of::<uint8x16_t>() * 4;
 pub const SIMDINPUT_LENGTH: usize = 64;
+pub const SIMD_ZERO_COUNT: usize = 16;
+pub const SIMD_ZEROS: [u8; SIMD_ZERO_COUNT] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 unsafe fn check_ascii(si: &SimdInput) -> bool {
