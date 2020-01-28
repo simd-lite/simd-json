@@ -158,9 +158,7 @@ mod avx2;
 #[cfg(target_feature = "avx2")]
 pub use crate::avx2::deser::*;
 #[cfg(target_feature = "avx2")]
-use crate::avx2::stage1::{
-    SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING, SIMD_ZEROS, SIMD_ZERO_COUNT,
-};
+use crate::avx2::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 
 #[cfg(all(
     any(target_arch = "x86", target_arch = "x86_64"),
@@ -176,18 +174,14 @@ pub use crate::sse42::deser::*;
     any(target_arch = "x86", target_arch = "x86_64"),
     not(target_feature = "avx2")
 ))]
-use crate::sse42::stage1::{
-    SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING, SIMD_ZEROS, SIMD_ZERO_COUNT,
-};
+use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 
 #[cfg(all(target_feature = "neon", feature = "neon"))]
 mod neon;
 #[cfg(all(target_feature = "neon", feature = "neon"))]
 pub use crate::neon::deser::*;
 #[cfg(all(target_feature = "neon", feature = "neon"))]
-use crate::neon::stage1::{
-    SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING, SIMD_ZEROS, SIMD_ZERO_COUNT,
-};
+use crate::neon::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 
 use crate::utf8check::ProcessedUtfBytes;
 
@@ -398,10 +392,7 @@ impl<'de> Deserializer<'de> {
         // let buf_start: usize = input.as_ptr() as *const () as usize;
         // let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
 
-        // we allocate double the size so we can re-use this as a input buffer
-        let buffer_len = (len + SIMDJSON_PADDING * 2) * 2;
-        let mut buffer: Vec<u8> = Vec::with_capacity(buffer_len);
-        dbg!(len, buffer_len);
+        let mut buffer: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING * 2);
         let align = buffer.as_slice().as_ptr().align_offset(SIMDJSON_PADDING);
         unsafe {
             buffer.set_len(len + align + 1);
@@ -409,15 +400,12 @@ impl<'de> Deserializer<'de> {
                 .as_mut_slice()
                 .get_unchecked_mut(align..align + len)
                 .clone_from_slice(input);
-            buffer
-                .as_mut_slice()
-                .get_unchecked_mut(len + align..len + align + SIMD_ZERO_COUNT)
-                .clone_from_slice(&SIMD_ZEROS);
-            buffer.set_len(buffer_len);
+            *(buffer.get_unchecked_mut(len + align)) = 0;
+            buffer.set_len(len + align);
         };
 
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
-            unsafe { Deserializer::find_structural_bits(&buffer[align..align + len]) };
+            unsafe { Deserializer::find_structural_bits(&buffer[align..]) };
 
         let structural_indexes = match s1_result {
             Ok(i) => i,
@@ -426,12 +414,7 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let tape = Deserializer::build_tape(
-            input,
-            &buffer[align..],
-            &buffer[len + align + SIMDJSON_PADDING..],
-            &structural_indexes,
-        )?;
+        let tape = Deserializer::build_tape(input, &buffer[align..], &structural_indexes)?;
 
         Ok(Deserializer { tape, idx: 0 })
     }
