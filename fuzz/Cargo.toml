@@ -26,3 +26,11 @@ path = "fuzz_targets/fuzz_target_1.rs"
 [[bin]]
 name = "passing"
 path = "fuzz_targets/passing.rs"
+
+[[bin]]
+name = "failing"
+path = "fuzz_targets/failing.rs"
+
+[[bin]]
+name = "real"
+path = "fuzz_targets/real.rs"
