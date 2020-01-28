@@ -24,6 +24,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub(crate) fn parse_str_<'invoke>(
         input: &'de [u8],
+        data: &'invoke [u8],
         buffer: &'invoke mut [u8],
         mut idx: usize,
     ) -> Result<&'de str> {
@@ -38,7 +39,7 @@ impl<'de> Deserializer<'de> {
         // This is safe since we check sub's lenght in the range access above and only
         // create sub sliced form sub to `sub.len()`.
 
-        let src: &[u8] = unsafe { input.get_unchecked(idx..) };
+        let src: &[u8] = unsafe { data.get_unchecked(idx..) };
         let mut src_i: usize = 0;
         let mut len = src_i;
         loop {
