@@ -26,6 +26,8 @@ To be able to take advantage of simdjson your system needs to be SIMD compatible
 
 simd-json.rs supports AVX2, SSE4.2 and NEON.
 
+Unless the `allow-non-simd` feature is passed simd-json will fail to compile, this is to prevent unexpected slowness in fallback mode that can be hard to understand.
+
 ### allocator
 
 For best performance we highly suggest using [mimalloc](https://crates.io/crates/mimalloc) or [jemalloc](https://crates.io/crates/jemalloc) instead of the system allocator used by default.
