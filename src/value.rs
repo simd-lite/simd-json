@@ -165,6 +165,9 @@ pub trait MutableValue: IndexMut<usize> + Value + Sized {
     /// Will return an `AccessError::NotAnObject` if called
     /// on a `Value` that isn't an object - otherwise will
     /// behave the same as `HashMap::insert`
+    /// # Errors
+    ///
+    /// Will return `Err` if `self` is not an object.
     #[inline]
     fn insert<K, V>(&mut self, k: K, v: V) -> std::result::Result<Option<Self>, AccessError>
     where
@@ -181,6 +184,9 @@ pub trait MutableValue: IndexMut<usize> + Value + Sized {
     /// Will return an `AccessError::NotAnObject` if called
     /// on a `Value` that isn't an object - otherwise will
     /// behave the same as `HashMap::remove`
+    /// # Errors
+    ///
+    /// Will return `Err` if `self` is not an Object.
     #[inline]
     fn remove<Q: ?Sized>(&mut self, k: &Q) -> std::result::Result<Option<Self>, AccessError>
     where
@@ -196,6 +202,9 @@ pub trait MutableValue: IndexMut<usize> + Value + Sized {
     /// Will return an `AccessError::NotAnArray` if called
     /// on a `Value` that isn't an `Array` - otherwise will
     /// behave the same as `Vec::push`
+    /// # Errors
+    ///
+    /// Will return `Err` if `self` is not an array.
     #[inline]
     fn push<V>(&mut self, v: V) -> std::result::Result<(), AccessError>
     where
@@ -210,6 +219,9 @@ pub trait MutableValue: IndexMut<usize> + Value + Sized {
     /// Will return an `AccessError::NotAnArray` if called
     /// on a `Value` that isn't an `Array` - otherwise will
     /// behave the same as `Vec::pop`
+    /// # Errors
+    ///
+    /// Will return `Err` if `self` is not an array.
     #[inline]
     fn pop(&mut self) -> std::result::Result<Option<Self>, AccessError> {
         self.as_array_mut()
@@ -516,6 +528,10 @@ pub trait Value:
 /// rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
 /// has the dame lifetime as the slice it was created from.
+///
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
 pub fn deserialize<'de, Value, Key>(s: &'de mut [u8]) -> Result<Value>
 where
     Value: ValueBuilder + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,

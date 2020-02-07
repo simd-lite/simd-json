@@ -48,6 +48,10 @@ impl std::error::Error for SerdeConversionError {}
 
 /// parses a byte slice using a serde deserializer.
 /// note that the slice will be rewritten in the process.
+///
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
 where
@@ -59,6 +63,10 @@ where
 /// parses a str  using a serde deserializer.
 /// note that the slice will be rewritten in the process and
 /// might not remain a valid utf8 string in its entirety.
+///
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn from_str<'a, T>(s: &'a mut str) -> Result<T>
 where
@@ -70,6 +78,11 @@ where
 }
 
 /// parses a Reader using a serde deserializer.
+///
+/// # Errors
+///
+/// Will return `Err` if an IO error is encountred while reading
+/// rdr or if the readers content is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn from_reader<R, T>(mut rdr: R) -> Result<T>
 where

@@ -8,6 +8,10 @@ use serde_ext::ser::Serialize;
 
 /// Tries to convert a struct that implements serde's serialize into
 /// an `OwnedValue`
+///
+/// # Errors
+///
+/// Will return `Err` if value fails to be turned into a owned value
 pub fn to_value<T>(value: T) -> Result<OwnedValue>
 where
     T: Serialize,
@@ -17,6 +21,10 @@ where
 
 /// Tries to convert a `OwnedValue` into a struct that implements
 /// serde's Deserialize interface
+///
+/// # Errors
+///
+/// Will return `Err` if `value` fails to be deserialized
 pub fn from_value<T>(value: OwnedValue) -> Result<T>
 where
     T: DeserializeOwned,

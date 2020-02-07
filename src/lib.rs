@@ -206,6 +206,9 @@ pub use known_key::{Error as KnownKeyError, KnownKey};
 pub use crate::tape::{Node, StaticNode, Tape};
 
 /// Creates a tape from the input for later consumption
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
 pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Node<'input>>> {
     let de = stry!(Deserializer::from_slice(s));
     Ok(de.tape)

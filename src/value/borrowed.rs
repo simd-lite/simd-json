@@ -38,6 +38,10 @@ pub type Object<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 /// rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
 /// has the dame lifetime as the slice it was created from.
+///
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
 pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
     match Deserializer::from_slice(s) {
         Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),

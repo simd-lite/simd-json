@@ -84,6 +84,7 @@ pub enum ErrorType {
 }
 
 impl PartialEq for ErrorType {
+    #[must_use]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::IO(_), Self::IO(_))

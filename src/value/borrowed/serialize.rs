@@ -34,6 +34,10 @@ impl<'value> Value<'value> {
     }
 
     /// Encodes the value into it's JSON representation into a Writer
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if an IO error is encountered
     pub fn write<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
@@ -43,6 +47,10 @@ impl<'value> Value<'value> {
     }
 
     /// Encodes the value into it's JSON representation into a Writer, pretty printed
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if an IO error is encountered
     pub fn write_pp<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
