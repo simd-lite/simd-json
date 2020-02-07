@@ -83,6 +83,7 @@ pub enum ErrorType {
     IO(std::io::Error),
 }
 
+#[cfg_attr(tarpaulin, skip)]
 impl PartialEq for ErrorType {
     #[must_use]
     fn eq(&self, other: &Self) -> bool {
