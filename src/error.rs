@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// Error types encountered while parsing
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum ErrorType {
     /// The key of a map isn't a string
     BadKeyType,
@@ -79,8 +79,56 @@ pub enum ErrorType {
     ExpectedObjectKey,
     /// Overflow of a limited buffer
     Overflow,
+    /// IO error
+    IO(std::io::Error),
 }
 
+impl PartialEq for ErrorType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::IO(_), Self::IO(_))
+            | (Self::BadKeyType, Self::BadKeyType)
+            | (Self::EarlyEnd, Self::EarlyEnd)
+            | (Self::ExpectedArray, Self::ExpectedArray)
+            | (Self::ExpectedArrayComma, Self::ExpectedArrayComma)
+            | (Self::ExpectedBoolean, Self::ExpectedBoolean)
+            | (Self::ExpectedEnum, Self::ExpectedEnum)
+            | (Self::ExpectedFloat, Self::ExpectedFloat)
+            | (Self::ExpectedInteger, Self::ExpectedInteger)
+            | (Self::ExpectedMap, Self::ExpectedMap)
+            | (Self::ExpectedObjectColon, Self::ExpectedObjectColon)
+            | (Self::ExpectedMapComma, Self::ExpectedMapComma)
+            | (Self::ExpectedMapEnd, Self::ExpectedMapEnd)
+            | (Self::ExpectedNull, Self::ExpectedNull)
+            | (Self::ExpectedNumber, Self::ExpectedNumber)
+            | (Self::ExpectedSigned, Self::ExpectedSigned)
+            | (Self::ExpectedString, Self::ExpectedString)
+            | (Self::ExpectedUnsigned, Self::ExpectedUnsigned)
+            | (Self::InternalError, Self::InternalError)
+            | (Self::InvalidEscape, Self::InvalidEscape)
+            | (Self::InvalidExponent, Self::InvalidExponent)
+            | (Self::InvalidNumber, Self::InvalidNumber)
+            | (Self::InvalidUTF8, Self::InvalidUTF8)
+            | (Self::InvalidUnicodeEscape, Self::InvalidUnicodeEscape)
+            | (Self::InvlaidUnicodeCodepoint, Self::InvlaidUnicodeCodepoint)
+            | (Self::KeyMustBeAString, Self::KeyMustBeAString)
+            | (Self::NoStructure, Self::NoStructure)
+            | (Self::Parser, Self::Parser)
+            | (Self::EOF, Self::EOF)
+            | (Self::Syntax, Self::Syntax)
+            | (Self::TrailingCharacters, Self::TrailingCharacters)
+            | (Self::UnexpectedCharacter, Self::UnexpectedCharacter)
+            | (Self::UnexpectedEnd, Self::UnexpectedEnd)
+            | (Self::UnterminatedString, Self::UnterminatedString)
+            | (Self::ExpectedArrayContent, Self::ExpectedArrayContent)
+            | (Self::ExpectedObjectContent, Self::ExpectedObjectContent)
+            | (Self::ExpectedObjectKey, Self::ExpectedObjectKey)
+            | (Self::Overflow, Self::Overflow) => true,
+            (Self::Serde(s1), Self::Serde(s2)) => s1 == s2,
+            _ => false,
+        }
+    }
+}
 /// Parser error
 #[derive(Debug, PartialEq)]
 pub struct Error {
