@@ -37,6 +37,10 @@ pub type Object = HashMap<String, Value>;
 /// We do not keep any references to the raw data but re-allocate
 /// owned memory whereever required thus returning a value without
 /// a lifetime.
+///
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
 pub fn to_value(s: &mut [u8]) -> Result<Value> {
     match Deserializer::from_slice(s) {
         Ok(de) => Ok(OwnedDeserializer::from_deserializer(de).parse()),
