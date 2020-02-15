@@ -63,6 +63,8 @@ swar-number-parsing = []
 serde_impl = [ "serde", "serde_json", "halfbrown/serde" ]
 # Support for ARM NEON SIMD
 neon = ["simd-lite"]
+# Allow fallback to non simd CPUs
+allow-non-simd = []
 # for testing allocations
 alloc = ["alloc_counter"]
 # don't inline code - used for debugging

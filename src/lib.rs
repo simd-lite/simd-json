@@ -160,20 +160,11 @@ pub use crate::avx2::deser::*;
 #[cfg(target_feature = "avx2")]
 use crate::avx2::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 
-#[cfg(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    not(target_feature = "avx2")
-))]
+#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
 mod sse42;
-#[cfg(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    not(target_feature = "avx2")
-))]
+#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
 pub use crate::sse42::deser::*;
-#[cfg(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    not(target_feature = "avx2")
-))]
+#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
 use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 
 #[cfg(all(target_feature = "neon", feature = "neon"))]
@@ -182,6 +173,41 @@ mod neon;
 pub use crate::neon::deser::*;
 #[cfg(all(target_feature = "neon", feature = "neon"))]
 use crate::neon::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
+
+// We import this as generics
+#[cfg(all(not(any(
+    target_feature = "sse4.2",
+    target_feature = "avx2",
+    target_feature = "neon"
+))))]
+mod sse42;
+#[cfg(all(not(any(
+    target_feature = "sse4.2",
+    target_feature = "avx2",
+    target_feature = "neon"
+))))]
+#[cfg(all(not(any(
+    target_feature = "sse4.2",
+    target_feature = "avx2",
+    target_feature = "neon"
+))))]
+pub use crate::sse42::deser::*;
+#[cfg(all(not(any(
+    target_feature = "sse4.2",
+    target_feature = "avx2",
+    target_feature = "neon"
+))))]
+use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
+
+#[cfg(all(
+    not(feature = "allow-non-simd"),
+    not(any(
+        target_feature = "sse4.2",
+        target_feature = "avx2",
+        target_feature = "neon"
+    ))
+))]
+fn please_compile_with_a_simd_compatible_cpu_setting_read_the_simdjonsrs_readme() -> ! {}
 
 use crate::utf8check::ProcessedUtfBytes;
 
