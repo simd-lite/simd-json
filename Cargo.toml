@@ -7,6 +7,8 @@ exclude = [ "data/*" ]
 license = "Apache-2.0/MIT"
 description = "High performance JSON parser based on a port of simdjson"
 repository = "https://github.com/simd-lite/simdjson-rs"
+readme = "./README.md"
+documentation = "https://docs.rs/simd-json"
 
 [dependencies]
 halfbrown = "0.1"
