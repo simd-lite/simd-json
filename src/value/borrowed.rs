@@ -106,7 +106,7 @@ impl<'v> Value<'v> {
     }
 }
 
-impl<'v> ValueBuilder for Value<'v> {
+impl<'v> ValueBuilder<'v> for Value<'v> {
     #[inline]
     #[must_use]
     fn null() -> Self {

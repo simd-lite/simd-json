@@ -62,6 +62,7 @@ pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
 use crate::{Deserializer, Result};
 use halfbrown::HashMap;
 use std::borrow::Borrow;
+use std::borrow::Cow;
 use std::convert::TryInto;
 use std::fmt;
 use std::hash::Hash;
@@ -122,7 +123,7 @@ pub enum ValueType {
 use std::ops::{Index, IndexMut};
 
 /// Support of builder methods for traits.
-pub trait ValueBuilder:
+pub trait ValueBuilder<'input>:
     Default
     + From<StaticNode>
     + From<i8>
@@ -138,6 +139,8 @@ pub trait ValueBuilder:
     + From<String>
     + From<bool>
     + From<()>
+    + From<&'input str>
+    + From<Cow<'input, str>>
 {
     /// Returns an empty array with a given capacity
     fn array_with_capacity(capacity: usize) -> Self;
@@ -283,6 +286,18 @@ pub trait Value:
         Q: Hash + Eq,
     {
         self.as_object().and_then(|a| a.get(k))
+    }
+
+    /// Checks if a Value contains a given key. This will return
+    /// flase if Value isn't an object  
+    #[inline]
+    #[must_use]
+    fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
+    where
+        Self::Key: Borrow<Q> + Hash + Eq,
+        Q: Hash + Eq,
+    {
+        self.as_object().and_then(|a| a.get(k)).is_some()
     }
 
     /// Gets a ref to a value based on n index, returns `None` if the
@@ -534,7 +549,7 @@ pub trait Value:
 /// Will return `Err` if `s` is invalid JSON.
 pub fn deserialize<'de, Value, Key>(s: &'de mut [u8]) -> Result<Value>
 where
-    Value: ValueBuilder + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     match Deserializer::from_slice(s) {
@@ -544,7 +559,7 @@ where
 }
 struct ValueDeserializer<'de, Value, Key>
 where
-    Value: ValueBuilder + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     de: Deserializer<'de>,
@@ -553,7 +568,7 @@ where
 
 impl<'de, Value, Key> ValueDeserializer<'de, Value, Key>
 where
-    Value: ValueBuilder + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Value: ValueBuilder<'de> + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     pub fn from_deserializer(de: Deserializer<'de>) -> Self {
