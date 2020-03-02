@@ -42,7 +42,7 @@
 ///
 /// Nested changes are also possible:
 /// ```rust
-/// use simd_json::{OwnedValue as Value, Value as ValueTrait, ValueBuilder, MutableValue};
+/// use simd_json::{OwnedValue as Value, Value as ValueTrait, ValueBuilder, MutableValue, WritableValue};
 /// let mut o = Value::object();
 /// o.insert("key", Value::array());
 /// o["key"].push(Value::object());
@@ -118,6 +118,37 @@ pub enum ValueType {
     Array,
     /// an object
     Object,
+}
+
+use std::io::{self, Write};
+
+/// A Value that can be serialized and written
+pub trait WritableValue {
+    /// Encodes the value into it's JSON representation as a string
+    #[must_use]
+    fn encode(&self) -> String;
+
+    /// Encodes the value into it's JSON representation as a string (pretty printed)
+    #[must_use]
+    fn encode_pp(&self) -> String;
+
+    /// Encodes the value into it's JSON representation into a Writer
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if an IO error is encountered
+    fn write<'writer, W>(&self, w: &mut W) -> io::Result<()>
+    where
+        W: 'writer + Write;
+
+    /// Encodes the value into it's JSON representation into a Writer, pretty printed
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if an IO error is encountered.
+    fn write_pp<'writer, W>(&self, w: &mut W) -> io::Result<()>
+    where
+        W: 'writer + Write;
 }
 
 use std::ops::{Index, IndexMut};

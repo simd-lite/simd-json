@@ -371,6 +371,7 @@ mod test {
     #![allow(clippy::cognitive_complexity)]
     use super::*;
     use crate::value::{AccessError, Value as ValueTrait};
+    use crate::WritableValue;
 
     #[test]
     fn object_access() {

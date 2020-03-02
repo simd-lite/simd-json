@@ -641,6 +641,7 @@ impl<'de> Deserializer<'de> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
+    use super::WritableValue;
     use super::{owned::Value, to_borrowed_value, to_owned_value, Deserializer};
     use crate::tape::*;
     use proptest::prelude::*;
