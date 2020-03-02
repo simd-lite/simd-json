@@ -7,38 +7,30 @@
 use super::{Object, Value};
 use crate::stry;
 use crate::value::generator::*;
-use crate::value::Value as ValueTrait;
+use crate::value::{Value as ValueTrait, WritableValue};
 use crate::StaticNode;
 use std::io;
 use std::io::Write;
 
 //use util::print_dec;
 
-impl<'value> Value<'value> {
-    /// Encodes the value into it's JSON representation as a string
+impl<'value> WritableValue for Value<'value> {
     #[inline]
-    #[must_use]
-    pub fn encode(&self) -> String {
+    fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
         let _ = g.write_json(&self);
         g.consume()
     }
 
-    /// Encodes the value into it's JSON representation as a string (pretty printed)
     #[inline]
-    #[must_use]
-    pub fn encode_pp(&self) -> String {
+    fn encode_pp(&self) -> String {
         let mut g = PrettyGenerator::new(2);
         let _ = g.write_json(&self);
         g.consume()
     }
 
-    /// Encodes the value into it's JSON representation into a Writer
-    ///
-    /// # Errors
-    ///
-    /// Will return `Err` if an IO error is encountered
-    pub fn write<'writer, W>(&self, w: &mut W) -> io::Result<()>
+    #[inline]
+    fn write<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
     {
@@ -46,12 +38,8 @@ impl<'value> Value<'value> {
         g.write_json(self)
     }
 
-    /// Encodes the value into it's JSON representation into a Writer, pretty printed
-    ///
-    /// # Errors
-    ///
-    /// Will return `Err` if an IO error is encountered
-    pub fn write_pp<'writer, W>(&self, w: &mut W) -> io::Result<()>
+    #[inline]
+    fn write_pp<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
     {
@@ -165,6 +153,8 @@ where
 mod test {
     use super::Value;
     use crate::StaticNode;
+    use crate::WritableValue;
+
     #[test]
     fn null() {
         assert_eq!(Value::Static(StaticNode::Null).encode(), "null")
