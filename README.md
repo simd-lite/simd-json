@@ -22,46 +22,60 @@
 
 ### CPU target
 
-To be able to take advantage of simdjson your system needs to be SIMD compatible. This means to compile with native cpu support and the given features. Look at [The cargo config in this repository](.cargo/config) to get an example.
+To be able to take advantage of `simd-json` your system needs to be SIMD capable. This means that it needs to compile with native cpu support and the given features. This also requires that projects using `simd-json` also need to be configured with native cpu support. Look at [The cargo config in this repository](.cargo/config) to get an example of how to configure this in your project.
 
-simd-json.rs supports AVX2, SSE4.2 and NEON.
+`simd-json` supports AVX2, SSE4.2 and NEON.
 
-Unless the `allow-non-simd` feature is passed simd-json will fail to compile, this is to prevent unexpected slowness in fallback mode that can be hard to understand.
+Unless the `allow-non-simd` feature is passed to your `simd-json` dependency in your `Cargo.toml` `simd-json` will fail to compile, this is to prevent unexpected slowness in fallback mode that can be hard to understand and hard to debug.
 
 ### allocator
 
-For best performance we highly suggest using [mimalloc](https://crates.io/crates/mimalloc) or [jemalloc](https://crates.io/crates/jemalloc) instead of the system allocator used by default.
+For best performance we highly suggest using [mimalloc](https://crates.io/crates/mimalloc) or [jemalloc](https://crates.io/crates/jemalloc) instead of the system allocator used by default. Another recent allocator that works well ( but we have yet to test in production a setting ) is [snmalloc](https://github.com/microsoft/snmalloc).
 
 ## serde
 
-simdjson-rs is compatible with serde and serde-json. The Value types provided implement serializers and deserializers. In addition to that simdjson-rs implements the Deserializer for the parser so it can deserialize anything that implements the serde Deserialize trait.
+`simd-json` is compatible with serde and `serde-json`. The Value types provided implement serializers and deserializers. In addition to that `simd-json` implements the `Deserializer` trait for the parser so it can deserialize anything that implements the serde `Deserialize` trait. Note, that serde provides both a `Deserializer` and a `Deserialize` trait.
 
-That said serde is contained in the `serde_impl` feature which is part of the default feature set, but it can be disabled.
+That said the serde support is contained in the `serde_impl` feature which is part of the default feature set of `simd-json`, but it can be disabled.
 
 ### known-key
 
-The `known-key` feature changes hasher for the objects, from `ahash` to `fxhash`, ahash is faster at hashing and provides protection against DOS attacks by forcing multiple keys into a single hashing bucket. `fxhash`  on the other hand allows for repeatable hashing results, that allows memorizing hashes for well known keys and saving time on lookups. In workloads that are heavy at accessing some well known keys this can be a performance advantage.
+The `known-key` feature changes the hash mechanism for the DOM representation of the underlying JSON object, from `ahash` to `fxhash`. The `ahash` hasher is faster at hashing and provides protection against DOS attacks by forcing multiple keys into a single hashing bucket. The `fxhash` hasher on the other hand allows for repeatable hashing results, which in turn allows memoizing hashes for well known keys and saving time on lookups. In workloads that are heavy at accessing some well known keys this can be a performance advantage.
+
+The `known-key` feature is optional and disabled by default and should be explicitly configured.
 
 ### serializing
 
-simdjson-rs is not capable of serializing JSON data as there would be very little gain by re-implementing it. For serialization, we recommend serde-json.
+`simd-json` is not capable of serializing JSON data as there would be very little gain in re-implementing it. For serialization, we typically rely on `serde-json`.
 
+For DOM values we provide convience methods for serialization.
+
+For struct values we defer to external serde-compatible serialization mechanisms.
 
 ### unsafe
 
-simdjson-rs uses **a lot** of unsafe code first of all since all SIMD-intrinsics are inherently unsafe and also to work around some bottlenecks introduced by rust's safe nature. This requires extra scrutiny and thus needs to be diligently tested according to these 5 steps:
+`simd-json` uses **a lot** of unsafe code.
 
-* Poor old unit tests - to test general 'obvious' cases and edge cases as well as regressions
-* Property based testing on valid json - tests if valid but random generated json parses the same in simd-json and in serde-json (floats here are excluded since slighty different parsing algorihtms lead to slighty different results)
-* Property based testing on random 'human readable' data - make sure that randomly generated sequences of printable characters don't panic or crash the parser (they might and often error so - they are not valid json!)
-* Property based testing on random byte sequences - make sure that no random set of bytes will crash the parser
-* Fuzzing (using afl) - fuzz based on upstream simd pass/fail cases
+There are a few reasons for this:
 
-This certainly doesn't ensure complete safety but it does go a long way.
+* SIMD intrinsics are inherently unsafe. These uses of unsafe are inescapable in a library such as `simd-jons`.
+* We work around some performance bottlenecks imposed by safe rust. These are avoidable, but at a cost to performance. This is a more considered path in `simd-json`.
+
+
+`simd-json` goes through extra scrutiny for unsafe code. These steps are:
+
+* Unit tests - to test 'the obvious' cases, edge cases, and regression cases
+* Structural constructive property based testing - We generate random valid JSON objects to exercise the full `simd-json` codebase stochastically. Floats are currently excluded since slighty different parsing algorihtms lead to slighty different results here. In short "is simd-json correct".
+* Data-oriented property based testing of string-like data - to assert that sequences of legal printable characters don't panic or crash the parser (they might and often error so - they are not valid json!)
+* Destructive Property based testing - make sure that no illegal byte sequences crash the parser in any way
+* Fuzzing (using American Fuzzy Lop - afl) - fuzz based on upstream simd pass/fail cases
+
+This doesn't ensure complete safety nor is at a bullet proof guarantee, but it does go a long way
+to asserting that the library is production quality and fit for purpose for practical industrial applications.
 
 ## Other interesting things
 
-There are also bindings for simdjson available [here](https://github.com/SunDoge/simdjson-rust)
+There are also bindings for upstream `simdjson` available [here](https://github.com/SunDoge/simdjson-rust)
 
 ## License
 
@@ -73,6 +87,6 @@ at your option.
 
 However it ports a lot of code from [simdjson](https://github.com/lemire/simdjson) so their work and copyright on that should be respected along side.
 
-The [serde][1] integration is based on their example and serde-json so again, their copyright should as well be respected.
+The [serde][1] integration is based on their example and `serde-json` so again, their copyright should as well be respected.
 
 [1]: https://serde.rs
