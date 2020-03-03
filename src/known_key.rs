@@ -328,4 +328,14 @@ mod tests {
         assert_eq!(v["key"], 2);
         assert_eq!(v["cake"], 3);
     }
+
+    #[test]
+    fn known_key_get_key() {
+        use std::borrow::Cow;
+        let mut o = Object::with_capacity(128);
+        o.insert("snot".into(), 1.into());
+        let key1 = KnownKey::from(Cow::Borrowed("snot"));
+
+        assert_eq!(key1.key(), "snot");
+    }
 }
