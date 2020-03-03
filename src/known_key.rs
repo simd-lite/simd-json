@@ -46,6 +46,12 @@ where
 }
 
 impl<'key> KnownKey<'key> {
+    /// The known key
+    #[inline]
+    pub fn key(&self) -> &Cow<'key, str> {
+        &self.key
+    }
+
     /// Looks up this key in a `Value`, returns None if the
     /// key wasn't present or `target` isn't an object
     ///
