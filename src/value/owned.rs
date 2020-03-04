@@ -84,6 +84,7 @@ impl<'b> Builder<'b> for Value {
 
 impl Mutable for Value {
     type Key = String;
+
     #[inline]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
@@ -104,6 +105,7 @@ impl Mutable for Value {
 
 impl ValueTrait for Value {
     type Key = String;
+    type Array = Vec<Value>;
 
     #[inline]
     #[must_use]

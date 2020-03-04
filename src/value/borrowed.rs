@@ -126,6 +126,7 @@ impl<'v> Builder<'v> for Value<'v> {
 
 impl<'v> Mutable for Value<'v> {
     type Key = Cow<'v, str>;
+
     #[inline]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
@@ -146,6 +147,7 @@ impl<'v> Mutable for Value<'v> {
 
 impl<'v> ValueTrait for Value<'v> {
     type Key = Cow<'v, str>;
+    type Array = Vec<Value<'v>>;
 
     #[inline]
     #[must_use]
