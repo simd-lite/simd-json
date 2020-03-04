@@ -1,2 +1,4 @@
 /// Prelude to include needed traits
-pub use value_trait::{AccessError, Builder, Mutable, Value as ValueTrait, ValueType, Writable};
+pub use value_trait::{
+    AccessError, Array, Builder, Mutable, Object, Value as ValueTrait, ValueType, Writable,
+};

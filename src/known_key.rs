@@ -1,6 +1,7 @@
 use crate::prelude::*;
+use crate::BorrowedValue as Value;
 use halfbrown::RawEntryMut;
-use std::borrow::{Borrow, Cow};
+use std::borrow::Cow;
 use std::fmt;
 use std::hash::{BuildHasher, Hash, Hasher};
 
@@ -60,17 +61,18 @@ impl<'key> KnownKey<'key> {
     /// let object = json!({
     ///   "answer": 42,
     ///   "key": 7
-    /// });
+    /// }).into();
     /// let known_key = KnownKey::from("answer");
     /// assert_eq!(known_key.lookup(&object).unwrap(), &42);
     /// ```
     #[inline]
-    pub fn lookup<'borrow, 'value, V>(&self, target: &'borrow V) -> Option<&'borrow V>
+    pub fn lookup<'borrow, 'value>(
+        &self,
+        target: &'borrow Value<'value>,
+    ) -> Option<&'borrow Value<'value>>
     where
         'key: 'value,
         'value: 'borrow,
-        V: ValueTrait + 'value,
-        V::Key: Hash + Eq + Borrow<str>,
     {
         target
             .as_object()
@@ -83,27 +85,28 @@ impl<'key> KnownKey<'key> {
     ///
     /// ```rust
     /// use simd_json::*;
-    /// let mut object = json!({
+    /// let mut object: BorrowedValue = json!({
     ///   "answer": 23,
     ///   "key": 7
-    /// });
+    /// }).into();
     /// let known_key = KnownKey::from("answer");
     ///
     /// assert_eq!(object["answer"], 23);
     ///
     /// if let Some(answer) = known_key.lookup_mut(&mut object) {
-    ///   *answer = OwnedValue::from(42);
+    ///   *answer = BorrowedValue::from(42);
     /// }
     ///
     /// assert_eq!(object["answer"], 42);
     /// ```
     #[inline]
-    pub fn lookup_mut<'borrow, 'value, V>(&self, target: &'borrow mut V) -> Option<&'borrow mut V>
+    pub fn lookup_mut<'borrow, 'value>(
+        &self,
+        target: &'borrow mut Value<'value>,
+    ) -> Option<&'borrow mut Value<'value>>
     where
         'key: 'value,
         'value: 'borrow,
-        V: Mutable + 'value,
-        <V as Mutable>::Key: Hash + Eq + Borrow<str>,
     {
         target.as_object_mut().and_then(|m| {
             match m
@@ -121,17 +124,17 @@ impl<'key> KnownKey<'key> {
     ///
     /// ```rust
     /// use simd_json::*;
-    /// let mut object = json!({
+    /// let mut object: BorrowedValue = json!({
     ///   "answer": 23,
     ///   "key": 7
-    /// });
+    /// }).into();
     /// let known_key = KnownKey::from("answer");
     ///
     /// assert_eq!(object["answer"], 23);
     ///
     /// if let Ok(answer) = known_key.lookup_or_insert_mut(&mut object, || 17.into()) {
     ///   assert_eq!(*answer, 23);
-    ///   *answer = OwnedValue::from(42);
+    ///   *answer = BorrowedValue::from(42);
     /// }
     ///
     /// assert_eq!(object["answer"], 42);
@@ -139,23 +142,21 @@ impl<'key> KnownKey<'key> {
     /// let known_key2 = KnownKey::from("also the answer");
     /// if let Ok(answer) = known_key2.lookup_or_insert_mut(&mut object, || 8.into()) {
     ///   assert_eq!(*answer, 8);
-    ///   *answer = OwnedValue::from(42);
+    ///   *answer = BorrowedValue::from(42);
     /// }
     ///
     /// assert_eq!(object["also the answer"], 42);
     /// ```
     #[inline]
-    pub fn lookup_or_insert_mut<'borrow, 'value, V, F>(
+    pub fn lookup_or_insert_mut<'borrow, 'value, F>(
         &self,
-        target: &'borrow mut V,
+        target: &'borrow mut Value<'value>,
         with: F,
-    ) -> Result<&'borrow mut V, Error>
+    ) -> Result<&'borrow mut Value<'value>, Error>
     where
         'key: 'value,
         'value: 'borrow,
-        V: ValueTrait + Mutable + 'value,
-        <V as Mutable>::Key: Hash + Eq + Borrow<str> + From<Cow<'key, str>>,
-        F: FnOnce() -> V,
+        F: FnOnce() -> Value<'value>,
     {
         if !target.is_object() {
             return Err(Error::NotAnObject(target.value_type()));
@@ -177,35 +178,33 @@ impl<'key> KnownKey<'key> {
     ///
     /// ```rust
     /// use simd_json::*;
-    /// let mut object = json!({
+    /// let mut object: BorrowedValue = json!({
     ///   "answer": 23,
     ///   "key": 7
-    /// });
+    /// }).into();
     /// let known_key = KnownKey::from("answer");
     ///
     /// assert_eq!(object["answer"], 23);
     ///
-    /// assert!(known_key.insert(&mut object, OwnedValue::from(42)).is_ok());
+    /// assert!(known_key.insert(&mut object, BorrowedValue::from(42)).is_ok());
     ///
     /// assert_eq!(object["answer"], 42);
     ///
     /// let known_key2 = KnownKey::from("also the answer");
     ///
-    /// assert!(known_key2.insert(&mut object, OwnedValue::from(42)).is_ok());
+    /// assert!(known_key2.insert(&mut object, BorrowedValue::from(42)).is_ok());
     ///
     /// assert_eq!(object["also the answer"], 42);
     /// ```
     #[inline]
-    pub fn insert<'borrow, 'value, V>(
+    pub fn insert<'borrow, 'value>(
         &self,
-        target: &'borrow mut V,
-        value: V,
-    ) -> Result<Option<V>, Error>
+        target: &'borrow mut Value<'value>,
+        value: Value<'value>,
+    ) -> Result<Option<Value<'value>>, Error>
     where
         'key: 'value,
         'value: 'borrow,
-        V: Mutable + 'value,
-        <V as Mutable>::Key: Hash + Eq + Borrow<str> + From<Cow<'key, str>>,
     {
         if !target.is_object() {
             return Err(Error::NotAnObject(target.value_type()));
@@ -230,21 +229,17 @@ impl<'key> KnownKey<'key> {
 mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::*;
-    use crate::borrowed::*;
-    use crate::{BorrowedValue, Builder, Value as ValueTrait};
 
     #[test]
     fn known_key() {
         use std::borrow::Cow;
-        let mut o = Object::new();
-        o.insert("key".into(), 1.into());
+        let mut v = Value::object();
+        v.insert("key", 1).unwrap();
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::from(o);
-
-        assert!(key1.lookup(&BorrowedValue::null()).is_none());
-        assert!(key2.lookup(&BorrowedValue::null()).is_none());
+        assert!(key1.lookup(&Value::null()).is_none());
+        assert!(key2.lookup(&Value::null()).is_none());
         assert!(key1.lookup(&v).is_some());
         assert!(key2.lookup(&v).is_none());
         assert!(key1.lookup_mut(&mut v).is_some());
@@ -254,14 +249,12 @@ mod tests {
     #[test]
     fn known_key_insert() {
         use std::borrow::Cow;
-        let mut o = Object::new();
-        o.insert("key".into(), 1.into());
+        let mut v = Value::object();
+        v.insert("key", 1).unwrap();
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::from(o);
-
-        let mut v1 = BorrowedValue::null();
+        let mut v1 = Value::null();
         assert!(key1.insert(&mut v1, 2.into()).is_err());
         assert!(key2.insert(&mut v1, 2.into()).is_err());
         assert_eq!(key1.insert(&mut v, 2.into()).unwrap(), Some(1.into()));
@@ -273,14 +266,12 @@ mod tests {
     #[test]
     fn lookup_or_insert_mut() {
         use std::borrow::Cow;
-        let mut o = Object::new();
-        o.insert("key".into(), 1.into());
+        let mut v = Value::object();
+        v.insert("key", 1).unwrap();
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::from(o);
-
-        let mut v1 = BorrowedValue::null();
+        let mut v1 = Value::null();
         assert!(key1.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
         assert!(key2.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
 
@@ -296,16 +287,13 @@ mod tests {
     #[test]
     fn known_key_map() {
         use std::borrow::Cow;
-        let mut o = Object::with_capacity(128);
-        assert!(o.is_map());
+        let mut v = Value::object_with_capacity(128);
+        v.insert("key", 1).unwrap();
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        o.insert("key".into(), 1.into());
-        let v = BorrowedValue::from(o);
-
-        assert!(key1.lookup(&BorrowedValue::null()).is_none());
-        assert!(key2.lookup(&BorrowedValue::null()).is_none());
+        assert!(key1.lookup(&Value::null()).is_none());
+        assert!(key2.lookup(&Value::null()).is_none());
         assert!(key1.lookup(&v).is_some());
         assert!(key2.lookup(&v).is_none());
     }
@@ -313,14 +301,13 @@ mod tests {
     #[test]
     fn known_key_insert_map() {
         use std::borrow::Cow;
-        let mut o = Object::with_capacity(128);
-        o.insert("key".into(), 1.into());
+        let mut v = Value::object_with_capacity(128);
+        v.insert("key", 1).unwrap();
         let key1 = KnownKey::from(Cow::Borrowed("key"));
         let key2 = KnownKey::from(Cow::Borrowed("cake"));
 
-        let mut v = BorrowedValue::from(o);
+        let mut v1 = Value::null();
 
-        let mut v1 = BorrowedValue::null();
         assert!(key1.insert(&mut v1, 2.into()).is_err());
         assert!(key2.insert(&mut v1, 2.into()).is_err());
         assert_eq!(key1.insert(&mut v, 2.into()).unwrap(), Some(1.into()));
@@ -331,10 +318,7 @@ mod tests {
 
     #[test]
     fn known_key_get_key() {
-        use std::borrow::Cow;
-        let mut o = Object::with_capacity(128);
-        o.insert("snot".into(), 1.into());
-        let key1 = KnownKey::from(Cow::Borrowed("snot"));
+        let key1 = KnownKey::from("snot");
 
         assert_eq!(key1.key(), "snot");
     }
