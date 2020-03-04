@@ -288,7 +288,7 @@ macro_rules! json_internal {
 
     ({}) => {
         {
-            use value_trait::Builder;
+            use $crate::value::Builder;
             $crate::value::owned::Value::object()
         }
     };
