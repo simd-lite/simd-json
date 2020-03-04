@@ -40,9 +40,6 @@ float-cmp = "0.6"
 # because dev dependenceis can't be optional ...
 alloc_counter = {version = "0.0.4", optional = true}
 
-
-
-
 [dev-dependencies]
 getopts = "0.2"
 proptest = "0.9"
@@ -61,7 +58,7 @@ harness = false
 [features]
 default = ["swar-number-parsing", "serde_impl"]
 # Support for 128 bit integers
-128bit = []
+128bit = ["value-trait/128bit"]
 # used for enabeling known keys in favour of a slower
 # hasher that is not protected against hash collision
 # attacks

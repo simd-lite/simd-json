@@ -1,6 +1,8 @@
 use crate::Value;
 
+/// Functions guaranteed for any array object
 pub trait Array {
+    /// Elements of the array
     type Element: Value;
 
     /// Gets a ref to a value based on n index, returns `None` if the
@@ -20,7 +22,7 @@ pub trait Array {
     fn pop(&mut self) -> Option<Self::Element>;
 
     /// Appends e to the end of the `Array`
-    #[must_use]
+
     fn push(&mut self, e: Self::Element);
 }
 

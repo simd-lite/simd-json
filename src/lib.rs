@@ -17,17 +17,14 @@
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
 #![forbid(warnings)]
 #![warn(unused_extern_crates)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    deny(
-        clippy::all,
-        clippy::result_unwrap_used,
-        clippy::unnecessary_unwrap,
-        clippy::pedantic
-    ),
-    // We might want to revisit inline_always
-    allow(clippy::module_name_repetitions, clippy::inline_always)
+#![deny(
+    clippy::all,
+    clippy::result_unwrap_used,
+    clippy::unnecessary_unwrap,
+    clippy::pedantic
 )]
+// We might want to revisit inline_always
+#![allow(clippy::module_name_repetitions, clippy::inline_always)]
 #![deny(missing_docs)]
 
 //! simdjson-rs is a rust port of the simdjson c++ library. It follows

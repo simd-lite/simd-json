@@ -3,8 +3,11 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::Hash;
 
+/// A JSON Object
 pub trait Object {
+    /// The key in the objects
     type Key;
+    /// The values in the object
     type Element;
 
     /// Gets a ref to a value based on a key, returns `None` if the
@@ -16,12 +19,14 @@ pub trait Object {
         Self::Key: Borrow<Q> + Hash + Eq,
         Q: Hash + Eq;
 
+    /// Gets the value of a key as a mutable reference.
     #[must_use]
     fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut Self::Element>
     where
         Self::Key: Borrow<Q> + Hash + Eq,
         Q: Hash + Eq;
 
+    /// Inserts a value
     #[must_use]
     fn insert<K, V>(&mut self, k: K, v: V) -> Option<Self::Element>
     where
@@ -29,12 +34,14 @@ pub trait Object {
         V: Into<Self::Element>,
         Self::Key: Hash + Eq;
 
+    /// Removes a value from the object
     #[must_use]
     fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<Self::Element>
     where
         Self::Key: Borrow<Q>,
         Q: Hash + Eq;
 
+    /// Iterates over the key value paris
     #[must_use]
     fn iter<'i>(&'i self) -> Box<dyn Iterator<Item = (&Self::Key, &Self::Element)> + 'i>;
 }
@@ -88,7 +95,7 @@ where
     }
 }
 
-impl<MapK, MapE> Object for HashMap<MapK, MapE>
+impl<MapK, MapE, S: ::std::hash::BuildHasher> Object for HashMap<MapK, MapE, S>
 where
     MapK: Hash + Eq,
 {

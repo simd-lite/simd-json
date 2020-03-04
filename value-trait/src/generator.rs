@@ -51,32 +51,54 @@ pub(crate) static ESCAPED: [u8; 256] = [
     __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
 ];
 
+/// Base generator trait
 pub trait BaseGenerator {
+    /// The writer
     type T: Write;
+
+    /// returns teh writer
     fn get_writer(&mut self) -> &mut Self::T;
 
+    /// Write a slice
+    /// # Errors
+    /// if the write fails
     #[inline(always)]
     fn write(&mut self, slice: &[u8]) -> io::Result<()> {
         self.get_writer().write_all(slice)
     }
+
+    /// Write a char
+    /// # Errors
+    /// if the write fails
     #[inline(always)]
     fn write_char(&mut self, ch: u8) -> io::Result<()> {
         self.get_writer().write_all(&[ch])
     }
 
+    /// write with minimum
+    /// # Errors
+    /// if the write fails
     fn write_min(&mut self, slice: &[u8], min: u8) -> io::Result<()>;
 
+    /// writes new line
+    /// # Errors
+    /// if the write fails
     #[inline(always)]
     fn new_line(&mut self) -> io::Result<()> {
         Ok(())
     }
 
+    /// indents one step
     #[inline(always)]
     fn indent(&mut self) {}
 
+    /// dedents one step
     #[inline(always)]
     fn dedent(&mut self) {}
 
+    /// Writes a string with escape sequences
+    /// # Errors
+    /// if the write fails
     #[inline(never)]
     fn write_string_complex(&mut self, string: &[u8], mut start: usize) -> io::Result<()> {
         stry!(self.write(&string[..start]));
@@ -95,6 +117,9 @@ pub trait BaseGenerator {
         self.write(&string[start..])
     }
 
+    /// writes a string
+    /// # Errors
+    /// if the write fails
     #[inline(always)]
     fn write_string(&mut self, string: &str) -> io::Result<()> {
         stry!(self.write_char(b'"'));
@@ -125,6 +150,9 @@ pub trait BaseGenerator {
         self.write_char(b'"')
     }
 
+    /// writes a float value
+    /// # Errors
+    /// if the write fails
     #[inline(always)]
     fn write_float(&mut self, num: f64) -> io::Result<()> {
         let mut buffer = ryu::Buffer::new();
@@ -132,43 +160,65 @@ pub trait BaseGenerator {
         self.get_writer().write_all(s.as_bytes())
     }
 
+    /// writes an integer value
+    /// # Errors
+    /// if the write fails
     #[inline(always)]
     fn write_int(&mut self, num: i64) -> io::Result<()> {
         itoa::write(self.get_writer(), num).map(|_| ())
     }
 
     #[cfg(feature = "128bit")]
+    /// writes an integer 128 bit
+    /// # Errors
+    /// if the write fails
     #[inline(always)]
     fn write_int128(&mut self, num: i128) -> io::Result<()> {
         write!(self.get_writer(), "{}", num)
     }
 
+    /// writes an unsigned integer
+    /// # Errors
+    /// if the write fails
     #[inline(always)]
     fn write_uint(&mut self, num: u64) -> io::Result<()> {
         itoa::write(self.get_writer(), num).map(|_| ())
     }
 
     #[cfg(feature = "128bit")]
+    /// writes an unsigned 128bit integer
+    /// # Errors
+    /// if the write fails
     #[inline(always)]
     fn write_uint128(&mut self, num: u128) -> io::Result<()> {
         write!(self.get_writer(), "{}", num)
     }
 }
 
-/****** Pretty Generator ******/
+///  Simple dump Generator
 pub struct DumpGenerator<VT: Value> {
     _value: PhantomData<VT>,
     code: Vec<u8>,
 }
 
-impl<VT: Value> DumpGenerator<VT> {
-    pub fn new() -> Self {
+impl<VT: Value> Default for DumpGenerator<VT> {
+    fn default() -> Self {
         Self {
             _value: PhantomData,
             code: Vec::with_capacity(1024),
         }
     }
+}
 
+impl<VT: Value> DumpGenerator<VT> {
+    /// Creates a new generator
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns the data as a String
+    #[must_use]
     pub fn consume(self) -> String {
         // Original strings were unicode, numbers are all ASCII,
         // therefore this is safe.
@@ -201,8 +251,7 @@ impl<VT: Value> BaseGenerator for DumpGenerator<VT> {
     }
 }
 
-/****** Pretty Generator ******/
-
+/// Pretty Generator
 pub struct PrettyGenerator<V: Value> {
     code: Vec<u8>,
     dent: u16,
@@ -211,6 +260,8 @@ pub struct PrettyGenerator<V: Value> {
 }
 
 impl<V: Value> PrettyGenerator<V> {
+    /// Creates a new pretty priting generator
+    #[must_use]
     pub fn new(spaces: u16) -> Self {
         Self {
             code: Vec::with_capacity(1024),
@@ -220,6 +271,8 @@ impl<V: Value> PrettyGenerator<V> {
         }
     }
 
+    /// Returns the data as a String
+    #[must_use]
     pub fn consume(self) -> String {
         unsafe { String::from_utf8_unchecked(self.code) }
     }
@@ -267,8 +320,7 @@ impl<V: Value> BaseGenerator for PrettyGenerator<V> {
     }
 }
 
-/****** Writer Generator ******/
-
+/// Writer Generator
 pub struct WriterGenerator<'w, W: 'w + Write, V: Value> {
     writer: &'w mut W,
     _value: PhantomData<V>,
@@ -279,6 +331,7 @@ where
     W: 'w + Write,
     V: Value,
 {
+    /// Creates a new generator
     pub fn new(writer: &'w mut W) -> Self {
         WriterGenerator {
             writer,
@@ -305,7 +358,7 @@ where
     }
 }
 
-/****** Pretty Writer Generator ******/
+/// Pretty Writer Generator
 
 pub struct PrettyWriterGenerator<'w, W, V>
 where
@@ -323,6 +376,7 @@ where
     W: 'w + Write,
     V: Value,
 {
+    /// Creates a new generator
     pub fn new(writer: &'w mut W, spaces_per_indent: u16) -> Self {
         PrettyWriterGenerator {
             writer,
