@@ -221,6 +221,7 @@ pub use value_trait::StaticNode;
 
 pub use crate::error::{Error, ErrorType};
 pub use crate::value::*;
+pub use value_trait::ValueType;
 
 /// simd-json Result type
 pub type Result<T> = std::result::Result<T, Error>;

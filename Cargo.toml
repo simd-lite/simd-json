@@ -31,11 +31,11 @@ serde_json = { version = "1", optional = true}
 jemallocator = { version = "0.3", optional = true }
 perfcnt = { version = "0.5", optional = true }
 getopts = { version = "0.2", optional = true }
-colored = { version = "1.8", optional = true }
+colored = { version = "1.9", optional = true }
 simd-lite = { version = "0.1.0", optional = true }
 
 # for float comparison
-float-cmp = "0.5"
+float-cmp = "0.6"
 
 # because dev dependenceis can't be optional ...
 alloc_counter = {version = "0.0.4", optional = true}
