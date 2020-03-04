@@ -1,5 +1,6 @@
 use super::*;
 use float_cmp::approx_eq;
+use halfbrown::HashMap;
 use std::convert::TryFrom;
 use std::ops::{Index, IndexMut};
 
@@ -62,8 +63,9 @@ impl IndexMut<usize> for StaticNode {
 }
 
 impl Value for StaticNode {
-    type Key = ();
+    type Key = String;
     type Array = Vec<StaticNode>;
+    type Object = HashMap<String, StaticNode>;
 
     #[cfg(not(feature = "128bit"))]
     #[inline]

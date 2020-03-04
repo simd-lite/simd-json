@@ -83,8 +83,6 @@ impl<'b> Builder<'b> for Value {
 }
 
 impl Mutable for Value {
-    type Key = String;
-
     #[inline]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
@@ -95,7 +93,7 @@ impl Mutable for Value {
     }
     #[inline]
     #[must_use]
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as Mutable>::Key, Self>> {
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as ValueTrait>::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -105,7 +103,8 @@ impl Mutable for Value {
 
 impl ValueTrait for Value {
     type Key = String;
-    type Array = Vec<Value>;
+    type Array = Vec<Self>;
+    type Object = HashMap<Self::Key, Self>;
 
     #[inline]
     #[must_use]
