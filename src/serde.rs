@@ -11,12 +11,13 @@ mod value;
 pub use self::value::*;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use crate::{BorrowedValue, OwnedValue};
-use crate::{Node, StaticNode, Value};
+use crate::{Node, StaticNode};
 use serde::de::DeserializeOwned;
 use serde_ext::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::io;
+use value_trait::Value;
 
 type ConvertResult<T> = std::result::Result<T, SerdeConversionError>;
 

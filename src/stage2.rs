@@ -2,6 +2,7 @@
 use crate::charutils::*;
 use crate::value::tape::*;
 use crate::{Deserializer, Error, ErrorType, Result};
+use value_trait::StaticNode;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 #[allow(clippy::cast_ptr_alignment)]

@@ -1,5 +1,5 @@
 use super::Value;
-use crate::{BorrowedValue, Value as ValueTrait};
+use crate::{prelude::*, BorrowedValue};
 
 #[allow(clippy::cast_sign_loss, clippy::default_trait_access)]
 impl PartialEq<BorrowedValue<'_>> for Value {

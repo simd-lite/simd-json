@@ -655,8 +655,8 @@ impl<'de> Deserializer<'de> {
 mod test {
     #![allow(clippy::default_trait_access)]
     use crate::value::owned::to_value;
-    use crate::value::Value as ValueTrait;
     use float_cmp::approx_eq;
+    use value_trait::Value as ValueTrait;
 
     #[test]
     fn bad_exp() {
