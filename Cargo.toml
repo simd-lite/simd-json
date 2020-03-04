@@ -12,15 +12,13 @@ documentation = "https://docs.rs/simd-json"
 
 [workspace]
 
-members = ["value-trait"]
-
 
 [dependencies]
 halfbrown = "0.1"
 itoa = "0.4"
 ryu = "1"
 
-value-trait = {path = "value-trait"}
+value-trait = "0.1"
 
 # serde compatibilty
 serde = { version = "1", features = ["derive"], optional = true}
