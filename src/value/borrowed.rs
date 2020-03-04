@@ -125,8 +125,6 @@ impl<'v> Builder<'v> for Value<'v> {
 }
 
 impl<'v> Mutable for Value<'v> {
-    type Key = Cow<'v, str>;
-
     #[inline]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
@@ -137,7 +135,7 @@ impl<'v> Mutable for Value<'v> {
     }
     #[inline]
     #[must_use]
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as Mutable>::Key, Self>> {
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as ValueTrait>::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -147,7 +145,8 @@ impl<'v> Mutable for Value<'v> {
 
 impl<'v> ValueTrait for Value<'v> {
     type Key = Cow<'v, str>;
-    type Array = Vec<Value<'v>>;
+    type Array = Vec<Self>;
+    type Object = HashMap<Self::Key, Self>;
 
     #[inline]
     #[must_use]

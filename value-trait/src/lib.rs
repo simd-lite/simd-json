@@ -1,4 +1,3 @@
-use halfbrown::HashMap;
 use std::borrow::{Borrow, Cow};
 use std::convert::TryInto;
 use std::fmt;
@@ -9,9 +8,11 @@ use std::ops::{Index, IndexMut};
 mod array;
 pub mod generator;
 mod node;
+mod object;
 
 pub use array::Array;
 pub use node::StaticNode;
+pub use object::Object;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// An access error for `ValueType`
@@ -153,8 +154,9 @@ pub trait Value:
     + PartialEq<()>
 {
     /// The type for Objects
-    type Key;
+    type Key: Hash + Eq;
     type Array: Array<Element = Self>;
+    type Object: Object<Key = Self::Key, Element = Self>;
 
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key
@@ -410,7 +412,7 @@ pub trait Value:
 
     /// Tries to represent the value as an object and returns a refference to it
     #[must_use]
-    fn as_object(&self) -> Option<&HashMap<Self::Key, Self>>;
+    fn as_object(&self) -> Option<&Self::Object>;
 
     /// returns true if the current value can be represented as an object
     #[inline]
@@ -422,9 +424,6 @@ pub trait Value:
 
 /// Mutatability for values
 pub trait Mutable: IndexMut<usize> + Value + Sized {
-    /// The type for Objects
-    type Key;
-
     /// Tries to insert into this `Value` as an `Object`.
     /// Will return an `AccessError::NotAnObject` if called
     /// on a `Value` that isn't an object - otherwise will
@@ -435,9 +434,9 @@ pub trait Mutable: IndexMut<usize> + Value + Sized {
     #[inline]
     fn insert<K, V>(&mut self, k: K, v: V) -> std::result::Result<Option<Self>, AccessError>
     where
-        K: Into<<Self as Mutable>::Key>,
+        K: Into<<Self as Value>::Key>,
         V: Into<Self>,
-        <Self as Mutable>::Key: Hash + Eq,
+        <Self as Value>::Key: Hash + Eq,
     {
         self.as_object_mut()
             .ok_or(AccessError::NotAnObject)
@@ -454,7 +453,7 @@ pub trait Mutable: IndexMut<usize> + Value + Sized {
     #[inline]
     fn remove<Q: ?Sized>(&mut self, k: &Q) -> std::result::Result<Option<Self>, AccessError>
     where
-        <Self as Mutable>::Key: Borrow<Q> + Hash + Eq,
+        <Self as Value>::Key: Borrow<Q> + Hash + Eq,
         Q: Hash + Eq,
     {
         self.as_object_mut()
@@ -496,7 +495,7 @@ pub trait Mutable: IndexMut<usize> + Value + Sized {
     //    fn get_amut(&mut self, k: &str) -> Option<&mut Self>;
     fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut Self>
     where
-        <Self as Mutable>::Key: Borrow<Q> + Hash + Eq,
+        <Self as Value>::Key: Borrow<Q> + Hash + Eq,
         Q: Hash + Eq,
     {
         self.as_object_mut().and_then(|m| m.get_mut(&k))
@@ -510,7 +509,7 @@ pub trait Mutable: IndexMut<usize> + Value + Sized {
     /// Tries to represent the value as an array and returns a mutable refference to it
     fn as_array_mut(&mut self) -> Option<&mut <Self as Value>::Array>;
     /// Tries to represent the value as an object and returns a mutable refference to it
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as Mutable>::Key, Self>>;
+    fn as_object_mut(&mut self) -> Option<&mut Self::Object>;
 }
 
 #[cfg(test)]
