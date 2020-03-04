@@ -63,8 +63,7 @@ use halfbrown::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use tape::Node;
-
-use value_trait::Builder;
+pub use value_trait::*;
 
 /// Parses a slice of butes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
