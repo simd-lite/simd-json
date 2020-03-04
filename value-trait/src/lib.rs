@@ -1,3 +1,18 @@
+//! A crate providing generalised value traits for working with
+//! `JSONesque` values.
+
+#![forbid(warnings)]
+#![warn(unused_extern_crates)]
+#![deny(
+    clippy::all,
+    clippy::result_unwrap_used,
+    clippy::unnecessary_unwrap,
+    clippy::pedantic
+)]
+// We might want to revisit inline_always
+#![allow(clippy::module_name_repetitions, clippy::inline_always)]
+#![deny(missing_docs)]
+
 use std::borrow::{Borrow, Cow};
 use std::convert::TryInto;
 use std::fmt;
@@ -6,6 +21,7 @@ use std::io::{self, Write};
 use std::ops::{Index, IndexMut};
 
 mod array;
+/// Traits for serializing JSON
 pub mod generator;
 mod node;
 mod object;
@@ -155,7 +171,9 @@ pub trait Value:
 {
     /// The type for Objects
     type Key: Hash + Eq;
+    /// The array structure
     type Array: Array<Element = Self>;
+    /// The object structure
     type Object: Object<Key = Self::Key, Element = Self>;
 
     /// Gets a ref to a value based on a key, returns `None` if the

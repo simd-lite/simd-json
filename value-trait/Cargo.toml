@@ -11,3 +11,7 @@ itoa = "0.4"
 ryu = "1"
 halfbrown = "0.1"
 float-cmp = "0.6"
+
+[features]
+# Support for 128 bit integers
+128bit = []
