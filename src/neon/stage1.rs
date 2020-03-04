@@ -6,7 +6,6 @@ use simd_lite::NeonInit;
 use std::mem;
 
 // NEON-SPECIFIC
-
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub(crate) unsafe fn bit_mask() -> uint8x16_t {
     uint8x16_t::new([
