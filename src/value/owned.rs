@@ -23,7 +23,7 @@ mod cmp;
 mod from;
 mod serialize;
 
-use crate::value::{MutableValue, Value as ValueTrait, ValueBuilder, ValueType};
+use crate::prelude::*;
 use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::fmt;
@@ -64,7 +64,7 @@ pub enum Value {
     Object(Box<Object>),
 }
 
-impl<'b> ValueBuilder<'b> for Value {
+impl<'b> Builder<'b> for Value {
     #[inline]
     #[must_use]
     fn null() -> Self {
@@ -82,7 +82,7 @@ impl<'b> ValueBuilder<'b> for Value {
     }
 }
 
-impl MutableValue for Value {
+impl Mutable for Value {
     type Key = String;
     #[inline]
     #[must_use]
@@ -94,7 +94,7 @@ impl MutableValue for Value {
     }
     #[inline]
     #[must_use]
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as MutableValue>::Key, Self>> {
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as Mutable>::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -328,7 +328,6 @@ impl<'de> OwnedDeserializer<'de> {
 mod test {
     #![allow(clippy::cognitive_complexity)]
     use super::*;
-    use crate::value::{AccessError, Value as ValueTrait, WritableValue};
 
     #[test]
     fn object_access() {

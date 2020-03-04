@@ -5,16 +5,16 @@
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
 use super::{Object, Value};
+use crate::prelude::*;
 use crate::stry;
-use crate::value::generator::*;
-use crate::value::{Value as ValueTrait, WritableValue};
 use crate::StaticNode;
 use std::io;
 use std::io::Write;
+use value_trait::generator::*;
 
 //use util::print_dec;
 
-impl<'value> WritableValue for Value<'value> {
+impl<'value> Writable for Value<'value> {
     #[inline]
     fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
@@ -152,8 +152,8 @@ where
 #[cfg(test)]
 mod test {
     use super::Value;
+    use crate::prelude::*;
     use crate::StaticNode;
-    use crate::WritableValue;
 
     #[test]
     fn null() {

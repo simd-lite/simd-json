@@ -1,5 +1,6 @@
 use super::Value;
-use crate::{OwnedValue, Value as ValueTrait};
+use crate::prelude::*;
+use crate::OwnedValue;
 
 #[allow(clippy::cast_sign_loss, clippy::default_trait_access)]
 impl<'a> PartialEq for Value<'a> {

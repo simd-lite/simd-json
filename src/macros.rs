@@ -288,7 +288,7 @@ macro_rules! json_internal {
 
     ({}) => {
         {
-            use $crate::ValueBuilder;
+            use value_trait::Builder;
             $crate::value::owned::Value::object()
         }
     };
@@ -502,7 +502,7 @@ macro_rules! json_internal {
 
     ({}) => {
         {
-            use $crate::ValueBuilder;
+            use $crate::Builder;
             $crate::value::owned::Value::object()
         }
     };
@@ -638,6 +638,7 @@ macro_rules! stry {
 
 #[cfg(test)]
 mod test {
+    use crate::prelude::*;
     use crate::*;
     #[test]
     fn array() {

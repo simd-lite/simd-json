@@ -10,10 +10,17 @@ repository = "https://github.com/simd-lite/simdjson-rs"
 readme = "./README.md"
 documentation = "https://docs.rs/simd-json"
 
+[workspace]
+
+members = ["value-trait"]
+
+
 [dependencies]
 halfbrown = "0.1"
 itoa = "0.4"
 ryu = "1"
+
+value-trait = {path = "value-trait"}
 
 # serde compatibilty
 serde = { version = "1", features = ["derive"], optional = true}

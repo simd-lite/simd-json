@@ -4,25 +4,21 @@
 //
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
-use crate::value::Value as ValueTrait;
+macro_rules! stry {
+    ($e:expr) => {
+        match $e {
+            ::std::result::Result::Ok(val) => val,
+            ::std::result::Result::Err(err) => return ::std::result::Result::Err(err),
+        }
+    };
+}
+
 use std::io;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::ptr;
 
 use crate::*;
-
-#[cfg(target_feature = "avx2")]
-use crate::avx2::generator::*;
-
-#[cfg(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    not(target_feature = "avx2")
-))]
-use crate::sse42::generator::*;
-
-#[cfg(target_feature = "neon")]
-use crate::neon::generator::*;
 
 const QU: u8 = b'"';
 const BS: u8 = b'\\';
@@ -160,12 +156,12 @@ pub trait BaseGenerator {
 }
 
 /****** Pretty Generator ******/
-pub struct DumpGenerator<VT: ValueTrait> {
+pub struct DumpGenerator<VT: Value> {
     _value: PhantomData<VT>,
     code: Vec<u8>,
 }
 
-impl<VT: ValueTrait> DumpGenerator<VT> {
+impl<VT: Value> DumpGenerator<VT> {
     pub fn new() -> Self {
         Self {
             _value: PhantomData,
@@ -180,7 +176,7 @@ impl<VT: ValueTrait> DumpGenerator<VT> {
     }
 }
 
-impl<VT: ValueTrait> BaseGenerator for DumpGenerator<VT> {
+impl<VT: Value> BaseGenerator for DumpGenerator<VT> {
     type T = Vec<u8>;
 
     fn write(&mut self, slice: &[u8]) -> io::Result<()> {
@@ -207,14 +203,14 @@ impl<VT: ValueTrait> BaseGenerator for DumpGenerator<VT> {
 
 /****** Pretty Generator ******/
 
-pub struct PrettyGenerator<V: ValueTrait> {
+pub struct PrettyGenerator<V: Value> {
     code: Vec<u8>,
     dent: u16,
     spaces_per_indent: u16,
     _value: PhantomData<V>,
 }
 
-impl<V: ValueTrait> PrettyGenerator<V> {
+impl<V: Value> PrettyGenerator<V> {
     pub fn new(spaces: u16) -> Self {
         Self {
             code: Vec::with_capacity(1024),
@@ -229,7 +225,7 @@ impl<V: ValueTrait> PrettyGenerator<V> {
     }
 }
 
-impl<V: ValueTrait> BaseGenerator for PrettyGenerator<V> {
+impl<V: Value> BaseGenerator for PrettyGenerator<V> {
     type T = Vec<u8>;
     #[inline(always)]
     fn write(&mut self, slice: &[u8]) -> io::Result<()> {
@@ -273,7 +269,7 @@ impl<V: ValueTrait> BaseGenerator for PrettyGenerator<V> {
 
 /****** Writer Generator ******/
 
-pub struct WriterGenerator<'w, W: 'w + Write, V: ValueTrait> {
+pub struct WriterGenerator<'w, W: 'w + Write, V: Value> {
     writer: &'w mut W,
     _value: PhantomData<V>,
 }
@@ -281,7 +277,7 @@ pub struct WriterGenerator<'w, W: 'w + Write, V: ValueTrait> {
 impl<'w, W, V> WriterGenerator<'w, W, V>
 where
     W: 'w + Write,
-    V: ValueTrait,
+    V: Value,
 {
     pub fn new(writer: &'w mut W) -> Self {
         WriterGenerator {
@@ -294,7 +290,7 @@ where
 impl<'w, W, V> BaseGenerator for WriterGenerator<'w, W, V>
 where
     W: Write,
-    V: ValueTrait,
+    V: Value,
 {
     type T = W;
 
@@ -314,7 +310,7 @@ where
 pub struct PrettyWriterGenerator<'w, W, V>
 where
     W: 'w + Write,
-    V: ValueTrait,
+    V: Value,
 {
     writer: &'w mut W,
     dent: u16,
@@ -325,7 +321,7 @@ where
 impl<'w, W, V> PrettyWriterGenerator<'w, W, V>
 where
     W: 'w + Write,
-    V: ValueTrait,
+    V: Value,
 {
     pub fn new(writer: &'w mut W, spaces_per_indent: u16) -> Self {
         PrettyWriterGenerator {
@@ -340,7 +336,7 @@ where
 impl<'w, W, V> BaseGenerator for PrettyWriterGenerator<'w, W, V>
 where
     W: Write,
-    V: ValueTrait,
+    V: Value,
 {
     type T = W;
 
@@ -376,7 +372,7 @@ where
 // LLVM is not able to lower `Vec::extend_from_slice` into a memcpy, so this
 // helps eke out that last bit of performance.
 #[inline(always)]
-pub fn extend_from_slice(dst: &mut Vec<u8>, src: &[u8]) {
+pub(crate) fn extend_from_slice(dst: &mut Vec<u8>, src: &[u8]) {
     let dst_len = dst.len();
     let src_len = src.len();
 
@@ -388,4 +384,176 @@ pub fn extend_from_slice(dst: &mut Vec<u8>, src: &[u8]) {
 
         ptr::copy_nonoverlapping(src.as_ptr(), dst.as_mut_ptr().add(dst_len), src_len);
     }
+}
+
+#[cfg(target_feature = "avx2")]
+#[inline(always)]
+#[allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
+pub(crate) unsafe fn write_str_simd<W>(
+    writer: &mut W,
+    string: &mut &[u8],
+    len: &mut usize,
+    idx: &mut usize,
+) -> io::Result<()>
+where
+    W: std::io::Write,
+{
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::*;
+
+    let zero = _mm256_set1_epi8(0);
+    let lower_quote_range = _mm256_set1_epi8(0x1F as i8);
+    let quote = _mm256_set1_epi8(b'"' as i8);
+    let backslash = _mm256_set1_epi8(b'\\' as i8);
+    while *len - *idx >= 32 {
+        // Load 32 bytes of data;
+        let data: __m256i = _mm256_loadu_si256(string.as_ptr().add(*idx) as *const __m256i);
+        // Test the data against being backslash and quote.
+        let bs_or_quote = _mm256_or_si256(
+            _mm256_cmpeq_epi8(data, backslash),
+            _mm256_cmpeq_epi8(data, quote),
+        );
+        // Now mask the data with the quote range (0x1F).
+        let in_quote_range = _mm256_and_si256(data, lower_quote_range);
+        // then test of the data is unchanged. aka: xor it with the
+        // Any field that was inside the quote range it will be zero
+        // now.
+        let is_unchanged = _mm256_xor_si256(data, in_quote_range);
+        let in_range = _mm256_cmpeq_epi8(is_unchanged, zero);
+        let quote_bits = _mm256_movemask_epi8(_mm256_or_si256(bs_or_quote, in_range));
+        if quote_bits == 0 {
+            *idx += 32;
+        } else {
+            let quote_dist = quote_bits.trailing_zeros() as usize;
+            stry!(writer.write_all(&string[0..*idx + quote_dist]));
+            let ch = string[*idx + quote_dist];
+            match ESCAPED[ch as usize] {
+                b'u' => stry!(write!(writer, "\\u{:04x}", ch)),
+
+                escape => stry!(writer.write_all(&[b'\\', escape])),
+            };
+            *string = &string[*idx + quote_dist + 1..];
+            *idx = 0;
+            *len = string.len();
+        }
+    }
+    stry!(writer.write_all(&string[0..*idx]));
+    *string = &string[*idx..];
+    Ok(())
+}
+
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    not(target_feature = "avx2")
+))]
+#[inline(always)]
+#[allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
+pub(crate) unsafe fn write_str_simd<W>(
+    writer: &mut W,
+    string: &mut &[u8],
+    len: &mut usize,
+    idx: &mut usize,
+) -> io::Result<()>
+where
+    W: std::io::Write,
+{
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::*;
+    let zero = _mm_set1_epi8(0);
+    let lower_quote_range = _mm_set1_epi8(0x1F as i8);
+    let quote = _mm_set1_epi8(b'"' as i8);
+    let backslash = _mm_set1_epi8(b'\\' as i8);
+    while *len - *idx > 16 {
+        // Load 16 bytes of data;
+        let data: __m128i = _mm_loadu_si128(string.as_ptr().add(*idx) as *const __m128i);
+        // Test the data against being backslash and quote.
+        let bs_or_quote =
+            _mm_or_si128(_mm_cmpeq_epi8(data, backslash), _mm_cmpeq_epi8(data, quote));
+        // Now mask the data with the quote range (0x1F).
+        let in_quote_range = _mm_and_si128(data, lower_quote_range);
+        // then test of the data is unchanged. aka: xor it with the
+        // Any field that was inside the quote range it will be zero
+        // now.
+        let is_unchanged = _mm_xor_si128(data, in_quote_range);
+        let in_range = _mm_cmpeq_epi8(is_unchanged, zero);
+        let quote_bits = _mm_movemask_epi8(_mm_or_si128(bs_or_quote, in_range));
+        if quote_bits == 0 {
+            *idx += 16;
+        } else {
+            let quote_dist = quote_bits.trailing_zeros() as usize;
+            stry!(writer.write_all(&string[0..*idx + quote_dist]));
+            let ch = string[*idx + quote_dist];
+            match ESCAPED[ch as usize] {
+                b'u' => stry!(write!(writer, "\\u{:04x}", ch)),
+
+                escape => stry!(writer.write_all(&[b'\\', escape])),
+            };
+            *string = &string[*idx + quote_dist + 1..];
+            *idx = 0;
+            *len = string.len();
+        }
+    }
+    stry!(writer.write_all(&string[0..*idx]));
+    *string = &string[*idx..];
+    Ok(())
+}
+
+#[cfg(target_feature = "neon")]
+#[inline(always)]
+pub(crate) unsafe fn write_str_simd<W>(
+    writer: &mut W,
+    string: &mut &[u8],
+    len: &mut usize,
+    idx: &mut usize,
+) -> io::Result<()>
+where
+    W: std::io::Write,
+{
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::*;
+    // The case where we have a 16+ byte block
+    // we repeate the same logic as above but with
+    // only 16 bytes
+    let zero = vdupq_n_u8(0);
+    let lower_quote_range = vdupq_n_u8(0x1F);
+    let quote = vdupq_n_u8(b'"');
+    let backslash = vdupq_n_u8(b'\\');
+    while *len - *idx > 16 {
+        // Load 16 bytes of data;
+        let data: uint8x16_t = vld1q_u8(string.as_ptr().add(*idx));
+        // Test the data against being backslash and quote.
+        let bs_or_quote = vorrq_u8(vceqq_u8(data, backslash), vceqq_u8(data, quote));
+        // Now mask the data with the quote range (0x1F).
+        let in_quote_range = vandq_u8(data, lower_quote_range);
+        // then test of the data is unchanged. aka: xor it with the
+        // Any field that was inside the quote range it will be zero
+        // now.
+        let is_unchanged = veorq_u8(data, in_quote_range);
+        let in_range = vceqq_u8(is_unchanged, zero);
+        let quote_bits = neon_movemask(vorrq_u8(bs_or_quote, in_range));
+        if quote_bits != 0 {
+            let quote_dist = quote_bits.trailing_zeros() as usize;
+            stry!(writer.write_all(&string[0..*idx + quote_dist]));
+            let ch = string[*idx + quote_dist];
+            match ESCAPED[ch as usize] {
+                b'u' => stry!(write!(writer, "\\u{:04x}", ch)),
+
+                escape => stry!(writer.write_all(&[b'\\', escape])),
+            };
+            *string = &string[*idx + quote_dist + 1..];
+            *idx = 0;
+            *len = string.len();
+        } else {
+            *idx += 16;
+        }
+    }
+    stry!(writer.write_all(&string[0..*idx]));
+    *string = &string[*idx..];
+    Ok(())
 }
