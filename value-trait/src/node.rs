@@ -63,6 +63,7 @@ impl IndexMut<usize> for StaticNode {
 
 impl Value for StaticNode {
     type Key = ();
+    type Array = Vec<StaticNode>;
 
     #[cfg(not(feature = "128bit"))]
     #[inline]
@@ -226,7 +227,7 @@ impl Value for StaticNode {
     }
     #[inline]
     #[must_use]
-    fn as_array(&self) -> Option<&Vec<Self>> {
+    fn as_array(&self) -> Option<&Self::Array> {
         None
     }
     #[inline]

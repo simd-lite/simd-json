@@ -6,9 +6,11 @@ use std::hash::Hash;
 use std::io::{self, Write};
 use std::ops::{Index, IndexMut};
 
+mod array;
 pub mod generator;
 mod node;
 
+pub use array::Array;
 pub use node::StaticNode;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -105,9 +107,9 @@ pub trait Builder<'input>:
     + From<u64>
     + From<f32>
     + From<f64>
-    + From<String>
     + From<bool>
     + From<()>
+    + From<String>
     + From<&'input str>
     + From<Cow<'input, str>>
 {
@@ -152,6 +154,7 @@ pub trait Value:
 {
     /// The type for Objects
     type Key;
+    type Array: Array<Element = Self>;
 
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key
@@ -396,7 +399,7 @@ pub trait Value:
 
     /// Tries to represent the value as an array and returns a refference to it
     #[must_use]
-    fn as_array(&self) -> Option<&Vec<Self>>;
+    fn as_array(&self) -> Option<&Self::Array>;
 
     /// returns true if the current value can be represented as an array
     #[inline]
@@ -421,6 +424,7 @@ pub trait Value:
 pub trait Mutable: IndexMut<usize> + Value + Sized {
     /// The type for Objects
     type Key;
+
     /// Tries to insert into this `Value` as an `Object`.
     /// Will return an `AccessError::NotAnObject` if called
     /// on a `Value` that isn't an object - otherwise will
@@ -486,7 +490,7 @@ pub trait Mutable: IndexMut<usize> + Value + Sized {
     fn pop(&mut self) -> std::result::Result<Option<Self>, AccessError> {
         self.as_array_mut()
             .ok_or(AccessError::NotAnArray)
-            .map(Vec::pop)
+            .map(Array::pop)
     }
     /// Same as `get` but returns a mutable ref instead
     //    fn get_amut(&mut self, k: &str) -> Option<&mut Self>;
@@ -504,7 +508,7 @@ pub trait Mutable: IndexMut<usize> + Value + Sized {
         self.as_array_mut().and_then(|a| a.get_mut(i))
     }
     /// Tries to represent the value as an array and returns a mutable refference to it
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>>;
+    fn as_array_mut(&mut self) -> Option<&mut <Self as Value>::Array>;
     /// Tries to represent the value as an object and returns a mutable refference to it
     fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as Mutable>::Key, Self>>;
 }
