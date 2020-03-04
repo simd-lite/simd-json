@@ -34,6 +34,9 @@ pub trait Object {
     where
         Self::Key: Borrow<Q>,
         Q: Hash + Eq;
+
+    #[must_use]
+    fn iter<'i>(&'i self) -> Box<dyn Iterator<Item = (&Self::Key, &Self::Element)> + 'i>;
 }
 
 impl<MapK, MapE> Object for Halfbrown<MapK, MapE>
@@ -42,6 +45,7 @@ where
 {
     type Key = MapK;
     type Element = MapE;
+
     #[inline]
     fn get<Q: ?Sized>(&self, k: &Q) -> Option<&Self::Element>
     where
@@ -77,6 +81,10 @@ where
         Q: Hash + Eq,
     {
         Halfbrown::remove(self, k)
+    }
+
+    fn iter<'i>(&'i self) -> Box<dyn Iterator<Item = (&Self::Key, &Self::Element)> + 'i> {
+        Box::new(Halfbrown::iter(self))
     }
 }
 
@@ -122,5 +130,10 @@ where
         Q: Hash + Eq,
     {
         HashMap::remove(self, k)
+    }
+
+    #[inline]
+    fn iter<'i>(&'i self) -> Box<dyn Iterator<Item = (&Self::Key, &Self::Element)> + 'i> {
+        Box::new(HashMap::iter(self))
     }
 }
