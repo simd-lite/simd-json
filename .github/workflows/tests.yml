@@ -20,6 +20,8 @@ jobs:
           - ''
           - '--features known-key'
           - '--features 128bit'
+          - '--features beef'
+          - '--features beef,known-key'
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v1

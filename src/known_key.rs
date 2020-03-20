@@ -235,8 +235,8 @@ mod tests {
         use crate::cow::Cow;
         let mut v = Value::object();
         v.insert("key", 1).unwrap();
-        let key1 = KnownKey::from(Cow::Borrowed("key"));
-        let key2 = KnownKey::from(Cow::Borrowed("cake"));
+        let key1 = KnownKey::from(Cow::from("key"));
+        let key2 = KnownKey::from(Cow::from("cake"));
 
         assert!(key1.lookup(&Value::null()).is_none());
         assert!(key2.lookup(&Value::null()).is_none());
@@ -251,8 +251,8 @@ mod tests {
         use crate::cow::Cow;
         let mut v = Value::object();
         v.insert("key", 1).unwrap();
-        let key1 = KnownKey::from(Cow::Borrowed("key"));
-        let key2 = KnownKey::from(Cow::Borrowed("cake"));
+        let key1 = KnownKey::from(Cow::from("key"));
+        let key2 = KnownKey::from(Cow::from("cake"));
 
         let mut v1 = Value::null();
         assert!(key1.insert(&mut v1, 2.into()).is_err());
@@ -268,8 +268,8 @@ mod tests {
         use crate::cow::Cow;
         let mut v = Value::object();
         v.insert("key", 1).unwrap();
-        let key1 = KnownKey::from(Cow::Borrowed("key"));
-        let key2 = KnownKey::from(Cow::Borrowed("cake"));
+        let key1 = KnownKey::from(Cow::from("key"));
+        let key2 = KnownKey::from(Cow::from("cake"));
 
         let mut v1 = Value::null();
         assert!(key1.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
@@ -289,8 +289,8 @@ mod tests {
         use crate::cow::Cow;
         let mut v = Value::object_with_capacity(128);
         v.insert("key", 1).unwrap();
-        let key1 = KnownKey::from(Cow::Borrowed("key"));
-        let key2 = KnownKey::from(Cow::Borrowed("cake"));
+        let key1 = KnownKey::from(Cow::from("key"));
+        let key2 = KnownKey::from(Cow::from("cake"));
 
         assert!(key1.lookup(&Value::null()).is_none());
         assert!(key2.lookup(&Value::null()).is_none());
@@ -303,8 +303,8 @@ mod tests {
         use crate::cow::Cow;
         let mut v = Value::object_with_capacity(128);
         v.insert("key", 1).unwrap();
-        let key1 = KnownKey::from(Cow::Borrowed("key"));
-        let key2 = KnownKey::from(Cow::Borrowed("cake"));
+        let key1 = KnownKey::from(Cow::from("key"));
+        let key2 = KnownKey::from(Cow::from("cake"));
 
         let mut v1 = Value::null();
 
