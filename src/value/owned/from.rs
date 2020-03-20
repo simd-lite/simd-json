@@ -1,6 +1,5 @@
 use super::{Object, Value};
 use crate::{BorrowedValue, StaticNode};
-use std::borrow::Cow;
 use std::iter::FromIterator;
 
 impl From<crate::BorrowedValue<'_>> for Value {
@@ -33,10 +32,19 @@ impl From<&str> for Value {
     }
 }
 
-impl<'v> From<Cow<'v, str>> for Value {
+impl<'v> From<std::borrow::Cow<'v, str>> for Value {
     #[inline]
     #[must_use]
-    fn from(c: Cow<'v, str>) -> Self {
+    fn from(c: std::borrow::Cow<'v, str>) -> Self {
+        Self::String(c.to_string())
+    }
+}
+
+#[cfg(feature = "beef")]
+impl<'v> From<beef::lean::Cow<'v, str>> for Value {
+    #[inline]
+    #[must_use]
+    fn from(c: beef::lean::Cow<'v, str>) -> Self {
         Self::String(c.to_string())
     }
 }

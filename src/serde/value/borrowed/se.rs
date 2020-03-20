@@ -3,7 +3,6 @@ use crate::StaticNode;
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
 };
-use std::borrow::Cow;
 
 impl<'a> Serialize for Value<'a> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -20,8 +19,7 @@ impl<'a> Serialize for Value<'a> {
             Value::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
             #[cfg(feature = "128bit")]
             Value::Static(StaticNode::I128(i)) => serializer.serialize_i128(*i),
-            Value::String(Cow::Borrowed(s)) => serializer.serialize_str(s),
-            Value::String(Cow::Owned(s)) => serializer.serialize_str(&s),
+            Value::String(s) => serializer.serialize_str(&s),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
                 for e in v {
@@ -32,6 +30,7 @@ impl<'a> Serialize for Value<'a> {
             Value::Object(m) => {
                 let mut map = serializer.serialize_map(Some(m.len()))?;
                 for (k, v) in m.iter() {
+                    let k: &str = &k;
                     map.serialize_entry(k, v)?;
                 }
                 map.end()

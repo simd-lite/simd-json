@@ -1,7 +1,7 @@
+use crate::cow::Cow;
 use crate::prelude::*;
 use crate::BorrowedValue as Value;
 use halfbrown::RawEntryMut;
-use std::borrow::Cow;
 use std::fmt;
 use std::hash::{BuildHasher, Hash, Hasher};
 
@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn known_key() {
-        use std::borrow::Cow;
+        use crate::cow::Cow;
         let mut v = Value::object();
         v.insert("key", 1).unwrap();
         let key1 = KnownKey::from(Cow::Borrowed("key"));
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn known_key_insert() {
-        use std::borrow::Cow;
+        use crate::cow::Cow;
         let mut v = Value::object();
         v.insert("key", 1).unwrap();
         let key1 = KnownKey::from(Cow::Borrowed("key"));
@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn lookup_or_insert_mut() {
-        use std::borrow::Cow;
+        use crate::cow::Cow;
         let mut v = Value::object();
         v.insert("key", 1).unwrap();
         let key1 = KnownKey::from(Cow::Borrowed("key"));
@@ -286,7 +286,7 @@ mod tests {
     }
     #[test]
     fn known_key_map() {
-        use std::borrow::Cow;
+        use crate::cow::Cow;
         let mut v = Value::object_with_capacity(128);
         v.insert("key", 1).unwrap();
         let key1 = KnownKey::from(Cow::Borrowed("key"));
@@ -300,7 +300,7 @@ mod tests {
 
     #[test]
     fn known_key_insert_map() {
-        use std::borrow::Cow;
+        use crate::cow::Cow;
         let mut v = Value::object_with_capacity(128);
         v.insert("key", 1).unwrap();
         let key1 = KnownKey::from(Cow::Borrowed("key"));

@@ -150,6 +150,9 @@ mod numberparse;
 mod stringparse;
 mod utf8check;
 
+/// Reexport of Cow
+pub mod cow;
+
 #[cfg(target_feature = "avx2")]
 mod avx2;
 #[cfg(target_feature = "avx2")]

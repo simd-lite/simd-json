@@ -24,10 +24,10 @@ mod cmp;
 mod from;
 mod serialize;
 
+use crate::cow::Cow;
 use crate::prelude::*;
 use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
-use std::borrow::Cow;
 use std::fmt;
 use std::ops::{Index, IndexMut};
 
@@ -73,11 +73,11 @@ impl<'v> Value<'v> {
         unsafe {
             use std::mem::transmute;
             let r = match self {
-                Self::String(Cow::Borrowed(s)) => Self::String(Cow::Owned(s.to_owned())),
+                Self::String(s) => Self::String(s.into_owned().into()),
                 Self::Array(arr) => arr.into_iter().map(Value::into_static).collect(),
                 Self::Object(obj) => obj
                     .into_iter()
-                    .map(|(k, v)| (Cow::Owned(k.into_owned()), v.into_static()))
+                    .map(|(k, v)| (Cow::from(k.into_owned()), v.into_static()))
                     .collect(),
                 _ => self,
             };
@@ -93,11 +93,11 @@ impl<'v> Value<'v> {
         unsafe {
             use std::mem::transmute;
             let r = match self {
-                Self::String(s) => Self::String(Cow::Owned(s.to_string())),
+                Self::String(s) => Self::String(Cow::from(s.to_string())),
                 Self::Array(arr) => arr.iter().map(Value::clone_static).collect(),
                 Self::Object(obj) => obj
                     .iter()
-                    .map(|(k, v)| (Cow::Owned(k.to_string()), v.clone_static()))
+                    .map(|(k, v)| (Cow::from(k.to_string()), v.clone_static()))
                     .collect(),
                 Self::Static(s) => Self::Static(*s),
             };
@@ -829,7 +829,7 @@ mod test {
                 prop_oneof![
                     // Take the inner strategy and make the two recursive cases.
                     prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
-                    prop::collection::hash_map(".*".prop_map(Cow::Owned), inner, 0..10)
+                    prop::collection::hash_map(".*".prop_map(Cow::from), inner, 0..10)
                         .prop_map(|m| m.into_iter().collect()),
                 ]
             },

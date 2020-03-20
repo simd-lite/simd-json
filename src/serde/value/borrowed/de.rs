@@ -1,3 +1,4 @@
+use crate::cow::Cow;
 use crate::value::borrowed::{Object, Value};
 use crate::Error;
 use crate::StaticNode;
@@ -5,7 +6,6 @@ use serde_ext::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor,
 };
 use serde_ext::forward_to_deserialize_any;
-use std::borrow::Cow;
 use std::fmt;
 
 impl<'de> de::Deserializer<'de> for Value<'de> {
@@ -28,10 +28,20 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
             #[cfg(feature = "128bit")]
             Self::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
             Value::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
+            #[cfg(feature = "beef")]
+            Value::String(s) => {
+                if s.is_borrowed() {
+                    visitor.visit_borrowed_str(s.into_borrowed())
+                } else {
+                    visitor.visit_string(s.into_owned())
+                }
+            }
+            #[cfg(not(feature = "beef"))]
             Value::String(s) => match s {
                 Cow::Borrowed(s) => visitor.visit_borrowed_str(s),
                 Cow::Owned(s) => visitor.visit_string(s),
             },
+
             Value::Array(a) => visitor.visit_seq(Array(a.iter())),
             Value::Object(o) => visitor.visit_map(ObjectAccess {
                 i: o.iter(),

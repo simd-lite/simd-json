@@ -1,3 +1,4 @@
+use crate::cow::Cow;
 use crate::value::owned::{Object, Value};
 use crate::StaticNode;
 use crate::{stry, Error};
@@ -6,7 +7,6 @@ use serde::de::{
 };
 use serde::forward_to_deserialize_any;
 use serde_ext::de::IntoDeserializer;
-use std::borrow::Cow;
 use std::fmt;
 
 impl<'de> de::Deserializer<'de> for Value {
@@ -168,7 +168,7 @@ impl<'de> MapAccess<'de> for ObjectDeserializer {
             Some((key, value)) => {
                 self.value = Some(value);
                 let key_de = MapKeyDeserializer {
-                    key: Cow::Owned(key),
+                    key: Cow::from(key),
                 };
                 seed.deserialize(key_de).map(Some)
             }
@@ -224,8 +224,14 @@ macro_rules! deserialize_integer_key {
         {
             match (self.key.parse(), self.key) {
                 (Ok(integer), _) => visitor.$visit(integer),
+                #[cfg(feature = "beef")]
+                (Err(_), s) => if s.is_borrowed() {visitor.visit_borrowed_str(s.into_borrowed())} else {visitor.visit_string(s.into_owned())},
+                #[cfg(not(feature = "beef"))]
                 (Err(_), Cow::Borrowed(s)) => visitor.visit_borrowed_str(s),
+                #[cfg(not(feature = "beef"))]
                 (Err(_), Cow::Owned(s)) => visitor.visit_string(s),
+
+
             }
         }
     }
@@ -307,6 +313,18 @@ impl<'de> BorrowedCowStrDeserializer<'de> {
 impl<'de> de::Deserializer<'de> for BorrowedCowStrDeserializer<'de> {
     type Error = Error;
 
+    #[cfg(feature = "beef")]
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if self.value.is_borrowed() {
+            visitor.visit_borrowed_str(self.value.into_borrowed())
+        } else {
+            visitor.visit_string(self.value.into_owned())
+        }
+    }
+    #[cfg(not(feature = "beef"))]
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
