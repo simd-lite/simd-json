@@ -33,6 +33,7 @@ impl<'v> From<&'v str> for Value<'v> {
     }
 }
 
+#[cfg(feature = "beef")]
 impl<'v> From<std::borrow::Cow<'v, str>> for Value<'v> {
     #[inline]
     #[must_use]
@@ -40,6 +41,16 @@ impl<'v> From<std::borrow::Cow<'v, str>> for Value<'v> {
         Value::String(c.into())
     }
 }
+
+#[cfg(not(feature = "beef"))]
+impl<'v> From<std::borrow::Cow<'v, str>> for Value<'v> {
+    #[inline]
+    #[must_use]
+    fn from(c: std::borrow::Cow<'v, str>) -> Self {
+        Value::String(c)
+    }
+}
+
 #[cfg(feature = "beef")]
 impl<'v> From<beef::lean::Cow<'v, str>> for Value<'v> {
     #[inline]
