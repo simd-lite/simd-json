@@ -1,7 +1,7 @@
 use super::{Object, Value};
+use crate::cow::Cow;
 use crate::OwnedValue;
 use crate::StaticNode;
-use std::borrow::Cow;
 use std::iter::FromIterator;
 
 impl<'a> From<OwnedValue> for Value<'a> {
@@ -29,15 +29,23 @@ impl<'v> From<&'v str> for Value<'v> {
     #[inline]
     #[must_use]
     fn from(s: &'v str) -> Self {
-        Value::String(Cow::Borrowed(s))
+        Value::String(Cow::from(s))
     }
 }
 
-impl<'v> From<Cow<'v, str>> for Value<'v> {
+impl<'v> From<std::borrow::Cow<'v, str>> for Value<'v> {
     #[inline]
     #[must_use]
-    fn from(c: Cow<'v, str>) -> Self {
-        Value::String(c)
+    fn from(c: std::borrow::Cow<'v, str>) -> Self {
+        Value::String(c.into())
+    }
+}
+#[cfg(feature = "beef")]
+impl<'v> From<beef::lean::Cow<'v, str>> for Value<'v> {
+    #[inline]
+    #[must_use]
+    fn from(c: beef::lean::Cow<'v, str>) -> Self {
+        Self::String(c.into())
     }
 }
 
