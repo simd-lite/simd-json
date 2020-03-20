@@ -90,5 +90,4 @@ perf = ["perfcnt", "getopts", "colored"]
 name = "perf"
 
 [patch.crates-io]
-#  waiting for https://github.com/http-rs/tide/pull/408
-beef = { path = "../beef" }
+beef = { git = "https://github.com/Licenser/beef", branch = "as_borrowed" }
