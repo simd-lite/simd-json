@@ -31,7 +31,7 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
             #[cfg(feature = "beef")]
             Value::String(s) => {
                 if s.is_borrowed() {
-                    visitor.visit_borrowed_str(s.as_borrowed())
+                    visitor.visit_borrowed_str(s.unwrap_borrowed())
                 } else {
                     visitor.visit_string(s.into_owned())
                 }

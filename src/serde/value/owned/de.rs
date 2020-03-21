@@ -225,7 +225,7 @@ macro_rules! deserialize_integer_key {
             match (self.key.parse(), self.key) {
                 (Ok(integer), _) => visitor.$visit(integer),
                 #[cfg(feature = "beef")]
-                (Err(_), s) => if s.is_borrowed() {visitor.visit_borrowed_str(s.as_borrowed())} else {visitor.visit_string(s.into_owned())},
+                (Err(_), s) => if s.is_borrowed() {visitor.visit_borrowed_str(s.unwrap_borrowed())} else {visitor.visit_string(s.into_owned())},
                 #[cfg(not(feature = "beef"))]
                 (Err(_), Cow::Borrowed(s)) => visitor.visit_borrowed_str(s),
                 #[cfg(not(feature = "beef"))]
@@ -319,7 +319,7 @@ impl<'de> de::Deserializer<'de> for BorrowedCowStrDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         if self.value.is_borrowed() {
-            visitor.visit_borrowed_str(self.value.as_borrowed())
+            visitor.visit_borrowed_str(self.value.unwrap_borrowed())
         } else {
             visitor.visit_string(self.value.into_owned())
         }
