@@ -170,6 +170,12 @@ impl fmt::Display for Error {
     }
 }
 
+impl From<Error> for std::io::Error {
+    fn from(e: Error) -> Self {
+        std::io::Error::new(std::io::ErrorKind::Other, e)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
