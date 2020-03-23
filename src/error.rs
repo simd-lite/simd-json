@@ -170,6 +170,13 @@ impl fmt::Display for Error {
     }
 }
 
+#[cfg_attr(tarpaulin, skip)]
+impl From<Error> for std::io::Error {
+    fn from(e: Error) -> Self {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, e)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
