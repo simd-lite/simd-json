@@ -1,4 +1,4 @@
-/// simdjson-rs integrates with serde, this module holds this integration.
+/// simd-json integrates with serde, this module holds this integration.
 /// note that when parsing to a dom you should use the functions in
 /// `to_owned_value` or `to_borrowed_value` as they provide much
 /// better performance.
@@ -39,7 +39,7 @@ impl std::fmt::Display for SerdeConversionError {
             NumberOutOfBounds => write!(f, "Serde can not represent 128 bit values"),
             Oops => write!(
                 f,
-                "Unreachable code is reachable, oops - please open a bug with simdjson-rs"
+                "Unreachable code is reachable, oops - please open a bug with simd-json"
             ),
         }
     }

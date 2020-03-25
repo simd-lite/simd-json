@@ -27,7 +27,7 @@
 #![allow(clippy::module_name_repetitions, clippy::inline_always)]
 #![deny(missing_docs)]
 
-//! simdjson-rs is a rust port of the simdjson c++ library. It follows
+//! simd-json is a rust port of the simdjson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
 //! fit into the rust ecosystem.
 //!
@@ -35,7 +35,7 @@
 //! performance, to take advantage of the simd part of simd json. You
 //! have to use a native cpu target on a avx2 capable host system. An
 //! example how to do this can be found in the `.cargo` directory on
-//! [github](https://github.com/Licenser/simdjson-rs).
+//! [github](https://github.com/simd-lite/simd-json).
 //!
 //! ## Goals
 //!
@@ -98,12 +98,12 @@
 //!
 //! ## Usage
 //!
-//! simdjson-rs offers two main entry points for usage:
+//! simd-json offers two main entry points for usage:
 //!
 //! ### Values API
 //!
 //! The values API is a set of optimized DOM objects that allow parsed
-//! json to JSON data that has no known variable structure. simdjson-rs
+//! json to JSON data that has no known variable structure. simd-lite
 //! has two versions of this:
 //!
 //! **Borrowed Values**
