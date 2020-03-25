@@ -35,9 +35,21 @@ impl<'de> de::Deserializer<'de> for Value {
         }
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        if self == Self::Static(StaticNode::Null) {
+            visitor.visit_unit()
+        } else {
+            visitor.visit_some(self)
+        }
+    }
+
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-            bytes byte_buf option unit unit_struct newtype_struct seq tuple
+            bytes byte_buf unit unit_struct newtype_struct seq tuple
             tuple_struct map struct enum identifier ignored_any
     }
 }
@@ -655,5 +667,35 @@ impl<'de> Visitor<'de> for ValueVisitor {
             v.push(e);
         }
         Ok(Value::Array(v))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn option_field_absent_owned() {
+        #[derive(serde::Deserialize, Debug)]
+        pub struct Person {
+            pub name: String,
+            pub middle_name: Option<String>,
+            pub friends: Vec<String>,
+        }
+        let mut raw_json = r#"{"name":"bob","friends":[]}"#.to_string();
+        let result: Result<Person, _> = crate::to_owned_value(unsafe { raw_json.as_bytes_mut() })
+            .and_then(super::super::from_value);
+        assert!(result.is_ok());
+    }
+    #[test]
+    fn option_field_present_owned() {
+        #[derive(serde::Deserialize, Debug)]
+        pub struct Person {
+            pub name: String,
+            pub middle_name: Option<String>,
+            pub friends: Vec<String>,
+        }
+        let mut raw_json = r#"{"name":"bob","middle_name": "frank", "friends":[]}"#.to_string();
+        let result: Result<Person, _> = crate::to_owned_value(unsafe { raw_json.as_bytes_mut() })
+            .and_then(super::super::from_value);
+        assert!(result.is_ok());
     }
 }
