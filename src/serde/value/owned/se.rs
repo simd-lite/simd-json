@@ -674,7 +674,7 @@ mod test {
     use serde::{Deserialize, Serialize};
     use serde_json;
     /*
-    skipped due to https://github.com/simd-lite/simdjson-rs/issues/65
+    skipped due to https://github.com/simd-lite/simd-json/issues/65
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     enum Enum {
         Opt1,
