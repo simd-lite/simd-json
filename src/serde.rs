@@ -466,4 +466,29 @@ mod test {
         let v_c: BorrowedValue = s.try_into().unwrap();
         assert_eq!(v, v_c);
     }
+
+    #[test]
+    fn option_field_absent() {
+        #[derive(serde::Deserialize, Debug)]
+        pub struct Person {
+            pub name: String,
+            pub middle_name: Option<String>,
+            pub friends: Vec<String>,
+        }
+        let mut raw_json = r#"{"name":"bob","friends":[]}"#.to_string();
+        let result: Result<Person, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+    }
+    #[test]
+    fn option_field_present() {
+        #[derive(serde::Deserialize, Debug)]
+        pub struct Person {
+            pub name: String,
+            pub middle_name: Option<String>,
+            pub friends: Vec<String>,
+        }
+        let mut raw_json = r#"{"name":"bob","middle_name": "frank", "friends":[]}"#.to_string();
+        let result: Result<Person, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+    }
 }
