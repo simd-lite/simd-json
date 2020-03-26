@@ -58,7 +58,7 @@ For struct values we defer to external serde-compatible serialization mechanisms
 
 There are a few reasons for this:
 
-* SIMD intrinsics are inherently unsafe. These uses of unsafe are inescapable in a library such as `simd-jons`.
+* SIMD intrinsics are inherently unsafe. These uses of unsafe are inescapable in a library such as `simd-json`.
 * We work around some performance bottlenecks imposed by safe rust. These are avoidable, but at a cost to performance. This is a more considered path in `simd-json`.
 
 
