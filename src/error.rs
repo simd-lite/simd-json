@@ -83,6 +83,12 @@ pub enum ErrorType {
     IO(std::io::Error),
 }
 
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Self::generic(ErrorType::IO(e))
+    }
+}
+
 #[cfg_attr(tarpaulin, skip)]
 impl PartialEq for ErrorType {
     #[must_use]

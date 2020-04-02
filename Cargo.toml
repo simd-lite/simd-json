@@ -18,7 +18,7 @@ halfbrown = "0.1"
 itoa = "0.4"
 ryu = "1"
 
-value-trait = "0.1"
+value-trait = "0.1.4"
 
 # serde compatibilty
 serde = { version = "1", features = ["derive"], optional = true}
@@ -81,8 +81,6 @@ bench-serde = []
 hints = [] # requires nightly
 # for perf testing, used by the example
 perf = ["perfcnt", "getopts", "colored"]
-
-
 
 [[example]]
 name = "perf"

@@ -7,7 +7,9 @@
 /// directly to structs this is th4 place to go.
 ///
 mod de;
+mod se;
 mod value;
+pub use self::se::*;
 pub use self::value::*;
 use crate::{stry, Deserializer, Error, ErrorType, Result};
 use crate::{BorrowedValue, OwnedValue};
@@ -18,7 +20,6 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::io;
 use value_trait::Value;
-
 type ConvertResult<T> = std::result::Result<T, SerdeConversionError>;
 
 /// Error while converting from or to serde values
