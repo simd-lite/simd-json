@@ -93,6 +93,7 @@ where
         let SerializeSeq {
             ref mut s,
             ref mut first,
+            ..
         } = *self;
         if *first {
             *first = false;
@@ -103,7 +104,11 @@ where
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.s.write(b"]"))
+        if self.first {
+            Ok(())
+        } else {
+            iomap!(self.s.write(b"]"))
+        }
     }
 }
 
@@ -131,7 +136,11 @@ where
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.s.write(b"]"))
+        if self.first {
+            Ok(())
+        } else {
+            iomap!(self.s.write(b"]"))
+        }
     }
 }
 
@@ -159,7 +168,11 @@ where
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.s.write(b"]"))
+        if self.first {
+            Ok(())
+        } else {
+            iomap!(self.s.write(b"]"))
+        }
     }
 }
 
@@ -187,7 +200,11 @@ where
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.s.write(b"}"))
+        if self.first {
+            Ok(())
+        } else {
+            iomap!(self.s.write(b"}"))
+        }
     }
 }
 
@@ -210,6 +227,7 @@ where
         let SerializeMap {
             ref mut s,
             ref mut first,
+            ..
         } = *self;
         if *first {
             *first = false;
@@ -229,7 +247,11 @@ where
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.s.write(b"}"))
+        if self.first {
+            Ok(())
+        } else {
+            iomap!(self.s.write(b"}"))
+        }
     }
 }
 
@@ -251,6 +273,7 @@ where
         let SerializeMap {
             ref mut s,
             ref mut first,
+            ..
         } = *self;
         if *first {
             *first = false;
@@ -263,7 +286,11 @@ where
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.s.write(b"}"))
+        if self.first {
+            Ok(())
+        } else {
+            iomap!(self.s.write(b"}"))
+        }
     }
 }
 
@@ -285,6 +312,7 @@ where
         let SerializeMap {
             ref mut s,
             ref mut first,
+            ..
         } = *self;
         if *first {
             *first = false;
@@ -297,7 +325,11 @@ where
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.s.write(b"}"))
+        if self.first {
+            Ok(())
+        } else {
+            iomap!(self.s.write(b"}"))
+        }
     }
 }
 
@@ -456,18 +488,14 @@ where
     #[inline]
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         if len == Some(0) {
-            iotry!(self.write(b"["));
-            Ok(SerializeSeq {
-                s: self,
-                first: true,
-            })
+            iotry!(self.write(b"[]"));
         } else {
             iotry!(self.write(b"["));
-            Ok(SerializeSeq {
-                s: self,
-                first: true,
-            })
         }
+        Ok(SerializeSeq {
+            s: self,
+            first: true,
+        })
     }
 
     #[inline]
@@ -501,18 +529,14 @@ where
     #[inline]
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         if len == Some(0) {
-            iotry!(self.write(b"{"));
-            Ok(SerializeMap {
-                s: self,
-                first: true,
-            })
+            iotry!(self.write(b"{}"));
         } else {
             iotry!(self.write(b"{"));
-            Ok(SerializeMap {
-                s: self,
-                first: true,
-            })
         }
+        Ok(SerializeMap {
+            s: self,
+            first: true,
+        })
     }
 
     #[inline]
