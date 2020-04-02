@@ -15,10 +15,8 @@ documentation = "https://docs.rs/simd-json"
 
 [dependencies]
 halfbrown = "0.1"
-itoa = "0.4"
-ryu = "1"
 
-value-trait = "0.1.4"
+value-trait = "0.1.5"
 
 # serde compatibilty
 serde = { version = "1", features = ["derive"], optional = true}
@@ -84,3 +82,6 @@ perf = ["perfcnt", "getopts", "colored"]
 
 [[example]]
 name = "perf"
+
+#[patch.crates-io]
+#value-trait = { path = '../value-trait' }

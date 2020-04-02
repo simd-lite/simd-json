@@ -340,27 +340,27 @@ where
     }
     #[inline]
     fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_int128(v))
+        iomap!(self.write_int(v))
     }
     #[inline]
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_uint(v as u64))
+        iomap!(self.write_int(v as u64))
     }
     #[inline]
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_uint(v as u64))
+        iomap!(self.write_int(v as u64))
     }
     #[inline]
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_uint(v as u64))
+        iomap!(self.write_int(v as u64))
     }
     #[inline]
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_uint(v as u64))
+        iomap!(self.write_int(v as u64))
     }
     #[inline]
     fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_uint128(v))
+        iomap!(self.write_int(v))
     }
 
     #[inline]
@@ -387,10 +387,10 @@ where
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         iotry!(self.write(b"["));
         if let Some((first, rest)) = v.split_first() {
-            iotry!(self.write_uint(*first as u64));
+            iotry!(self.write_int(*first as u64));
             for v in rest {
                 iotry!(self.write(b","));
-                iotry!(self.write_uint(*v as u64));
+                iotry!(self.write_int(*v as u64));
             }
         }
         iomap!(self.write(b"]"))
