@@ -487,10 +487,4 @@ where
         iotry!(self.write(b":"));
         self.serialize_map(Some(len))
     }
-    fn collect_str<T: ?Sized>(self, _value: &T) -> Result<Self::Ok, Self::Error>
-    where
-        T: std::fmt::Display,
-    {
-        unimplemented!()
-    }
 }
