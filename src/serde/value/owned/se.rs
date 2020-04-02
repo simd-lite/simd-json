@@ -714,6 +714,8 @@ mod test {
     fn from_slice_to_object() {
         let o = Obj::default();
         let vec = serde_json::to_vec(&o).expect("to_vec");
+        let vec2 = crate::serde::to_vec(&o).expect("to_vec");
+        assert_eq!(vec, vec2);
         let mut vec1 = vec.clone();
         let mut vec2 = vec.clone();
 
