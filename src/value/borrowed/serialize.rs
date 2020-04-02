@@ -50,35 +50,34 @@ impl<'value> Writable for Value<'value> {
 
 trait Generator: BaseGenerator {
     type T: Write;
-    type V: ValueTrait;
 
     #[inline(always)]
     fn write_object(&mut self, object: &Object) -> io::Result<()> {
-        stry!(self.write_char(b'{'));
-        let mut iter = object.iter();
+        if object.is_empty() {
+            self.write(b"{}")
+        } else {
+            stry!(self.write_char(b'{'));
+            let mut iter = object.iter();
 
-        if let Some((key, value)) = iter.next() {
+            // We know this exists since it's not empty
+            let (key, value) = iter.next().unwrap();
             self.indent();
             stry!(self.new_line());
             stry!(self.write_string(key));
             stry!(self.write_min(b": ", b':'));
             stry!(self.write_json(value));
-        } else {
-            stry!(self.write_char(b'}'));
-            return Ok(());
-        }
 
-        for (key, value) in iter {
-            stry!(self.write_char(b','));
+            for (key, value) in iter {
+                stry!(self.write_char(b','));
+                stry!(self.new_line());
+                stry!(self.write_string(key));
+                stry!(self.write_min(b": ", b':'));
+                stry!(self.write_json(value));
+            }
+            self.dedent();
             stry!(self.new_line());
-            stry!(self.write_string(key));
-            stry!(self.write_min(b": ", b':'));
-            stry!(self.write_json(value));
+            self.write_char(b'}')
         }
-
-        self.dedent();
-        stry!(self.new_line());
-        self.write_char(b'}')
     }
 
     #[inline(always)]
@@ -96,49 +95,110 @@ trait Generator: BaseGenerator {
             Value::Static(StaticNode::Bool(false)) => self.write(b"false"),
             Value::String(ref string) => self.write_string(string),
             Value::Array(ref array) => {
-                stry!(self.write_char(b'['));
-                let mut iter = array.iter();
+                if array.is_empty() {
+                    self.write(b"[]")
+                } else {
+                    let mut iter = <[Value]>::iter(array);
+                    // We know we have one item
+                    let item = iter.next().unwrap();
 
-                if let Some(item) = iter.next() {
+                    stry!(self.write_char(b'['));
                     self.indent();
                     stry!(self.new_line());
                     stry!(self.write_json(item));
-                } else {
-                    stry!(self.write_char(b']'));
-                    return Ok(());
-                }
 
-                for item in iter {
-                    stry!(self.write_char(b','));
+                    for item in iter {
+                        stry!(self.write_char(b','));
+                        stry!(self.new_line());
+                        stry!(self.write_json(item));
+                    }
+
+                    self.dedent();
                     stry!(self.new_line());
-                    stry!(self.write_json(item));
+                    self.write_char(b']')
                 }
-
-                self.dedent();
-                stry!(self.new_line());
-                self.write_char(b']')
             }
             Value::Object(ref object) => self.write_object(object),
         }
     }
 }
 
-impl<'value> Generator for DumpGenerator<Value<'value>> {
+trait FastGenerator: BaseGenerator {
+    type T: Write;
+
+    #[inline(always)]
+    fn write_object(&mut self, object: &Object) -> io::Result<()> {
+        if object.is_empty() {
+            self.write(b"{}")
+        } else {
+            stry!(self.write(b"{"));
+            let mut iter = object.iter();
+
+            // We know this exists since it's not empty
+            let (key, value) = iter.next().unwrap();
+            stry!(self.write_string(key));
+            stry!(self.write(b":"));
+            stry!(self.write_json(value));
+            for (key, value) in iter {
+                stry!(self.write(b","));
+                stry!(self.write_string(key));
+                stry!(self.write(b":"));
+                stry!(self.write_json(value));
+            }
+            self.write(b"}")
+        }
+    }
+
+    #[inline(always)]
+    fn write_json(&mut self, json: &Value) -> io::Result<()> {
+        match *json {
+            Value::Static(StaticNode::Null) => self.write(b"null"),
+            Value::Static(StaticNode::I64(number)) => self.write_int(number),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::I128(number)) => self.write_int(number),
+            Value::Static(StaticNode::U64(number)) => self.write_int(number),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::U128(number)) => self.write_int(number),
+            Value::Static(StaticNode::F64(number)) => self.write_float(number),
+            Value::Static(StaticNode::Bool(true)) => self.write(b"true"),
+            Value::Static(StaticNode::Bool(false)) => self.write(b"false"),
+            Value::String(ref string) => self.write_string(string),
+            Value::Array(ref array) => {
+                if array.is_empty() {
+                    self.write(b"[]")
+                } else {
+                    let mut iter = <[Value]>::iter(array);
+                    // We know we have one item
+                    let item = iter.next().unwrap();
+
+                    stry!(self.write_char(b'['));
+                    stry!(self.write_json(item));
+
+                    for item in iter {
+                        stry!(self.write(b","));
+                        stry!(self.write_json(item));
+                    }
+                    self.write(b"]")
+                }
+            }
+            Value::Object(ref object) => self.write_object(object),
+        }
+    }
+}
+
+impl<'value> FastGenerator for DumpGenerator<Value<'value>> {
     type T = Vec<u8>;
-    type V = Value<'value>;
 }
 
 impl<'value> Generator for PrettyGenerator<Value<'value>> {
     type T = Vec<u8>;
-    type V = Value<'value>;
 }
 
-impl<'w, 'value, W> Generator for WriterGenerator<'w, W, Value<'value>>
+impl<'w, 'value, W> FastGenerator for WriterGenerator<'w, W, Value<'value>>
 where
     W: Write,
 {
     type T = W;
-    type V = Value<'value>;
 }
 
 impl<'w, 'value, W> Generator for PrettyWriterGenerator<'w, W, Value<'value>>
@@ -146,7 +206,6 @@ where
     W: Write,
 {
     type T = W;
-    type V = Value<'value>;
 }
 
 #[cfg(test)]
