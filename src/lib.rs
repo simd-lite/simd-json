@@ -140,7 +140,7 @@ extern crate serde as serde_ext;
 pub mod serde;
 
 #[cfg(feature = "serde_impl")]
-pub use crate::serde::{from_reader, from_slice, from_str};
+pub use crate::serde::{from_reader, from_slice, from_str, to_string, to_vec, to_writer};
 
 /// Default trait imports;
 pub mod prelude;
