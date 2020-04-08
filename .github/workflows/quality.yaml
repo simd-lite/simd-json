@@ -43,7 +43,7 @@ jobs:
           PROPTEST_CASES: 512
         with:
           version: '0.12.0'
-          args: '-- --features no-inline'  
+          args: '--features no-inline'  
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
@@ -65,7 +65,7 @@ jobs:
           PROPTEST_CASES: 512
         with:
           version: '0.12.0'
-          args: '-- --features no-inline'  
+          args: '--features no-inline'  
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
@@ -87,7 +87,7 @@ jobs:
           PROPTEST_CASES: 512
         with:
           version: '0.12.0'
-          args: '-- --features no-inline,known-key,128bit'  
+          args: '--features no-inline,known-key,128bit'  
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
@@ -109,7 +109,7 @@ jobs:
           PROPTEST_CASES: 512
         with:
           version: '0.12.0'
-          args: '-- --features no-inline,known-key,128bit'  
+          args: '--features no-inline,known-key,128bit'  
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
