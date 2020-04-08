@@ -38,10 +38,10 @@ jobs:
           override: true
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
+        env:
+          RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
+          PROPTEST_CASES: 512
         with:
-          env:
-            RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
-            PROPTEST_CASES: 512
           version: '0.12.0'
           args: '-- --features no-inline'  
       - uses: codecov/codecov-action@v1.0.2
@@ -60,10 +60,10 @@ jobs:
           override: true
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
+        env:
+          RUSTFLAGS: "-C target-cpu=native"
+          PROPTEST_CASES: 512
         with:
-          env:
-            RUSTFLAGS: "-C target-cpu=native"
-            PROPTEST_CASES: 512
           version: '0.12.0'
           args: '-- --features no-inline'  
       - uses: codecov/codecov-action@v1.0.2
@@ -82,10 +82,10 @@ jobs:
           override: true
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
+        env:
+          RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
+          PROPTEST_CASES: 512
         with:
-          env:
-            RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
-            PROPTEST_CASES: 512
           version: '0.12.0'
           args: '-- --features no-inline,known-key,128bit'  
       - uses: codecov/codecov-action@v1.0.2
@@ -104,10 +104,10 @@ jobs:
           override: true
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
+        env:
+          RUSTFLAGS: "-C target-cpu=native"
+          PROPTEST_CASES: 512
         with:
-          env:
-            RUSTFLAGS: "-C target-cpu=native"
-            PROPTEST_CASES: 512
           version: '0.12.0'
           args: '-- --features no-inline,known-key,128bit'  
       - uses: codecov/codecov-action@v1.0.2
