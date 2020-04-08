@@ -16,7 +16,7 @@ macro_rules! iomap {
 #[inline]
 pub fn to_vec<T>(to: &T) -> crate::Result<Vec<u8>>
 where
-    T: ser::Serialize,
+    T: ser::Serialize + ?Sized,
 {
     let v = Vec::with_capacity(512);
     let mut s = Serializer(v);
@@ -30,7 +30,7 @@ where
 #[inline]
 pub fn to_string<T>(to: &T) -> crate::Result<String>
 where
-    T: ser::Serialize,
+    T: ser::Serialize + ?Sized,
 {
     to_vec(to).map(|v| unsafe { String::from_utf8_unchecked(v) })
 }
@@ -41,7 +41,7 @@ where
 #[inline]
 pub fn to_writer<T, W>(writer: W, to: &T) -> crate::Result<()>
 where
-    T: ser::Serialize,
+    T: ser::Serialize + ?Sized,
     W: Write,
 {
     let mut s = Serializer(writer);
