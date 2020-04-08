@@ -11,6 +11,8 @@ macro_rules! iomap {
 }
 
 /// Write a value to a vector
+/// # Errors
+/// when the data can not be written
 #[inline]
 pub fn to_vec<T>(to: &T) -> crate::Result<Vec<u8>>
 where
@@ -22,6 +24,9 @@ where
 }
 
 /// Write a value to a string
+///
+/// # Errors
+/// when the data can not be written
 #[inline]
 pub fn to_string<T>(to: &T) -> crate::Result<String>
 where
@@ -31,6 +36,8 @@ where
 }
 
 /// Write a value to a string
+/// # Errors
+/// when the data can not be written
 #[inline]
 pub fn to_writer<T, W>(writer: W, to: &T) -> crate::Result<()>
 where
@@ -345,19 +352,19 @@ where
     }
     #[inline]
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_int(v as i64))
+        iomap!(self.write_int(v))
     }
     #[inline]
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_int(v as i64))
+        iomap!(self.write_int(v))
     }
     #[inline]
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_int(v as i64))
+        iomap!(self.write_int(v))
     }
     #[inline]
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_int(v as i64))
+        iomap!(self.write_int(v))
     }
     #[inline]
     fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
@@ -365,19 +372,19 @@ where
     }
     #[inline]
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_int(v as u64))
+        iomap!(self.write_int(v))
     }
     #[inline]
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_int(v as u64))
+        iomap!(self.write_int(v))
     }
     #[inline]
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_int(v as u64))
+        iomap!(self.write_int(v))
     }
     #[inline]
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_int(v as u64))
+        iomap!(self.write_int(v))
     }
     #[inline]
     fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
@@ -386,7 +393,7 @@ where
 
     #[inline]
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_float(v as f64))
+        iomap!(self.write_float(f64::from(v)))
     }
     #[inline]
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
@@ -407,9 +414,9 @@ where
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         iomap!(self.write(b"[").and_then(|_| {
             if let Some((first, rest)) = v.split_first() {
-                self.write_int(*first as u64).and_then(|_| {
+                self.write_int(*first).and_then(|_| {
                     for v in rest {
-                        if let Err(e) = self.write(b",").and_then(|_| self.write_int(*v as u64)) {
+                        if let Err(e) = self.write(b",").and_then(|_| self.write_int(*v)) {
                             return Err(e);
                         }
                     }
