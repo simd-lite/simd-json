@@ -36,17 +36,17 @@ jobs:
         with:
           toolchain: stable
           override: true
-      - name: install tarpaulin
-        run: bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
-      - name: run tarpaulin
-        env:
-          RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
-          PROPTEST_CASES: 512
-        run: cargo tarpaulin -v --features no-inline --out Xml && cp cobertura.xml sse.xml
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          env:
+            RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
+            PROPTEST_CASES: 512
+          version: '0.12.0'
+          args: '-- --features no-inline'  
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
-          file: ./sse.xml
           flags: sse
   tarpaulin-avx2:
     runs-on: ubuntu-latest
@@ -58,17 +58,17 @@ jobs:
         with:
           toolchain: stable
           override: true
-      - name: install tarpaulin
-        run: bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
-      - name: run tarpaulin
-        env:
-          RUSTFLAGS: "-C target-cpu=native"
-          PROPTEST_CASES: 512
-        run: cargo tarpaulin -v --features no-inline --out Xml && cp cobertura.xml avx.xml
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          env:
+            RUSTFLAGS: "-C target-cpu=native"
+            PROPTEST_CASES: 512
+          version: '0.12.0'
+          args: '-- --features no-inline'  
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
-          file: ./avx.xml
           flags: avx2
   tarpaulin-sse-known-key:
     runs-on: ubuntu-latest
@@ -80,17 +80,17 @@ jobs:
         with:
           toolchain: stable
           override: true
-      - name: install tarpaulin
-        run: bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
-      - name: run tarpaulin
-        env:
-          RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
-          PROPTEST_CASES: 512
-        run: cargo tarpaulin -v --features no-inline,known-key,128bit --out Xml && cp cobertura.xml sse-known-key.xml
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          env:
+            RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
+            PROPTEST_CASES: 512
+          version: '0.12.0'
+          args: '-- --features no-inline,known-key,128bit'  
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
-          file: ./sse-known-key.xml
           flags: sseKnownKey
   tarpaulin-avx2-known-key:
     runs-on: ubuntu-latest
@@ -102,15 +102,15 @@ jobs:
         with:
           toolchain: stable
           override: true
-      - name: install tarpaulin
-        run: bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
-      - name: run tarpaulin
-        env:
-          RUSTFLAGS: "-C target-cpu=native"
-          PROPTEST_CASES: 512
-        run: cargo tarpaulin -v --features no-inline,known-key,128bit --out Xml && cp cobertura.xml avx2-known-key.xml
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          env:
+            RUSTFLAGS: "-C target-cpu=native"
+            PROPTEST_CASES: 512
+          version: '0.12.0'
+          args: '-- --features no-inline,known-key,128bit'  
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
-          file: ./avx2-known-key.xml
           flags: avx2KnownKey
