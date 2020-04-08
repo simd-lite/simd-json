@@ -56,27 +56,29 @@ trait Generator: BaseGenerator {
         if object.is_empty() {
             self.write(b"{}")
         } else {
-            stry!(self.write_char(b'{'));
             let mut iter = object.iter();
-
-            // We know this exists since it's not empty
-            let (key, value) = iter.next().unwrap();
-            self.indent();
-            stry!(self.new_line());
-            stry!(self.write_string(key));
-            stry!(self.write_min(b": ", b':'));
-            stry!(self.write_json(value));
-
-            for (key, value) in iter {
-                stry!(self.write_char(b','));
-                stry!(self.new_line());
-                stry!(self.write_string(key));
-                stry!(self.write_min(b": ", b':'));
-                stry!(self.write_json(value));
-            }
-            self.dedent();
-            stry!(self.new_line());
-            self.write_char(b'}')
+            self.write(b"{")
+                .and_then(|_| {
+                    // We know this exists since it's not empty
+                    let (key, value) = iter.next().unwrap();
+                    self.indent();
+                    self.new_line()
+                        .and_then(|_| self.write_simple_string(key))
+                        .and_then(|_| self.write_min(b": ", b':'))
+                        .and_then(|_| self.write_json(value))
+                })
+                .and_then(|_| {
+                    for (key, value) in iter {
+                        stry!(self
+                            .write(b",")
+                            .and_then(|_| self.new_line())
+                            .and_then(|_| self.write_simple_string(key))
+                            .and_then(|_| self.write_min(b": ", b':'))
+                            .and_then(|_| self.write_json(value)));
+                    }
+                    self.dedent();
+                    self.new_line().and_then(|_| self.write(b"}"))
+                })
         }
     }
 
@@ -100,22 +102,24 @@ trait Generator: BaseGenerator {
                 } else {
                     let mut iter = <[Value]>::iter(array);
                     // We know we have one item
+
                     let item = iter.next().unwrap();
+                    self.write(b"[")
+                        .and_then(|_| {
+                            self.indent();
+                            self.new_line().and_then(|_| self.write_json(item))
+                        })
+                        .and_then(|_| {
+                            for item in iter {
+                                stry!(self
+                                    .write(b",")
+                                    .and_then(|_| self.new_line())
+                                    .and_then(|_| self.write_json(item)));
+                            }
 
-                    stry!(self.write_char(b'['));
-                    self.indent();
-                    stry!(self.new_line());
-                    stry!(self.write_json(item));
-
-                    for item in iter {
-                        stry!(self.write_char(b','));
-                        stry!(self.new_line());
-                        stry!(self.write_json(item));
-                    }
-
-                    self.dedent();
-                    stry!(self.new_line());
-                    self.write_char(b']')
+                            self.dedent();
+                            self.new_line().and_then(|_| self.write(b"]"))
+                        })
                 }
             }
             Value::Object(ref object) => self.write_object(object),
@@ -131,21 +135,25 @@ trait FastGenerator: BaseGenerator {
         if object.is_empty() {
             self.write(b"{}")
         } else {
-            stry!(self.write(b"{"));
             let mut iter = object.iter();
-
-            // We know this exists since it's not empty
-            let (key, value) = iter.next().unwrap();
-            stry!(self.write_string(key));
-            stry!(self.write(b":"));
-            stry!(self.write_json(value));
-            for (key, value) in iter {
-                stry!(self.write(b","));
-                stry!(self.write_string(key));
-                stry!(self.write(b":"));
-                stry!(self.write_json(value));
-            }
-            self.write(b"}")
+            self.write(b"{")
+                .and_then(|_| {
+                    // We know this exists since it's not empty
+                    let (key, value) = iter.next().unwrap();
+                    self.write_simple_string(key)
+                        .and_then(|_| self.write(b":"))
+                        .and_then(|_| self.write_json(value))
+                })
+                .and_then(|_| {
+                    for (key, value) in iter {
+                        stry!(self
+                            .write(b",")
+                            .and_then(|_| self.write_simple_string(key))
+                            .and_then(|_| self.write(b":"))
+                            .and_then(|_| self.write_json(value)));
+                    }
+                    self.write(b"}")
+                })
         }
     }
 
@@ -171,14 +179,14 @@ trait FastGenerator: BaseGenerator {
                     // We know we have one item
                     let item = iter.next().unwrap();
 
-                    stry!(self.write_char(b'['));
-                    stry!(self.write_json(item));
-
-                    for item in iter {
-                        stry!(self.write(b","));
-                        stry!(self.write_json(item));
-                    }
-                    self.write(b"]")
+                    self.write(b"[")
+                        .and_then(|_| self.write_json(item))
+                        .and_then(|_| {
+                            for item in iter {
+                                stry!(self.write(b",").and_then(|_| self.write_json(item)))
+                            }
+                            self.write(b"]")
+                        })
                 }
             }
             Value::Object(ref object) => self.write_object(object),

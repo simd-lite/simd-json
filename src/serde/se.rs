@@ -4,24 +4,6 @@ use std::io::Write;
 use std::result::Result;
 use value_trait::generator::*;
 
-macro_rules! iotry {
-    ($e:expr) => {
-        match $e {
-            ::std::result::Result::Ok(val) => val,
-            ::std::result::Result::Err(err) => {
-                return ::std::result::Result::Err(Error::generic(ErrorType::IO(err)))
-            }
-        }
-    };
-}
-macro_rules! qtry {
-    ($e:expr) => {
-        if let ::std::result::Result::Err(err) = $e {
-            return ::std::result::Result::Err(err);
-        }
-    };
-}
-
 macro_rules! iomap {
     ($e:expr) => {
         ($e).map_err(|err| Error::generic(ErrorType::IO(err)))
@@ -36,8 +18,7 @@ where
 {
     let v = Vec::with_capacity(512);
     let mut s = Serializer(v);
-    qtry!(to.serialize(&mut s));
-    Ok(s.0)
+    to.serialize(&mut s).map(|_| s.0)
 }
 
 /// Write a value to a string
@@ -97,10 +78,10 @@ where
         } = *self;
         if *first {
             *first = false;
+            value.serialize(&mut **s)
         } else {
-            iotry!(s.write(b","));
+            iomap!(s.write(b",")).and_then(|_| value.serialize(&mut **s))
         }
-        value.serialize(&mut **s)
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -129,10 +110,10 @@ where
         } = *self;
         if *first {
             *first = false;
+            value.serialize(&mut **s)
         } else {
-            iotry!(s.write(b","));
+            iomap!(s.write(b",")).and_then(|_| value.serialize(&mut **s))
         }
-        value.serialize(&mut **s)
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -161,10 +142,10 @@ where
         } = *self;
         if *first {
             *first = false;
+            value.serialize(&mut **s)
         } else {
-            iotry!(s.write(b","));
+            iomap!(s.write(b",")).and_then(|_| value.serialize(&mut **s))
         }
-        value.serialize(&mut **s)
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -193,10 +174,10 @@ where
         } = *self;
         if *first {
             *first = false;
+            value.serialize(&mut **s)
         } else {
-            iotry!(s.write(b","));
+            iomap!(s.write(b",")).and_then(|_| value.serialize(&mut **s))
         }
-        value.serialize(&mut **s)
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -229,13 +210,15 @@ where
             ref mut first,
             ..
         } = *self;
+
         if *first {
             *first = false;
+            key.serialize(&mut **s).and_then(|_| iomap!(s.write(b":")))
         } else {
-            iotry!(s.write(b","));
+            iomap!(s.write(b","))
+                .and_then(|_| key.serialize(&mut **s))
+                .and_then(|_| iomap!(s.write(b":")))
         }
-        qtry!(key.serialize(&mut **s));
-        iomap!(s.write(b":"))
     }
     #[inline]
     fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
@@ -277,12 +260,15 @@ where
         } = *self;
         if *first {
             *first = false;
+            iomap!(s.write_simple_string(key).and_then(|_| s.write(b":")))
+                .and_then(|_| value.serialize(&mut **s))
         } else {
-            iotry!(s.write(b","));
+            iomap!(s
+                .write(b",")
+                .and_then(|_| s.write_simple_string(key))
+                .and_then(|_| s.write(b":")))
+            .and_then(|_| value.serialize(&mut **s))
         }
-        iotry!(s.write_string(key));
-        iotry!(s.write(b":"));
-        value.serialize(&mut **s)
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -316,12 +302,15 @@ where
         } = *self;
         if *first {
             *first = false;
+            iomap!(s.write_simple_string(key).and_then(|_| s.write(b":")))
+                .and_then(|_| value.serialize(&mut **s))
         } else {
-            iotry!(s.write(b","));
+            iomap!(s
+                .write(b",")
+                .and_then(|_| s.write_simple_string(key))
+                .and_then(|_| s.write(b":")))
+            .and_then(|_| value.serialize(&mut **s))
         }
-        iotry!(s.write_string(key));
-        iotry!(s.write(b":"));
-        value.serialize(&mut **s)
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
@@ -401,15 +390,14 @@ where
     }
     #[inline]
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        self.write_float(v)?;
-        Ok(())
+        iomap!(self.write_float(v))
     }
     #[inline]
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
         // A char encoded as UTF-8 takes 4 bytes at most.
         // taken from: https://docs.serde.rs/src/serde_json/ser.rs.html#213
         let mut buf = [0; 4];
-        iomap!(self.write_string(v.encode_utf8(&mut buf)))
+        iomap!(self.write_simple_string(v.encode_utf8(&mut buf)))
     }
     #[inline]
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
@@ -417,15 +405,20 @@ where
     }
     #[inline]
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        iotry!(self.write(b"["));
-        if let Some((first, rest)) = v.split_first() {
-            iotry!(self.write_int(*first as u64));
-            for v in rest {
-                iotry!(self.write(b","));
-                iotry!(self.write_int(*v as u64));
+        iomap!(self.write(b"[").and_then(|_| {
+            if let Some((first, rest)) = v.split_first() {
+                self.write_int(*first as u64).and_then(|_| {
+                    for v in rest {
+                        if let Err(e) = self.write(b",").and_then(|_| self.write_int(*v as u64)) {
+                            return Err(e);
+                        }
+                    }
+                    self.write(b"]")
+                })
+            } else {
+                self.write(b"]")
             }
-        }
-        iomap!(self.write(b"]"))
+        }))
     }
     #[inline]
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
@@ -453,7 +446,7 @@ where
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        iomap!(self.write_string(variant))
+        iomap!(self.write_simple_string(variant))
     }
 
     #[inline]
@@ -479,20 +472,21 @@ where
     where
         T: serde_ext::Serialize,
     {
-        iotry!(self.write(b"{"));
-        iotry!(self.write_string(variant));
-        iotry!(self.write(b":"));
-        qtry!(value.serialize(&mut *self));
-        iomap!(self.write(b"}"))
+        iomap!(self
+            .write(b"{")
+            .and_then(|_| self.write_simple_string(variant))
+            .and_then(|_| self.write(b":")))
+        .and_then(|_| value.serialize(&mut *self))
+        .and_then(|_| iomap!(self.write(b"}")))
     }
     #[inline]
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         if len == Some(0) {
-            iotry!(self.write(b"[]"));
+            iomap!(self.write(b"[]"))
         } else {
-            iotry!(self.write(b"["));
+            iomap!(self.write(b"["))
         }
-        Ok(SerializeSeq {
+        .map(move |_| SerializeSeq {
             s: self,
             first: true,
         })
@@ -520,20 +514,21 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        iotry!(self.write(b"{"));
-        iotry!(self.write_string(variant));
-        iotry!(self.write(b":"));
-        self.serialize_seq(Some(len))
+        iomap!(self
+            .write(b"{")
+            .and_then(|_| self.write_simple_string(variant))
+            .and_then(|_| self.write(b":")))
+        .and_then(move |_| self.serialize_seq(Some(len)))
     }
 
     #[inline]
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         if len == Some(0) {
-            iotry!(self.write(b"{}"));
+            iomap!(self.write(b"{}"))
         } else {
-            iotry!(self.write(b"{"));
+            iomap!(self.write(b"{"))
         }
-        Ok(SerializeMap {
+        .map(move |_| SerializeMap {
             s: self,
             first: true,
         })
@@ -556,9 +551,10 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        iotry!(self.write(b"{"));
-        iotry!(self.write_string(variant));
-        iotry!(self.write(b":"));
-        self.serialize_map(Some(len))
+        iomap!(self
+            .write(b"{")
+            .and_then(|_| self.write_simple_string(variant))
+            .and_then(|_| self.write(b":")))
+        .and_then(move |_| self.serialize_map(Some(len)))
     }
 }
