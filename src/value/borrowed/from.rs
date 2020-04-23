@@ -24,6 +24,21 @@ impl<'v> From<StaticNode> for Value<'v> {
         Self::Static(s)
     }
 }
+
+impl<'v, T> From<Option<T>> for Value<'v>
+where
+    Value<'v>: From<T>,
+{
+    #[inline]
+    #[must_use]
+    fn from(s: Option<T>) -> Self {
+        if let Some(v) = s {
+            Value::from(v)
+        } else {
+            Value::Static(StaticNode::Null)
+        }
+    }
+}
 /********* str_ **********/
 impl<'v> From<&'v str> for Value<'v> {
     #[inline]
