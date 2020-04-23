@@ -893,4 +893,13 @@ mod test {
         let v: Value = false.into();
         assert_eq!(v, false);
     }
+    #[test]
+    fn test_option_from() {
+        let v: Option<u8> = None;
+        let v: Value = v.into();
+        assert_eq!(v, ());
+        let v: Option<u8> = Some(42);
+        let v: Value = v.into();
+        assert_eq!(v, 42);
+    }
 }
