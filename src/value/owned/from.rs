@@ -15,6 +15,21 @@ impl From<crate::BorrowedValue<'_>> for Value {
     }
 }
 
+impl<T> From<Option<T>> for Value
+where
+    Value: From<T>,
+{
+    #[inline]
+    #[must_use]
+    fn from(s: Option<T>) -> Self {
+        if let Some(v) = s {
+            Value::from(v)
+        } else {
+            Value::Static(StaticNode::Null)
+        }
+    }
+}
+
 impl From<StaticNode> for Value {
     #[inline]
     #[must_use]
