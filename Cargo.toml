@@ -13,6 +13,7 @@ documentation = "https://docs.rs/simd-json"
 [dependencies]
 beef = { version = "0.4", optional = true }
 halfbrown = "0.1"
+lexical-core = { version = "0.7", default_features = false, features = ["correct", "format", "ryu"]}
 simd-lite = { version = "0.1", optional = true }
 value-trait = "0.1"
 
