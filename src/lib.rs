@@ -152,6 +152,7 @@ mod charutils;
 #[macro_use]
 mod macros;
 mod error;
+mod numberconst;
 mod numberparse;
 mod stringparse;
 mod utf8check;
