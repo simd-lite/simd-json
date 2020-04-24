@@ -1,19 +1,17 @@
-extern crate core_affinity;
 #[macro_use]
 extern crate criterion;
 
-#[cfg(feature = "jemallocator")]
-extern crate jemallocator;
+use core::time::Duration;
+
 #[cfg(feature = "jemallocator")]
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-use criterion::{BatchSize, Criterion, ParameterizedBenchmark, Throughput};
-#[cfg(feature = "bench-serder")]
+#[cfg(feature = "bench-serde")]
 use serde_json;
+
+use criterion::{BatchSize, Criterion, ParameterizedBenchmark, Throughput};
 use simd_json;
-#[cfg(feature = "simd_json-rust")]
-use simd_json_rust::build_parsed_json;
 use std::fs::File;
 use std::io::Read;
 
@@ -30,19 +28,32 @@ macro_rules! bench_file {
                 .unwrap();
 
             let b = ParameterizedBenchmark::new(
-                "simd_json",
+                "simd_json::to_tape",
                 |b, data| {
                     b.iter_batched(
                         || data.clone(),
                         |mut bytes| {
-                            simd_json::to_borrowed_value(&mut bytes).unwrap();
+                            simd_json::to_tape(&mut bytes).unwrap();
                         },
                         BatchSize::SmallInput,
                     )
                 },
                 vec![vec],
-            );
-            let b = b.with_function("simd_json-owned", |b, data| {
+            )
+            .warm_up_time(Duration::from_secs(1))
+            .measurement_time(Duration::from_secs(20));
+
+            let b = b.with_function("simd_json::to_borrowed_value", |b, data| {
+                b.iter_batched(
+                    || data.clone(),
+                    |mut bytes| {
+                        simd_json::to_borrowed_value(&mut bytes).unwrap();
+                    },
+                    BatchSize::SmallInput,
+                )
+            });
+
+            let b = b.with_function("simd_json::to_owned_value", |b, data| {
                 b.iter_batched(
                     || data.clone(),
                     |mut bytes| {
@@ -51,26 +62,18 @@ macro_rules! bench_file {
                     BatchSize::SmallInput,
                 )
             });
-            #[cfg(feature = "simd_json-rust")]
-            let b = b.with_function("simd_json_cpp", move |b, data| {
-                b.iter_batched(
-                    || String::from_utf8(data.to_vec()).unwrap(),
-                    |bytes| {
-                        let _ = build_parsed_json(&bytes, true);
-                    },
-                    BatchSize::SmallInput,
-                )
-            });
+
             #[cfg(feature = "bench-serde")]
-            let b = b.with_function("serde_json", move |b, data| {
+            let b = b.with_function("serde_json::from_slice", |b, data| {
                 b.iter_batched(
-                    || data.clone(),
-                    |mut bytes| {
+                    || data,
+                    |bytes| {
                         let _: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
                     },
                     BatchSize::SmallInput,
                 )
             });
+
             c.bench(
                 stringify!($name),
                 b.throughput(|data| Throughput::Bytes(data.len() as u64)),
