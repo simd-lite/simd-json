@@ -212,6 +212,7 @@ mod int {
 }
 
 fn main() {
+    // e.g.: cargo run --release --example perf --features perf -- --baseline
     let mut opts = getopts::Options::new();
     opts.optflag("b", "baseline", "create baseline");
     let args: Vec<String> = env::args().collect();
