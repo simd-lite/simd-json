@@ -1,10 +1,18 @@
-use crate::*;
+use crate::{mem, static_cast_i8};
 #[cfg(target_arch = "x86")]
-use std::arch::x86::*;
+use std::arch::x86::{
+    __m128i, _mm_add_epi8, _mm_alignr_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8,
+    _mm_or_si128, _mm_set1_epi8, _mm_setr_epi8, _mm_setzero_si128, _mm_shuffle_epi8,
+    _mm_srli_epi16, _mm_subs_epu8,
+};
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use std::arch::x86_64::{
+    __m128i, _mm_add_epi8, _mm_alignr_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8,
+    _mm_or_si128, _mm_set1_epi8, _mm_setr_epi8, _mm_setzero_si128, _mm_shuffle_epi8,
+    _mm_srli_epi16, _mm_subs_epu8,
+};
 
-use crate::utf8check::*;
+use crate::utf8check::{ProcessedUtfBytes, Utf8Check};
 
 macro_rules! initial_mins {
     () => {

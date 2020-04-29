@@ -1,11 +1,24 @@
 #![allow(dead_code)]
 use crate::utf8check::Utf8Check;
 
-use crate::*;
+use crate::{
+    static_cast_i32, static_cast_i64, static_cast_i8, static_cast_u32, ProcessedUtfBytes,
+    Stage1Parse, Utf8CheckingState,
+};
 #[cfg(target_arch = "x86")]
-use std::arch::x86::*;
+use std::arch::x86::{
+    __m128i, _mm_add_epi32, _mm_and_si128, _mm_clmulepi64_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8,
+    _mm_cvtsi128_si64, _mm_loadu_si128, _mm_max_epu8, _mm_movemask_epi8, _mm_or_si128,
+    _mm_set1_epi8, _mm_set_epi32, _mm_set_epi64x, _mm_setr_epi8, _mm_setzero_si128,
+    _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128, _mm_testz_si128,
+};
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use std::arch::x86_64::{
+    __m128i, _mm_add_epi32, _mm_and_si128, _mm_clmulepi64_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8,
+    _mm_cvtsi128_si64, _mm_loadu_si128, _mm_max_epu8, _mm_movemask_epi8, _mm_or_si128,
+    _mm_set1_epi8, _mm_set_epi32, _mm_set_epi64x, _mm_setr_epi8, _mm_setzero_si128,
+    _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128, _mm_testz_si128,
+};
 
 use std::mem;
 
