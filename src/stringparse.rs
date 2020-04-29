@@ -1,5 +1,5 @@
-use crate::charutils::*;
-use crate::error::*;
+use crate::charutils::{codepoint_to_utf8, hex_to_u32_nocheck};
+use crate::error::ErrorType;
 
 /// begin copypasta
 /// These chars yield themselves: " \ /

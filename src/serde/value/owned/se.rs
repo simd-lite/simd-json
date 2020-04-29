@@ -238,14 +238,8 @@ impl serde::Serializer for Serializer {
         })
     }
 
-    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-        match name {
-            #[cfg(feature = "arbitrary_precision")]
-            ::number::TOKEN => Ok(SerializeMap::Number { out_value: None }),
-            #[cfg(feature = "raw_value")]
-            ::raw::TOKEN => Ok(SerializeMap::RawValue { out_value: None }),
-            _ => self.serialize_map(Some(len)),
-        }
+    fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+        self.serialize_map(Some(len))
     }
 
     fn serialize_struct_variant(

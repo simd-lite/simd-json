@@ -1,12 +1,18 @@
-use crate::charutils::*;
+use crate::charutils::is_structural_or_whitespace;
 use crate::unlikely;
 use crate::StaticNode;
-use crate::*;
+use crate::{mem, static_cast_i64, Deserializer, ErrorType, Result};
 
 #[cfg(all(target_arch = "x86", feature = "swar-number-parsing"))]
-use std::arch::x86::*;
+use std::arch::x86::{
+    __m128i, _mm_cvtsi128_si32, _mm_loadu_si128, _mm_madd_epi16, _mm_maddubs_epi16,
+    _mm_packus_epi32, _mm_set1_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_sub_epi8,
+};
 #[cfg(all(target_arch = "x86_64", feature = "swar-number-parsing"))]
-use std::arch::x86_64::*;
+use std::arch::x86_64::{
+    __m128i, _mm_cvtsi128_si32, _mm_loadu_si128, _mm_madd_epi16, _mm_maddubs_epi16,
+    _mm_packus_epi32, _mm_set1_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_sub_epi8,
+};
 
 const POWER_OF_TEN: [f64; 632] = [
     1e-323, 1e-322, 1e-321, 1e-320, 1e-319, 1e-318, 1e-317, 1e-316, 1e-315, 1e-314, 1e-313, 1e-312,

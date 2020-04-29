@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use crate::charutils::*;
-use crate::value::tape::*;
+use crate::charutils::is_not_structural_or_whitespace;
+use crate::value::tape::Node;
 use crate::{Deserializer, Error, ErrorType, Result};
 use value_trait::StaticNode;
 
@@ -423,7 +423,7 @@ impl<'de> Deserializer<'de> {
         }
 
         loop {
-            use self::State::*;
+            use self::State::{MainArraySwitch, ObjectKey, ScopeEnd};
             match state {
                 ////////////////////////////// OBJECT STATES /////////////////////////////
                 ObjectKey => {

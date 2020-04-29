@@ -237,16 +237,20 @@ macro_rules! deserialize_integer_key {
             match (self.key.parse(), self.key) {
                 (Ok(integer), _) => visitor.$visit(integer),
                 #[cfg(feature = "beef")]
-                (Err(_), s) => if s.is_borrowed() {visitor.visit_borrowed_str(s.unwrap_borrowed())} else {visitor.visit_string(s.into_owned())},
+                (Err(_), s) => {
+                    if s.is_borrowed() {
+                        visitor.visit_borrowed_str(s.unwrap_borrowed())
+                    } else {
+                        visitor.visit_string(s.into_owned())
+                    }
+                }
                 #[cfg(not(feature = "beef"))]
                 (Err(_), Cow::Borrowed(s)) => visitor.visit_borrowed_str(s),
                 #[cfg(not(feature = "beef"))]
                 (Err(_), Cow::Owned(s)) => visitor.visit_string(s),
-
-
             }
         }
-    }
+    };
 }
 impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
     type Error = Error;

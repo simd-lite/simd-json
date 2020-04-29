@@ -10,7 +10,9 @@ use crate::stry;
 use crate::StaticNode;
 use std::io;
 use std::io::Write;
-use value_trait::generator::*;
+use value_trait::generator::{
+    BaseGenerator, DumpGenerator, PrettyGenerator, PrettyWriterGenerator, WriterGenerator,
+};
 
 //use util::print_dec;
 

@@ -34,7 +34,7 @@ pub enum SerdeConversionError {
 }
 impl std::fmt::Display for SerdeConversionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use SerdeConversionError::*;
+        use SerdeConversionError::{NanOrInfinity, NumberOutOfBounds, Oops};
         match self {
             NanOrInfinity => write!(f, "JSON can not represent NAN or Infinity values"),
             NumberOutOfBounds => write!(f, "Serde can not represent 128 bit values"),

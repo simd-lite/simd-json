@@ -1,10 +1,25 @@
 #![allow(dead_code)]
 use crate::utf8check::Utf8Check;
-use crate::*;
+use crate::{
+    static_cast_i32, static_cast_i64, static_cast_i8, static_cast_u32, ProcessedUtfBytes,
+    Stage1Parse, Utf8CheckingState,
+};
 #[cfg(target_arch = "x86")]
-use std::arch::x86::*;
+use std::arch::x86::{
+    __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_cmpgt_epi8,
+    _mm256_loadu_si256, _mm256_max_epu8, _mm256_movemask_epi8, _mm256_or_si256, _mm256_set1_epi8,
+    _mm256_set_epi32, _mm256_setr_epi8, _mm256_setzero_si256, _mm256_shuffle_epi8,
+    _mm256_srli_epi32, _mm256_storeu_si256, _mm256_testz_si256, _mm_clmulepi64_si128,
+    _mm_cvtsi128_si64, _mm_set1_epi8, _mm_set_epi64x,
+};
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use std::arch::x86_64::{
+    __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_cmpgt_epi8,
+    _mm256_loadu_si256, _mm256_max_epu8, _mm256_movemask_epi8, _mm256_or_si256, _mm256_set1_epi8,
+    _mm256_set_epi32, _mm256_setr_epi8, _mm256_setzero_si256, _mm256_shuffle_epi8,
+    _mm256_srli_epi32, _mm256_storeu_si256, _mm256_testz_si256, _mm_clmulepi64_si128,
+    _mm_cvtsi128_si64, _mm_set1_epi8, _mm_set_epi64x,
+};
 
 use std::mem;
 

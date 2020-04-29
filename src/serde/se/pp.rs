@@ -1,8 +1,8 @@
-use crate::*;
+use crate::{serde_ext, str, stry, Error, ErrorType};
 use serde_ext::ser;
 use std::io::Write;
 use std::result::Result;
-use value_trait::generator::*;
+use value_trait::generator::BaseGenerator;
 
 macro_rules! iomap {
     ($e:expr) => {

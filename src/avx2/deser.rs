@@ -1,12 +1,18 @@
 #[cfg(target_arch = "x86")]
-use std::arch::x86::*;
+use std::arch::x86::{
+    __m256i, _mm256_cmpeq_epi8, _mm256_loadu_si256, _mm256_movemask_epi8, _mm256_set1_epi8,
+    _mm256_storeu_si256,
+};
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use std::arch::x86_64::{
+    __m256i, _mm256_cmpeq_epi8, _mm256_loadu_si256, _mm256_movemask_epi8, _mm256_set1_epi8,
+    _mm256_storeu_si256,
+};
 
 use std::mem;
 
 pub use crate::error::{Error, ErrorType};
-use crate::stringparse::*;
+use crate::stringparse::{handle_unicode_codepoint, ESCAPE_MAP};
 use crate::Deserializer;
 pub use crate::Result;
 
@@ -28,7 +34,7 @@ impl<'de> Deserializer<'de> {
         buffer: &'invoke mut [u8],
         mut idx: usize,
     ) -> Result<&'de str> {
-        use ErrorType::*;
+        use ErrorType::{InvalidEscape, InvlaidUnicodeCodepoint};
         let input: &mut [u8] = unsafe { std::mem::transmute(input) };
         // Add 1 to skip the initial "
         idx += 1;
