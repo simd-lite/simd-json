@@ -14,7 +14,7 @@ documentation = "https://docs.rs/simd-json"
 beef = { version = "0.4", optional = true }
 halfbrown = "0.1"
 simd-lite = { version = "0.1", optional = true }
-value-trait = "0.1"
+value-trait = "0.1.10"
 
 # serde compatibilty
 serde = { version = "1", features = ["derive"], optional = true}
