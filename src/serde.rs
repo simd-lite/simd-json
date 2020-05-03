@@ -524,7 +524,6 @@ mod test {
         let result: Result<Color, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
         assert!(result.is_ok());
 
-
         #[derive(serde::Deserialize, Debug)]
         #[serde(tag = "type")]
         pub enum Color1 {
@@ -539,6 +538,5 @@ mod test {
         let mut raw_json = r#"{"type": "Blue"}"#.to_string();
         let result: Result<Color1, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
         assert!(result.is_ok());
-
     }
 }
