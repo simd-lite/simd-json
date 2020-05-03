@@ -316,9 +316,28 @@ where
         self.deserialize_map(visitor)
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_enum<V>(
+        mut self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        // Parse the opening bracket of the sequence.
+        if let Ok(Node::Object(len, _)) = self.next() {
+            // Give the visitor access to each element of the sequence.
+            visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
+        } else {
+            Err(Deserializer::error(ErrorType::ExpectedMap))
+        }
+    }
+
     forward_to_deserialize_any! {
             char
-            bytes byte_buf enum
+            bytes byte_buf
             identifier ignored_any
     }
 }

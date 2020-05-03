@@ -492,4 +492,53 @@ mod test {
         let result: Result<Person, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn convert_enum() {
+        #[derive(serde::Deserialize, Debug)]
+        #[serde(tag = "type")]
+        enum Message {
+            Request { id: usize, method: String },
+            Response { id: String, result: String },
+        }
+        let mut raw_json = r#"{"type": "Request", "id": 1, "method": "..."}"#.to_string();
+        let result: Result<Message, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+
+        let mut raw_json = r#"{"type": "Response", "id": "1", "result": "..."}"#.to_string();
+        let result: Result<Message, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+
+        #[derive(serde::Deserialize, Debug)]
+        #[serde(tag = "type", content = "v")]
+        pub enum Color {
+            Red(String), // TODO: If `content` flag is present, `Red` works and `Green` doesn't
+            Green { v: bool },
+            Blue,
+        }
+        let mut raw_json = r#"{"type": "Red", "v": "1"}"#.to_string();
+        let result: Result<Color, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+
+        let mut raw_json = r#"{"type": "Blue"}"#.to_string();
+        let result: Result<Color, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+
+
+        #[derive(serde::Deserialize, Debug)]
+        #[serde(tag = "type")]
+        pub enum Color1 {
+            Red(String),
+            Green { v: bool }, // TODO: If `content` flag is absent, `Green` works and `Red` doesn't
+            Blue,
+        }
+        let mut raw_json = r#"{"type": "Green", "v": false}"#.to_string();
+        let result: Result<Color1, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+
+        let mut raw_json = r#"{"type": "Blue"}"#.to_string();
+        let result: Result<Color1, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+
+    }
 }
