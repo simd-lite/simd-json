@@ -1,4 +1,4 @@
-name: Tests
+name: Tests - Nightly
 
 on: [push, pull_request]
 
@@ -24,7 +24,7 @@ jobs:
     - uses: actions/checkout@v1
     - uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: nightly
         override: true
     - name: Build
       env:
