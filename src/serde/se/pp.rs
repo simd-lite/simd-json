@@ -694,7 +694,7 @@ mod test {
         #[test]
         fn prop_json_encode_decode(val in arb_json_value()) {
             let mut encoded = crate::to_vec_pretty(&val).unwrap();
-            println!("{}", String::from_utf8_lossy(&encoded.clone()));
+            println!("{}", String::from_utf8_lossy(&encoded));
             let res: Value = crate::from_slice(encoded.as_mut_slice()).expect("can't convert");
             assert_eq!(val, res);
         }

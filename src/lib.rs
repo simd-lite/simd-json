@@ -152,7 +152,6 @@ mod charutils;
 #[macro_use]
 mod macros;
 mod error;
-mod numberconst;
 mod numberparse;
 mod stringparse;
 mod utf8check;
@@ -650,7 +649,7 @@ impl<'de> Deserializer<'de> {
 mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::{owned::Value, to_borrowed_value, to_owned_value, Deserializer};
-    use crate::tape::*;
+    use crate::tape::Node;
     use proptest::prelude::*;
     use value_trait::{StaticNode, Writable};
 
@@ -821,7 +820,7 @@ mod tests {
         fn prop_json_encode_decode(val in arb_json_value()) {
             let mut encoded: Vec<u8> = Vec::new();
             let _ = val.write(&mut encoded);
-            println!("{}", String::from_utf8_lossy(&encoded.clone()));
+            println!("{}", String::from_utf8_lossy(&encoded));
             let mut e = encoded.clone();
             let res = to_owned_value(&mut e).expect("can't convert");
             assert_eq!(val, res);
@@ -834,7 +833,7 @@ mod tests {
                 let mut e = encoded.clone();
                 let res: OwnedValue = deserialize(&mut e).expect("can't convert");
                 assert_eq!(val, res);
-                let mut e = encoded.clone();
+                let mut e = encoded;
                 let res: BorrowedValue = deserialize(&mut e).expect("can't convert");
                 assert_eq!(val, res);
             }
@@ -852,7 +851,7 @@ mod tests_serde {
     use halfbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
-    use serde_json;
+
     use value_trait::{Builder, Mutable, StaticNode};
 
     #[test]
@@ -1635,7 +1634,7 @@ mod tests_serde {
                 ]
             },
         )
-        .prop_map(|v| serde_json::to_string(&v).expect("").to_string())
+        .prop_map(|v| serde_json::to_string(&v).expect(""))
         .boxed()
     }
 
@@ -1689,7 +1688,7 @@ mod tests_serde {
         fn prop_junk(d in arb_junk()) {
             let mut d1 = d.clone();
             let mut d2 = d.clone();
-            let mut d3 = d.clone();
+            let mut d3 = d;
 
             let _ = from_slice::<serde_json::Value>(&mut d1);
             let _ = to_borrowed_value(&mut d2);
@@ -1713,7 +1712,7 @@ mod tests_serde {
             let mut d1 = unsafe{ d1.as_bytes_mut()};
             let mut d2 = d.clone();
             let mut d2 = unsafe{ d2.as_bytes_mut()};
-            let mut d3 = d.clone();
+            let mut d3 = d;
             let mut d3 = unsafe{ d3.as_bytes_mut()};
             let _ = from_slice::<serde_json::Value>(&mut d1);
             let _ = to_borrowed_value(&mut d2);

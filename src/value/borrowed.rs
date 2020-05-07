@@ -370,7 +370,10 @@ impl<'de> BorrowDeserializer<'de> {
 #[cfg(test)]
 mod test {
     #![allow(clippy::cognitive_complexity)]
-    use super::*;
+    use super::{
+        to_value, AccessError, Builder, Cow, Mutable, Object, StaticNode, Value, ValueTrait,
+        ValueType, Writable,
+    };
 
     #[test]
     fn object_access() {

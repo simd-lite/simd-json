@@ -639,7 +639,7 @@ macro_rules! stry {
 #[cfg(test)]
 mod test {
     use crate::prelude::*;
-    use crate::*;
+    use crate::{json, OwnedValue};
     #[test]
     fn array() {
         let v: OwnedValue = json!(vec![1]);

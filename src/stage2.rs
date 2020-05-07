@@ -602,7 +602,7 @@ impl<'de> Deserializer<'de> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use super::{is_valid_false_atom, is_valid_null_atom, is_valid_true_atom};
 
     #[test]
     fn true_atom() {

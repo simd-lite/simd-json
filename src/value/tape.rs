@@ -26,7 +26,7 @@ pub enum Node<'input> {
 mod test {
     #![allow(clippy::cognitive_complexity)]
     use super::StaticNode as Value;
-    use super::*;
+    use super::StaticNode;
     use crate::prelude::*;
 
     #[test]
@@ -34,7 +34,7 @@ mod test {
     #[allow(unused_variables)]
     fn object_index() {
         let v = StaticNode::Null;
-        let a = v["test"];
+        v["test"];
     }
 
     #[test]
@@ -49,7 +49,7 @@ mod test {
     #[allow(unused_variables)]
     fn array_index() {
         let v = StaticNode::Null;
-        let a = v[0];
+        v[0];
     }
 
     #[test]

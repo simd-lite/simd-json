@@ -328,7 +328,10 @@ impl<'de> OwnedDeserializer<'de> {
 #[cfg(test)]
 mod test {
     #![allow(clippy::cognitive_complexity)]
-    use super::*;
+    use super::{
+        to_value, AccessError, Builder, Mutable, Object, StaticNode, Value, ValueTrait, ValueType,
+        Writable,
+    };
 
     #[test]
     fn object_access() {
@@ -783,7 +786,7 @@ mod test {
                 prop_oneof![
                     // Take the inner strategy and make the two recursive cases.
                     prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
-                    prop::collection::hash_map(".*", inner.clone(), 0..10)
+                    prop::collection::hash_map(".*", inner, 0..10)
                         .prop_map(|m| m.into_iter().collect()),
                 ]
             },
