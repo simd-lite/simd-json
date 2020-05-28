@@ -34,7 +34,7 @@ criterion = { version = "0.3", optional = true }
 [dev-dependencies]
 float-cmp = "0.8"
 getopts = "0.2"
-proptest = "0.9"
+proptest = "0.10"
 
 [[bench]]
 name = "parse"
