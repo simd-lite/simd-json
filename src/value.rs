@@ -8,7 +8,7 @@
 /// new memory for strings.
 ///
 /// This differs notably from serds zero copy implementation as, unlike serde,
-/// we do not require prior knowledge sbout string comtent to to take advantage
+/// we do not require prior knowledge about string content to to take advantage
 /// of it.
 ///
 /// ## Usage
@@ -68,7 +68,7 @@ pub use value_trait::*;
 /// Parses a slice of butes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
-/// has the dame lifetime as the slice it was created from.
+/// has the same lifetime as the slice it was created from.
 ///
 /// # Errors
 ///
