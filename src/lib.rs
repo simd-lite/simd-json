@@ -397,7 +397,8 @@ pub(crate) trait Stage1Parse<T> {
     fn zero() -> T;
 }
 
-pub(crate) struct Deserializer<'de> {
+/// Deserializer struct to deserialize a JSON
+pub struct Deserializer<'de> {
     // Note: we use the 2nd part as both index and lenght since only one is ever
     // used (array / object use len) everything else uses idx
     pub(crate) tape: Vec<Node<'de>>,
@@ -415,10 +416,7 @@ impl<'de> Deserializer<'de> {
         Error::new(idx, c, error)
     }
 
-    // By convention, `Deserializer` constructors are named like `from_xyz`.
-    // That way basic use cases are satisfied by something like
-    // `serde_json::from_str(...)` while advanced use cases that require a
-    // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
+    /// Creates a serializer from a mutable slice of bytes
     pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
         let len = input.len();
 
@@ -430,12 +428,8 @@ impl<'de> Deserializer<'de> {
         Deserializer::from_slice_with_buffer(input, &mut string_buffer)
     }
 
-    // By convention, `Deserializer` constructors are named like `from_xyz`.
-    // That way basic use cases are satisfied by something like
-    // `serde_json::from_str(...)` while advanced use cases that require a
-    // deserializer can make one with `serde_json::Deserializer::from_str(...)`.
-    // this takes an additional buffer to be (re) used for temporary string copying
-
+    /// Creates a serializer from a mutable slice of bytes using a temporary
+    /// buffer for strings for them to be coppied in and out if needed
     pub fn from_slice_with_buffer(input: &'de mut [u8], string_buffer: &mut [u8]) -> Result<Self> {
         // We have to pick an initial size of the structural indexes.
         // 6 is a heuristic that seems to work well for the benchmark
