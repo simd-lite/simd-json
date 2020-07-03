@@ -417,6 +417,10 @@ impl<'de> Deserializer<'de> {
     }
 
     /// Creates a serializer from a mutable slice of bytes
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if `s` is invalid JSON.
     pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
         let len = input.len();
 
@@ -430,6 +434,10 @@ impl<'de> Deserializer<'de> {
 
     /// Creates a serializer from a mutable slice of bytes using a temporary
     /// buffer for strings for them to be coppied in and out if needed
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if `s` is invalid JSON.
     pub fn from_slice_with_buffer(input: &'de mut [u8], string_buffer: &mut [u8]) -> Result<Self> {
         // We have to pick an initial size of the structural indexes.
         // 6 is a heuristic that seems to work well for the benchmark
