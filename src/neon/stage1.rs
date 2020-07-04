@@ -1,16 +1,25 @@
 #![allow(dead_code)]
 use crate::utf8check::Utf8Check;
 use crate::*;
-use simd_lite::aarch64::*;
-use simd_lite::NeonInit;
+use std::arch::aarch64::*;
 use std::mem;
 
 // NEON-SPECIFIC
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub(crate) unsafe fn bit_mask() -> uint8x16_t {
-    uint8x16_t::new([
-        0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
+    std::mem::transmute([
+        0x01u8, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40,
+        0x80,
     ])
+}
+
+// FIXME this needs to be upstream
+//
+// vtstq_u8
+// vmovq_n_s8
+
+pub unsafe fn vtstq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
+    vcgtq_u8(vandq_u8(a, b), vdupq_n_u8(0))
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -117,7 +126,7 @@ impl Stage1Parse<int8x16_t> for SimdInput {
                 // ascii too. We only check the byte that was just before simd_input. Nines
                 // are arbitrary values.
                 let verror: int8x16_t =
-                    int8x16_t::new([9i8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1]);
+                    std::mem::transmute([9i8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1]);
                 state.has_error = vreinterpretq_s8_u8(vorrq_u8(
                     vcgtq_s8(state.previous.carried_continuations, verror),
                     vreinterpretq_u8_s8(state.has_error),
@@ -198,10 +207,10 @@ impl Stage1Parse<int8x16_t> for SimdInput {
 
             // TODO: const?
             let low_nibble_mask: uint8x16_t =
-                uint8x16_t::new([16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]);
+                std::mem::transmute([16u8, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]);
             // TODO: const?
             let high_nibble_mask: uint8x16_t =
-                uint8x16_t::new([8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]);
+                std::mem::transmute([8u8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]);
 
             let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);
             let whitespace_shufti_mask: uint8x16_t = vmovq_n_u8(0x18);
@@ -306,7 +315,7 @@ impl Stage1Parse<int8x16_t> for SimdInput {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn fill_s8(n: i8) -> int8x16_t {
-        unsafe { vmovq_n_s8(n) }
+        unsafe { vdupq_n_s8(n) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]

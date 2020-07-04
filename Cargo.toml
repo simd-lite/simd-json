@@ -13,7 +13,6 @@ documentation = "https://docs.rs/simd-json"
 [dependencies]
 beef = { version = "0.4", optional = true }
 halfbrown = "0.1"
-simd-lite = { version = "0.1", optional = true }
 value-trait = "0.1.10"
 
 # serde compatibilty
@@ -58,7 +57,7 @@ swar-number-parsing = []
 serde_impl = [ "serde", "serde_json", "halfbrown/serde" ]
 
 # Support for ARM NEON SIMD
-neon = ["simd-lite", "value-trait/neon"]
+neon = ["value-trait/neon"]
 
 # Allow fallback to non simd CPUs
 allow-non-simd = []
