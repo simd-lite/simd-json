@@ -1,12 +1,11 @@
 use crate::*;
-use simd_lite::aarch64::*;
-use simd_lite::NeonInit;
+use std::arch::aarch64::*;
 
 use crate::utf8check::Utf8Check;
 
 macro_rules! nibbles_tbl {
     () => {
-        int8x16_t::new([
+        std::mem::transmute([
             1i8, 1, 1, 1, 1, 1, 1, 1, // 0xxx (ASCII)
             0, 0, 0, 0, // 10xx (continuation)
             2, 2, // 110x
@@ -18,7 +17,7 @@ macro_rules! nibbles_tbl {
 
 macro_rules! initial_mins_tbl {
     () => {
-        int8x16_t::new([
+        std::mem::transmute([
             -128i8, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
             -128, // 10xx => false
             -62,  // 0xC2
@@ -31,7 +30,7 @@ macro_rules! initial_mins_tbl {
 
 macro_rules! second_mins_tbl {
     () => {
-        int8x16_t::new([
+        std::mem::transmute([
             -128i8, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
             -128, // 10xx => false
             127, 127,  // 110x => true

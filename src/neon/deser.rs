@@ -3,7 +3,7 @@ use crate::neon::stage1::bit_mask;
 use crate::stringparse::*;
 use crate::Deserializer;
 use crate::Result;
-use simd_lite::aarch64::*;
+use std::arch::aarch64::*;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
