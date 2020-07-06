@@ -156,7 +156,8 @@ impl Error {
             error,
         }
     }
-    pub(crate) fn generic(t: ErrorType) -> Self {
+    /// Create a generic error
+    pub fn generic(t: ErrorType) -> Self {
         Self {
             index: 0,
             character: '💩', //this is the poop emoji
