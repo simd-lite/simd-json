@@ -334,10 +334,7 @@ where
                 visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
             }
             Ok(Node::String(s)) => visitor.visit_enum(s.into_deserializer()),
-            _ => {
-                dbg!("snot");
-                Err(Deserializer::error(ErrorType::ExpectedMap))
-            }
+            _ => Err(Deserializer::error(ErrorType::ExpectedMap)),
         }
     }
 
