@@ -1,3 +1,4 @@
+use crate::serde_ext::de::IntoDeserializer;
 use crate::{serde_ext, str, stry, Deserializer, Error, ErrorType, Node, Result, StaticNode};
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
@@ -327,11 +328,16 @@ where
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
-        if let Ok(Node::Object(len, _)) = self.next() {
-            // Give the visitor access to each element of the sequence.
-            visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
-        } else {
-            Err(Deserializer::error(ErrorType::ExpectedMap))
+        match self.next() {
+            Ok(Node::Object(len, _)) => {
+                // Give the visitor access to each element of the sequence.
+                visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
+            }
+            Ok(Node::String(s)) => visitor.visit_enum(s.into_deserializer()),
+            _ => {
+                dbg!("snot");
+                Err(Deserializer::error(ErrorType::ExpectedMap))
+            }
         }
     }
 

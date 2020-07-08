@@ -539,4 +539,29 @@ mod test {
         let result: Result<Color1, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
         assert!(result.is_ok());
     }
+
+    #[derive(serde_ext::Deserialize)]
+    pub struct Foo {
+        #[allow(unused)]
+        bar: Bar,
+    }
+
+    #[derive(serde_ext::Deserialize)]
+    pub enum Bar {
+        A,
+    }
+
+    #[test]
+    fn object_simd_json() {
+        let mut json = br#"{"bar":"A"}"#.to_vec();
+
+        crate::from_slice::<Foo>(&mut json).unwrap();
+    }
+
+    #[test]
+    fn simple_simd_json() {
+        let mut json = br#""A""#.to_vec();
+
+        crate::from_slice::<Bar>(&mut json).unwrap();
+    }
 }
