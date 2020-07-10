@@ -157,6 +157,7 @@ impl Error {
         }
     }
     /// Create a generic error
+    #[must_use = "Error creation"]
     pub fn generic(t: ErrorType) -> Self {
         Self {
             index: 0,
