@@ -59,28 +59,31 @@ trait Generator: BaseGenerator {
             self.write(b"{}")
         } else {
             let mut iter = object.iter();
-            self.write(b"{")
-                .and_then(|_| {
-                    // We know this exists since it's not empty
-                    let (key, value) = iter.next().unwrap();
-                    self.indent();
-                    self.new_line()
-                        .and_then(|_| self.write_simple_string(key))
-                        .and_then(|_| self.write_min(b": ", b':'))
-                        .and_then(|_| self.write_json(value))
-                })
-                .and_then(|_| {
-                    for (key, value) in iter {
-                        stry!(self
-                            .write(b",")
-                            .and_then(|_| self.new_line())
-                            .and_then(|_| self.write_simple_string(key))
-                            .and_then(|_| self.write_min(b": ", b':'))
-                            .and_then(|_| self.write_json(value)));
-                    }
-                    self.dedent();
-                    self.new_line().and_then(|_| self.write(b"}"))
-                })
+            stry!(self.write(b"{"));
+
+            // We know this exists since it's not empty
+            let (key, value) = if let Some(v) = iter.next() {
+                v
+            } else {
+                // We check against size
+                unreachable!()
+            };
+            self.indent();
+            stry!(self.new_line());
+            stry!(self.write_simple_string(key));
+            stry!(self.write_min(b": ", b':'));
+            stry!(self.write_json(value));
+
+            for (key, value) in iter {
+                stry!(self.write(b","));
+                stry!(self.new_line());
+                stry!(self.write_simple_string(key));
+                stry!(self.write_min(b": ", b':'));
+                stry!(self.write_json(value));
+            }
+            self.dedent();
+            stry!(self.new_line());
+            self.write(b"}")
         }
     }
 
@@ -105,23 +108,26 @@ trait Generator: BaseGenerator {
                     let mut iter = <[Value]>::iter(array);
                     // We know we have one item
 
-                    let item = iter.next().unwrap();
-                    self.write(b"[")
-                        .and_then(|_| {
-                            self.indent();
-                            self.new_line().and_then(|_| self.write_json(item))
-                        })
-                        .and_then(|_| {
-                            for item in iter {
-                                stry!(self
-                                    .write(b",")
-                                    .and_then(|_| self.new_line())
-                                    .and_then(|_| self.write_json(item)));
-                            }
+                    let item = if let Some(v) = iter.next() {
+                        v
+                    } else {
+                        // We check against size
+                        unreachable!()
+                    };
+                    stry!(self.write(b"["));
+                    self.indent();
 
-                            self.dedent();
-                            self.new_line().and_then(|_| self.write(b"]"))
-                        })
+                    stry!(self.new_line());
+                    stry!(self.write_json(item));
+
+                    for item in iter {
+                        stry!(self.write(b","));
+                        stry!(self.new_line());
+                        stry!(self.write_json(item));
+                    }
+                    self.dedent();
+                    stry!(self.new_line());
+                    self.write(b"]")
                 }
             }
             Value::Object(ref object) => self.write_object(object),
@@ -138,24 +144,26 @@ trait FastGenerator: BaseGenerator {
             self.write(b"{}")
         } else {
             let mut iter = object.iter();
-            self.write(b"{")
-                .and_then(|_| {
-                    // We know this exists since it's not empty
-                    let (key, value) = iter.next().unwrap();
-                    self.write_simple_string(key)
-                        .and_then(|_| self.write(b":"))
-                        .and_then(|_| self.write_json(value))
-                })
-                .and_then(|_| {
-                    for (key, value) in iter {
-                        stry!(self
-                            .write(b",")
-                            .and_then(|_| self.write_simple_string(key))
-                            .and_then(|_| self.write(b":"))
-                            .and_then(|_| self.write_json(value)));
-                    }
-                    self.write(b"}")
-                })
+            stry!(self.write(b"{"));
+
+            // We know this exists since it's not empty
+            let (key, value) = if let Some(v) = iter.next() {
+                v
+            } else {
+                // We check against size
+                unreachable!()
+            };
+            stry!(self.write_simple_string(key));
+            stry!(self.write(b":"));
+            stry!(self.write_json(value));
+
+            for (key, value) in iter {
+                stry!(self.write(b","));
+                stry!(self.write_simple_string(key));
+                stry!(self.write(b":"));
+                stry!(self.write_json(value));
+            }
+            self.write(b"}")
         }
     }
 
@@ -179,16 +187,21 @@ trait FastGenerator: BaseGenerator {
                 } else {
                     let mut iter = <[Value]>::iter(array);
                     // We know we have one item
-                    let item = iter.next().unwrap();
+                    let item = if let Some(v) = iter.next() {
+                        v
+                    } else {
+                        // We check against size
+                        unreachable!()
+                    };
 
-                    self.write(b"[")
-                        .and_then(|_| self.write_json(item))
-                        .and_then(|_| {
-                            for item in iter {
-                                stry!(self.write(b",").and_then(|_| self.write_json(item)))
-                            }
-                            self.write(b"]")
-                        })
+                    stry!(self.write(b"["));
+                    stry!(self.write_json(item));
+
+                    for item in iter {
+                        stry!(self.write(b","));
+                        stry!(self.write_json(item));
+                    }
+                    self.write(b"]")
                 }
             }
             Value::Object(ref object) => self.write_object(object),
@@ -236,6 +249,14 @@ mod test {
     fn bool_false() {
         assert_eq!(Value::Static(StaticNode::Bool(false)).encode(), "false")
     }
+
+    #[test]
+    fn obj() {
+        let mut o = Value::object();
+        o.insert("k", ()).unwrap();
+        assert_eq!(o.encode(), r#"{"k":null}"#)
+    }
+
     fn assert_str(from: &str, to: &str) {
         assert_eq!(Value::String(from.into()).encode(), to)
     }
