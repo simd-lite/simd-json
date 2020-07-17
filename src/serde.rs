@@ -401,7 +401,7 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
 
 #[cfg(test)]
 mod test {
-    #![allow(clippy::result_unwrap_used)]
+    #![allow(clippy::unwrap_used)]
     use crate::{json, BorrowedValue, OwnedValue};
     use serde_json::{json as sjson, Value as SerdeValue};
     use std::convert::TryInto;

@@ -5,7 +5,7 @@
 #![warn(unused_extern_crates)]
 #![deny(
     clippy::all,
-    clippy::result_unwrap_used,
+    clippy::unwrap_used,
     clippy::unnecessary_unwrap,
     clippy::pedantic
 )]

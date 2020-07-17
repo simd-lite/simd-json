@@ -238,7 +238,7 @@ impl Index<&str> for Value {
     #[inline]
     #[must_use]
     fn index(&self, index: &str) -> &Self::Output {
-        self.get(index).unwrap()
+        self.get(index).expect("index out of bounds")
     }
 }
 
@@ -247,7 +247,7 @@ impl Index<usize> for Value {
     #[inline]
     #[must_use]
     fn index(&self, index: usize) -> &Self::Output {
-        self.get_idx(index).unwrap()
+        self.get_idx(index).expect("index out of bounds")
     }
 }
 
@@ -255,7 +255,7 @@ impl IndexMut<&str> for Value {
     #[inline]
     #[must_use]
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
-        self.get_mut(index).unwrap()
+        self.get_mut(index).expect("index out of bounds")
     }
 }
 
@@ -263,7 +263,7 @@ impl IndexMut<usize> for Value {
     #[inline]
     #[must_use]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        self.get_idx_mut(index).unwrap()
+        self.get_idx_mut(index).expect("index out of bounds")
     }
 }
 
