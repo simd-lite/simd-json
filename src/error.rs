@@ -166,6 +166,7 @@ impl Error {
         }
     }
 }
+impl std::error::Error for Error {}
 
 #[cfg_attr(tarpaulin, skip)]
 impl fmt::Display for Error {

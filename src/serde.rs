@@ -99,8 +99,6 @@ where
     T::deserialize(&mut deserializer)
 }
 
-impl std::error::Error for Error {}
-
 impl serde::de::Error for Error {
     fn custom<T: fmt::Display>(msg: T) -> Self {
         Self::generic(ErrorType::Serde(msg.to_string()))

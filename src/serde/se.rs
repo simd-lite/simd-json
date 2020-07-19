@@ -1,9 +1,10 @@
 mod pp;
-use crate::{serde_ext, str, Error, ErrorType};
+use crate::{serde_ext, Error, ErrorType};
 pub use pp::*;
 use serde_ext::ser;
 use std::io::Write;
 use std::result::Result;
+use std::str;
 use value_trait::generator::BaseGenerator;
 
 macro_rules! iomap {

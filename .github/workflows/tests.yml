@@ -14,6 +14,7 @@ jobs:
           - '-C target-cpu=native'
           - '-C target-cpu=native -C target-feature=-avx2'
         features:
+          - '--no-default-features'
           - ''
           - '--features known-key'
           - '--features 128bit'
