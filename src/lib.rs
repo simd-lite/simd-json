@@ -110,7 +110,7 @@
 //!
 //! ### Serde Comaptible API
 //!
-//! ```
+//! ```ignore
 //! use simd_json;
 //! use serde_json::Value;
 //!
@@ -208,7 +208,6 @@ mod stage2;
 pub mod value;
 
 use std::mem;
-use std::str;
 pub use value_trait::StaticNode;
 
 pub use crate::error::{Error, ErrorType};
