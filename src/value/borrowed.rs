@@ -264,7 +264,7 @@ impl<'v> ValueTrait for Value<'v> {
     }
 }
 
-#[cfg_attr(tarpaulin, skip)]
+#[cfg(not(tarpaulin_include))]
 impl<'v> fmt::Display for Value<'v> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

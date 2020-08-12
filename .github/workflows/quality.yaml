@@ -42,8 +42,8 @@ jobs:
           RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
           PROPTEST_CASES: 512
         with:
-          version: '0.11.0'
-          args: '--features no-inline'  
+          version: "0.14.2"
+          args: "--features no-inline"
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
@@ -64,8 +64,8 @@ jobs:
           RUSTFLAGS: "-C target-cpu=native"
           PROPTEST_CASES: 512
         with:
-          version: '0.11.0'
-          args: '--features no-inline'  
+          version: "0.14.2"
+          args: "--features no-inline"
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
@@ -86,8 +86,8 @@ jobs:
           RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
           PROPTEST_CASES: 512
         with:
-          version: '0.11.0'
-          args: '--features no-inline,known-key,128bit'  
+          version: "0.14.2"
+          args: "--features no-inline,known-key,128bit"
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required
@@ -108,8 +108,8 @@ jobs:
           RUSTFLAGS: "-C target-cpu=native"
           PROPTEST_CASES: 512
         with:
-          version: '0.11.0'
-          args: '--features no-inline,known-key,128bit'  
+          version: "0.14.2"
+          args: "--features no-inline,known-key,128bit"
       - uses: codecov/codecov-action@v1.0.2
         with:
           token: ${{secrets.CODECOV_TOKEN}} #required

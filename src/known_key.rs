@@ -20,7 +20,7 @@ pub enum Error {
     NotAnObject(ValueType),
 }
 
-#[cfg_attr(tarpaulin, skip)]
+#[cfg(not(tarpaulin_include))]
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
