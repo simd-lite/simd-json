@@ -145,7 +145,7 @@ trait FastGenerator: BaseGenerator {
             self.write(b"{}")
         } else {
             let mut iter = object.iter();
-            stry!(self.write(b"{"));
+            stry!(self.write(b"{\""));
 
             // We know this exists since it's not empty
             let (key, value) = if let Some(v) = iter.next() {
@@ -154,13 +154,14 @@ trait FastGenerator: BaseGenerator {
                 // We check against size
                 unreachable!()
             };
-            stry!(self.write_simple_string(key));
-            stry!(self.write(b":"));
+            stry!(self.write_simple_str_content(key));
+            stry!(self.write(b"\":"));
             stry!(self.write_json(value));
+
             for (key, value) in iter {
-                stry!(self.write(b","));
-                stry!(self.write_simple_string(key));
-                stry!(self.write(b":"));
+                stry!(self.write(b",\""));
+                stry!(self.write_simple_str_content(key));
+                stry!(self.write(b"\":"));
                 stry!(self.write_json(value));
             }
             self.write(b"}")

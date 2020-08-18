@@ -1,6 +1,6 @@
 [package]
 name = "simd-json"
-version = "0.3.18-alpha.0"
+version = "0.3.17"
 authors = ["Heinz N. Gies <heinz@licenser.net>", "Sunny Gleason"]
 edition = "2018"
 exclude = [ "data/*", "fuzz/*"]
@@ -13,7 +13,8 @@ documentation = "https://docs.rs/simd-json"
 [dependencies]
 beef = { version = "0.4", optional = true }
 halfbrown = "0.1"
-value-trait = "0.1.10"
+# value-trait = "0.1.10"
+value-trait = { version = "0.1.14" }
 
 # serde compatibilty
 serde = { version = "1", features = ["derive"], optional = true}
