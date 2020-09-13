@@ -3,6 +3,9 @@ use std::fmt;
 /// Error types encountered while parsing
 #[derive(Debug)]
 pub enum ErrorType {
+    /// Simd-json only supports inputs of up to
+    /// 4GB in size.
+    InputTooLarge,
     /// The key of a map isn't a string
     BadKeyType,
     /// The data ended early
