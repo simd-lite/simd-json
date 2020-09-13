@@ -560,6 +560,21 @@ mod test {
     fn simple_simd_json() {
         let mut json = br#""A""#.to_vec();
 
-        crate::from_slice::<Bar>(&mut json).unwrap();
+        assert!(crate::from_slice::<Bar>(&mut json).is_ok());
+    }
+
+    #[test]
+    fn array_as_struct() {
+        #[derive(serde_ext::Deserialize)]
+        struct Point {
+            x: u64,
+            y: u64,
+        }
+
+        let mut json = br#"[1,2]"#.to_vec();
+
+        let p: Point = crate::from_slice(&mut json).unwrap();
+        assert_eq!(p.x, 1);
+        assert_eq!(p.y, 2);
     }
 }
