@@ -726,7 +726,6 @@ mod tests {
     fn silly_float1() {
         let v = Value::from(3.090_144_804_232_201_7e305);
         let s = v.encode();
-        dbg!(&s);
         let mut bytes = s.as_bytes().to_vec();
         let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
         assert_eq!(v, parsed);
@@ -737,7 +736,6 @@ mod tests {
     fn silly_float2() {
         let v = Value::from(-6.990_585_694_841_803e305);
         let s = v.encode();
-        dbg!(&s);
         let mut bytes = s.as_bytes().to_vec();
         let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
         assert_eq!(v, parsed);
@@ -1349,7 +1347,7 @@ mod tests_serde {
         assert_eq!(v_simd, v_serde);
         let mut h = Object::new();
         h.insert("snot".into(), Value::from("badger"));
-        assert_eq!(dbg!(to_value(&mut d1)), Ok(Value::from(h)));
+        assert_eq!(to_value(&mut d1), Ok(Value::from(h)));
     }
 
     #[test]
