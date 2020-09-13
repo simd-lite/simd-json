@@ -1,7 +1,7 @@
-use crate::cow::Cow;
 use crate::value::borrowed::{Object, Value};
 use crate::Error;
 use crate::StaticNode;
+use crate::{cow::Cow, ErrorType};
 use serde_ext::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor,
 };
@@ -62,10 +62,31 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
         }
     }
 
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self {
+            // Give the visitor access to each element of the sequence.
+            Value::Array(a) => visitor.visit_seq(Array(a.iter())),
+            Value::Object(o) => visitor.visit_map(ObjectAccess {
+                i: o.iter(),
+                v: &Value::Static(StaticNode::Null),
+            }),
+            _ => Err(crate::Deserializer::error(ErrorType::ExpectedMap)),
+        }
+    }
+
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
             bytes byte_buf unit unit_struct newtype_struct seq tuple
-            tuple_struct map struct enum identifier ignored_any
+            tuple_struct map enum identifier ignored_any
     }
 }
 
@@ -387,12 +408,20 @@ mod test {
     #[test]
     fn option_field_present_owned() {
         #[derive(serde::Deserialize, Debug)]
+        pub struct Point {
+            pub x: u64,
+            pub y: u64,
+        }
+        #[derive(serde::Deserialize, Debug)]
         pub struct Person {
             pub name: String,
             pub middle_name: Option<String>,
             pub friends: Vec<String>,
+            pub pos: Point,
         }
-        let mut raw_json = r#"{"name":"bob","middle_name": "frank", "friends":[]}"#.to_string();
+
+        let mut raw_json =
+            r#"{"name":"bob","middle_name": "frank", "friends":[], "pos":[0,1]}"#.to_string();
         let result: Result<Person, _> =
             crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() })
                 .and_then(super::super::from_value);
