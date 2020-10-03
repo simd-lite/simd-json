@@ -670,6 +670,7 @@ pub struct AlignedBuf {
 
 impl AlignedBuf {
     /// TODO
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING / 2) {
             Ok(layout) => layout,
