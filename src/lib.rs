@@ -437,6 +437,10 @@ impl<'de> Deserializer<'de> {
 
         let len = input.len();
 
+        if len > std::u32::MAX as usize {
+            return Err(Deserializer::error(ErrorType::InputTooLarge));
+        }
+
         // let buf_start: usize = input.as_ptr() as *const () as usize;
         // let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
         let mut buffer = AlignedBuf::with_capacity(len + SIMDJSON_PADDING * 2);
@@ -456,6 +460,10 @@ impl<'de> Deserializer<'de> {
         string_buffer: &mut [u8],
     ) -> Result<Self> {
         let len = input.len();
+
+        if len > std::u32::MAX as usize {
+            return Err(Deserializer::error(ErrorType::InputTooLarge));
+        }
 
         if input_buffer.capacity() < len + SIMDJSON_PADDING * 2 {
             *input_buffer = AlignedBuf::with_capacity(len + SIMDJSON_PADDING * 2);
