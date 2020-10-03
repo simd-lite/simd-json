@@ -223,6 +223,9 @@ mod known_key;
 pub use known_key::{Error as KnownKeyError, KnownKey};
 
 pub use crate::tape::{Node, Tape};
+use std::alloc::{alloc, handle_alloc_error, Layout};
+use std::ops::{Deref, DerefMut};
+use std::ptr::NonNull;
 
 /// Creates a tape from the input for later consumption
 /// # Errors
@@ -436,23 +439,39 @@ impl<'de> Deserializer<'de> {
 
         // let buf_start: usize = input.as_ptr() as *const () as usize;
         // let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
-        let mut buffer: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING * 2);
+        let mut buffer = AlignedBuf::with_capacity(len + SIMDJSON_PADDING * 2);
 
-        let align = buffer
-            .as_slice()
-            .as_ptr()
-            .align_offset(SIMDJSON_PADDING / 2);
+        Self::from_slice_with_buffers(input, &mut buffer, string_buffer)
+    }
+
+    /// Creates a serializer from a mutable slice of bytes using a temporary
+    /// buffer for strings for them to be coppied in and out if needed
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if `s` is invalid JSON.
+    pub fn from_slice_with_buffers(
+        input: &'de mut [u8],
+        input_buffer: &mut AlignedBuf,
+        string_buffer: &mut [u8],
+    ) -> Result<Self> {
+        let len = input.len();
+
+        if input_buffer.capacity() < len + SIMDJSON_PADDING * 2 {
+            *input_buffer = AlignedBuf::with_capacity(len + SIMDJSON_PADDING * 2);
+        }
+
         unsafe {
-            buffer
+            input_buffer
                 .as_mut_slice()
-                .get_unchecked_mut(align..align + len)
+                .get_unchecked_mut(..len)
                 .clone_from_slice(input);
-            *(buffer.get_unchecked_mut(len + align)) = 0;
-            buffer.set_len(len + align);
+            *(input_buffer.get_unchecked_mut(len)) = 0;
+            input_buffer.set_len(len);
         };
 
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
-            unsafe { Deserializer::find_structural_bits(&buffer[align..]) };
+            unsafe { Deserializer::find_structural_bits(&input_buffer) };
 
         let structural_indexes = match s1_result {
             Ok(i) => i,
@@ -462,7 +481,7 @@ impl<'de> Deserializer<'de> {
         };
 
         let tape =
-            Deserializer::build_tape(input, &buffer[align..], string_buffer, &structural_indexes)?;
+            Deserializer::build_tape(input, &input_buffer, string_buffer, &structural_indexes)?;
 
         Ok(Deserializer { tape, idx: 0 })
     }
@@ -633,6 +652,49 @@ impl<'de> Deserializer<'de> {
         } else {
             Ok(structural_indexes)
         }
+    }
+}
+
+/// TODO
+pub struct AlignedBuf {
+    inner: Vec<u8>,
+}
+
+impl AlignedBuf {
+    /// TODO
+    pub fn with_capacity(capacity: usize) -> Self {
+        let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING / 2) {
+            Ok(layout) => layout,
+            Err(_) => Self::capacity_overflow(),
+        };
+        if mem::size_of::<usize>() < 8 && capacity > isize::MAX as usize {
+            Self::capacity_overflow()
+        }
+        let ptr = match unsafe { NonNull::new(alloc(layout)) } {
+            Some(ptr) => ptr,
+            None => handle_alloc_error(layout),
+        };
+        Self {
+            inner: unsafe { Vec::from_raw_parts(ptr.as_ptr(), 0, capacity) },
+        }
+    }
+
+    fn capacity_overflow() -> ! {
+        panic!("capacity overflow");
+    }
+}
+
+impl Deref for AlignedBuf {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for AlignedBuf {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
 
