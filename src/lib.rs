@@ -394,7 +394,6 @@ pub struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
-    #[cfg(feature = "serde_impl")]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(error: ErrorType) -> Error {
         Deserializer::raw_error(0, '?', error)
