@@ -48,7 +48,15 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
     }
 }
 
-/// TODO
+/// Parses a slice of bytes into a Value dom. This function will
+/// rewrite the slice to de-escape strings.
+/// We do not keep any references to the raw data but re-allocate
+/// owned memory whereever required thus returning a value without
+/// a lifetime.
+///
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
 pub fn to_value_with_buffers(
     s: &mut [u8],
     input_buffer: &mut AlignedBuf,

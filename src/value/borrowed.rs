@@ -34,7 +34,7 @@ use std::ops::{Index, IndexMut};
 /// Representation of a JSON object
 pub type Object<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 
-/// Parses a slice of butes into a Value dom. This function will
+/// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
 /// has the same lifetime as the slice it was created from.
@@ -49,7 +49,14 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
     }
 }
 
-/// TODO
+/// Parses a slice of bytes into a Value dom. This function will
+/// rewrite the slice to de-escape strings.
+/// As we reference parts of the input slice the resulting dom
+/// has the same lifetime as the slice it was created from.
+///
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
 pub fn to_value_with_buffers<'v>(
     s: &'v mut [u8],
     input_buffer: &'v mut AlignedBuf,
