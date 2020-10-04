@@ -56,7 +56,7 @@ pub mod borrowed;
 pub mod owned;
 /// Tape implementation
 pub mod tape;
-pub use self::borrowed::{to_value as to_borrowed_value, Value as BorrowedValue};
+pub use self::borrowed::{to_value as to_borrowed_value, to_value_with_buffers as to_borrowed_value_with_buffers, Value as BorrowedValue};
 pub use self::owned::{to_value as to_owned_value, Value as OwnedValue};
 use crate::{Deserializer, Result};
 use halfbrown::HashMap;
