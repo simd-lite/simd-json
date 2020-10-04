@@ -26,7 +26,7 @@ mod serialize;
 
 use crate::cow::Cow;
 use crate::prelude::*;
-use crate::{Deserializer, Node, Result, StaticNode, AlignedBuf};
+use crate::{AlignedBuf, Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
