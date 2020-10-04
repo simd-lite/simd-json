@@ -26,7 +26,7 @@ mod serialize;
 
 use crate::cow::Cow;
 use crate::prelude::*;
-use crate::{Deserializer, Node, Result, StaticNode};
+use crate::{Deserializer, Node, Result, StaticNode, AlignedBuf};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
@@ -44,6 +44,18 @@ pub type Object<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 /// Will return `Err` if `s` is invalid JSON.
 pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
     match Deserializer::from_slice(s) {
+        Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
+        Err(e) => Err(e),
+    }
+}
+
+/// TODO
+pub fn to_value_with_buffers<'v>(
+    s: &'v mut [u8],
+    input_buffer: &'v mut AlignedBuf,
+    string_buffer: &'v mut [u8],
+) -> Result<Value<'v>> {
+    match Deserializer::from_slice_with_buffers(s, input_buffer, string_buffer) {
         Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
     }
