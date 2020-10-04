@@ -412,10 +412,6 @@ impl<'de> Deserializer<'de> {
     pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
         let len = input.len();
 
-        if len > std::u32::MAX as usize {
-            return Err(Deserializer::error(ErrorType::InputTooLarge));
-        }
-
         let mut string_buffer: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
         unsafe {
             string_buffer.set_len(len + SIMDJSON_PADDING);
@@ -436,10 +432,6 @@ impl<'de> Deserializer<'de> {
         // data and limit re-allocation frequency.
 
         let len = input.len();
-
-        if len > std::u32::MAX as usize {
-            return Err(Deserializer::error(ErrorType::InputTooLarge));
-        }
 
         // let buf_start: usize = input.as_ptr() as *const () as usize;
         // let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
