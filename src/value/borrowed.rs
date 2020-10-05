@@ -59,8 +59,8 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
 /// Will return `Err` if `s` is invalid JSON.
 pub fn to_value_with_buffers<'v>(
     s: &'v mut [u8],
-    input_buffer: &'v mut AlignedBuf,
-    string_buffer: &'v mut [u8],
+    input_buffer: &mut AlignedBuf,
+    string_buffer: &mut [u8],
 ) -> Result<Value<'v>> {
     match Deserializer::from_slice_with_buffers(s, input_buffer, string_buffer) {
         Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),

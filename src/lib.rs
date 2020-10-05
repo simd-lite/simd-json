@@ -654,13 +654,13 @@ impl<'de> Deserializer<'de> {
     }
 }
 
-/// TODO
+/// an SIMD alligned buffer
 pub struct AlignedBuf {
     inner: Vec<u8>,
 }
 
 impl AlignedBuf {
-    /// TODO
+    /// Creates a new buffer that is  alligned with the simd register size
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING / 2) {
