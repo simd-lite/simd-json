@@ -227,7 +227,9 @@ impl<'value, V: Into<Value<'value>>> FromIterator<V> for Value<'value> {
     }
 }
 
-impl<'value, K: Into<Cow<'value, str>>, V: Into<Value<'value>>> FromIterator<(K, V)> for Value<'value> {
+impl<'value, K: Into<Cow<'value, str>>, V: Into<Value<'value>>> FromIterator<(K, V)>
+    for Value<'value>
+{
     #[inline]
     #[must_use]
     fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
