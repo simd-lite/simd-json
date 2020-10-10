@@ -71,8 +71,8 @@ impl<'key> KnownKey<'key> {
         target: &'target Value<'value>,
     ) -> Option<&'target Value<'value>>
     where
-        'key: 'target,
-        'value: 'borrow,
+        'key: 'value,
+        'value: 'target,
     {
         target
             .as_object()
