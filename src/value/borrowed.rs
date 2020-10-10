@@ -181,10 +181,7 @@ impl<'v> ValueTrait for Value<'v> {
     #[inline]
     #[must_use]
     fn is_null(&self) -> bool {
-        match self {
-            Self::Static(StaticNode::Null) => true,
-            _ => false,
-        }
+        matches!(self, Self::Static(StaticNode::Null))
     }
 
     #[inline]
