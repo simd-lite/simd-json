@@ -218,14 +218,14 @@ impl Generator for PrettyGenerator<Value> {
     type T = Vec<u8>;
 }
 
-impl<'w, W> FastGenerator for WriterGenerator<'w, W, Value>
+impl<'writer, W> FastGenerator for WriterGenerator<'writer, W, Value>
 where
     W: Write,
 {
     type T = W;
 }
 
-impl<'w, W> Generator for PrettyWriterGenerator<'w, W, Value>
+impl<'writer, W> Generator for PrettyWriterGenerator<'writer, W, Value>
 where
     W: Write,
 {

@@ -90,11 +90,11 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
     }
 }
 
-struct Array<'de, 'a: 'de>(std::slice::Iter<'de, Value<'a>>);
+struct Array<'de, 'value: 'de>(std::slice::Iter<'de, Value<'value>>);
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
-impl<'de, 'a> SeqAccess<'de> for Array<'a, 'de> {
+impl<'de, 'value> SeqAccess<'de> for Array<'value, 'de> {
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
@@ -108,14 +108,14 @@ impl<'de, 'a> SeqAccess<'de> for Array<'a, 'de> {
     }
 }
 
-struct ObjectAccess<'de, 'a: 'de> {
-    i: halfbrown::Iter<'de, Cow<'a, str>, Value<'a>>,
-    v: &'de Value<'a>,
+struct ObjectAccess<'de, 'value: 'de> {
+    i: halfbrown::Iter<'de, Cow<'value, str>, Value<'value>>,
+    v: &'de Value<'value>,
 }
 
 // `MapAccess` is provided to the `Visitor` to give it the ability to iterate
 // through entries of the map.
-impl<'de, 'a> MapAccess<'de> for ObjectAccess<'a, 'de> {
+impl<'de, 'value> MapAccess<'de> for ObjectAccess<'value, 'de> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>

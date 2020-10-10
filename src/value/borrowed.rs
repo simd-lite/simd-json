@@ -32,7 +32,7 @@ use std::fmt;
 use std::ops::{Index, IndexMut};
 
 /// Representation of a JSON object
-pub type Object<'v> = HashMap<Cow<'v, str>, Value<'v>>;
+pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>>;
 
 /// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
@@ -42,7 +42,7 @@ pub type Object<'v> = HashMap<Cow<'v, str>, Value<'v>>;
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
-pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
+pub fn to_value<'value>(s: &'value mut [u8]) -> Result<Value<'value>> {
     match Deserializer::from_slice(s) {
         Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
@@ -57,11 +57,11 @@ pub fn to_value<'v>(s: &'v mut [u8]) -> Result<Value<'v>> {
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
-pub fn to_value_with_buffers<'v>(
-    s: &'v mut [u8],
+pub fn to_value_with_buffers<'value>(
+    s: &'value mut [u8],
     input_buffer: &mut AlignedBuf,
     string_buffer: &mut [u8],
-) -> Result<Value<'v>> {
+) -> Result<Value<'value>> {
     match Deserializer::from_slice_with_buffers(s, input_buffer, string_buffer) {
         Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
@@ -71,18 +71,18 @@ pub fn to_value_with_buffers<'v>(
 /// Borrowed JSON-DOM Value, consider using the `ValueTrait`
 /// to access its content
 #[derive(Debug, Clone)]
-pub enum Value<'v> {
+pub enum Value<'value> {
     /// Static values
     Static(StaticNode),
     /// string type
-    String(Cow<'v, str>),
+    String(Cow<'value, str>),
     /// array type
-    Array(Vec<Value<'v>>),
+    Array(Vec<Value<'value>>),
     /// object type
-    Object(Box<Object<'v>>),
+    Object(Box<Object<'value>>),
 }
 
-impl<'v> Value<'v> {
+impl<'value> Value<'value> {
     /// Enforces static lifetime on a borrowed value, this will
     /// force all strings to become owned COW's, the same applies for
     /// Object keys.
@@ -125,7 +125,7 @@ impl<'v> Value<'v> {
     }
 }
 
-impl<'v> Builder<'v> for Value<'v> {
+impl<'value> Builder<'value> for Value<'value> {
     #[inline]
     #[must_use]
     fn null() -> Self {
@@ -143,10 +143,10 @@ impl<'v> Builder<'v> for Value<'v> {
     }
 }
 
-impl<'v> Mutable for Value<'v> {
+impl<'value> Mutable for Value<'value> {
     #[inline]
     #[must_use]
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'v>>> {
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'value>>> {
         match self {
             Self::Array(a) => Some(a),
             _ => None,
@@ -162,8 +162,8 @@ impl<'v> Mutable for Value<'v> {
     }
 }
 
-impl<'v> ValueTrait for Value<'v> {
-    type Key = Cow<'v, str>;
+impl<'value> ValueTrait for Value<'value> {
+    type Key = Cow<'value, str>;
     type Array = Vec<Self>;
     type Object = HashMap<Self::Key, Self>;
 
@@ -263,7 +263,7 @@ impl<'v> ValueTrait for Value<'v> {
 
     #[inline]
     #[must_use]
-    fn as_array(&self) -> Option<&Vec<Value<'v>>> {
+    fn as_array(&self) -> Option<&Vec<Value<'value>>> {
         match self {
             Self::Array(a) => Some(a),
             _ => None,
@@ -281,7 +281,7 @@ impl<'v> ValueTrait for Value<'v> {
 }
 
 #[cfg(not(tarpaulin_include))]
-impl<'v> fmt::Display for Value<'v> {
+impl<'value> fmt::Display for Value<'value> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Static(s) => write!(f, "{}", s),
@@ -292,8 +292,8 @@ impl<'v> fmt::Display for Value<'v> {
     }
 }
 
-impl<'v> Index<&str> for Value<'v> {
-    type Output = Value<'v>;
+impl<'value> Index<&str> for Value<'value> {
+    type Output = Value<'value>;
     #[inline]
     #[must_use]
     fn index(&self, index: &str) -> &Self::Output {
@@ -301,8 +301,8 @@ impl<'v> Index<&str> for Value<'v> {
     }
 }
 
-impl<'v> Index<usize> for Value<'v> {
-    type Output = Value<'v>;
+impl<'value> Index<usize> for Value<'value> {
+    type Output = Value<'value>;
     #[inline]
     #[must_use]
     fn index(&self, index: usize) -> &Self::Output {
@@ -310,7 +310,7 @@ impl<'v> Index<usize> for Value<'v> {
     }
 }
 
-impl<'v> IndexMut<&str> for Value<'v> {
+impl<'value> IndexMut<&str> for Value<'value> {
     #[inline]
     #[must_use]
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
@@ -318,7 +318,7 @@ impl<'v> IndexMut<&str> for Value<'v> {
     }
 }
 
-impl<'v> IndexMut<usize> for Value<'v> {
+impl<'value> IndexMut<usize> for Value<'value> {
     #[inline]
     #[must_use]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
@@ -326,7 +326,7 @@ impl<'v> IndexMut<usize> for Value<'v> {
     }
 }
 
-impl<'v> Default for Value<'v> {
+impl<'value> Default for Value<'value> {
     #[inline]
     #[must_use]
     fn default() -> Self {

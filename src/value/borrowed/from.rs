@@ -4,7 +4,7 @@ use crate::OwnedValue;
 use crate::StaticNode;
 use std::iter::FromIterator;
 
-impl<'a> From<OwnedValue> for Value<'a> {
+impl<'value> From<OwnedValue> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(b: OwnedValue) -> Self {
@@ -17,7 +17,7 @@ impl<'a> From<OwnedValue> for Value<'a> {
     }
 }
 
-impl<'v> From<StaticNode> for Value<'v> {
+impl<'value> From<StaticNode> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(s: StaticNode) -> Self {
@@ -25,9 +25,9 @@ impl<'v> From<StaticNode> for Value<'v> {
     }
 }
 
-impl<'v, T> From<Option<T>> for Value<'v>
+impl<'value, T> From<Option<T>> for Value<'value>
 where
-    Value<'v>: From<T>,
+    Value<'value>: From<T>,
 {
     #[inline]
     #[must_use]
@@ -36,42 +36,42 @@ where
     }
 }
 /********* str_ **********/
-impl<'v> From<&'v str> for Value<'v> {
+impl<'value> From<&'value str> for Value<'value> {
     #[inline]
     #[must_use]
-    fn from(s: &'v str) -> Self {
+    fn from(s: &'value str) -> Self {
         Value::String(Cow::from(s))
     }
 }
 
 #[cfg(feature = "beef")]
-impl<'v> From<std::borrow::Cow<'v, str>> for Value<'v> {
+impl<'value> From<std::borrow::Cow<'value, str>> for Value<'value> {
     #[inline]
     #[must_use]
-    fn from(c: std::borrow::Cow<'v, str>) -> Self {
+    fn from(c: std::borrow::Cow<'value, str>) -> Self {
         Value::String(c.into())
     }
 }
 
 #[cfg(not(feature = "beef"))]
-impl<'v> From<std::borrow::Cow<'v, str>> for Value<'v> {
+impl<'value> From<std::borrow::Cow<'value, str>> for Value<'value> {
     #[inline]
     #[must_use]
-    fn from(c: std::borrow::Cow<'v, str>) -> Self {
+    fn from(c: std::borrow::Cow<'value, str>) -> Self {
         Value::String(c)
     }
 }
 
 #[cfg(feature = "beef")]
-impl<'v> From<beef::lean::Cow<'v, str>> for Value<'v> {
+impl<'value> From<beef::lean::Cow<'value, str>> for Value<'value> {
     #[inline]
     #[must_use]
-    fn from(c: beef::lean::Cow<'v, str>) -> Self {
+    fn from(c: beef::lean::Cow<'value, str>) -> Self {
         Self::String(c.into())
     }
 }
 
-impl<'v> From<String> for Value<'v> {
+impl<'value> From<String> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(s: String) -> Self {
@@ -80,14 +80,14 @@ impl<'v> From<String> for Value<'v> {
 }
 
 /********* atoms **********/
-impl<'v> From<bool> for Value<'v> {
+impl<'value> From<bool> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(b: bool) -> Self {
         Value::Static(StaticNode::Bool(b))
     }
 }
-impl<'v> From<()> for Value<'v> {
+impl<'value> From<()> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(_b: ()) -> Self {
@@ -96,7 +96,7 @@ impl<'v> From<()> for Value<'v> {
 }
 
 /********* i_ **********/
-impl<'v> From<i8> for Value<'v> {
+impl<'value> From<i8> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: i8) -> Self {
@@ -104,7 +104,7 @@ impl<'v> From<i8> for Value<'v> {
     }
 }
 
-impl<'v> From<i16> for Value<'v> {
+impl<'value> From<i16> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: i16) -> Self {
@@ -112,7 +112,7 @@ impl<'v> From<i16> for Value<'v> {
     }
 }
 
-impl<'v> From<i32> for Value<'v> {
+impl<'value> From<i32> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: i32) -> Self {
@@ -120,7 +120,7 @@ impl<'v> From<i32> for Value<'v> {
     }
 }
 
-impl<'v> From<i64> for Value<'v> {
+impl<'value> From<i64> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: i64) -> Self {
@@ -129,7 +129,7 @@ impl<'v> From<i64> for Value<'v> {
 }
 
 #[cfg(feature = "128bit")]
-impl<'v> From<i128> for Value<'v> {
+impl<'value> From<i128> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: i128) -> Self {
@@ -138,7 +138,7 @@ impl<'v> From<i128> for Value<'v> {
 }
 
 /********* u_ **********/
-impl<'v> From<u8> for Value<'v> {
+impl<'value> From<u8> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: u8) -> Self {
@@ -146,7 +146,7 @@ impl<'v> From<u8> for Value<'v> {
     }
 }
 
-impl<'v> From<u16> for Value<'v> {
+impl<'value> From<u16> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: u16) -> Self {
@@ -154,7 +154,7 @@ impl<'v> From<u16> for Value<'v> {
     }
 }
 
-impl<'v> From<u32> for Value<'v> {
+impl<'value> From<u32> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: u32) -> Self {
@@ -162,7 +162,7 @@ impl<'v> From<u32> for Value<'v> {
     }
 }
 
-impl<'v> From<u64> for Value<'v> {
+impl<'value> From<u64> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: u64) -> Self {
@@ -171,7 +171,7 @@ impl<'v> From<u64> for Value<'v> {
 }
 
 #[cfg(feature = "128bit")]
-impl<'v> From<u128> for Value<'v> {
+impl<'value> From<u128> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: u128) -> Self {
@@ -179,7 +179,7 @@ impl<'v> From<u128> for Value<'v> {
     }
 }
 
-impl<'v> From<usize> for Value<'v> {
+impl<'value> From<usize> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(i: usize) -> Self {
@@ -188,7 +188,7 @@ impl<'v> From<usize> for Value<'v> {
 }
 
 /********* f_ **********/
-impl<'v> From<f32> for Value<'v> {
+impl<'value> From<f32> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(f: f32) -> Self {
@@ -196,7 +196,7 @@ impl<'v> From<f32> for Value<'v> {
     }
 }
 
-impl<'v> From<f64> for Value<'v> {
+impl<'value> From<f64> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(f: f64) -> Self {
@@ -204,9 +204,9 @@ impl<'v> From<f64> for Value<'v> {
     }
 }
 
-impl<'v, S> From<Vec<S>> for Value<'v>
+impl<'value, S> From<Vec<S>> for Value<'value>
 where
-    Value<'v>: From<S>,
+    Value<'value>: From<S>,
 {
     #[inline]
     #[must_use]
@@ -215,7 +215,7 @@ where
     }
 }
 
-impl<'v, V: Into<Value<'v>>> FromIterator<V> for Value<'v> {
+impl<'value, V: Into<Value<'value>>> FromIterator<V> for Value<'value> {
     #[inline]
     #[must_use]
     fn from_iter<I: IntoIterator<Item = V>>(iter: I) -> Self {
@@ -223,7 +223,7 @@ impl<'v, V: Into<Value<'v>>> FromIterator<V> for Value<'v> {
     }
 }
 
-impl<'v, K: Into<Cow<'v, str>>, V: Into<Value<'v>>> FromIterator<(K, V)> for Value<'v> {
+impl<'value, K: Into<Cow<'value, str>>, V: Into<Value<'value>>> FromIterator<(K, V)> for Value<'value> {
     #[inline]
     #[must_use]
     fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
@@ -235,10 +235,10 @@ impl<'v, K: Into<Cow<'v, str>>, V: Into<Value<'v>>> FromIterator<(K, V)> for Val
     }
 }
 
-impl<'v> From<Object<'v>> for Value<'v> {
+impl<'value> From<Object<'value>> for Value<'value> {
     #[inline]
     #[must_use]
-    fn from(v: Object<'v>) -> Self {
+    fn from(v: Object<'value>) -> Self {
         Self::Object(Box::new(v))
     }
 }

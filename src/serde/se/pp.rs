@@ -58,7 +58,7 @@ impl<W: Write> PrettySerializer<W> {
     }
 }
 
-impl<'w, W> BaseGenerator for PrettySerializer<W>
+impl<'writer, W> BaseGenerator for PrettySerializer<W>
 where
     W: Write,
 {
@@ -101,11 +101,11 @@ where
         self.dent -= 1;
     }
 }
-struct SerializeSeq<'s, W: Write + 's> {
-    s: &'s mut PrettySerializer<W>,
+struct SerializeSeq<'serializer, W: Write + 'serializer> {
+    s: &'serializer mut PrettySerializer<W>,
     first: bool,
 }
-impl<'s, W> ser::SerializeSeq for SerializeSeq<'s, W>
+impl<'serializer, W> ser::SerializeSeq for SerializeSeq<'serializer, W>
 where
     W: Write,
 {
@@ -139,7 +139,7 @@ where
     }
 }
 
-impl<'s, W> ser::SerializeTuple for SerializeSeq<'s, W>
+impl<'serializer, W> ser::SerializeTuple for SerializeSeq<'serializer, W>
 where
     W: Write,
 {
@@ -172,7 +172,7 @@ where
     }
 }
 
-impl<'s, W> ser::SerializeTupleStruct for SerializeSeq<'s, W>
+impl<'serializer, W> ser::SerializeTupleStruct for SerializeSeq<'serializer, W>
 where
     W: Write,
 {
@@ -205,7 +205,7 @@ where
     }
 }
 
-impl<'s, W> ser::SerializeTupleVariant for SerializeSeq<'s, W>
+impl<'serializer, W> ser::SerializeTupleVariant for SerializeSeq<'serializer, W>
 where
     W: Write,
 {
@@ -238,12 +238,12 @@ where
     }
 }
 
-struct SerializeMap<'s, W: Write + 's> {
-    s: &'s mut PrettySerializer<W>,
+struct SerializeMap<'serializer, W: Write + 'serializer> {
+    s: &'serializer mut PrettySerializer<W>,
     first: bool,
 }
 
-impl<'s, W> ser::SerializeMap for SerializeMap<'s, W>
+impl<'serializer, W> ser::SerializeMap for SerializeMap<'serializer, W>
 where
     W: Write,
 {
@@ -290,7 +290,7 @@ where
     }
 }
 
-impl<'s, W> ser::SerializeStruct for SerializeMap<'s, W>
+impl<'serializer, W> ser::SerializeStruct for SerializeMap<'serializer, W>
 where
     W: Write,
 {
@@ -336,7 +336,7 @@ where
     }
 }
 
-impl<'s, W> ser::SerializeStructVariant for SerializeMap<'s, W>
+impl<'serializer, W> ser::SerializeStructVariant for SerializeMap<'serializer, W>
 where
     W: Write,
 {
@@ -379,19 +379,19 @@ where
     }
 }
 
-impl<'w, W> ser::Serializer for &'w mut PrettySerializer<W>
+impl<'writer, W> ser::Serializer for &'writer mut PrettySerializer<W>
 where
     W: Write,
 {
     type Ok = ();
     type Error = Error;
-    type SerializeSeq = SerializeSeq<'w, W>;
-    type SerializeTuple = SerializeSeq<'w, W>;
-    type SerializeTupleStruct = SerializeSeq<'w, W>;
-    type SerializeTupleVariant = SerializeSeq<'w, W>;
-    type SerializeMap = SerializeMap<'w, W>;
-    type SerializeStruct = SerializeMap<'w, W>;
-    type SerializeStructVariant = SerializeMap<'w, W>;
+    type SerializeSeq = SerializeSeq<'writer, W>;
+    type SerializeTuple = SerializeSeq<'writer, W>;
+    type SerializeTupleStruct = SerializeSeq<'writer, W>;
+    type SerializeTupleVariant = SerializeSeq<'writer, W>;
+    type SerializeMap = SerializeMap<'writer, W>;
+    type SerializeStruct = SerializeMap<'writer, W>;
+    type SerializeStructVariant = SerializeMap<'writer, W>;
     #[inline]
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         if v {

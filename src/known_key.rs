@@ -66,12 +66,12 @@ impl<'key> KnownKey<'key> {
     /// assert_eq!(known_key.lookup(&object).unwrap(), &42);
     /// ```
     #[inline]
-    pub fn lookup<'borrow, 'value>(
+    pub fn lookup<'target, 'value>(
         &self,
-        target: &'borrow Value<'value>,
-    ) -> Option<&'borrow Value<'value>>
+        target: &'target Value<'value>,
+    ) -> Option<&'target Value<'value>>
     where
-        'key: 'value,
+        'key: 'target,
         'value: 'borrow,
     {
         target
@@ -100,13 +100,13 @@ impl<'key> KnownKey<'key> {
     /// assert_eq!(object["answer"], 42);
     /// ```
     #[inline]
-    pub fn lookup_mut<'borrow, 'value>(
+    pub fn lookup_mut<'target, 'value>(
         &self,
-        target: &'borrow mut Value<'value>,
-    ) -> Option<&'borrow mut Value<'value>>
+        target: &'target mut Value<'value>,
+    ) -> Option<&'target mut Value<'value>>
     where
         'key: 'value,
-        'value: 'borrow,
+        'value: 'target,
     {
         target.as_object_mut().and_then(|m| {
             match m
@@ -148,14 +148,14 @@ impl<'key> KnownKey<'key> {
     /// assert_eq!(object["also the answer"], 42);
     /// ```
     #[inline]
-    pub fn lookup_or_insert_mut<'borrow, 'value, F>(
+    pub fn lookup_or_insert_mut<'target, 'value, F>(
         &self,
-        target: &'borrow mut Value<'value>,
+        target: &'target mut Value<'value>,
         with: F,
-    ) -> Result<&'borrow mut Value<'value>, Error>
+    ) -> Result<&'target mut Value<'value>, Error>
     where
         'key: 'value,
-        'value: 'borrow,
+        'value: 'target,
         F: FnOnce() -> Value<'value>,
     {
         if !target.is_object() {
@@ -197,14 +197,14 @@ impl<'key> KnownKey<'key> {
     /// assert_eq!(object["also the answer"], 42);
     /// ```
     #[inline]
-    pub fn insert<'borrow, 'value>(
+    pub fn insert<'target, 'value>(
         &self,
-        target: &'borrow mut Value<'value>,
+        target: &'target mut Value<'value>,
         value: Value<'value>,
     ) -> Result<Option<Value<'value>>, Error>
     where
         'key: 'value,
-        'value: 'borrow,
+        'value: 'target,
     {
         if !target.is_object() {
             return Err(Error::NotAnObject(target.value_type()));

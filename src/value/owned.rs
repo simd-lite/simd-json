@@ -84,7 +84,7 @@ pub enum Value {
     Object(Box<Object>),
 }
 
-impl<'b> Builder<'b> for Value {
+impl<'input> Builder<'input> for Value {
     #[inline]
     #[must_use]
     fn null() -> Self {
