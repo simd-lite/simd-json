@@ -3,7 +3,7 @@ use crate::prelude::*;
 use crate::OwnedValue;
 
 #[allow(clippy::cast_sign_loss, clippy::default_trait_access)]
-impl<'a> PartialEq for Value<'a> {
+impl<'value> PartialEq for Value<'value> {
     #[inline]
     #[must_use]
     fn eq(&self, other: &Self) -> bool {
@@ -17,9 +17,9 @@ impl<'a> PartialEq for Value<'a> {
     }
 }
 
-impl<'v, T> PartialEq<&T> for Value<'v>
+impl<'value, T> PartialEq<&T> for Value<'value>
 where
-    Value<'v>: PartialEq<T>,
+    Value<'value>: PartialEq<T>,
 {
     #[inline]
     #[must_use]
@@ -28,7 +28,7 @@ where
     }
 }
 
-impl<'a> PartialEq<OwnedValue> for Value<'a> {
+impl<'value> PartialEq<OwnedValue> for Value<'value> {
     #[inline]
     #[must_use]
     fn eq(&self, other: &OwnedValue) -> bool {

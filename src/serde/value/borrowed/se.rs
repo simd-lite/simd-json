@@ -4,7 +4,7 @@ use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
 };
 
-impl<'a> Serialize for Value<'a> {
+impl<'value> Serialize for Value<'value> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
