@@ -333,17 +333,12 @@ impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
         match item {
             Value::Null => Ok(BorrowedValue::from(())),
             Value::Bool(b) => Ok(BorrowedValue::from(b)),
-            Value::Number(b) => {
-                if let Some(n) = b.as_i64() {
-                    Ok(Self::from(n))
-                } else if let Some(n) = b.as_u64() {
-                    Ok(Self::from(n))
-                } else if let Some(n) = b.as_f64() {
-                    Ok(Self::from(n))
-                } else {
-                    Err(SerdeConversionError::Oops)
-                }
-            }
+            Value::Number(b) => match (b.as_i64(), b.as_u64(), b.as_f64()) {
+                (Some(n), _, _) => Ok(Self::from(n)),
+                (_, Some(n), _) => Ok(Self::from(n)),
+                (_, _, Some(n)) => Ok(Self::from(n)),
+                _ => Err(SerdeConversionError::Oops),
+            },
             Value::String(b) => Ok(Self::String(b.into())),
             Value::Array(a) => a.into_iter().map(Self::try_from).collect(),
             Value::Object(o) => o

@@ -22,11 +22,7 @@ where
     #[inline]
     #[must_use]
     fn from(s: Option<T>) -> Self {
-        if let Some(v) = s {
-            Value::from(v)
-        } else {
-            Value::Static(StaticNode::Null)
-        }
+        s.map_or(Value::Static(StaticNode::Null), Value::from)
     }
 }
 

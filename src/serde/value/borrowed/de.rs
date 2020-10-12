@@ -101,12 +101,10 @@ impl<'de, 'value> SeqAccess<'de> for Array<'value, 'de> {
     where
         T: DeserializeSeed<'de>,
     {
-        if let Some(v) = self.0.next() {
-            //TODO: This is ugly
-            seed.deserialize(v.clone()).map(Some)
-        } else {
-            Ok(None)
-        }
+        //TODO: This is ugly
+        self.0
+            .next()
+            .map_or(Ok(None), |v| seed.deserialize(v.clone()).map(Some))
     }
 }
 
