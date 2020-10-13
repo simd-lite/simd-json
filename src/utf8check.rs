@@ -16,7 +16,6 @@
  */
 
 pub(crate) struct ProcessedUtfBytes<T> {
-    pub input: T,
     pub prev: T,
     pub incomplete: T,
     pub error: T,
@@ -25,40 +24,42 @@ pub(crate) struct ProcessedUtfBytes<T> {
 pub(crate) trait Utf8Check<T: Copy> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn check_bytes(
-        current_bytes: T,
-        previous: &ProcessedUtfBytes<T>,
+        current: T,
+        previous: T,
+        incomplete: T,
+        error: T,
     ) -> ProcessedUtfBytes<T> {
         let mut pb = ProcessedUtfBytes {
-            input: current_bytes,
-            prev: previous.input,
-            incomplete: previous.incomplete,
-            error: previous.error,
+            prev: current,
+            incomplete,
+            error,
         };
 
-        if Self::is_ascii(&mut pb) {
-            Self::check_eof(&mut pb)
+        if Self::is_ascii(current) {
+            pb.error = Self::check_eof(pb.error, pb.incomplete)
         } else {
-            Self::check_utf8(&mut pb);
-            pb.incomplete = Self::is_incomplete(&mut pb);
+            pb.error = Self::check_utf8(current, previous, pb.error);
+            pb.incomplete = Self::is_incomplete(current);
         }
 
         pb
     }
 
-    unsafe fn check_utf8(pb: &mut ProcessedUtfBytes<T>) {
-        let prev1 = Self::prev1(pb);
-        let sc = Self::check_special_cases(pb, prev1);
-        pb.error = Self::or(pb.error, Self::check_multibyte_lengths(pb, sc));
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    unsafe fn check_utf8(input: T, prev: T, error: T) -> T {
+        let prev1 = Self::prev1(input, prev);
+        let sc = Self::check_special_cases(input, prev1);
+        Self::or(error, Self::check_multibyte_lengths(input, prev, sc))
     }
 
     unsafe fn new() -> ProcessedUtfBytes<T>;
     unsafe fn or(a: T, b: T) -> T;
-    unsafe fn is_ascii(pb: &mut ProcessedUtfBytes<T>) -> bool;
-    unsafe fn check_eof(pb: &mut ProcessedUtfBytes<T>);
-    unsafe fn is_incomplete(pb: &mut ProcessedUtfBytes<T>) -> T;
-    unsafe fn prev1(pb: &mut ProcessedUtfBytes<T>) -> T;
-    unsafe fn check_special_cases(pb: &mut ProcessedUtfBytes<T>, prev1: T) -> T;
-    unsafe fn check_multibyte_lengths(pb: &mut ProcessedUtfBytes<T>, special_cases: T) -> T;
+    unsafe fn is_ascii(input: T) -> bool;
+    unsafe fn check_eof(error: T, incomplete: T) -> T;
+    unsafe fn is_incomplete(input: T) -> T;
+    unsafe fn prev1(input: T, prev: T) -> T;
+    unsafe fn check_special_cases(input: T, prev1: T) -> T;
+    unsafe fn check_multibyte_lengths(input: T, prev: T, special_cases: T) -> T;
     unsafe fn must_be_2_3_continuation(prev2: T, prev3: T) -> T;
-    unsafe fn has_error(pb: &ProcessedUtfBytes<T>) -> bool;
+    unsafe fn has_error(error: T) -> bool;
 }

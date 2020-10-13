@@ -21,7 +21,6 @@ impl Default for ProcessedUtfBytes<__m256i> {
     fn default() -> Self {
         unsafe {
             Self {
-                input: _mm256_setzero_si256(),
                 prev: _mm256_setzero_si256(),
                 incomplete: _mm256_setzero_si256(),
                 error: _mm256_setzero_si256(),
@@ -42,31 +41,31 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn is_ascii(pb: &mut ProcessedUtfBytes<__m256i>) -> bool {
-        _mm256_movemask_epi8(pb.input) == 0
+    unsafe fn is_ascii(input: __m256i) -> bool {
+        _mm256_movemask_epi8(input) == 0
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn check_eof(pb: &mut ProcessedUtfBytes<__m256i>) {
-        pb.error = Self::or(pb.error, pb.incomplete);
+    unsafe fn check_eof(error: __m256i, incomplete: __m256i) -> __m256i {
+        Self::or(error, incomplete)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn is_incomplete(pb: &mut ProcessedUtfBytes<__m256i>) -> __m256i {
-        _mm256_subs_epu8(pb.input, _mm256_set1_epi8(static_cast_i8!(0xFF_u8)))
+    unsafe fn is_incomplete(input: __m256i) -> __m256i {
+        _mm256_subs_epu8(input, _mm256_set1_epi8(static_cast_i8!(0xFF_u8)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn prev1(pb: &mut ProcessedUtfBytes<__m256i>) -> __m256i {
+    unsafe fn prev1(input: __m256i, prev: __m256i) -> __m256i {
         _mm256_alignr_epi8(
-            pb.input,
-            _mm256_permute2x128_si256(pb.prev, pb.input, 0x21),
+            input,
+            _mm256_permute2x128_si256(prev, input, 0x21),
             16 - 1,
         )
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn check_special_cases(pb: &mut ProcessedUtfBytes<__m256i>, prev1: __m256i) -> __m256i {
+    unsafe fn check_special_cases(input: __m256i, prev1: __m256i) -> __m256i {
         const TOO_SHORT: u8 = 1 << 0;
         const TOO_LONG: u8 = 1 << 1;
         const OVERLONG_3: u8 = 1 << 2;
@@ -197,7 +196,7 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
                 static_cast_i8!(TOO_SHORT),
             ),
             _mm256_and_si256(
-                _mm256_srli_epi16(pb.input, 4),
+                _mm256_srli_epi16(input, 4),
                 _mm256_set1_epi8(static_cast_i8!(0xFF_u8 >> 4)),
             ),
         );
@@ -207,17 +206,18 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn check_multibyte_lengths(
-        pb: &mut ProcessedUtfBytes<__m256i>,
+        input: __m256i,
+        prev: __m256i,
         special_cases: __m256i,
     ) -> __m256i {
         let prev2 = _mm256_alignr_epi8(
-            pb.input,
-            _mm256_permute2x128_si256(pb.prev, pb.input, 0x21),
+            input,
+            _mm256_permute2x128_si256(prev, input, 0x21),
             16 - 2,
         );
         let prev3 = _mm256_alignr_epi8(
-            pb.input,
-            _mm256_permute2x128_si256(pb.prev, pb.input, 0x21),
+            input,
+            _mm256_permute2x128_si256(prev, input, 0x21),
             16 - 3,
         );
         let must23 = Self::must_be_2_3_continuation(prev2, prev3);
@@ -238,7 +238,7 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn has_error(pb: &ProcessedUtfBytes<__m256i>) -> bool {
-        _mm256_testz_si256(pb.error, pb.error) != 1
+    unsafe fn has_error(error: __m256i) -> bool {
+        _mm256_testz_si256(error, error) != 1
     }
 }
