@@ -80,10 +80,10 @@ impl Stage1Parse<__m128i> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn check_utf8(&self, state: &mut Utf8CheckingState<__m128i>) {
         unsafe {
-            state.previous = ProcessedUtfBytes::<__m128i>::check_bytes(self.v0, &state.previous);
-            state.previous = ProcessedUtfBytes::<__m128i>::check_bytes(self.v1, &state.previous);
-            state.previous = ProcessedUtfBytes::<__m128i>::check_bytes(self.v2, &state.previous);
-            state.previous = ProcessedUtfBytes::<__m128i>::check_bytes(self.v3, &state.previous);
+            ProcessedUtfBytes::<__m128i>::check_bytes(self.v0, state);
+            ProcessedUtfBytes::<__m128i>::check_bytes(self.v1, state);
+            ProcessedUtfBytes::<__m128i>::check_bytes(self.v2, state);
+            ProcessedUtfBytes::<__m128i>::check_bytes(self.v3, state);
         }
     }
 
@@ -281,7 +281,7 @@ impl Stage1Parse<__m128i> for SimdInput {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn check_utf8_errors(state: &Utf8CheckingState<__m128i>) -> bool {
-        unsafe { ProcessedUtfBytes::<__m128i>::has_error(&state.previous) }
+        unsafe { ProcessedUtfBytes::<__m128i>::has_error(state.error) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]

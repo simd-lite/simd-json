@@ -22,23 +22,20 @@ pub(crate) struct ProcessedUtfBytes<T> {
 }
 
 pub(crate) trait Utf8Check<T: Copy> {
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn check_bytes(current: T, previous: &mut ProcessedUtfBytes<T>) {
         if Self::is_ascii(current) {
             previous.error = Self::check_eof(previous.error, previous.incomplete)
         } else {
-            previous.error = Self::check_utf8(current, previous.prev, previous.error);
+            let prev1 = Self::prev1(current, previous.prev);
+            let sc = Self::check_special_cases(current, prev1);
+            previous.error = Self::or(
+                previous.error,
+                Self::check_multibyte_lengths(current, previous.prev, sc),
+            );
             previous.incomplete = Self::is_incomplete(current);
         }
-
         previous.prev = current
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    unsafe fn check_utf8(input: T, prev: T, error: T) -> T {
-        let prev1 = Self::prev1(input, prev);
-        let sc = Self::check_special_cases(input, prev1);
-        Self::or(error, Self::check_multibyte_lengths(input, prev, sc))
     }
 
     unsafe fn new() -> ProcessedUtfBytes<T>;

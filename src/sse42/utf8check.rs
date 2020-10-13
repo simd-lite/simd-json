@@ -15,10 +15,10 @@ use crate::utf8check::{ProcessedUtfBytes, Utf8Check};
 use crate::{mem, static_cast_i8};
 
 impl Default for ProcessedUtfBytes<__m128i> {
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn default() -> Self {
         unsafe {
             Self {
-                input: _mm_setzero_si128(),
                 prev: _mm_setzero_si128(),
                 incomplete: _mm_setzero_si128(),
                 error: _mm_setzero_si128(),
@@ -28,38 +28,38 @@ impl Default for ProcessedUtfBytes<__m128i> {
 }
 
 impl Utf8Check<__m128i> for ProcessedUtfBytes<__m128i> {
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn new() -> ProcessedUtfBytes<__m128i> {
         Self::default()
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn or(a: __m128i, b: __m128i) -> __m128i {
         _mm_or_si128(a, b)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn is_ascii(pb: &mut ProcessedUtfBytes<__m128i>) -> bool {
-        _mm_movemask_epi8(pb.input) == 0
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    unsafe fn is_ascii(input: __m128i) -> bool {
+        _mm_movemask_epi8(input) == 0
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    unsafe fn check_eof(error: __m128i, incomplete: __m128i) -> __m128i {
+        Self::or(error, incomplete)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    unsafe fn is_incomplete(input: __m128i) -> __m128i {
+        _mm_subs_epu8(input, _mm_set1_epi8(static_cast_i8!(0xFF_u8)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn check_eof(pb: &mut ProcessedUtfBytes<__m128i>) {
-        pb.error = Self::or(pb.error, pb.incomplete);
+    unsafe fn prev1(input: __m128i, prev: __m128i) -> __m128i {
+        _mm_alignr_epi8(input, prev, 16 - 1)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn is_incomplete(pb: &mut ProcessedUtfBytes<__m128i>) -> __m128i {
-        _mm_subs_epu8(pb.input, _mm_set1_epi8(static_cast_i8!(0xFFu8)))
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn prev1(pb: &mut ProcessedUtfBytes<__m128i>) -> __m128i {
-        _mm_alignr_epi8(pb.input, pb.prev, 16 - 1)
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn check_special_cases(pb: &mut ProcessedUtfBytes<__m128i>, prev1: __m128i) -> __m128i {
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    unsafe fn check_special_cases(input: __m128i, prev1: __m128i) -> __m128i {
         const TOO_SHORT: u8 = 1 << 0;
         const TOO_LONG: u8 = 1 << 1;
         const OVERLONG_3: u8 = 1 << 2;
@@ -69,6 +69,7 @@ impl Utf8Check<__m128i> for ProcessedUtfBytes<__m128i> {
         const TOO_LARGE: u8 = 1 << 3;
         const TOO_LARGE_1000: u8 = 1 << 6;
         const OVERLONG_4: u8 = 1 << 6;
+        const CARRY: u8 = TOO_SHORT | TOO_LONG | TWO_CONTS;
 
         let byte_1_high: __m128i = _mm_shuffle_epi8(
             _mm_setr_epi8(
@@ -91,11 +92,10 @@ impl Utf8Check<__m128i> for ProcessedUtfBytes<__m128i> {
             ),
             _mm_and_si128(
                 _mm_srli_epi16(prev1, 4),
-                _mm_set1_epi8(static_cast_i8!(0xFFu8 >> 4)),
+                _mm_set1_epi8(static_cast_i8!(0xFF_u8 >> 4)),
             ),
         );
 
-        const CARRY: u8 = TOO_SHORT | TOO_LONG | TWO_CONTS;
         let byte_1_low: __m128i = _mm_shuffle_epi8(
             _mm_setr_epi8(
                 static_cast_i8!(CARRY | OVERLONG_3 | OVERLONG_2 | OVERLONG_4),
@@ -140,38 +140,39 @@ impl Utf8Check<__m128i> for ProcessedUtfBytes<__m128i> {
                 static_cast_i8!(TOO_SHORT),
             ),
             _mm_and_si128(
-                _mm_srli_epi16(pb.input, 4),
-                _mm_set1_epi8(static_cast_i8!(0xFFu8 >> 4)),
+                _mm_srli_epi16(input, 4),
+                _mm_set1_epi8(static_cast_i8!(0xFF_u8 >> 4)),
             ),
         );
 
         _mm_and_si128(_mm_and_si128(byte_1_high, byte_1_low), byte_2_high)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn check_multibyte_lengths(
-        pb: &mut ProcessedUtfBytes<__m128i>,
+        input: __m128i,
+        prev: __m128i,
         special_cases: __m128i,
     ) -> __m128i {
-        let prev2 = _mm_alignr_epi8(pb.input, pb.prev, 16 - 2);
-        let prev3 = _mm_alignr_epi8(pb.input, pb.prev, 16 - 3);
+        let prev2 = _mm_alignr_epi8(input, prev, 16 - 2);
+        let prev3 = _mm_alignr_epi8(input, prev, 16 - 3);
         let must23 = Self::must_be_2_3_continuation(prev2, prev3);
-        let must23_80 = _mm_and_si128(must23, _mm_set1_epi8(static_cast_i8!(0x80u8)));
-        return _mm_xor_si128(must23_80, special_cases);
+        let must23_80 = _mm_and_si128(must23, _mm_set1_epi8(static_cast_i8!(0x80_u8)));
+        _mm_xor_si128(must23_80, special_cases)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn must_be_2_3_continuation(prev2: __m128i, prev3: __m128i) -> __m128i {
-        let is_third_byte = _mm_subs_epu8(prev2, _mm_set1_epi8(static_cast_i8!(0b11100000u8 - 1)));
-        let is_fourth_byte = _mm_subs_epu8(prev3, _mm_set1_epi8(static_cast_i8!(0b11110000u8 - 1)));
+        let is_third_byte = _mm_subs_epu8(prev2, _mm_set1_epi8(static_cast_i8!(0b1110_0000_u8 - 1)));
+        let is_fourth_byte = _mm_subs_epu8(prev3, _mm_set1_epi8(static_cast_i8!(0b1111_0000_u8 - 1)));
         _mm_cmpgt_epi8(
             _mm_or_si128(is_third_byte, is_fourth_byte),
             _mm_set1_epi8(0),
         )
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn has_error(pb: &ProcessedUtfBytes<__m128i>) -> bool {
-        _mm_testz_si128(pb.error, pb.error) != 1
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    unsafe fn has_error(error: __m128i) -> bool {
+        _mm_testz_si128(error, error) != 1
     }
 }
