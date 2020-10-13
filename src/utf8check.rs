@@ -24,7 +24,7 @@ pub(crate) struct ProcessedUtfBytes<T> {
 pub(crate) trait Utf8Check<T: Copy> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn check_bytes(current: T, previous: &mut ProcessedUtfBytes<T>) {
-        if Self::is_ascii(current) {
+        if likely!(Self::is_ascii(current)) {
             previous.error = Self::check_eof(previous.error, previous.incomplete)
         } else {
             let prev1 = Self::prev1(current, previous.prev);
