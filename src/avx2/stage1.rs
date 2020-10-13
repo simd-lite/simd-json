@@ -1,24 +1,22 @@
 #![allow(dead_code)]
 use crate::utf8check::Utf8Check;
 use crate::{
-    static_cast_i32, static_cast_i64, static_cast_i8, static_cast_u32, ProcessedUtfBytes,
-    Stage1Parse, Utf8CheckingState,
+    static_cast_i32, static_cast_i64, static_cast_u32, ProcessedUtfBytes, Stage1Parse,
+    Utf8CheckingState,
 };
 #[cfg(target_arch = "x86")]
 use std::arch::x86::{
-    __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_cmpgt_epi8,
-    _mm256_loadu_si256, _mm256_max_epu8, _mm256_movemask_epi8, _mm256_or_si256, _mm256_set1_epi8,
-    _mm256_set_epi32, _mm256_setr_epi8, _mm256_setzero_si256, _mm256_shuffle_epi8,
-    _mm256_srli_epi32, _mm256_storeu_si256, _mm256_testz_si256, _mm_clmulepi64_si128,
-    _mm_cvtsi128_si64, _mm_set1_epi8, _mm_set_epi64x,
+    __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,
+    _mm256_max_epu8, _mm256_movemask_epi8, _mm256_set1_epi8, _mm256_set_epi32, _mm256_setr_epi8,
+    _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_srli_epi32, _mm256_storeu_si256,
+    _mm_clmulepi64_si128, _mm_cvtsi128_si64, _mm_set1_epi8, _mm_set_epi64x,
 };
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::{
-    __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_cmpgt_epi8,
-    _mm256_loadu_si256, _mm256_max_epu8, _mm256_movemask_epi8, _mm256_or_si256, _mm256_set1_epi8,
-    _mm256_set_epi32, _mm256_setr_epi8, _mm256_setzero_si256, _mm256_shuffle_epi8,
-    _mm256_srli_epi32, _mm256_storeu_si256, _mm256_testz_si256, _mm_clmulepi64_si128,
-    _mm_cvtsi128_si64, _mm_set1_epi8, _mm_set_epi64x,
+    __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,
+    _mm256_max_epu8, _mm256_movemask_epi8, _mm256_set1_epi8, _mm256_set_epi32, _mm256_setr_epi8,
+    _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_srli_epi32, _mm256_storeu_si256,
+    _mm_clmulepi64_si128, _mm_cvtsi128_si64, _mm_set1_epi8, _mm_set_epi64x,
 };
 
 use std::mem;
@@ -67,8 +65,7 @@ impl Stage1Parse<__m256i> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn new_utf8_checking_state() -> Utf8CheckingState<__m256i> {
         Utf8CheckingState {
-            has_error: Self::zero(),
-            previous: ProcessedUtfBytes::default(),
+            previous: ProcessedUtfBytes::<__m256i>::default(),
         }
     }
 
@@ -87,32 +84,8 @@ impl Stage1Parse<__m256i> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn check_utf8(&self, state: &mut Utf8CheckingState<__m256i>) {
         unsafe {
-            let highbit: __m256i = _mm256_set1_epi8(static_cast_i8!(0x80_u8));
-            if (_mm256_testz_si256(_mm256_or_si256(self.v0, self.v1), highbit)) == 1 {
-                // it is ascii, we just check continuation
-                state.has_error = _mm256_or_si256(
-                    _mm256_cmpgt_epi8(
-                        state.previous.carried_continuations,
-                        _mm256_setr_epi8(
-                            9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-                            9, 9, 9, 9, 9, 9, 9, 1,
-                        ),
-                    ),
-                    state.has_error,
-                );
-            } else {
-                // it is not ascii so we have to do heavy work
-                state.previous = ProcessedUtfBytes::<__m256i>::check_utf8_bytes(
-                    self.v0,
-                    &state.previous,
-                    &mut state.has_error,
-                );
-                state.previous = ProcessedUtfBytes::<__m256i>::check_utf8_bytes(
-                    self.v1,
-                    &state.previous,
-                    &mut state.has_error,
-                );
-            }
+            state.previous = ProcessedUtfBytes::<__m256i>::check_bytes(self.v0, &state.previous);
+            state.previous = ProcessedUtfBytes::<__m256i>::check_bytes(self.v1, &state.previous);
         }
     }
 
@@ -277,7 +250,7 @@ impl Stage1Parse<__m256i> for SimdInput {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn check_utf8_errors(state: &Utf8CheckingState<__m256i>) -> bool {
-        unsafe { _mm256_testz_si256(state.has_error, state.has_error) == 0 }
+        unsafe { ProcessedUtfBytes::<__m256i>::has_error(&state.previous) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]

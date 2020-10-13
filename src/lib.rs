@@ -236,7 +236,6 @@ pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Node<'input>>> {
 }
 
 pub(crate) struct Utf8CheckingState<T> {
-    has_error: T,
     previous: ProcessedUtfBytes<T>,
 }
 
