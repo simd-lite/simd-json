@@ -36,6 +36,9 @@ float-cmp = "0.8"
 getopts = "0.2"
 proptest = "0.10"
 
+[lib]
+bench = false
+
 [[bench]]
 name = "parse"
 harness = false
