@@ -17,7 +17,7 @@ use crate::utf8check::{ProcessedUtfBytes, Utf8Check};
 use crate::{mem, static_cast_i8};
 
 impl Default for ProcessedUtfBytes<__m256i> {
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn default() -> Self {
         unsafe {
             Self {
@@ -30,32 +30,32 @@ impl Default for ProcessedUtfBytes<__m256i> {
 }
 
 impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn new() -> ProcessedUtfBytes<__m256i> {
         Self::default()
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn or(a: __m256i, b: __m256i) -> __m256i {
         _mm256_or_si256(a, b)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn is_ascii(input: __m256i) -> bool {
         _mm256_movemask_epi8(input) == 0
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn check_eof(error: __m256i, incomplete: __m256i) -> __m256i {
         Self::or(error, incomplete)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn is_incomplete(input: __m256i) -> __m256i {
         _mm256_subs_epu8(input, _mm256_set1_epi8(static_cast_i8!(0xFF_u8)))
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn prev1(input: __m256i, prev: __m256i) -> __m256i {
         _mm256_alignr_epi8(
             input,
@@ -64,7 +64,7 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
         )
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn check_special_cases(input: __m256i, prev1: __m256i) -> __m256i {
         const TOO_SHORT: u8 = 1 << 0;
         const TOO_LONG: u8 = 1 << 1;
@@ -204,7 +204,7 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
         _mm256_and_si256(_mm256_and_si256(byte_1_high, byte_1_low), byte_2_high)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn check_multibyte_lengths(
         input: __m256i,
         prev: __m256i,
@@ -225,7 +225,7 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
         _mm256_xor_si256(must23_80, special_cases)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn must_be_2_3_continuation(prev2: __m256i, prev3: __m256i) -> __m256i {
         let is_third_byte =
             _mm256_subs_epu8(prev2, _mm256_set1_epi8(static_cast_i8!(0b1110_0000_u8 - 1)));
@@ -237,7 +237,7 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
         )
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn has_error(error: __m256i) -> bool {
         _mm256_testz_si256(error, error) != 1
     }

@@ -62,9 +62,7 @@ impl SimdInput {
 impl Stage1Parse<__m128i> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn new_utf8_checking_state() -> Utf8CheckingState<__m128i> {
-        Utf8CheckingState {
-            previous: ProcessedUtfBytes::<__m128i>::default(),
-        }
+        ProcessedUtfBytes::<__m128i>::default()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
