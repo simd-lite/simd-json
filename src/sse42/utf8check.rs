@@ -6,7 +6,7 @@ use std::arch::x86::{
 };
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::{
-    __m128i, _mm_add_epi8, _mm_alignr_epi8, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8,
+    __m128i, _mm_alignr_epi8, _mm_and_si128, _mm_cmpgt_epi8,
     _mm_movemask_epi8, _mm_or_si128, _mm_set1_epi8, _mm_setr_epi8, _mm_setzero_si128,
     _mm_shuffle_epi8, _mm_srli_epi16, _mm_subs_epu8, _mm_testz_si128, _mm_xor_si128,
 };
