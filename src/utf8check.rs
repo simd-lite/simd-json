@@ -22,30 +22,19 @@ pub(crate) struct ProcessedUtfBytes<T> {
 }
 
 pub(crate) trait Utf8Check<T: Copy> {
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn check_bytes(
-        current: T,
-        previous: T,
-        incomplete: T,
-        error: T,
-    ) -> ProcessedUtfBytes<T> {
-        let mut pb = ProcessedUtfBytes {
-            prev: current,
-            incomplete,
-            error,
-        };
-
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    unsafe fn check_bytes(current: T, previous: &mut ProcessedUtfBytes<T>) {
         if Self::is_ascii(current) {
-            pb.error = Self::check_eof(pb.error, pb.incomplete)
+            previous.error = Self::check_eof(previous.error, previous.incomplete)
         } else {
-            pb.error = Self::check_utf8(current, previous, pb.error);
-            pb.incomplete = Self::is_incomplete(current);
+            previous.error = Self::check_utf8(current, previous.prev, previous.error);
+            previous.incomplete = Self::is_incomplete(current);
         }
 
-        pb
+        previous.prev = current
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn check_utf8(input: T, prev: T, error: T) -> T {
         let prev1 = Self::prev1(input, prev);
         let sc = Self::check_special_cases(input, prev1);

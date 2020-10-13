@@ -235,9 +235,7 @@ pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Node<'input>>> {
     Deserializer::from_slice(s).map(|de| de.tape)
 }
 
-pub(crate) struct Utf8CheckingState<T> {
-    previous: ProcessedUtfBytes<T>,
-}
+pub(crate) type Utf8CheckingState<T> = ProcessedUtfBytes<T>;
 
 pub(crate) trait Stage1Parse<T> {
     fn new_utf8_checking_state() -> Utf8CheckingState<T>;
@@ -653,13 +651,13 @@ impl<'de> Deserializer<'de> {
     }
 }
 
-/// an SIMD alligned buffer
+/// SIMD aligned buffer
 pub struct AlignedBuf {
     inner: Vec<u8>,
 }
 
 impl AlignedBuf {
-    /// Creates a new buffer that is  alligned with the simd register size
+    /// Creates a new buffer that is  aligned with the simd register size
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING / 2) {
