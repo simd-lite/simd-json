@@ -163,8 +163,10 @@ impl Utf8Check<__m128i> for ProcessedUtfBytes<__m128i> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn must_be_2_3_continuation(prev2: __m128i, prev3: __m128i) -> __m128i {
-        let is_third_byte = _mm_subs_epu8(prev2, _mm_set1_epi8(static_cast_i8!(0b1110_0000_u8 - 1)));
-        let is_fourth_byte = _mm_subs_epu8(prev3, _mm_set1_epi8(static_cast_i8!(0b1111_0000_u8 - 1)));
+        let is_third_byte =
+            _mm_subs_epu8(prev2, _mm_set1_epi8(static_cast_i8!(0b1110_0000_u8 - 1)));
+        let is_fourth_byte =
+            _mm_subs_epu8(prev3, _mm_set1_epi8(static_cast_i8!(0b1111_0000_u8 - 1)));
         _mm_cmpgt_epi8(
             _mm_or_si128(is_third_byte, is_fourth_byte),
             _mm_set1_epi8(0),

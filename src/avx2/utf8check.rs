@@ -57,11 +57,7 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn prev1(input: __m256i, prev: __m256i) -> __m256i {
-        _mm256_alignr_epi8(
-            input,
-            _mm256_permute2x128_si256(prev, input, 0x21),
-            16 - 1,
-        )
+        _mm256_alignr_epi8(input, _mm256_permute2x128_si256(prev, input, 0x21), 16 - 1)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -210,16 +206,8 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
         prev: __m256i,
         special_cases: __m256i,
     ) -> __m256i {
-        let prev2 = _mm256_alignr_epi8(
-            input,
-            _mm256_permute2x128_si256(prev, input, 0x21),
-            16 - 2,
-        );
-        let prev3 = _mm256_alignr_epi8(
-            input,
-            _mm256_permute2x128_si256(prev, input, 0x21),
-            16 - 3,
-        );
+        let prev2 = _mm256_alignr_epi8(input, _mm256_permute2x128_si256(prev, input, 0x21), 16 - 2);
+        let prev3 = _mm256_alignr_epi8(input, _mm256_permute2x128_si256(prev, input, 0x21), 16 - 3);
         let must23 = Self::must_be_2_3_continuation(prev2, prev3);
         let must23_80 = _mm256_and_si256(must23, _mm256_set1_epi8(static_cast_i8!(0x80_u8)));
         _mm256_xor_si256(must23_80, special_cases)
