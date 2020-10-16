@@ -59,6 +59,7 @@ impl Utf8Check<__m128i> for ProcessedUtfBytes<__m128i> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::too_many_lines)]
     unsafe fn check_special_cases(input: __m128i, prev1: __m128i) -> __m128i {
         const TOO_SHORT: u8 = 1 << 0;
         const TOO_LONG: u8 = 1 << 1;
