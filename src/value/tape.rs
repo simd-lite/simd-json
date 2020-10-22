@@ -11,7 +11,7 @@ pub enum Node<'input> {
     String(&'input str),
     /// An `Object` with the given `size` starts here.
     /// the following values are keys and values, alternating
-    /// however values can be nested and have a length thsemlfs.
+    /// however values can be nested and have a length themselves.
     Object(usize, usize),
     /// An array with a given size starts here. The next `size`
     /// elements belong to it - values can be nested and have a

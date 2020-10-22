@@ -911,6 +911,25 @@ mod test {
         assert_eq!(v, false);
     }
     #[test]
+    fn test_slice_cmp() {
+        use std::iter::FromIterator;
+        let v: Value = Value::from_iter(vec!["a", "b"]);
+        assert_eq!(v, &["a", "b"][..]);
+    }
+    #[test]
+    #[test]
+    fn test_hashmap_cmp() {
+        use std::iter::FromIterator;
+        let v: Value = Value::from_iter(vec![("a", 1)]);
+        assert_eq!(
+            v,
+            vec![("a", 1)]
+                .iter()
+                .cloned()
+                .collect::<std::collections::HashMap<&str, i32>>()
+        );
+    }
+    #[test]
     fn test_option_from() {
         let v: Option<u8> = None;
         let v: Value = v.into();
