@@ -108,7 +108,7 @@
 //! let v: simd_json::OwnedValue = simd_json::to_owned_value(&mut d).unwrap();
 //! ```
 //!
-//! ### Serde Comaptible API
+//! ### Serde Compatible API
 //!
 //! ```ignore
 //! use simd_json;
@@ -277,7 +277,7 @@ pub(crate) trait Stage1Parse<T> {
         unsafe {
             *quote_bits = self.cmp_mask_against_input(b'"');
             *quote_bits &= !odd_ends;
-            // remove from the valid quoted region the unescapted characters.
+            // remove from the valid quoted region the unescaped characters.
             let mut quote_mask: u64 = Self::compute_quote_mask(*quote_bits);
             quote_mask ^= *prev_iter_inside_quote;
             // All Unicode characters may be placed within the
@@ -384,7 +384,7 @@ pub(crate) trait Stage1Parse<T> {
 
 /// Deserializer struct to deserialize a JSON
 pub struct Deserializer<'de> {
-    // Note: we use the 2nd part as both index and lenght since only one is ever
+    // Note: we use the 2nd part as both index and length since only one is ever
     // used (array / object use len) everything else uses idx
     pub(crate) tape: Vec<Node<'de>>,
     idx: usize,
@@ -423,7 +423,7 @@ impl<'de> Deserializer<'de> {
     }
 
     /// Creates a serializer from a mutable slice of bytes using a temporary
-    /// buffer for strings for them to be coppied in and out if needed
+    /// buffer for strings for them to be copied in and out if needed
     ///
     /// # Errors
     ///
@@ -443,7 +443,7 @@ impl<'de> Deserializer<'de> {
     }
 
     /// Creates a serializer from a mutable slice of bytes using a temporary
-    /// buffer for strings for them to be coppied in and out if needed
+    /// buffer for strings for them to be copied in and out if needed
     ///
     /// # Errors
     ///
@@ -510,8 +510,8 @@ impl<'de> Deserializer<'de> {
         input: &[u8],
     ) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
-        // 6 is a heuristic number to estimate it turns out a rate of 1/6 structural caracters lears
-        // almost never to relocations.
+        // 6 is a heuristic number to estimate it turns out a rate of 1/6 structural characters
+        // leads almost never to relocations.
         let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
@@ -789,14 +789,14 @@ mod tests {
         assert_eq!(to_value(&mut d), Ok(o));
     }
     // How much do we care about this, it's within the same range and
-    // based on floating point math inprecisions during parsing.
+    // based on floating point math imprecisions during parsing.
     // Is this a real issue worth improving?
     #[test]
     fn silly_float1() {
         let v = Value::from(3.090_144_804_232_201_7e305);
         let s = v.encode();
         let mut bytes = s.as_bytes().to_vec();
-        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse generated float");
         assert_eq!(v, parsed);
     }
 
