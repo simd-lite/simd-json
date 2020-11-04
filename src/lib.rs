@@ -232,7 +232,7 @@ use std::ptr::NonNull;
 ///
 /// Will return `Err` if `s` is invalid JSON.
 pub fn to_tape<'input>(s: &'input mut [u8]) -> Result<Vec<Node<'input>>> {
-    Deserializer::from_slice(s).map(|de| de.tape)
+    Deserializer::from_slice(s).map(Deserializer::into_tape)
 }
 
 pub(crate) type Utf8CheckingState<T> = ProcessedUtfBytes<T>;
@@ -391,6 +391,12 @@ pub struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
+    /// Extracts the tape from the Deserializer
+    #[must_use]
+    pub fn into_tape(self) -> Vec<Node<'de>> {
+        self.tape
+    }
+
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(error: ErrorType) -> Error {
         Deserializer::raw_error(0, '?', error)
