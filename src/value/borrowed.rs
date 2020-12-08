@@ -343,7 +343,7 @@ impl<'de> BorrowDeserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Value<'de> {
-        match self.0.next_() {
+        match unsafe { self.0.next_() } {
             Node::Static(s) => Value::Static(s),
             Node::String(s) => Value::from(s),
             Node::Array(len, _) => self.parse_array(len),
@@ -373,7 +373,7 @@ impl<'de> BorrowDeserializer<'de> {
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
         for _ in 0..len {
-            if let Node::String(key) = self.0.next_() {
+            if let Node::String(key) = unsafe { self.0.next_() } {
                 res.insert_nocheck(key.into(), self.parse());
             } else {
                 unreachable!()

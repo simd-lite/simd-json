@@ -302,7 +302,7 @@ impl<'de> OwnedDeserializer<'de> {
     }
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Value {
-        match self.de.next_() {
+        match unsafe { self.de.next_() } {
             Node::Static(s) => Value::Static(s),
             Node::String(s) => Value::from(s),
             Node::Array(len, _) => self.parse_array(len),
@@ -330,7 +330,7 @@ impl<'de> OwnedDeserializer<'de> {
         let mut res = Object::with_capacity(len);
 
         for _ in 0..len {
-            if let Node::String(key) = self.de.next_() {
+            if let Node::String(key) = unsafe { self.de.next_() } {
                 // We have to call parse short str twice since parse_short_str
                 // does not move the cursor forward
                 res.insert_nocheck(key.into(), self.parse());

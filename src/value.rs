@@ -113,7 +113,7 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub fn parse(&mut self) -> Value {
-        match self.de.next_() {
+        match unsafe { self.de.next_() } {
             Node::Static(s) => Value::from(s),
             Node::String(s) => Value::from(s),
             Node::Array(len, _) => self.parse_array(len),
@@ -143,7 +143,7 @@ where
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
         for _ in 0..len {
-            if let Node::String(key) = self.de.next_() {
+            if let Node::String(key) = unsafe { self.de.next_() } {
                 res.insert_nocheck(key.into(), self.parse());
             } else {
                 unreachable!()

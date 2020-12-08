@@ -494,14 +494,12 @@ impl<'de> Deserializer<'de> {
         self.idx += 1;
     }
 
-    // pull out the check so we don't need to
-    // stry every time
+    /// Same as next() but we pull out the check so we don't need to
+    /// stry every time. Use this only if you know the next element exists!
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn next_(&mut self) -> Node<'de> {
-        unsafe {
-            self.idx += 1;
-            *self.tape.get_unchecked(self.idx)
-        }
+    pub unsafe fn next_(&mut self) -> Node<'de> {
+        self.idx += 1;
+        *self.tape.get_unchecked(self.idx)
     }
 
     //#[inline(never)]
