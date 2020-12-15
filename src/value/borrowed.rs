@@ -89,19 +89,7 @@ impl<'value> Value<'value> {
     #[inline]
     #[must_use]
     pub fn into_static(self) -> Value<'static> {
-        unsafe {
-            use std::mem::transmute;
-            let r = match self {
-                Self::String(s) => Self::String(s.into_owned().into()),
-                Self::Array(arr) => arr.into_iter().map(Value::into_static).collect(),
-                Self::Object(obj) => obj
-                    .into_iter()
-                    .map(|(k, v)| (Cow::from(k.into_owned()), v.into_static()))
-                    .collect(),
-                _ => self,
-            };
-            transmute(r)
-        }
+        self.clone_static()
     }
 
     /// Clones the current value and enforces a static lifetime, it works the same
@@ -109,19 +97,30 @@ impl<'value> Value<'value> {
     #[inline]
     #[must_use]
     pub fn clone_static(&self) -> Value<'static> {
-        unsafe {
-            use std::mem::transmute;
-            let r = match self {
-                Self::String(s) => Self::String(Cow::from(s.to_string())),
-                Self::Array(arr) => arr.iter().map(Value::clone_static).collect(),
-                Self::Object(obj) => obj
-                    .iter()
-                    .map(|(k, v)| (Cow::from(k.to_string()), v.clone_static()))
-                    .collect(),
-                Self::Static(s) => Self::Static(*s),
-            };
-            transmute(r)
+        match self {
+            // Ensure strings are static by turing the cow into a 'static
+            // This cow has static lifetime as it's owned, this information however is lost
+            // by the borrow checker so we need to transmute it to static.
+            // This invariant is guaranteed by the implementation of the cow, cloning an owned
+            // value will produce a owned value again see:
+            // https://docs.rs/beef/0.4.4/src/beef/generic.rs.html#379-391
+            Self::String(s) => unsafe {
+                std::mem::transmute::<Value<'value>, Value<'static>>(Self::String(Cow::from(
+                    s.to_string(),
+                )))
+            },
+            // For an array we turn every value into a static
+            Self::Array(arr) => arr.into_iter().map(Value::into_static).collect(),
+            // For an object, we turn all keys into owned Cows and all values into 'static Values
+            Self::Object(obj) => obj
+                .into_iter()
+                .map(|(k, v)| (Cow::from(k.into_owned()), v.into_static()))
+                .collect(),
+
+            // Static nodes are always static
+            Value::Static(s) => Value::Static(s),
         }
+
     }
 }
 

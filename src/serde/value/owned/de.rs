@@ -601,11 +601,11 @@ impl<'de> Visitor<'de> for ValueVisitor {
 
     /****************** stringy stuff ******************/
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn visit_char<E>(self, _value: char) -> Result<Self::Value, E>
+    fn visit_char<E>(self, value: char) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        unimplemented!()
+        Ok(Value::from(value.to_string()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
