@@ -89,14 +89,6 @@ impl<'value> Value<'value> {
     #[inline]
     #[must_use]
     pub fn into_static(self) -> Value<'static> {
-        self.clone_static()
-    }
-
-    /// Clones the current value and enforces a static lifetime, it works the same
-    /// as `into_static` but includes cloning logic
-    #[inline]
-    #[must_use]
-    pub fn clone_static(&self) -> Value<'static> {
         match self {
             // Ensure strings are static by turing the cow into a 'static
             // This cow has static lifetime as it's owned, this information however is lost
@@ -120,7 +112,36 @@ impl<'value> Value<'value> {
             // Static nodes are always static
             Value::Static(s) => Value::Static(s),
         }
+    }
 
+    /// Clones the current value and enforces a static lifetime, it works the same
+    /// as `into_static` but includes cloning logic
+    #[inline]
+    #[must_use]
+    pub fn clone_static(&self) -> Value<'static> {
+        match self {
+            // Ensure strings are static by turing the cow into a 'static
+            // This cow has static lifetime as it's owned, this information however is lost
+            // by the borrow checker so we need to transmute it to static.
+            // This invariant is guaranteed by the implementation of the cow, cloning an owned
+            // value will produce a owned value again see:
+            // https://docs.rs/beef/0.4.4/src/beef/generic.rs.html#379-391
+            Self::String(s) => unsafe {
+                std::mem::transmute::<Value<'value>, Value<'static>>(Self::String(Cow::from(
+                    s.to_string(),
+                )))
+            },
+            // For an array we turn every value into a static
+            Self::Array(arr) => arr.into_iter().cloned().map(Value::into_static).collect(),
+            // For an object, we turn all keys into owned Cows and all values into 'static Values
+            Self::Object(obj) => obj
+                .iter()
+                .map(|(k, v)| (Cow::from(k.to_string()), v.clone_static()))
+                .collect(),
+
+            // Static nodes are always static
+            Value::Static(s) => Value::Static(*s),
+        }
     }
 }
 
