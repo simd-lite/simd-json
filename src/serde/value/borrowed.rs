@@ -4,15 +4,13 @@ mod se;
 use crate::{BorrowedValue, Result};
 use serde_ext::de::Deserialize;
 
-/* TODO:
 use serde_ext::ser::Serialize;
-pub fn to_value<'a, T>(value: T) -> Result<Value<'a>>
+pub fn to_value<T>(value: T) -> Result<BorrowedValue<'static>>
 where
-T: Serialize,
+    T: Serialize,
 {
-value.serialize(super::se::Serializer::default())
+    value.serialize(se::Serializer::default())
 }
-*/
 
 /// Tries to convert a `BorrowedValue` into a struct that implements
 /// serde's Deserialize interface

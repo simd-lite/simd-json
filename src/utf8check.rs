@@ -38,7 +38,7 @@ pub(crate) trait Utf8Check<T: Copy> {
         previous.prev = current
     }
 
-    unsafe fn new() -> ProcessedUtfBytes<T>;
+    unsafe fn new_bytes() -> ProcessedUtfBytes<T>;
     unsafe fn or(a: T, b: T) -> T;
     unsafe fn is_ascii(input: T) -> bool;
     unsafe fn check_eof(error: T, incomplete: T) -> T;

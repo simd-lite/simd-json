@@ -31,7 +31,7 @@ impl Default for ProcessedUtfBytes<__m256i> {
 
 impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    unsafe fn new() -> ProcessedUtfBytes<__m256i> {
+    unsafe fn new_bytes() -> ProcessedUtfBytes<__m256i> {
         Self::default()
     }
 

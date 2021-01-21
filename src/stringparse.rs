@@ -38,7 +38,7 @@ pub(crate) fn handle_unicode_codepoint(
     let mut src_offset = 6;
     // check for low surrogate for characters outside the Basic
     // Multilingual Plane.
-    if code_point >= 0xd800 && code_point < 0xdc00 {
+    if (0xd800..0xdc00).contains(&code_point) {
         if (unsafe { *src_ptr.get_unchecked(0) } != b'\\')
             || unsafe { *src_ptr.get_unchecked(1) } != b'u'
         {
