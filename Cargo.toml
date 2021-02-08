@@ -60,9 +60,6 @@ swar-number-parsing = []
 # serde compatibility
 serde_impl = [ "serde", "serde_json", "halfbrown/serde" ]
 
-# Support for ARM NEON SIMD
-neon = ["value-trait/neon"]
-
 # Allow fallback to non simd CPUs
 allow-non-simd = []
 

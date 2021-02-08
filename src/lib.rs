@@ -159,11 +159,11 @@ pub use crate::sse42::deser::*;
 #[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
 use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 
-#[cfg(all(target_feature = "neon", feature = "neon"))]
+#[cfg(target_feature = "neon")]
 mod neon;
-#[cfg(all(target_feature = "neon", feature = "neon"))]
+#[cfg(target_feature = "neon")]
 pub use crate::neon::deser::*;
-#[cfg(all(target_feature = "neon", feature = "neon"))]
+#[cfg(target_feature = "neon")]
 use crate::neon::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 
 // We import this as generics
