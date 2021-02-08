@@ -5,19 +5,19 @@ platform:
   arch: arm64
 
 steps:
-- name: test
-  image: rust:1
-  environment:
-    RUSTFLAGS: '-C target-cpu=native'
-    CODECOV_TOKEN:
-      from_secret: CODECOV_TOKEN
-  commands:
-  - rustup default nightly
-  - rustup update
-  - cargo clean && cargo +nightly build --verbose --all --features neon
-  - cargo +nightly test --verbose --all --features neon
+  - name: test
+    image: rust:1
+    environment:
+      RUSTFLAGS: "-C target-cpu=native"
+      CODECOV_TOKEN:
+        from_secret: CODECOV_TOKEN
+    commands:
+      - rustup default nightly
+      - rustup update
+      - cargo clean && cargo +nightly build --verbose --all
+      - cargo +nightly test --verbose --all
 #  - cargo +nightly install cargo-clippy -f
-#  - cargo +nightly clippy --verbose --all --features neon
+#  - cargo +nightly clippy --verbose --all
 #  - cargo +nightly install cargo-tarpaulin -f
 #  - cargo +nightly tarpaulin -v --out Xml
 #- name: coverage
