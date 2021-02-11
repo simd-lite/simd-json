@@ -158,8 +158,8 @@ fail!(fail73);
 fail!(fail74);
 fail!(fail75);
 fail!(fail76);
-//fail!(fail77);
-//fail!(fail78);
+fail!(fail77);
+fail!(fail78);
 //fail!(fail79);
 
 crash!(crash000000);
