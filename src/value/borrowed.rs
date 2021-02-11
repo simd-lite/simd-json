@@ -42,7 +42,7 @@ pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>>;
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
-pub fn to_value<'value>(s: &'value mut [u8]) -> Result<Value<'value>> {
+pub fn to_value(s: &mut [u8]) -> Result<Value> {
     match Deserializer::from_slice(s) {
         Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
@@ -132,7 +132,7 @@ impl<'value> Value<'value> {
                 )))
             },
             // For an array we turn every value into a static
-            Self::Array(arr) => arr.into_iter().cloned().map(Value::into_static).collect(),
+            Self::Array(arr) => arr.iter().cloned().map(Value::into_static).collect(),
             // For an object, we turn all keys into owned Cows and all values into 'static Values
             Self::Object(obj) => obj
                 .iter()
