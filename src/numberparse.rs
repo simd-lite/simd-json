@@ -70,7 +70,7 @@ const POWER_OF_TEN: [f64; 632] = [
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_integer(c: u8) -> bool {
     // this gets compiled to (uint8_t)(c - '0') <= 9 on all decent compilers
-    c >= b'0' && c <= b'9'
+    (b'0'..=b'9').contains(&c)
 }
 
 // We need to check that the character following a zero is valid. This is
