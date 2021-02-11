@@ -52,7 +52,43 @@ impl Utf8Check<__m256i> for ProcessedUtfBytes<__m256i> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     unsafe fn is_incomplete(input: __m256i) -> __m256i {
-        _mm256_subs_epu8(input, _mm256_set1_epi8(static_cast_i8!(0xFF_u8)))
+        _mm256_subs_epu8(
+            input,
+            _mm256_setr_epi8(
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0xff_u8),
+                static_cast_i8!(0b1111_0000_u8 - 1),
+                static_cast_i8!(0b1110_0000_u8 - 1),
+                static_cast_i8!(0b1100_0000_u8 - 1),
+            ),
+        )
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
