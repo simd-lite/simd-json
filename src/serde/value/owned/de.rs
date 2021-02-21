@@ -538,10 +538,10 @@ impl<'de> de::Deserializer<'de> for &'de Value {
             Value::Static(StaticNode::Bool(b)) => visitor.visit_bool(*b),
             Value::Static(StaticNode::I64(n)) => visitor.visit_i64(*n),
             #[cfg(feature = "128bit")]
-            Value::Static(StaticNode::I128(n)) => visitor.visit_i128(n),
+            Value::Static(StaticNode::I128(n)) => visitor.visit_i128(*n),
             Value::Static(StaticNode::U64(n)) => visitor.visit_u64(*n),
             #[cfg(feature = "128bit")]
-            Value::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
+            Value::Static(StaticNode::U128(n)) => visitor.visit_u128(*n),
             Value::Static(StaticNode::F64(n)) => visitor.visit_f64(*n),
             Value::String(ref s) => visitor.visit_borrowed_str(s),
             Value::Array(ref a) => visit_array_ref(a, visitor),
