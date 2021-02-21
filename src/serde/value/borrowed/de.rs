@@ -1,5 +1,5 @@
 // A lot of this logic is a re-implementation or copy of serde_json::Value
-use super::super::shared::*;
+use super::super::shared::MapKeyDeserializer;
 use crate::value::borrowed::{Object, Value};
 use crate::Error;
 use crate::StaticNode;

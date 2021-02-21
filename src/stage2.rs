@@ -235,9 +235,8 @@ impl<'de> Deserializer<'de> {
                         if c == b'"' {
                             insert_str!();
                             goto!(ObjectKey);
-                        } else {
-                            fail!(ErrorType::ExpectedObjectKey);
                         }
+                        fail!(ErrorType::ExpectedObjectKey);
                     }
                     b'}' => {
                         goto!(ScopeEnd);
@@ -353,9 +352,8 @@ impl<'de> Deserializer<'de> {
                 insert_res!(Node::Static(StaticNode::Bool(true)));
                 if i == structural_indexes.len() {
                     success!();
-                } else {
-                    fail!(ErrorType::TrailingCharacters);
                 }
+                fail!(ErrorType::TrailingCharacters);
             }
             b'f' => {
                 unsafe {
@@ -366,9 +364,8 @@ impl<'de> Deserializer<'de> {
                 insert_res!(Node::Static(StaticNode::Bool(false)));
                 if i == structural_indexes.len() {
                     success!();
-                } else {
-                    fail!(ErrorType::TrailingCharacters);
                 }
+                fail!(ErrorType::TrailingCharacters);
             }
             b'n' => {
                 unsafe {
@@ -379,17 +376,15 @@ impl<'de> Deserializer<'de> {
                 insert_res!(Node::Static(StaticNode::Null));
                 if i == structural_indexes.len() {
                     success!();
-                } else {
-                    fail!(ErrorType::TrailingCharacters);
                 }
+                fail!(ErrorType::TrailingCharacters);
             }
             b'"' => {
                 insert_str!();
                 if i == structural_indexes.len() {
                     success!();
-                } else {
-                    fail!(ErrorType::TrailingCharacters);
                 }
+                fail!(ErrorType::TrailingCharacters);
             }
             b'-' => {
                 insert_res!(Node::Static(s2try!(Self::parse_number_int(
@@ -400,9 +395,8 @@ impl<'de> Deserializer<'de> {
 
                 if i == structural_indexes.len() {
                     success!();
-                } else {
-                    fail!(ErrorType::TrailingCharacters);
                 }
+                fail!(ErrorType::TrailingCharacters);
             }
             b'0'..=b'9' => {
                 insert_res!(Node::Static(s2try!(Self::parse_number_int(
@@ -413,9 +407,8 @@ impl<'de> Deserializer<'de> {
 
                 if i == structural_indexes.len() {
                     success!();
-                } else {
-                    fail!(ErrorType::TrailingCharacters);
                 }
+                fail!(ErrorType::TrailingCharacters);
             }
             _ => {
                 fail!();
@@ -531,9 +524,8 @@ impl<'de> Deserializer<'de> {
                         StackState::Start => {
                             if i == structural_indexes.len() {
                                 success!();
-                            } else {
-                                fail!();
                             }
+                            fail!();
                         }
                     };
                 }
