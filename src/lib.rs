@@ -1,7 +1,7 @@
 #![deny(warnings)]
 #![cfg_attr(target_feature = "neon", feature(stdsimd,))]
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
-#![forbid(warnings)]
+#![deny(warnings)]
 #![warn(unused_extern_crates)]
 #![deny(
     clippy::all,
@@ -399,7 +399,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(error: ErrorType) -> Error {
-        Deserializer::raw_error(0, '?', error)
+        Self::raw_error(0, '?', error)
     }
 
     fn raw_error(idx: usize, c: char, error: ErrorType) -> Error {
@@ -419,7 +419,7 @@ impl<'de> Deserializer<'de> {
             string_buffer.set_len(len + SIMDJSON_PADDING);
         };
 
-        Deserializer::from_slice_with_buffer(input, &mut string_buffer)
+        Self::from_slice_with_buffer(input, &mut string_buffer)
     }
 
     /// Creates a serializer from a mutable slice of bytes using a temporary
@@ -456,7 +456,7 @@ impl<'de> Deserializer<'de> {
         let len = input.len();
 
         if len > std::u32::MAX as usize {
-            return Err(Deserializer::error(ErrorType::InputTooLarge));
+            return Err(Self::error(ErrorType::InputTooLarge));
         }
 
         if input_buffer.capacity() < len + SIMDJSON_PADDING * 2 {
@@ -473,7 +473,7 @@ impl<'de> Deserializer<'de> {
         };
 
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
-            unsafe { Deserializer::find_structural_bits(&input_buffer) };
+            unsafe { Self::find_structural_bits(&input_buffer) };
 
         let structural_indexes = match s1_result {
             Ok(i) => i,
@@ -482,10 +482,10 @@ impl<'de> Deserializer<'de> {
             }
         };
 
-        let tape =
-            Deserializer::build_tape(input, &input_buffer, string_buffer, &structural_indexes)?;
+        let tape: Vec<Node> =
+            Self::build_tape(input, &input_buffer, string_buffer, &structural_indexes)?;
 
-        Ok(Deserializer { tape, idx: 0 })
+        Ok(Self { tape, idx: 0 })
     }
 
     #[cfg(feature = "serde_impl")]

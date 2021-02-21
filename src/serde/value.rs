@@ -1,5 +1,6 @@
 mod borrowed;
 mod owned;
+mod shared;
 
 pub use self::borrowed::from_value as from_borrowed_value;
 pub use self::owned::from_value as from_owned_value;

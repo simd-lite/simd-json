@@ -1,12 +1,14 @@
+// A lot of this logic is a re-implementation or copy of serde_json::Value
+use super::super::shared::*;
 use crate::value::borrowed::{Object, Value};
 use crate::Error;
 use crate::StaticNode;
-use crate::{cow::Cow, ErrorType};
+use crate::{cow::Cow, stry, ErrorType};
 use serde_ext::de::{
     self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor,
 };
 use serde_ext::forward_to_deserialize_any;
-use std::fmt;
+use std::{fmt, slice};
 
 impl<'de> de::Deserializer<'de> for Value<'de> {
     type Error = Error;
@@ -384,6 +386,236 @@ impl<'de> Visitor<'de> for ValueVisitor {
             v.push(e);
         }
         Ok(Value::Array(v))
+    }
+}
+
+fn visit_array_ref<'de, V>(array: &'de [Value<'de>], visitor: V) -> Result<V::Value, Error>
+where
+    V: Visitor<'de>,
+{
+    let len = array.len();
+    let mut deserializer = SeqRefDeserializer::new(array);
+    let seq = stry!(visitor.visit_seq(&mut deserializer));
+    let remaining = deserializer.iter.len();
+    if remaining == 0 {
+        Ok(seq)
+    } else {
+        Err(serde::de::Error::invalid_length(
+            len,
+            &"fewer elements in array",
+        ))
+    }
+}
+
+fn visit_object_ref<'de, V>(object: &'de Object<'de>, visitor: V) -> Result<V::Value, Error>
+where
+    V: Visitor<'de>,
+{
+    let len = object.len();
+    let mut deserializer = MapRefDeserializer::new(object);
+    let map = stry!(visitor.visit_map(&mut deserializer));
+    if deserializer.iter.next().is_none() {
+        Ok(map)
+    } else {
+        Err(serde::de::Error::invalid_length(
+            len,
+            &"fewer elements in map",
+        ))
+    }
+}
+
+impl<'de> de::Deserializer<'de> for &'de Value<'de> {
+    type Error = Error;
+
+    // Look at the input data to decide what Serde data model type to
+    // deserialize as. Not all data formats are able to support this operation.
+    // Formats that support `deserialize_any` are known as self-describing.
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self {
+            Value::Static(StaticNode::Null) => visitor.visit_unit(),
+            Value::Static(StaticNode::Bool(b)) => visitor.visit_bool(*b),
+            Value::Static(StaticNode::I64(n)) => visitor.visit_i64(*n),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::I128(n)) => visitor.visit_i128(n),
+            Value::Static(StaticNode::U64(n)) => visitor.visit_u64(*n),
+            #[cfg(feature = "128bit")]
+            Value::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
+            Value::Static(StaticNode::F64(n)) => visitor.visit_f64(*n),
+            Value::String(ref s) => visitor.visit_borrowed_str(s),
+            Value::Array(ref a) => visit_array_ref(a, visitor),
+            Value::Object(ref o) => visit_object_ref(o, visitor),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        if self == &Value::Static(StaticNode::Null) {
+            visitor.visit_unit()
+        } else {
+            visitor.visit_some(self)
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self {
+            // Give the visitor access to each element of the sequence.
+            Value::Array(ref a) => visit_array_ref(a, visitor),
+            Value::Object(ref o) => visit_object_ref(o, visitor),
+            _ => Err(crate::Deserializer::error(ErrorType::ExpectedMap)),
+        }
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+            bytes byte_buf unit unit_struct newtype_struct seq tuple
+            tuple_struct map enum identifier ignored_any
+    }
+}
+
+struct SeqRefDeserializer<'de> {
+    iter: slice::Iter<'de, Value<'de>>,
+}
+
+impl<'de> SeqRefDeserializer<'de> {
+    fn new(slice: &'de [Value<'de>]) -> Self {
+        SeqRefDeserializer { iter: slice.iter() }
+    }
+}
+
+impl<'de> serde::Deserializer<'de> for SeqRefDeserializer<'de> {
+    type Error = Error;
+
+    #[inline]
+    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        let len = self.iter.len();
+        if len == 0 {
+            visitor.visit_unit()
+        } else {
+            let ret = stry!(visitor.visit_seq(&mut self));
+            let remaining = self.iter.len();
+            if remaining == 0 {
+                Ok(ret)
+            } else {
+                Err(serde::de::Error::invalid_length(
+                    len,
+                    &"fewer elements in array",
+                ))
+            }
+        }
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct enum identifier ignored_any
+    }
+}
+
+impl<'de> SeqAccess<'de> for SeqRefDeserializer<'de> {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        match self.iter.next() {
+            Some(value) => seed.deserialize(value).map(Some),
+            None => Ok(None),
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        match self.iter.size_hint() {
+            (lower, Some(upper)) if lower == upper => Some(upper),
+            _ => None,
+        }
+    }
+}
+
+struct MapRefDeserializer<'de> {
+    iter: <&'de Object<'de> as IntoIterator>::IntoIter,
+    value: Option<&'de Value<'de>>,
+}
+
+impl<'de> MapRefDeserializer<'de> {
+    fn new(map: &'de Object<'de>) -> Self {
+        MapRefDeserializer {
+            iter: map.into_iter(),
+            value: None,
+        }
+    }
+}
+
+impl<'de> MapAccess<'de> for MapRefDeserializer<'de> {
+    type Error = Error;
+
+    fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        match self.iter.next() {
+            Some((key, value)) => {
+                self.value = Some(value);
+                let key_de = MapKeyDeserializer {
+                    key: Cow::Borrowed(&**key),
+                };
+                seed.deserialize(key_de).map(Some)
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn next_value_seed<T>(&mut self, seed: T) -> Result<T::Value, Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        match self.value.take() {
+            Some(value) => seed.deserialize(value),
+            None => Err(serde::de::Error::custom("value is missing")),
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        match self.iter.size_hint() {
+            (lower, Some(upper)) if lower == upper => Some(upper),
+            _ => None,
+        }
+    }
+}
+
+impl<'de> serde::Deserializer<'de> for MapRefDeserializer<'de> {
+    type Error = Error;
+
+    #[inline]
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_map(self)
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct enum identifier ignored_any
     }
 }
 
