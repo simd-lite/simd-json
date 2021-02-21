@@ -575,7 +575,7 @@ impl<'de> MapAccess<'de> for MapRefDeserializer<'de> {
             Some((key, value)) => {
                 self.value = Some(value);
                 let key_de = MapKeyDeserializer {
-                    key: Cow::Borrowed(&**key),
+                    key: Cow::from(&**key),
                 };
                 seed.deserialize(key_de).map(Some)
             }
