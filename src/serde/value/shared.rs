@@ -1,9 +1,8 @@
+use crate::cow::Cow;
 use crate::Error;
+use serde::de::{Unexpected, Visitor};
 use serde::forward_to_deserialize_any;
 use serde_ext::de::{self, IntoDeserializer};
-use std::borrow::Cow;
-
-use serde::de::{Unexpected, Visitor};
 
 macro_rules! deserialize_integer_key {
     ($method:ident => $visit:ident) => {
