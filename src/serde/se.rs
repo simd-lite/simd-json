@@ -290,7 +290,12 @@ where
     }
 }
 
-impl<'serializer, W> ser::SerializeStructVariant for SerializeMap<'serializer, W>
+struct SerializeStructVariant<'serializer, W: Write + 'serializer> {
+    s: &'serializer mut Serializer<W>,
+    first: bool,
+}
+
+impl<'serializer, W> ser::SerializeStructVariant for SerializeStructVariant<'serializer, W>
 where
     W: Write,
 {
@@ -305,7 +310,7 @@ where
     where
         T: serde_ext::Serialize,
     {
-        let SerializeMap {
+        let SerializeStructVariant {
             ref mut s,
             ref mut first,
             ..
@@ -324,11 +329,13 @@ where
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        if self.first {
-            Ok(())
-        } else {
-            iomap!(self.s.write(b"}"))
-        }
+        iomap!(self.s.write(b"}")).and_then(move |_| {
+            if self.first {
+                Ok(())
+            } else {
+                iomap!(self.s.write(b"}"))
+            }
+        })
     }
 }
 
@@ -344,7 +351,7 @@ where
     type SerializeTupleVariant = SerializeSeq<'writer, W>;
     type SerializeMap = SerializeMap<'writer, W>;
     type SerializeStruct = SerializeMap<'writer, W>;
-    type SerializeStructVariant = SerializeMap<'writer, W>;
+    type SerializeStructVariant = SerializeStructVariant<'writer, W>;
     #[inline]
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         if v {
@@ -482,6 +489,7 @@ where
     where
         T: serde_ext::Serialize,
     {
+        dbg!();
         iomap!(self
             .write(b"{")
             .and_then(|_| self.write_simple_string(variant))
@@ -504,6 +512,7 @@ where
 
     #[inline]
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+        dbg!();
         self.serialize_seq(Some(len))
     }
 
@@ -513,6 +522,7 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
+        dbg!();
         self.serialize_seq(Some(len))
     }
 
@@ -527,8 +537,8 @@ where
         iomap!(self
             .write(b"{")
             .and_then(|_| self.write_simple_string(variant))
-            .and_then(|_| self.write(b":")))
-        .and_then(move |_| self.serialize_seq(Some(len)))
+            .and_then(|_| self.write(b":")))?;
+        self.serialize_seq(Some(len))
     }
 
     #[inline]
@@ -561,11 +571,22 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
+        dbg!();
         iomap!(self
             .write(b"{")
             .and_then(|_| self.write_simple_string(variant))
             .and_then(|_| self.write(b":")))
-        .and_then(move |_| self.serialize_map(Some(len)))
+        .and_then(move |_| {
+            if len == 0 {
+                iomap!(self.write(b"{}"))
+            } else {
+                iomap!(self.write(b"{"))
+            }
+            .map(move |_| SerializeStructVariant {
+                s: self,
+                first: true,
+            })
+        })
     }
 }
 
@@ -573,6 +594,32 @@ where
 mod test {
     use crate::{OwnedValue as Value, StaticNode};
     use proptest::prelude::*;
+
+    #[test]
+    fn prety_print_serde() {
+        #[derive(Clone, Debug, PartialEq, serde::Serialize)]
+        enum Segment {
+            Id { mid: usize },
+        };
+
+        assert_eq!(
+            "{\n  \"Id\": {\n    \"mid\": 0\n  }\n}",
+            crate::to_string_pretty(&Segment::Id { mid: 0 }).unwrap()
+        );
+    }
+
+    #[test]
+    fn print_serde() {
+        #[derive(Clone, Debug, PartialEq, serde::Serialize)]
+        enum Segment {
+            Id { mid: usize },
+        };
+
+        assert_eq!(
+            "{\"Id\":{\"mid\":0}}",
+            crate::to_string(&Segment::Id { mid: 0 }).unwrap()
+        );
+    }
 
     #[cfg(not(feature = "128bit"))]
     fn arb_json_value() -> BoxedStrategy<Value> {
