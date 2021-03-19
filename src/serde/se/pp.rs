@@ -336,7 +336,12 @@ where
     }
 }
 
-impl<'serializer, W> ser::SerializeStructVariant for SerializeMap<'serializer, W>
+struct SerializeStructVariant<'serializer, W: Write + 'serializer> {
+    s: &'serializer mut PrettySerializer<W>,
+    first: bool,
+}
+
+impl<'serializer, W> ser::SerializeStructVariant for SerializeStructVariant<'serializer, W>
 where
     W: Write,
 {
@@ -351,15 +356,19 @@ where
     where
         T: serde_ext::Serialize,
     {
-        let SerializeMap {
+        let SerializeStructVariant {
             ref mut s,
             ref mut first,
             ..
         } = *self;
         if *first {
             *first = false;
-            iomap!(s.write_simple_string(key).and_then(|_| s.write(b": ")))
-                .and_then(|_| value.serialize(&mut **s))
+            s.indent();
+            iomap!(s
+                .new_line()
+                .and_then(|_| s.write_simple_string(key))
+                .and_then(|_| s.write(b": ")))
+            .and_then(|_| value.serialize(&mut **s))
         } else {
             iomap!(s
                 .write(b",")
@@ -370,12 +379,16 @@ where
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        if self.first {
-            Ok(())
-        } else {
-            self.s.dedent();
-            iomap!(self.s.new_line().and_then(|_| self.s.write(b"}")))
-        }
+        self.s.dedent();
+        iomap!(self.s.new_line().and_then(|_| self.s.write(b"}"))).and_then(move |_| {
+            if self.first {
+                Ok(())
+            } else {
+                self.s.dedent();
+
+                iomap!(self.s.new_line().and_then(|_| self.s.write(b"}")))
+            }
+        })
     }
 }
 
@@ -391,7 +404,7 @@ where
     type SerializeTupleVariant = SerializeSeq<'writer, W>;
     type SerializeMap = SerializeMap<'writer, W>;
     type SerializeStruct = SerializeMap<'writer, W>;
-    type SerializeStructVariant = SerializeMap<'writer, W>;
+    type SerializeStructVariant = SerializeStructVariant<'writer, W>;
     #[inline]
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         if v {
@@ -622,7 +635,17 @@ where
             .and_then(|_| self.new_line())
             .and_then(|_| self.write_simple_string(variant))
             .and_then(|_| self.write(b": ")))
-        .and_then(move |_| self.serialize_map(Some(len)))
+        .and_then(move |_| {
+            if len == 0 {
+                iomap!(self.write(b"{}"))
+            } else {
+                iomap!(self.write(b"{"))
+            }
+            .map(move |_| SerializeStructVariant {
+                s: self,
+                first: true,
+            })
+        })
     }
 }
 
