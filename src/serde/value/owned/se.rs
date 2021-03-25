@@ -108,7 +108,7 @@ impl serde::Serializer for Serializer {
     #[inline]
     #[allow(clippy::cast_possible_wrap)]
     fn serialize_u64(self, value: u64) -> Result<Value> {
-        Ok(Value::Static(StaticNode::I64(value as i64)))
+        Ok(Value::Static(StaticNode::U64(value as u64)))
     }
 
     #[cfg(feature = "arbitrary_precision")]
