@@ -544,7 +544,7 @@ macro_rules! json_unexpected {
 #[macro_export]
 macro_rules! likely {
     ($e:expr) => {
-        unsafe { std::intrinsics::likely($e) }
+        std::intrinsics::likely($e)
     };
 }
 
@@ -553,7 +553,7 @@ macro_rules! likely {
 #[macro_export]
 macro_rules! unlikely {
     ($e:expr) => {{
-        unsafe { std::intrinsics::unlikely($e) }
+        std::intrinsics::unlikely($e)
     }};
 }
 

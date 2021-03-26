@@ -49,12 +49,16 @@ where
 impl<'key> KnownKey<'key> {
     /// The known key
     #[inline]
+    #[must_use]
     pub fn key(&self) -> &Cow<'key, str> {
         &self.key
     }
 
     /// Looks up this key in a `Value`, returns None if the
     /// key wasn't present or `target` isn't an object
+    ///
+    /// # Errors
+    ///  * If target is not an object
     ///
     /// ```rust
     /// use simd_json::*;
@@ -66,6 +70,7 @@ impl<'key> KnownKey<'key> {
     /// assert_eq!(known_key.lookup(&object).unwrap(), &42);
     /// ```
     #[inline]
+    #[must_use]
     pub fn lookup<'target, 'value>(
         &self,
         target: &'target Value<'value>,
@@ -121,6 +126,8 @@ impl<'key> KnownKey<'key> {
 
     /// Looks up this key in a `Value`, inserts `with` when the key
     ///  when wasn't present returns None if the `target` isn't an object
+    /// # Errors 
+    /// * if target is not a record
     ///
     /// ```rust
     /// use simd_json::*;
@@ -166,7 +173,7 @@ impl<'key> KnownKey<'key> {
             .map(|m| {
                 m.raw_entry_mut()
                     .from_key_hashed_nocheck(self.hash, &self.key)
-                    .or_insert_with(|| (self.key.clone().into(), with()))
+                    .or_insert_with(|| (self.key.clone(), with()))
                     .1
             })
             .ok_or(Error::NotAnObject(ValueType::Null))
@@ -174,7 +181,8 @@ impl<'key> KnownKey<'key> {
 
     /// Inserts a value key into  `Value`, returns None if the
     /// key wasn't present otherwise Some(`old value`).
-    /// Errors if `target` isn't an object
+    /// # Errors
+    ///   * if `target` isn't an object
     ///
     /// ```rust
     /// use simd_json::*;
@@ -195,6 +203,7 @@ impl<'key> KnownKey<'key> {
     /// assert!(known_key2.insert(&mut object, BorrowedValue::from(42)).is_ok());
     ///
     /// assert_eq!(object["also the answer"], 42);
+    ///
     /// ```
     #[inline]
     pub fn insert<'target, 'value>(
@@ -217,7 +226,7 @@ impl<'key> KnownKey<'key> {
             {
                 RawEntryMut::Occupied(mut e) => Some(e.insert(value)),
                 RawEntryMut::Vacant(e) => {
-                    e.insert_hashed_nocheck(self.hash, self.key.clone().into(), value);
+                    e.insert_hashed_nocheck(self.hash, self.key.clone(), value);
                     None
                 }
             }

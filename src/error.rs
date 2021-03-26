@@ -83,12 +83,12 @@ pub enum ErrorType {
     /// Overflow of a limited buffer
     Overflow,
     /// IO error
-    IO(std::io::Error),
+    Io(std::io::Error),
 }
 
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
-        Self::generic(ErrorType::IO(e))
+        Self::generic(ErrorType::Io(e))
     }
 }
 
@@ -97,7 +97,7 @@ impl PartialEq for ErrorType {
     #[must_use]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::IO(_), Self::IO(_))
+            (Self::Io(_), Self::Io(_))
             | (Self::BadKeyType, Self::BadKeyType)
             | (Self::EarlyEnd, Self::EarlyEnd)
             | (Self::ExpectedArray, Self::ExpectedArray)

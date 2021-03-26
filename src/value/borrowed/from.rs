@@ -67,7 +67,7 @@ impl<'value> From<beef::lean::Cow<'value, str>> for Value<'value> {
     #[inline]
     #[must_use]
     fn from(c: beef::lean::Cow<'value, str>) -> Self {
-        Self::String(c.into())
+        Self::String(c)
     }
 }
 
