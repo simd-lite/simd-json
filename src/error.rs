@@ -61,7 +61,7 @@ pub enum ErrorType {
     /// Parser Erropr
     Parser,
     /// Early End Of File
-    EOF,
+    Eof,
     /// Generic serde error
     Serde(String),
     /// Generic syntax error
@@ -125,7 +125,7 @@ impl PartialEq for ErrorType {
             | (Self::KeyMustBeAString, Self::KeyMustBeAString)
             | (Self::NoStructure, Self::NoStructure)
             | (Self::Parser, Self::Parser)
-            | (Self::EOF, Self::EOF)
+            | (Self::Eof, Self::Eof)
             | (Self::Syntax, Self::Syntax)
             | (Self::TrailingCharacters, Self::TrailingCharacters)
             | (Self::UnexpectedCharacter, Self::UnexpectedCharacter)

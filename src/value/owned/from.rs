@@ -72,7 +72,7 @@ impl From<&String> for Value {
     #[inline]
     #[must_use]
     fn from(s: &String) -> Self {
-        Self::String(s.to_owned())
+        Self::String(s.clone())
     }
 }
 

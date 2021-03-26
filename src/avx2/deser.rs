@@ -49,7 +49,7 @@ impl<'de> Deserializer<'de> {
         let mut len = src_i;
         loop {
             let v: __m256i =
-                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) };
+                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<std::arch::x86_64::__m256i>()) };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
@@ -102,9 +102,9 @@ impl<'de> Deserializer<'de> {
         // To be more conform with upstream
         loop {
             let v: __m256i =
-                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i) as *const __m256i) };
+                unsafe { _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<std::arch::x86_64::__m256i>()) };
 
-            unsafe { _mm256_storeu_si256(buffer.as_mut_ptr().add(dst_i) as *mut __m256i, v) };
+            unsafe { _mm256_storeu_si256(buffer.as_mut_ptr().add(dst_i).cast::<std::arch::x86_64::__m256i>(), v) };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
             // later
