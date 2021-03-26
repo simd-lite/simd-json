@@ -126,7 +126,7 @@ impl<'key> KnownKey<'key> {
 
     /// Looks up this key in a `Value`, inserts `with` when the key
     ///  when wasn't present returns None if the `target` isn't an object
-    /// # Errors 
+    /// # Errors
     /// * if target is not a record
     ///
     /// ```rust
