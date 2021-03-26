@@ -30,6 +30,7 @@ use crate::{AlignedBuf, Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
+use value_trait::ValueAccess;
 
 /// Representation of a JSON object
 pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>>;
@@ -174,7 +175,7 @@ impl<'value> Mutable for Value<'value> {
     }
     #[inline]
     #[must_use]
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as ValueTrait>::Key, Self>> {
+    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as ValueAccess>::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -183,10 +184,6 @@ impl<'value> Mutable for Value<'value> {
 }
 
 impl<'value> ValueTrait for Value<'value> {
-    type Key = Cow<'value, str>;
-    type Array = Vec<Self>;
-    type Object = HashMap<Self::Key, Self>;
-
     #[inline]
     #[must_use]
     fn value_type(&self) -> ValueType {
@@ -203,6 +200,13 @@ impl<'value> ValueTrait for Value<'value> {
     fn is_null(&self) -> bool {
         matches!(self, Self::Static(StaticNode::Null))
     }
+}
+
+impl<'value> ValueAccess for Value<'value> {
+    type Target = Self;
+    type Key = Cow<'value, str>;
+    type Array = Vec<Self>;
+    type Object = HashMap<Self::Key, Self>;
 
     #[inline]
     #[must_use]

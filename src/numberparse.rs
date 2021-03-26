@@ -667,7 +667,7 @@ mod test {
     #![allow(clippy::default_trait_access)]
     use crate::value::owned::to_value;
     use float_cmp::approx_eq;
-    use value_trait::Value as ValueTrait;
+    use value_trait::prelude::*;
 
     #[test]
     fn bad_exp() {
