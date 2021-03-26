@@ -7,7 +7,7 @@ use value_trait::generator::BaseGenerator;
 
 macro_rules! iomap {
     ($e:expr) => {
-        ($e).map_err(|err| Error::generic(ErrorType::IO(err)))
+        ($e).map_err(|err| Error::generic(ErrorType::Io(err)))
     };
 }
 

@@ -93,7 +93,7 @@ where
 {
     let mut data = Vec::new();
     if let Err(e) = rdr.read_to_end(&mut data) {
-        return Err(Error::generic(ErrorType::IO(e)));
+        return Err(Error::generic(ErrorType::Io(e)));
     };
     let mut deserializer = stry!(Deserializer::from_slice(&mut data));
     T::deserialize(&mut deserializer)
