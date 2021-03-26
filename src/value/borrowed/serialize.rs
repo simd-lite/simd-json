@@ -20,14 +20,14 @@ impl<'value> Writable for Value<'value> {
     #[inline]
     fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
-        let _ = g.write_json(&self);
+        let _r = g.write_json(&self);
         g.consume()
     }
 
     #[inline]
     fn encode_pp(&self) -> String {
         let mut g = PrettyGenerator::new(2);
-        let _ = g.write_json(&self);
+        let _r = g.write_json(&self);
         g.consume()
     }
 

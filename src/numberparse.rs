@@ -111,7 +111,7 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 #[allow(clippy::cast_ptr_alignment)]
 fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
     // We know what we're doing right? :P
-    let val: u64 = unsafe { *(chars.as_ptr() as *const u64) };
+    let val: u64 = unsafe { *(chars.as_ptr().cast::<u64>()) };
 
     //    let val: __m64 = *(chars as *const __m64);
     // a branchy method might be faster:
@@ -143,7 +143,7 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
         let mul_1_10000: __m128i = _mm_setr_epi16(10000, 1, 10000, 1, 10000, 1, 10000, 1);
         // We know what we're doing right? :P
         let input: __m128i = _mm_sub_epi8(
-            _mm_loadu_si128(chars.get_unchecked(0..16).as_ptr() as *const __m128i),
+            _mm_loadu_si128(chars.get_unchecked(0..16).as_ptr().cast::<std::arch::x86_64::__m128i>()),
             ascii0,
         );
         let t1: __m128i = _mm_maddubs_epi16(input, mul_1_10);

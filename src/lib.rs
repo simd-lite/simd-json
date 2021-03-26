@@ -641,7 +641,7 @@ impl<'de> Deserializer<'de> {
         // a valid JSON file cannot have zero structural indexes - we should have
         // found something (note that we compare to 1 as we always add the root!)
         if structural_indexes.len() == 1 {
-            return Err(ErrorType::EOF);
+            return Err(ErrorType::Eof);
         }
 
         if structural_indexes.last() > Some(&(len as u32)) {

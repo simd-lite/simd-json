@@ -365,7 +365,7 @@ struct CommaSeparated<'a, 'de: 'a> {
 impl<'a, 'de> CommaSeparated<'a, 'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn new(de: &'a mut Deserializer<'de>, len: usize) -> Self {
-        CommaSeparated { len, de }
+        CommaSeparated { de, len }
     }
 }
 
