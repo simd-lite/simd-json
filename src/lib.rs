@@ -653,7 +653,7 @@ impl<'de> Deserializer<'de> {
         }
 
         if SimdInput::check_utf8_errors(&state) {
-            Err(ErrorType::InvalidUTF8)
+            Err(ErrorType::InvalidUtf8)
         } else {
             Ok(structural_indexes)
         }
