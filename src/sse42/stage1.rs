@@ -50,10 +50,10 @@ impl SimdInput {
     pub(crate) fn new(ptr: &[u8]) -> Self {
         unsafe {
             Self {
-                v0: _mm_loadu_si128(ptr.as_ptr() as *const __m128i),
-                v1: _mm_loadu_si128(ptr.as_ptr().add(16) as *const __m128i),
-                v2: _mm_loadu_si128(ptr.as_ptr().add(32) as *const __m128i),
-                v3: _mm_loadu_si128(ptr.as_ptr().add(48) as *const __m128i),
+                v0: _mm_loadu_si128(ptr.as_ptr().cast::<std::arch::x86_64::__m128i>()),
+                v1: _mm_loadu_si128(ptr.as_ptr().add(16).cast::<std::arch::x86_64::__m128i>()),
+                v2: _mm_loadu_si128(ptr.as_ptr().add(32).cast::<std::arch::x86_64::__m128i>()),
+                v3: _mm_loadu_si128(ptr.as_ptr().add(48).cast::<std::arch::x86_64::__m128i>()),
             }
         }
     }
@@ -273,7 +273,12 @@ impl Stage1Parse<__m128i> for SimdInput {
 
                 let v: __m128i = _mm_set_epi32(v3, v2, v1, v0);
                 let v: __m128i = _mm_add_epi32(idx_64_v, v);
-                _mm_storeu_si128(base.as_mut_ptr().add(l) as *mut __m128i, v);
+                _mm_storeu_si128(
+                    base.as_mut_ptr()
+                        .add(l)
+                        .cast::<std::arch::x86_64::__m128i>(),
+                    v,
+                );
             }
             l += 4;
         }
