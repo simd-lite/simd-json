@@ -19,7 +19,7 @@ use serde_ext::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::io;
-use value_trait::Value;
+use value_trait::prelude::*;
 type ConvertResult<T> = std::result::Result<T, SerdeConversionError>;
 
 /// Error while converting from or to serde values
