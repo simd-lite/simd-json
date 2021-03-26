@@ -600,7 +600,7 @@ mod test {
         #[derive(Clone, Debug, PartialEq, serde::Serialize)]
         enum Segment {
             Id { mid: usize },
-        };
+        }
 
         assert_eq!(
             "{\n  \"Id\": {\n    \"mid\": 0\n  }\n}",
@@ -613,7 +613,7 @@ mod test {
         #[derive(Clone, Debug, PartialEq, serde::Serialize)]
         enum Segment {
             Id { mid: usize },
-        };
+        }
 
         assert_eq!(
             "{\"Id\":{\"mid\":0}}",
