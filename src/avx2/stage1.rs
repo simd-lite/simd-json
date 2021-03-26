@@ -240,7 +240,12 @@ impl Stage1Parse<__m256i> for SimdInput {
 
                 let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
                 let v: __m256i = _mm256_add_epi32(idx_64_v, v);
-                _mm256_storeu_si256(base.as_mut_ptr().add(l).cast::<std::arch::x86_64::__m256i>(), v);
+                _mm256_storeu_si256(
+                    base.as_mut_ptr()
+                        .add(l)
+                        .cast::<std::arch::x86_64::__m256i>(),
+                    v,
+                );
             }
             l += 8;
         }
