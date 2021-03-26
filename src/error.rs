@@ -49,7 +49,7 @@ pub enum ErrorType {
     /// Invalid number
     InvalidNumber,
     /// Inbalid UTF8 codepoint
-    InvalidUTF8,
+    InvalidUtf8,
     /// Invalid Unicode escape sequence
     InvalidUnicodeEscape,
     /// Inbalid Unicode codepoint
@@ -119,7 +119,7 @@ impl PartialEq for ErrorType {
             | (Self::InvalidEscape, Self::InvalidEscape)
             | (Self::InvalidExponent, Self::InvalidExponent)
             | (Self::InvalidNumber, Self::InvalidNumber)
-            | (Self::InvalidUTF8, Self::InvalidUTF8)
+            | (Self::InvalidUtf8, Self::InvalidUtf8)
             | (Self::InvalidUnicodeEscape, Self::InvalidUnicodeEscape)
             | (Self::InvlaidUnicodeCodepoint, Self::InvlaidUnicodeCodepoint)
             | (Self::KeyMustBeAString, Self::KeyMustBeAString)
