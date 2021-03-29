@@ -408,7 +408,7 @@ impl<'se> serde::ser::SerializeMap for SerializeMap<'se> {
                 // Panic because this indicates a bug in the program rather than an
                 // expected failure.
                 let key = key.expect("serialize_value called before serialize_key");
-                map.insert(key.into(), stry!(to_value(&value)));
+                map.insert(key, stry!(to_value(&value)));
                 Ok(())
             }
             #[cfg(feature = "arbitrary_precision")]
