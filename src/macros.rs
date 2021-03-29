@@ -218,7 +218,7 @@ macro_rules! json_internal_owned {
     // TT muncher for parsing the inside of an array [...]. Produces a vec![...]
     // of the elements.
     //
-    // Must be invoked as: json_internal!(@array [] $($tt)*)
+    // Must be invoked as: json_internal_owned!(@array [] $($tt)*)
     //////////////////////////////////////////////////////////////////////////
 
     // Done with trailing comma.
