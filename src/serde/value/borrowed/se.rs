@@ -1,8 +1,12 @@
-use crate::value::borrowed::Value;
+use super::to_value;
+use crate::value::borrowed::{Object, Value};
 use crate::StaticNode;
+use crate::{stry, Error, ErrorType, Result};
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
 };
+// use serde_json::Map;
+use std::marker::PhantomData;
 
 impl<'value> Serialize for Value<'value> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -39,18 +43,13 @@ impl<'value> Serialize for Value<'value> {
     }
 }
 
-/*
-use super::{Map};
-use crate::{stry, ErrorType, Result};
-use std::marker::PhantomData;
-use super::serde::to_value;
-
 type Impossible<T> = ser::Impossible<T, Error>;
 
-pub struct Serializer<'a> {
-    marker: PhantomData<&'a u8>,
+pub struct Serializer<'se> {
+    marker: PhantomData<&'se u8>,
 }
-impl<'a> Default for Serializer<'a> {
+
+impl<'se> Default for Serializer<'se> {
     fn default() -> Self {
         Self {
             marker: PhantomData,
@@ -58,110 +57,111 @@ impl<'a> Default for Serializer<'a> {
     }
 }
 
-impl<'a> serde::Serializer for Serializer<'a> {
-    type Ok = Value<'a>;
+impl<'se> serde::Serializer for Serializer<'se> {
+    type Ok = Value<'se>;
     type Error = Error;
 
-    type SerializeSeq = SerializeVec<'a>;
-    type SerializeTuple = SerializeVec<'a>;
-    type SerializeTupleStruct = SerializeVec<'a>;
-    type SerializeTupleVariant = SerializeTupleVariant<'a>;
-    type SerializeMap = SerializeMap<'a>;
-    type SerializeStruct = SerializeMap<'a>;
-    type SerializeStructVariant = SerializeStructVariant<'a>;
+    type SerializeSeq = SerializeVec<'se>;
+    type SerializeTuple = SerializeVec<'se>;
+    type SerializeTupleStruct = SerializeVec<'se>;
+    type SerializeTupleVariant = SerializeTupleVariant<'se>;
+    type SerializeMap = SerializeMap<'se>;
+    type SerializeStruct = SerializeMap<'se>;
+    type SerializeStructVariant = SerializeStructVariant<'se>;
 
     #[inline]
-    fn serialize_bool(self, value: bool) -> Result<Value<'a>> {
-        Ok(Value::Bool(value))
+    fn serialize_bool(self, value: bool) -> Result<Value<'se>> {
+        Ok(Value::Static(StaticNode::Bool(value)))
     }
 
     #[inline]
-    fn serialize_i8(self, value: i8) -> Result<Value<'a>> {
-        self.serialize_i64(value as i64)
+    fn serialize_i8(self, value: i8) -> Result<Value<'se>> {
+        self.serialize_i64(i64::from(value))
     }
 
     #[inline]
-    fn serialize_i16(self, value: i16) -> Result<Value<'a>> {
-        self.serialize_i64(value as i64)
+    fn serialize_i16(self, value: i16) -> Result<Value<'se>> {
+        self.serialize_i64(i64::from(value))
     }
 
     #[inline]
-    fn serialize_i32(self, value: i32) -> Result<Value<'a>> {
-        self.serialize_i64(value as i64)
+    fn serialize_i32(self, value: i32) -> Result<Value<'se>> {
+        self.serialize_i64(i64::from(value))
     }
 
-    fn serialize_i64(self, value: i64) -> Result<Value<'a>> {
-        Ok(Value::I64(value.into()))
+    fn serialize_i64(self, value: i64) -> Result<Value<'se>> {
+        Ok(Value::Static(StaticNode::I64(value)))
     }
 
     #[cfg(feature = "arbitrary_precision")]
     serde_if_integer128! {
-        fn serialize_i128(self, value: i128) -> Result<Value<'a>> {
+        fn serialize_i128(self, value: i128) -> Result<Value<'se>> {
             Ok(Value::Number(value.into()))
         }
     }
 
     #[inline]
-    fn serialize_u8(self, value: u8) -> Result<Value<'a>> {
-        self.serialize_u64(value as u64)
+    fn serialize_u8(self, value: u8) -> Result<Value<'se>> {
+        self.serialize_u64(u64::from(value))
     }
 
     #[inline]
-    fn serialize_u16(self, value: u16) -> Result<Value<'a>> {
-        self.serialize_u64(value as u64)
+    fn serialize_u16(self, value: u16) -> Result<Value<'se>> {
+        self.serialize_u64(u64::from(value))
     }
 
     #[inline]
-    fn serialize_u32(self, value: u32) -> Result<Value<'a>> {
-        self.serialize_u64(value as u64)
+    fn serialize_u32(self, value: u32) -> Result<Value<'se>> {
+        self.serialize_u64(u64::from(value))
     }
 
     #[inline]
-    fn serialize_u64(self, value: u64) -> Result<Value<'a>> {
-        Ok(Value::I64(value as i64))
+    fn serialize_u64(self, value: u64) -> Result<Value<'se>> {
+        Ok(Value::Static(StaticNode::U64(value)))
     }
 
     #[cfg(feature = "arbitrary_precision")]
     serde_if_integer128! {
-        fn serialize_u128(self, value: u128) -> Result<Value<'a>> {
+        fn serialize_u128(self, value: u128) -> Result<Value<'se>> {
             Ok(Value::Number(value.into()))
         }
     }
 
     #[inline]
-    fn serialize_f32(self, value: f32) -> Result<Value<'a>> {
-        self.serialize_f64(value as f64)
+    fn serialize_f32(self, value: f32) -> Result<Value<'se>> {
+        self.serialize_f64(f64::from(value))
     }
 
     #[inline]
-    fn serialize_f64(self, value: f64) -> Result<Value<'a>> {
-        Ok(Value::F64(value))
+    fn serialize_f64(self, value: f64) -> Result<Value<'se>> {
+        Ok(Value::Static(StaticNode::F64(value)))
     }
 
     #[inline]
-    fn serialize_char(self, value: char) -> Result<Value<'a>> {
+    fn serialize_char(self, value: char) -> Result<Value<'se>> {
         let mut s = String::new();
         s.push(value);
         self.serialize_str(&s)
     }
 
     #[inline]
-    fn serialize_str(self, value: &str) -> Result<Value<'a>> {
+    fn serialize_str(self, value: &str) -> Result<Value<'se>> {
         Ok(Value::from(value.to_owned()))
     }
 
-    fn serialize_bytes(self, value: &[u8]) -> Result<Value<'a>> {
-        let vec = value.iter().map(|&b| Value::I64(b.into())).collect();
-        Ok(Value::Array(vec))
+    fn serialize_bytes(self, value: &[u8]) -> Result<Value<'se>> {
+        Ok(Value::Array(
+            value.iter().map(|v| Value::from(*v)).collect(),
+        ))
     }
 
     #[inline]
-    fn serialize_unit(self) -> Result<Value<'a>> {
-        Ok(Value::Null)
+    fn serialize_unit(self) -> Result<Value<'se>> {
+        Ok(Value::Static(StaticNode::Null))
     }
 
     #[inline]
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Value<'a>> {
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<Value<'se>> {
         self.serialize_unit()
     }
 
@@ -171,7 +171,7 @@ impl<'a> serde::Serializer for Serializer<'a> {
         _name: &'static str,
         _variant_index: u32,
         variant: &'static str,
-    ) -> Result<Value<'a>> {
+    ) -> Result<Value<'se>> {
         self.serialize_str(variant)
     }
 
@@ -180,7 +180,7 @@ impl<'a> serde::Serializer for Serializer<'a> {
         self,
         _name: &'static str,
         value: &T,
-    ) -> Result<Value<'a>>
+    ) -> Result<Value<'se>>
     where
         T: Serialize,
     {
@@ -193,22 +193,23 @@ impl<'a> serde::Serializer for Serializer<'a> {
         _variant_index: u32,
         variant: &'static str,
         value: &T,
-    ) -> Result<Value<'a>>
+    ) -> Result<Value<'se>>
     where
         T: Serialize,
     {
-        let mut values = Map::new();
-        values.insert(variant, stry!(to_value(&mut value)));
-        Ok(Value::Object(values))
+        let mut values = Object::with_capacity(1);
+        let x = stry!(to_value(&value));
+        values.insert(variant.into(), x);
+        Ok(Value::from(values))
     }
 
     #[inline]
-    fn serialize_none(self) -> Result<Value<'a>> {
+    fn serialize_none(self) -> Result<Value<'se>> {
         self.serialize_unit()
     }
 
     #[inline]
-    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Value<'a>>
+    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Value<'se>>
     where
         T: Serialize,
     {
@@ -248,7 +249,7 @@ impl<'a> serde::Serializer for Serializer<'a> {
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(SerializeMap::Map {
-            map: Map::new(),
+            map: Object::new(),
             next_key: None,
         })
     }
@@ -272,34 +273,34 @@ impl<'a> serde::Serializer for Serializer<'a> {
     ) -> Result<Self::SerializeStructVariant> {
         Ok(SerializeStructVariant {
             name: variant,
-            map: Map::new(),
+            map: Object::new(),
         })
     }
 }
 
-pub struct SerializeVec<'a> {
-    vec: Vec<Value<'a>>,
+pub struct SerializeVec<'se> {
+    vec: Vec<Value<'se>>,
 }
 
-pub struct SerializeTupleVariant<'a> {
-    name: &'a str,
-    vec: Vec<Value<'a>>,
+pub struct SerializeTupleVariant<'se> {
+    name: &'se str,
+    vec: Vec<Value<'se>>,
 }
 
-pub enum SerializeMap<'a> {
+pub enum SerializeMap<'se> {
     Map {
-        map: Map<'a>,
-        next_key: Option<&'a str>,
+        map: Object<'se>,
+        next_key: Option<&'se str>,
     },
 }
 
-pub struct SerializeStructVariant<'a> {
-    name: &'a str,
-    map: Map<'a>,
+pub struct SerializeStructVariant<'se> {
+    name: &'se str,
+    map: Object<'se>,
 }
 
-impl<'a> serde::ser::SerializeSeq for SerializeVec<'a> {
-    type Ok = Value<'a>;
+impl<'se> serde::ser::SerializeSeq for SerializeVec<'se> {
+    type Ok = Value<'se>;
     type Error = Error;
 
     fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
@@ -310,13 +311,13 @@ impl<'a> serde::ser::SerializeSeq for SerializeVec<'a> {
         Ok(())
     }
 
-    fn end(self) -> Result<Value<'a>> {
+    fn end(self) -> Result<Value<'se>> {
         Ok(Value::Array(self.vec))
     }
 }
 
-impl<'a> serde::ser::SerializeTuple for SerializeVec<'a> {
-    type Ok = Value<'a>;
+impl<'se> serde::ser::SerializeTuple for SerializeVec<'se> {
+    type Ok = Value<'se>;
     type Error = Error;
 
     fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
@@ -326,13 +327,13 @@ impl<'a> serde::ser::SerializeTuple for SerializeVec<'a> {
         serde::ser::SerializeSeq::serialize_element(self, value)
     }
 
-    fn end(self) -> Result<Value<'a>> {
+    fn end(self) -> Result<Value<'se>> {
         serde::ser::SerializeSeq::end(self)
     }
 }
 
-impl<'a> serde::ser::SerializeTupleStruct for SerializeVec<'a> {
-    type Ok = Value<'a>;
+impl<'se> serde::ser::SerializeTupleStruct for SerializeVec<'se> {
+    type Ok = Value<'se>;
     type Error = Error;
 
     fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
@@ -342,13 +343,13 @@ impl<'a> serde::ser::SerializeTupleStruct for SerializeVec<'a> {
         serde::ser::SerializeSeq::serialize_element(self, value)
     }
 
-    fn end(self) -> Result<Value<'a>> {
+    fn end(self) -> Result<Value<'se>> {
         serde::ser::SerializeSeq::end(self)
     }
 }
 
-impl<'a> serde::ser::SerializeTupleVariant for SerializeTupleVariant<'a> {
-    type Ok = Value<'a>;
+impl<'se> serde::ser::SerializeTupleVariant for SerializeTupleVariant<'se> {
+    type Ok = Value<'se>;
     type Error = Error;
 
     fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
@@ -359,17 +360,16 @@ impl<'a> serde::ser::SerializeTupleVariant for SerializeTupleVariant<'a> {
         Ok(())
     }
 
-    fn end(self) -> Result<Value<'a>> {
-        let mut object = Map::new();
+    fn end(self) -> Result<Value<'se>> {
+        let mut object = Object::with_capacity(1);
+        object.insert(self.name.into(), Value::Array(self.vec));
 
-        object.insert(&self.name, Value::Array(self.vec));
-
-        Ok(Value::Object(object))
+        Ok(Value::Object(Box::new(object)))
     }
 }
 
-impl<'a> serde::ser::SerializeMap for SerializeMap<'a> {
-    type Ok = Value<'a>;
+impl<'se> serde::ser::SerializeMap for SerializeMap<'se> {
+    type Ok = Value<'se>;
     type Error = Error;
 
     fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<()>
@@ -405,7 +405,7 @@ impl<'a> serde::ser::SerializeMap for SerializeMap<'a> {
                 // Panic because this indicates a bug in the program rather than an
                 // expected failure.
                 let key = key.expect("serialize_value called before serialize_key");
-                map.insert(key, stry!(to_value(&value)));
+                map.insert(key.into(), stry!(to_value(&value)));
                 Ok(())
             }
             #[cfg(feature = "arbitrary_precision")]
@@ -415,9 +415,9 @@ impl<'a> serde::ser::SerializeMap for SerializeMap<'a> {
         }
     }
 
-    fn end(self) -> Result<Value<'a>> {
+    fn end(self) -> Result<Value<'se>> {
         match self {
-            SerializeMap::Map { map, .. } => Ok(Value::Object(map)),
+            SerializeMap::Map { map, .. } => Ok(Value::Object(Box::new(map))),
             #[cfg(feature = "arbitrary_precision")]
             SerializeMap::Number { .. } => unreachable!(),
             #[cfg(feature = "raw_value")]
@@ -426,25 +426,25 @@ impl<'a> serde::ser::SerializeMap for SerializeMap<'a> {
     }
 }
 
-struct MapKeySerializer<'a> {
-    marker: PhantomData<&'a u8>,
+struct MapKeySerializer<'se> {
+    marker: PhantomData<&'se u8>,
 }
 
 fn key_must_be_a_string() -> Error {
     Error::generic(ErrorType::KeyMustBeAString)
 }
 
-impl<'a> serde_ext::Serializer for MapKeySerializer<'a> {
-    type Ok = &'a str;
+impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
+    type Ok = &'se str;
     type Error = Error;
 
-    type SerializeSeq = Impossible<&'a str>;
-    type SerializeTuple = Impossible<&'a str>;
-    type SerializeTupleStruct = Impossible<&'a str>;
-    type SerializeTupleVariant = Impossible<&'a str>;
-    type SerializeMap = Impossible<&'a str>;
-    type SerializeStruct = Impossible<&'a str>;
-    type SerializeStructVariant = Impossible<&'a str>;
+    type SerializeSeq = Impossible<&'se str>;
+    type SerializeTuple = Impossible<&'se str>;
+    type SerializeTupleStruct = Impossible<&'se str>;
+    type SerializeTupleVariant = Impossible<&'se str>;
+    type SerializeMap = Impossible<&'se str>;
+    type SerializeStruct = Impossible<&'se str>;
+    type SerializeStructVariant = Impossible<&'se str>;
 
     #[inline]
     fn serialize_unit_variant(
@@ -529,9 +529,7 @@ impl<'a> serde_ext::Serializer for MapKeySerializer<'a> {
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<Self::Ok> {
-        // TODO: This is ugly
-        //let s = value.to_owned();
-        Ok(value)
+        Ok(unsafe { std::mem::transmute(value) }) // TODO find a better way to serialize &str
     }
 
     fn serialize_bytes(self, _value: &[u8]) -> Result<Self::Ok> {
@@ -615,8 +613,8 @@ impl<'a> serde_ext::Serializer for MapKeySerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeStruct for SerializeMap<'a> {
-    type Ok = Value<'a>;
+impl<'se> serde::ser::SerializeStruct for SerializeMap<'se> {
+    type Ok = Value<'se>;
     type Error = Error;
 
     fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
@@ -649,7 +647,7 @@ impl<'a> serde::ser::SerializeStruct for SerializeMap<'a> {
         }
     }
 
-    fn end(self) -> Result<Value<'a>> {
+    fn end(self) -> Result<Value<'se>> {
         match self {
             SerializeMap::Map { .. } => serde::ser::SerializeMap::end(self),
             #[cfg(feature = "arbitrary_precision")]
@@ -664,81 +662,205 @@ impl<'a> serde::ser::SerializeStruct for SerializeMap<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeStructVariant for SerializeStructVariant<'a> {
-    type Ok = Value<'a>;
+impl<'se> serde::ser::SerializeStructVariant for SerializeStructVariant<'se> {
+    type Ok = Value<'se>;
     type Error = Error;
 
     fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
         T: Serialize,
     {
-        self.map.insert(key, stry!(to_value(&value)));
+        self.map.insert(key.into(), stry!(to_value(&value)));
         Ok(())
     }
 
-    fn end(self) -> Result<Value<'a>> {
-        let mut object = Map::new();
+    fn end(self) -> Result<Value<'se>> {
+        let mut object = Object::with_capacity(1);
 
-        object.insert(self.name, Value::Object(self.map));
+        object.insert(self.name.into(), self.map.into());
 
-        Ok(Value::Object(object))
+        Ok(Value::Object(Box::new(object)))
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::{Map, Value};
+    use super::Value;
+    use crate::serde::from_slice;
+    use halfbrown::HashMap;
+    use serde::{Deserialize, Serialize};
     use serde_json;
+    use value_trait::StaticNode;
 
     #[test]
     fn null() {
-        let v = Value::Null;
+        let v = Value::Static(crate::StaticNode::Null);
         let s = serde_json::to_string(&v).expect("Failed to serialize");
         assert_eq!(s, "null")
     }
 
     #[test]
     fn bool_true() {
-        let v = Value::Bool(true);
+        let v = Value::Static(StaticNode::Bool(true));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
         assert_eq!(s, "true")
     }
 
     #[test]
     fn bool_false() {
-        let v = Value::Bool(false);
+        let v = Value::Static(StaticNode::Bool(false));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
         assert_eq!(s, "false")
     }
 
     #[test]
     fn float() {
-        let v = Value::F64(1.0);
+        let v = Value::Static(StaticNode::F64(1.0));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
         assert_eq!(s, "1.0")
     }
 
     #[test]
+    fn stringlike() {
+        let v = Value::from("snot".to_string());
+        let s = serde_json::to_string(&v).expect("Failed to serialize");
+        assert_eq!(s, "\"snot\"");
+
+        let v = Value::from("snot");
+        let s = serde_json::to_string(&v).expect("Failed to serialize");
+        assert_eq!(s, "\"snot\"");
+    }
+
+    #[test]
     fn int() {
-        let v = Value::I64(42);
+        let v = Value::Static(StaticNode::I64(42));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
         assert_eq!(s, "42")
     }
 
     #[test]
     fn arr() {
-        let v = Value::Array(vec![Value::I64(42), Value::I64(23)]);
+        let v = Value::Array(vec![
+            Value::Static(StaticNode::I64(42)),
+            Value::Static(StaticNode::I64(23)),
+        ]);
         let s = serde_json::to_string(&v).expect("Failed to serialize");
         assert_eq!(s, "[42,23]")
     }
+
     #[test]
     fn map() {
-        let mut m = Map::new();
+        let mut m = HashMap::new();
         m.insert("a".into(), Value::from(42));
         m.insert("b".into(), Value::from(23));
-        let v = Value::Object(m);
+        let v = Value::Object(Box::new(m));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
         assert_eq!(s, r#"{"a":42,"b":23}"#)
     }
+
+    #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
+    struct Map {
+        key: u32,
+    }
+    #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
+    struct Obj {
+        v_i128: i128,
+        v_i64: i64,
+        v_i32: i32,
+        v_i16: i16,
+        v_i8: i8,
+        v_u128: u128,
+        v_u64: u64,
+        v_usize: usize,
+        v_u32: u32,
+        v_u66: u16,
+        v_u8: u8,
+        v_bool: bool,
+        v_str: String,
+        //v_enum: Enum,
+        v_map: Map,
+        v_arr: Vec<usize>,
+        v_null: (),
+    }
+
+    #[test]
+    fn from_slice_to_object() {
+        let o = Obj::default();
+        let vec = serde_json::to_vec(&o).expect("to_vec");
+        let vec2 = crate::serde::to_vec(&o).expect("to_vec");
+        assert_eq!(vec, vec2);
+        let mut vec1 = vec.clone();
+        let mut vec2 = vec.clone();
+
+        println!("{}", serde_json::to_string_pretty(&o).expect("json"));
+        let de: Obj = from_slice(&mut vec1).expect("from_slice");
+        assert_eq!(o, de);
+        let val = crate::to_borrowed_value(&mut vec2).expect("to_borrowed_value");
+
+        let vec3 = serde_json::to_vec(&val).expect("to_vec");
+        assert_eq!(vec, vec3);
+    }
+
+    use proptest::prelude::*;
+    prop_compose! {
+      fn obj_case()(
+        v_i128 in any::<i64>().prop_map(i128::from),
+        v_i64 in any::<i64>(),
+        v_i32 in any::<i32>(),
+        v_i16 in any::<i16>(),
+        v_i8 in any::<i8>(),
+        v_u128 in any::<u64>().prop_map(u128::from),
+        v_u64 in any::<u64>(),
+        v_usize in any::<u32>().prop_map(|v| v as usize),
+        v_u32 in any::<u32>(),
+        v_u66 in any::<u16>(),
+        v_u8 in any::<u8>(),
+        v_bool in any::<bool>(),
+        v_str in ".*",
+        ) -> Obj {
+         Obj {
+            v_i128,
+            v_i64,
+            v_i32,
+            v_i16,
+            v_i8,
+            v_u128,
+            v_u64,
+            v_usize,
+            v_u32,
+            v_u66,
+            v_u8,
+            v_bool,
+            v_str,
+            ..Obj::default()
+        }
+      }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            .. ProptestConfig::default()
+        })]
+
+        #[test]
+        fn prop_deserialize_obj(obj in obj_case()) {
+            let mut vec = serde_json::to_vec(&obj).expect("to_vec");
+            let vec1 = vec.clone();
+            let vec2 = vec.clone();
+            println!("{}", serde_json::to_string_pretty(&obj).expect("json"));
+            let de: Obj = from_slice(&mut vec).expect("from_slice");
+            prop_assert_eq!(&obj, &de);
+
+            let borroed: crate::BorrowedValue = serde_json::from_slice(& vec1).expect("from_slice");
+            let owned: crate::OwnedValue = serde_json::from_slice(& vec2).expect("from_slice");
+            prop_assert_eq!(&borroed, &owned);
+
+            let de: Obj = Obj::deserialize(borroed).expect("deserialize");
+            prop_assert_eq!(&obj, &de);
+            let de: Obj = Obj::deserialize(owned).expect("deserialize");
+            prop_assert_eq!(&obj, &de);
+
+
+        }
+    }
 }
-*/
