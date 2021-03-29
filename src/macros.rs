@@ -1048,7 +1048,7 @@ macro_rules! json_internal_borrowed {
     };
 
     ([ $($tt:tt)+ ]) => {
-        $crate::value::borrowed::Value::Array(json_internal!(@array [] $($tt)+))
+        $crate::value::borrowed::Value::Array(json_internal_borrowed!(@array [] $($tt)+))
     };
 
     ({}) => {
