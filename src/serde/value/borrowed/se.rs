@@ -1,6 +1,9 @@
 use super::to_value;
-use crate::value::borrowed::{Object, Value};
 use crate::StaticNode;
+use crate::{
+    cow::Cow,
+    value::borrowed::{Object, Value},
+};
 use crate::{stry, Error, ErrorType, Result};
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
@@ -290,7 +293,7 @@ pub struct SerializeTupleVariant<'se> {
 pub enum SerializeMap<'se> {
     Map {
         map: Object<'se>,
-        next_key: Option<&'se str>,
+        next_key: Option<Cow<'se, str>>,
     },
 }
 
@@ -435,16 +438,16 @@ fn key_must_be_a_string() -> Error {
 }
 
 impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
-    type Ok = &'se str;
+    type Ok = Cow<'se, str>;
     type Error = Error;
 
-    type SerializeSeq = Impossible<&'se str>;
-    type SerializeTuple = Impossible<&'se str>;
-    type SerializeTupleStruct = Impossible<&'se str>;
-    type SerializeTupleVariant = Impossible<&'se str>;
-    type SerializeMap = Impossible<&'se str>;
-    type SerializeStruct = Impossible<&'se str>;
-    type SerializeStructVariant = Impossible<&'se str>;
+    type SerializeSeq = Impossible<Cow<'se, str>>;
+    type SerializeTuple = Impossible<Cow<'se, str>>;
+    type SerializeTupleStruct = Impossible<Cow<'se, str>>;
+    type SerializeTupleVariant = Impossible<Cow<'se, str>>;
+    type SerializeMap = Impossible<Cow<'se, str>>;
+    type SerializeStruct = Impossible<Cow<'se, str>>;
+    type SerializeStructVariant = Impossible<Cow<'se, str>>;
 
     #[inline]
     fn serialize_unit_variant(
@@ -453,7 +456,7 @@ impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok> {
-        Ok(variant)
+        Ok(Cow::from(variant))
     }
 
     #[inline]
@@ -529,7 +532,8 @@ impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<Self::Ok> {
-        Ok(unsafe { std::mem::transmute(value) }) // TODO find a better way to serialize &str
+        // TODO: we copy `value` here this is not idea but safe
+        Ok(Cow::from(value.to_string()))
     }
 
     fn serialize_bytes(self, _value: &[u8]) -> Result<Self::Ok> {
