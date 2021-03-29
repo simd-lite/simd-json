@@ -427,7 +427,7 @@ macro_rules! json_internal_owned {
 #[cfg(not(feature = "serde_impl"))]
 #[macro_export(local_inner_macros)]
 #[doc(hidden)]
-macro_rules! json_internal {
+macro_rules! json_internal_owned {
     //////////////////////////////////////////////////////////////////////////
     // TT muncher for parsing the inside of an array [...]. Produces a vec![...]
     // of the elements.
@@ -447,42 +447,42 @@ macro_rules! json_internal {
 
     // Next element is `null`.
     (@array [$($elems:expr,)*] null $($rest:tt)*) => {
-        json_internal!(@array [$($elems,)* json_internal!(null)] $($rest)*)
+        json_internal_owned!(@array [$($elems,)* json_internal_owned!(null)] $($rest)*)
     };
 
     // Next element is `true`.
     (@array [$($elems:expr,)*] true $($rest:tt)*) => {
-        json_internal!(@array [$($elems,)* json_internal!(true)] $($rest)*)
+        json_internal_owned!(@array [$($elems,)* json_internal_owned!(true)] $($rest)*)
     };
 
     // Next element is `false`.
     (@array [$($elems:expr,)*] false $($rest:tt)*) => {
-        json_internal!(@array [$($elems,)* json_internal!(false)] $($rest)*)
+        json_internal_owned!(@array [$($elems,)* json_internal_owned!(false)] $($rest)*)
     };
 
     // Next element is an array.
     (@array [$($elems:expr,)*] [$($array:tt)*] $($rest:tt)*) => {
-        json_internal!(@array [$($elems,)* json_internal!([$($array)*])] $($rest)*)
+        json_internal_owned!(@array [$($elems,)* json_internal_owned!([$($array)*])] $($rest)*)
     };
 
     // Next element is a map.
     (@array [$($elems:expr,)*] {$($map:tt)*} $($rest:tt)*) => {
-        json_internal!(@array [$($elems,)* json_internal!({$($map)*})] $($rest)*)
+        json_internal_owned!(@array [$($elems,)* json_internal_owned!({$($map)*})] $($rest)*)
     };
 
     // Next element is an expression followed by comma.
     (@array [$($elems:expr,)*] $next:expr, $($rest:tt)*) => {
-        json_internal!(@array [$($elems,)* json_internal!($next),] $($rest)*)
+        json_internal_owned!(@array [$($elems,)* json_internal_owned!($next),] $($rest)*)
     };
 
     // Last element is an expression with no trailing comma.
     (@array [$($elems:expr,)*] $last:expr) => {
-        json_internal!(@array [$($elems,)* json_internal!($last)])
+        json_internal_owned!(@array [$($elems,)* json_internal_owned!($last)])
     };
 
     // Comma after the most recent element.
     (@array [$($elems:expr),*] , $($rest:tt)*) => {
-        json_internal!(@array [$($elems,)*] $($rest)*)
+        json_internal_owned!(@array [$($elems,)*] $($rest)*)
     };
 
     // Unexpected token after most recent element.
@@ -506,7 +506,7 @@ macro_rules! json_internal {
     // Insert the current entry followed by trailing comma.
     (@object $object:ident [$($key:tt)+] ($value:expr) , $($rest:tt)*) => {
         let _ = $object.insert(($($key)+).into(), $value);
-        json_internal!(@object $object () ($($rest)*) ($($rest)*));
+        json_internal_owned!(@object $object () ($($rest)*) ($($rest)*));
     };
 
     // Current entry followed by unexpected token.
@@ -521,50 +521,50 @@ macro_rules! json_internal {
 
     // Next value is `null`.
     (@object $object:ident ($($key:tt)+) (: null $($rest:tt)*) $copy:tt) => {
-        json_internal!(@object $object [$($key)+] (json_internal!(null)) $($rest)*);
+        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!(null)) $($rest)*);
     };
 
     // Next value is `true`.
     (@object $object:ident ($($key:tt)+) (: true $($rest:tt)*) $copy:tt) => {
-        json_internal!(@object $object [$($key)+] (json_internal!(true)) $($rest)*);
+        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!(true)) $($rest)*);
     };
 
     // Next value is `false`.
     (@object $object:ident ($($key:tt)+) (: false $($rest:tt)*) $copy:tt) => {
-        json_internal!(@object $object [$($key)+] (json_internal!(false)) $($rest)*);
+        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!(false)) $($rest)*);
     };
 
     // Next value is an array.
     (@object $object:ident ($($key:tt)+) (: [$($array:tt)*] $($rest:tt)*) $copy:tt) => {
-        json_internal!(@object $object [$($key)+] (json_internal!([$($array)*])) $($rest)*);
+        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!([$($array)*])) $($rest)*);
     };
 
     // Next value is a map.
     (@object $object:ident ($($key:tt)+) (: {$($map:tt)*} $($rest:tt)*) $copy:tt) => {
-        json_internal!(@object $object [$($key)+] (json_internal!({$($map)*})) $($rest)*);
+        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!({$($map)*})) $($rest)*);
     };
 
     // Next value is an expression followed by comma.
     (@object $object:ident ($($key:tt)+) (: $value:expr , $($rest:tt)*) $copy:tt) => {
-        json_internal!(@object $object [$($key)+] (json_internal!($value)) , $($rest)*);
+        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!($value)) , $($rest)*);
     };
 
     // Last value is an expression with no trailing comma.
     (@object $object:ident ($($key:tt)+) (: $value:expr) $copy:tt) => {
-        json_internal!(@object $object [$($key)+] (json_internal!($value)));
+        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!($value)));
     };
 
     // Missing value for last entry. Trigger a reasonable error message.
     (@object $object:ident ($($key:tt)+) (:) $copy:tt) => {
         // "unexpected end of macro invocation"
-        json_internal!();
+        json_ijson_internal_ownedternal!();
     };
 
     // Missing colon and value for last entry. Trigger a reasonable error
     // message.
     (@object $object:ident ($($key:tt)+) () $copy:tt) => {
         // "unexpected end of macro invocation"
-        json_internal!();
+        json_internal_owned!();
     };
 
     // Misplaced colon. Trigger a reasonable error message.
@@ -582,12 +582,12 @@ macro_rules! json_internal {
     // Key is fully parenthesized. This avoids clippy double_parens false
     // positives because the parenthesization may be necessary here.
     (@object $object:ident () (($key:expr) : $($rest:tt)*) $copy:tt) => {
-        json_internal!(@object $object ($key) (: $($rest)*) (: $($rest)*));
+        json_internal_owned!(@object $object ($key) (: $($rest)*) (: $($rest)*));
     };
 
     // Munch a token into the current key.
     (@object $object:ident ($($key:tt)*) ($tt:tt $($rest:tt)*) $copy:tt) => {
-        json_internal!(@object $object ($($key)* $tt) ($($rest)*) ($($rest)*));
+        json_internal_owned!(@object $object ($($key)* $tt) ($($rest)*) ($($rest)*));
     };
 
     //////////////////////////////////////////////////////////////////////////
@@ -613,7 +613,7 @@ macro_rules! json_internal {
     };
 
     ([ $($tt:tt)+ ]) => {
-        $crate::value::owned::Value::Array(json_internal!(@array [] $($tt)+))
+        $crate::value::owned::Value::Array(json_internal_owned!(@array [] $($tt)+))
     };
 
     ({}) => {
@@ -626,7 +626,7 @@ macro_rules! json_internal {
     ({ $($tt:tt)+ }) => {
         $crate::value::owned::Value::from({
             let mut object = $crate::value::owned::Object::new();
-            json_internal!(@object object () ($($tt)+) ($($tt)+));
+            json_internal_owned!(@object object () ($($tt)+) ($($tt)+));
             object
         })
     };
