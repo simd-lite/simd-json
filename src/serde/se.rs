@@ -512,7 +512,6 @@ where
 
     #[inline]
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        dbg!();
         self.serialize_seq(Some(len))
     }
 
