@@ -521,7 +521,6 @@ where
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        dbg!();
         self.serialize_seq(Some(len))
     }
 
