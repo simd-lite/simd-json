@@ -202,6 +202,7 @@ where
 struct SerializeMap<'serializer, W: Write + 'serializer> {
     s: &'serializer mut Serializer<W>,
     first: bool,
+    wrote_closing: bool,
 }
 
 impl<'serializer, W> ser::SerializeMap for SerializeMap<'serializer, W>
@@ -240,7 +241,7 @@ where
     }
     #[inline]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        if self.first {
+        if self.wrote_closing {
             Ok(())
         } else {
             iomap!(self.s.write(b"}"))
@@ -541,7 +542,9 @@ where
 
     #[inline]
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        let mut wrote_closing = false;
         if len == Some(0) {
+            wrote_closing = true;
             iomap!(self.write(b"{}"))
         } else {
             iomap!(self.write(b"{"))
@@ -549,6 +552,7 @@ where
         .map(move |_| SerializeMap {
             s: self,
             first: true,
+            wrote_closing,
         })
     }
 
