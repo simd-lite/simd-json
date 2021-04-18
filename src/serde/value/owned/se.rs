@@ -443,63 +443,52 @@ impl serde_ext::Serializer for MapKeySerializer {
         Err(key_must_be_a_string())
     }
 
-    fn serialize_i8(self, _value: i8) -> Result<Self::Ok> {
-        //Ok(value.to_string())
-        Err(key_must_be_a_string())
+    fn serialize_i8(self, value: i8) -> Result<Self::Ok> {
+        Ok(value.to_string())
     }
 
-    fn serialize_i16(self, _value: i16) -> Result<Self::Ok> {
-        //Ok(value.to_string())
-        Err(key_must_be_a_string())
+    fn serialize_i16(self, value: i16) -> Result<Self::Ok> {
+        Ok(value.to_string())
     }
 
-    fn serialize_i32(self, _value: i32) -> Result<Self::Ok> {
-        //Ok(value.to_string())
-        Err(key_must_be_a_string())
+    fn serialize_i32(self, value: i32) -> Result<Self::Ok> {
+        Ok(value.to_string())
     }
 
-    fn serialize_i64(self, _value: i64) -> Result<Self::Ok> {
-        //Ok(value.to_string())
-        Err(key_must_be_a_string())
+    fn serialize_i64(self, value: i64) -> Result<Self::Ok> {
+        Ok(value.to_string())
     }
 
-    fn serialize_u8(self, _value: u8) -> Result<Self::Ok> {
-        //Ok(value.to_string())
-        Err(key_must_be_a_string())
+    fn serialize_u8(self, value: u8) -> Result<Self::Ok> {
+        Ok(value.to_string())
     }
 
-    fn serialize_u16(self, _value: u16) -> Result<Self::Ok> {
-        //Ok(value.to_string())
-        Err(key_must_be_a_string())
+    fn serialize_u16(self, value: u16) -> Result<Self::Ok> {
+        Ok(value.to_string())
     }
 
-    fn serialize_u32(self, _value: u32) -> Result<Self::Ok> {
-        //Ok(value.to_string())
-        Err(key_must_be_a_string())
+    fn serialize_u32(self, value: u32) -> Result<Self::Ok> {
+        Ok(value.to_string())
     }
 
-    fn serialize_u64(self, _value: u64) -> Result<Self::Ok> {
-        //Ok(value.to_string())
-        Err(key_must_be_a_string())
+    fn serialize_u64(self, value: u64) -> Result<Self::Ok> {
+        Ok(value.to_string())
     }
 
     fn serialize_f32(self, _value: f32) -> Result<Self::Ok> {
-        //Err(key_must_be_a_string())
         Err(key_must_be_a_string())
     }
 
     fn serialize_f64(self, _value: f64) -> Result<Self::Ok> {
-        //Err(key_must_be_a_string())
         Err(key_must_be_a_string())
     }
 
-    fn serialize_char(self, _value: char) -> Result<Self::Ok> {
-        // Ok({
-        //     let mut s = String::new();
-        //     s.push(value);
-        //     s
-        // })
-        Err(key_must_be_a_string())
+    fn serialize_char(self, value: char) -> Result<Self::Ok> {
+        Ok({
+            let mut s = String::new();
+            s.push(value);
+            s
+        })
     }
 
     #[inline]
