@@ -4,11 +4,11 @@
 /// allocate a new String for each value.
 ///
 /// Note that since json strings allow for for escape sequences the borrowed
-/// value does not impement zero copy parsing, it does however not allocate
+/// value does not implement zero copy parsing, it does however not allocate
 /// new memory for strings.
 ///
-/// This differs notably from serds zero copy implementation as, unlike serde,
-/// we do not require prior knowledge about string content to to take advantage
+/// This differs notably from serde's zero copy implementation as, unlike serde,
+/// we do not require prior knowledge about string content to take advantage
 /// of it.
 ///
 /// ## Usage
