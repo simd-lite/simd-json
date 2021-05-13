@@ -151,7 +151,7 @@ pub use crate::avx2::deser::*;
 #[cfg(target_feature = "avx2")]
 use crate::avx2::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 #[cfg(target_feature = "avx2")]
-use simdutf8::basic::imp::x86::avx2::Utf8Validator;
+use simdutf8::basic::imp::x86::avx2::Utf8ChunkValidator;
 
 #[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
 mod sse42;
@@ -160,7 +160,7 @@ pub use crate::sse42::deser::*;
 #[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
 use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 #[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
-use simdutf8::basic::imp::x86::sse42::Utf8Validator;
+use simdutf8::basic::imp::x86::sse42::Utf8ChunkValidator;
 
 #[cfg(target_feature = "neon")]
 mod neon;
@@ -169,7 +169,7 @@ pub use crate::neon::deser::*;
 #[cfg(target_feature = "neon")]
 use crate::neon::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 #[cfg(target_feature = "neon")]
-use simdutf8::basic::imp::aarch64::neon::Utf8Validator;
+use simdutf8::basic::imp::aarch64::neon::Utf8ChunkValidator;
 
 // We import this as generics
 #[cfg(all(not(any(
@@ -200,7 +200,7 @@ use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
     target_feature = "avx2",
     target_feature = "neon"
 ))))]
-use simdutf8::basic::imp::x86::sse42::Utf8Validator;
+use simdutf8::basic::imp::x86::sse42::Utf8ChunkValidator;
 
 #[cfg(all(
     not(feature = "allow-non-simd"),
@@ -519,7 +519,7 @@ impl<'de> Deserializer<'de> {
         let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
-        let mut utf8_validator = Utf8Validator::new();
+        let mut utf8_validator = Utf8ChunkValidator::new();
 
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
@@ -557,7 +557,7 @@ impl<'de> Deserializer<'de> {
              */
             let chunk = input.get_unchecked(idx..idx + 64);
 
-            utf8_validator.update(chunk);
+            utf8_validator.update_chunks(chunk);
 
             let input = SimdInput::new(chunk);
             // detect odd sequences of backslashes
@@ -602,7 +602,7 @@ impl<'de> Deserializer<'de> {
                 .as_mut_ptr()
                 .copy_from(input.as_ptr().add(idx), len as usize - idx);
 
-            utf8_validator.update(&tmpbuf);
+            utf8_validator.update_chunks(&tmpbuf);
 
             let input = SimdInput::new(&tmpbuf);
 
@@ -658,7 +658,7 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        if utf8_validator.finish().is_err() {
+        if utf8_validator.finish(None).is_err() {
             Err(ErrorType::InvalidUtf8)
         } else {
             Ok(structural_indexes)
