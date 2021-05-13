@@ -23,6 +23,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v1
+    - name: Update rustup
+      if: ${{ matrix.os == 'windows-latest' }}
+      run: rustup self update
+      env:
+        RUSTUP_UPDATE_ROOT: https://dev-static.rust-lang.org/rustup
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
