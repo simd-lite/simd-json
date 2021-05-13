@@ -14,6 +14,7 @@ documentation = "https://docs.rs/simd-json"
 beef = { version = "0.5", optional = true }
 halfbrown = "0.1"
 value-trait = { version = "0.2.1" }
+simdutf8 = { version = "0.1.2", features = ["public_imp", "aarch64_neon"], git = "https://github.com/rusticstuff/simdutf8", branch = "streaming-validation" }
 
 # serde compatibilty
 serde = { version = "1", features = ["derive"], optional = true}
