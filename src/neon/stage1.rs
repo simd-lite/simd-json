@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-use crate::utf8check::Utf8Check;
 use crate::*;
 use std::arch::aarch64::*;
 use std::mem;
@@ -98,14 +96,6 @@ impl SimdInput {
 
 impl Stage1Parse<int8x16_t> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn new_utf8_checking_state() -> Utf8CheckingState<int8x16_t> {
-        Utf8CheckingState {
-            has_error: Self::zero(),
-            previous: ProcessedUtfBytes::default(),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn compute_quote_mask(quote_bits: u64) -> u64 {
         unsafe {
             vgetq_lane_u64(
@@ -115,45 +105,6 @@ impl Stage1Parse<int8x16_t> for SimdInput {
                 ))),
                 0,
             )
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn check_utf8(&self, state: &mut Utf8CheckingState<int8x16_t>) {
-        unsafe {
-            if check_ascii(self) {
-                // All bytes are ascii. Therefore the byte that was just before must be
-                // ascii too. We only check the byte that was just before simd_input. Nines
-                // are arbitrary values.
-                let verror: int8x16_t =
-                    std::mem::transmute([9i8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 1]);
-                state.has_error = vreinterpretq_s8_u8(vorrq_u8(
-                    vcgtq_s8(state.previous.carried_continuations, verror),
-                    vreinterpretq_u8_s8(state.has_error),
-                ));
-            } else {
-                // it is not ascii so we have to do heavy work
-                state.previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
-                    vreinterpretq_s8_u8(self.v0),
-                    &state.previous,
-                    &mut state.has_error,
-                );
-                state.previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
-                    vreinterpretq_s8_u8(self.v1),
-                    &state.previous,
-                    &mut state.has_error,
-                );
-                state.previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
-                    vreinterpretq_s8_u8(self.v2),
-                    &state.previous,
-                    &mut state.has_error,
-                );
-                state.previous = ProcessedUtfBytes::<int8x16_t>::check_utf8_bytes(
-                    vreinterpretq_s8_u8(self.v3),
-                    &state.previous,
-                    &mut state.has_error,
-                );
-            }
         }
     }
 
@@ -301,15 +252,6 @@ impl Stage1Parse<int8x16_t> for SimdInput {
                 std::ptr::write(base.as_mut_ptr().add(l) as *mut int32x4_t, v);
             }
             l += 4;
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn check_utf8_errors(state: &Utf8CheckingState<int8x16_t>) -> bool {
-        unsafe {
-            let has_error_128: i128 = mem::transmute(state.has_error);
-
-            has_error_128 != 0
         }
     }
 
