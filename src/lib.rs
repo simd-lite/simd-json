@@ -140,7 +140,6 @@ mod macros;
 mod error;
 mod numberparse;
 mod stringparse;
-mod utf8check;
 
 /// Reexport of Cow
 pub mod cow;
@@ -151,6 +150,8 @@ mod avx2;
 pub use crate::avx2::deser::*;
 #[cfg(target_feature = "avx2")]
 use crate::avx2::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
+#[cfg(target_feature = "avx2")]
+use simdutf8::basic::imp::x86::avx2::Utf8Validator;
 
 #[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
 mod sse42;
@@ -158,6 +159,8 @@ mod sse42;
 pub use crate::sse42::deser::*;
 #[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
 use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
+#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+use simdutf8::basic::imp::x86::sse42::Utf8Validator;
 
 #[cfg(target_feature = "neon")]
 mod neon;
@@ -165,6 +168,8 @@ mod neon;
 pub use crate::neon::deser::*;
 #[cfg(target_feature = "neon")]
 use crate::neon::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
+#[cfg(target_feature = "neon")]
+use simdutf8::basic::imp::aarch64::neon::Utf8Validator;
 
 // We import this as generics
 #[cfg(all(not(any(
@@ -190,6 +195,12 @@ pub use crate::sse42::deser::*;
     target_feature = "neon"
 ))))]
 use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
+#[cfg(all(not(any(
+    target_feature = "sse4.2",
+    target_feature = "avx2",
+    target_feature = "neon"
+))))]
+use simdutf8::basic::imp::x86::sse42::Utf8Validator;
 
 #[cfg(all(
     not(feature = "allow-non-simd"),
@@ -200,8 +211,6 @@ use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
     ))
 ))]
 fn please_compile_with_a_simd_compatible_cpu_setting_read_the_simdjonsrs_readme() -> ! {}
-
-use crate::utf8check::ProcessedUtfBytes;
 
 mod stage2;
 /// simd-json JSON-DOM value
@@ -235,18 +244,10 @@ pub fn to_tape(s: &mut [u8]) -> Result<Vec<Node>> {
     Deserializer::from_slice(s).map(Deserializer::into_tape)
 }
 
-pub(crate) type Utf8CheckingState<T> = ProcessedUtfBytes<T>;
-
 pub(crate) trait Stage1Parse<T> {
-    fn new_utf8_checking_state() -> Utf8CheckingState<T>;
-
     fn compute_quote_mask(quote_bits: u64) -> u64;
 
     fn cmp_mask_against_input(&self, m: u8) -> u64;
-
-    fn check_utf8(&self, state: &mut Utf8CheckingState<T>);
-
-    fn check_utf8_errors(state: &Utf8CheckingState<T>) -> bool;
 
     fn unsigned_lteq_against_input(&self, maxval: T) -> u64;
 
@@ -518,7 +519,8 @@ impl<'de> Deserializer<'de> {
         let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
-        let mut state = SimdInput::new_utf8_checking_state();
+        let mut utf8_validator = Utf8Validator::new();
+
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
 
@@ -553,8 +555,11 @@ impl<'de> Deserializer<'de> {
               __builtin_prefetch(buf + idx + 128);
             #endif
              */
-            let input = SimdInput::new(input.get_unchecked(idx as usize..));
-            input.check_utf8(&mut state);
+            let chunk = input.get_unchecked(idx..idx + 64);
+
+            utf8_validator.update(chunk);
+
+            let input = SimdInput::new(chunk);
             // detect odd sequences of backslashes
             let odd_ends: u64 =
                 input.find_odd_backslash_sequences(&mut prev_iter_ends_odd_backslash);
@@ -596,9 +601,10 @@ impl<'de> Deserializer<'de> {
             tmpbuf
                 .as_mut_ptr()
                 .copy_from(input.as_ptr().add(idx), len as usize - idx);
-            let input = SimdInput::new(&tmpbuf);
 
-            input.check_utf8(&mut state);
+            utf8_validator.update(&tmpbuf);
+
+            let input = SimdInput::new(&tmpbuf);
 
             // detect odd sequences of backslashes
             let odd_ends: u64 =
@@ -652,7 +658,7 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        if SimdInput::check_utf8_errors(&state) {
+        if utf8_validator.finish().is_err() {
             Err(ErrorType::InvalidUtf8)
         } else {
             Ok(structural_indexes)

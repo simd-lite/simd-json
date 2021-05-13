@@ -1,9 +1,5 @@
 #![allow(dead_code)]
-use crate::utf8check::Utf8Check;
-use crate::{
-    static_cast_i32, static_cast_i64, static_cast_u32, ProcessedUtfBytes, Stage1Parse,
-    Utf8CheckingState,
-};
+use crate::{static_cast_i32, static_cast_i64, static_cast_u32, Stage1Parse};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::{
     __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,
@@ -63,10 +59,6 @@ impl SimdInput {
 
 impl Stage1Parse<__m256i> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn new_utf8_checking_state() -> Utf8CheckingState<__m256i> {
-        ProcessedUtfBytes::<__m256i>::default()
-    }
-
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     #[allow(clippy::cast_sign_loss)]
     fn compute_quote_mask(quote_bits: u64) -> u64 {
@@ -76,14 +68,6 @@ impl Stage1Parse<__m256i> for SimdInput {
                 _mm_set1_epi8(-1_i8 /* 0xFF */),
                 0,
             )) as u64
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn check_utf8(&self, state: &mut Utf8CheckingState<__m256i>) {
-        unsafe {
-            ProcessedUtfBytes::<__m256i>::check_bytes(self.v0, state);
-            ProcessedUtfBytes::<__m256i>::check_bytes(self.v1, state);
         }
     }
 
@@ -249,11 +233,6 @@ impl Stage1Parse<__m256i> for SimdInput {
             }
             l += 8;
         }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn check_utf8_errors(state: &Utf8CheckingState<__m256i>) -> bool {
-        unsafe { ProcessedUtfBytes::<__m256i>::has_error(state.error) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
