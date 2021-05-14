@@ -79,9 +79,35 @@ impl<'key> KnownKey<'key> {
         'key: 'value,
         'value: 'target,
     {
-        target
-            .as_object()
-            .and_then(|m| m.raw_entry().from_key_hashed_nocheck(self.hash, &self.key))
+        target.as_object().and_then(|m| self.map_lookup(m))
+    }
+
+    /// Looks up this key in a `HashMap<<Cow<'value, str>, Value<'value>>` the inner representation of an object `Value`, returns None if the
+    /// key wasn't present.
+    ///
+    /// ```rust
+    /// use simd_json::*;
+    /// let object: BorrowedValue = json!({
+    ///   "answer": 42,
+    ///   "key": 7
+    /// }).into();
+    /// let known_key = KnownKey::from("answer");
+    /// if let Some(inner) = object.as_object() {
+    ///   assert_eq!(known_key.map_lookup(inner).unwrap(), &42);
+    /// }
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn map_lookup<'target, 'value>(
+        &self,
+        map: &'target halfbrown::HashMap<Cow<'value, str>, Value<'value>>,
+    ) -> Option<&'target Value<'value>>
+    where
+        'key: 'value,
+        'value: 'target,
+    {
+        map.raw_entry()
+            .from_key_hashed_nocheck(self.hash, &self.key)
             .map(|kv| kv.1)
     }
 
@@ -113,15 +139,46 @@ impl<'key> KnownKey<'key> {
         'key: 'value,
         'value: 'target,
     {
-        target.as_object_mut().and_then(|m| {
-            match m
-                .raw_entry_mut()
-                .from_key_hashed_nocheck(self.hash, &self.key)
-            {
-                RawEntryMut::Occupied(e) => Some(e.into_mut()),
-                RawEntryMut::Vacant(_e) => None,
-            }
-        })
+        target.as_object_mut().and_then(|m| self.map_lookup_mut(m))
+    }
+
+    /// Looks up this key in a `HashMap<Cow<'value, str>, Value<'value>>`, the inner representation of an object value.
+    /// returns None if the key wasn't present.
+    ///
+    /// ```rust
+    /// use simd_json::*;
+    /// let mut object: BorrowedValue = json!({
+    ///   "answer": 23,
+    ///   "key": 7
+    /// }).into();
+    ///
+    /// assert_eq!(object["answer"], 23);
+    ///
+    /// let known_key = KnownKey::from("answer");
+    /// if let Some(inner) = object.as_object_mut() {
+    ///   if let Some(answer) = known_key.map_lookup_mut(inner) {
+    ///     *answer = BorrowedValue::from(42);
+    ///   }
+    /// }
+    /// assert_eq!(object["answer"], 42);
+    ///
+    /// ```
+    #[inline]
+    pub fn map_lookup_mut<'target, 'value>(
+        &self,
+        map: &'target mut halfbrown::HashMap<Cow<'value, str>, Value<'value>>,
+    ) -> Option<&'target mut Value<'value>>
+    where
+        'key: 'value,
+        'value: 'target,
+    {
+        match map
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(self.hash, &self.key)
+        {
+            RawEntryMut::Occupied(e) => Some(e.into_mut()),
+            RawEntryMut::Vacant(_e) => None,
+        }
     }
 
     /// Looks up this key in a `Value`, inserts `with` when the key
@@ -165,18 +222,57 @@ impl<'key> KnownKey<'key> {
         'value: 'target,
         F: FnOnce() -> Value<'value>,
     {
-        if !target.is_object() {
-            return Err(Error::NotAnObject(target.value_type()));
+        match target {
+            Value::Object(inner) => Ok(self.map_lookup_or_insert_mut(inner, with)),
+            other => Err(Error::NotAnObject(other.value_type())),
         }
-        target
-            .as_object_mut()
-            .map(|m| {
-                m.raw_entry_mut()
-                    .from_key_hashed_nocheck(self.hash, &self.key)
-                    .or_insert_with(|| (self.key.clone(), with()))
-                    .1
-            })
-            .ok_or(Error::NotAnObject(ValueType::Null))
+    }
+
+    /// Looks up this key in a `HashMap<Cow<'value, str>, Value<'value>>`, the inner representation of an object `Value`.
+    /// Inserts `with` when the key when wasn't present.
+    ///
+    /// ```rust
+    /// use simd_json::*;
+    /// let mut object: BorrowedValue = json!({
+    ///   "answer": 23,
+    ///   "key": 7
+    /// }).into();
+    /// let known_key = KnownKey::from("answer");
+    ///
+    /// assert_eq!(object["answer"], 23);
+    ///
+    /// if let Some(inner) = object.as_object_mut() {
+    ///   let answer = known_key.map_lookup_or_insert_mut(inner, || 17.into());
+    ///   assert_eq!(*answer, 23);
+    ///   *answer = BorrowedValue::from(42);
+    /// }
+    ///
+    /// assert_eq!(object["answer"], 42);
+    ///
+    /// let known_key2 = KnownKey::from("also the answer");
+    /// if let Some(inner) = object.as_object_mut() {
+    ///   let answer = known_key2.map_lookup_or_insert_mut(inner, || 8.into());
+    ///   assert_eq!(*answer, 8);
+    ///   *answer = BorrowedValue::from(42);
+    /// }
+    ///
+    /// assert_eq!(object["also the answer"], 42);
+    /// ```
+    #[inline]
+    pub fn map_lookup_or_insert_mut<'target, 'value, F>(
+        &self,
+        map: &'target mut halfbrown::HashMap<Cow<'value, str>, Value<'value>>,
+        with: F,
+    ) -> &'target mut Value<'value>
+    where
+        'key: 'value,
+        'value: 'target,
+        F: FnOnce() -> Value<'value>,
+    {
+        map.raw_entry_mut()
+            .from_key_hashed_nocheck(self.hash, &self.key)
+            .or_insert_with(|| (self.key.clone(), with()))
+            .1
     }
 
     /// Inserts a value key into  `Value`, returns None if the
@@ -215,22 +311,60 @@ impl<'key> KnownKey<'key> {
         'key: 'value,
         'value: 'target,
     {
-        if !target.is_object() {
-            return Err(Error::NotAnObject(target.value_type()));
-        }
+        target
+            .as_object_mut()
+            .map(|m| self.map_insert(m, value))
+            .ok_or_else(|| Error::NotAnObject(target.value_type()))
+    }
 
-        Ok(target.as_object_mut().and_then(|m| {
-            match m
-                .raw_entry_mut()
-                .from_key_hashed_nocheck(self.hash, &self.key)
-            {
-                RawEntryMut::Occupied(mut e) => Some(e.insert(value)),
-                RawEntryMut::Vacant(e) => {
-                    e.insert_hashed_nocheck(self.hash, self.key.clone(), value);
-                    None
-                }
+    /// Inserts a value key into `map`, returns None if the
+    /// key wasn't present otherwise Some(`old value`).
+    ///
+    /// ```rust
+    /// use simd_json::*;
+    ///
+    /// let mut object: BorrowedValue = json!({
+    ///   "answer": 23,
+    ///   "key": 7
+    /// }).into();
+    /// let known_key = KnownKey::from("answer");
+    ///
+    /// assert_eq!(object["answer"], 23);
+    ///
+    /// if let Some(inner) = object.as_object_mut() {
+    ///   assert!(known_key.map_insert(inner.into(), BorrowedValue::from(42)).is_some());
+    /// }
+    ///
+    /// assert_eq!(object["answer"], 42);
+    ///
+    /// let known_key2 = KnownKey::from("also the answer");
+    ///
+    /// if let Some(inner) = object.as_object_mut() {
+    ///   assert!(known_key2.map_insert(inner.into(), BorrowedValue::from(42)).is_none());
+    /// }
+    ///
+    /// assert_eq!(object["also the answer"], 42);
+    /// ```
+    #[inline]
+    pub fn map_insert<'target, 'value>(
+        &self,
+        map: &'target mut halfbrown::HashMap<Cow<'value, str>, Value<'value>>,
+        value: Value<'value>,
+    ) -> Option<Value<'value>>
+    where
+        'key: 'value,
+        'value: 'target,
+    {
+        match map
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(self.hash, &self.key)
+        {
+            RawEntryMut::Occupied(mut e) => Some(e.insert(value)),
+            RawEntryMut::Vacant(e) => {
+                e.insert_hashed_nocheck(self.hash, self.key.clone(), value);
+                None
             }
-        }))
+        }
     }
 }
 
