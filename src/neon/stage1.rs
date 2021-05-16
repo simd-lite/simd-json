@@ -21,16 +21,6 @@ pub unsafe fn vtstq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub(crate) unsafe fn neon_movemask(input: uint8x16_t) -> u16 {
-    let minput: uint8x16_t = vandq_u8(input, bit_mask());
-    let tmp: uint8x16_t = vpaddq_u8(minput, minput);
-    let tmp = vpaddq_u8(tmp, tmp);
-    let tmp = vpaddq_u8(tmp, tmp);
-
-    vgetq_lane_u16(vreinterpretq_u16_u8(tmp), 0)
-}
-
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub unsafe fn neon_movemask_bulk(
     p0: uint8x16_t,
     p1: uint8x16_t,
@@ -55,21 +45,6 @@ pub unsafe fn neon_movemask_bulk(
 
 pub const SIMDJSON_PADDING: usize = mem::size_of::<uint8x16_t>() * 4;
 pub const SIMDINPUT_LENGTH: usize = 64;
-
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
-unsafe fn check_ascii(si: &SimdInput) -> bool {
-    let highbit: uint8x16_t = vdupq_n_u8(0x80);
-    let t0: uint8x16_t = vorrq_u8(si.v0, si.v1);
-    let t1: uint8x16_t = vorrq_u8(si.v2, si.v3);
-    let t3: uint8x16_t = vorrq_u8(t0, t1);
-    let t4: uint8x16_t = vandq_u8(t3, highbit);
-
-    let v64: uint64x2_t = vreinterpretq_u64_u8(t4);
-    let v32: uint32x2_t = vqmovn_u64(v64);
-    let result: uint64x1_t = vreinterpret_u64_u32(v32);
-
-    vget_lane_u64(result, 0) == 0
-}
 
 #[derive(Debug)]
 pub(crate) struct SimdInput {
