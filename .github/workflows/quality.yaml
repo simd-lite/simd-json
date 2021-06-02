@@ -26,30 +26,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all
-  tarpaulin-sse:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config cmake zlib1g-dev
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        env:
-          RUSTFLAGS: "-C target-cpu=native -C target-feature=-avx2"
-          PROPTEST_CASES: 512
-        with:
-          version: "0.14.2"
-          args: "--features no-inline"
-      - name: Coveralls GitHub Action
-        uses: coverallsapp/github-action@v1.1.2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel: true
-          flag-name: sse
   tarpaulin:
     strategy:
       matrix:
