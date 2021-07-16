@@ -205,8 +205,10 @@ use simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
 #[cfg(all(
     not(feature = "allow-non-simd"),
     not(any(
-        target_feature = "sse4.2",
-        target_feature = "avx2",
+        all(
+            any(target_feature = "sse4.2", target_feature = "avx2"),
+            target_feature = "pclmulqdq"
+        ),
         target_feature = "neon"
     ))
 ))]
