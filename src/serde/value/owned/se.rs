@@ -140,8 +140,9 @@ impl serde::Serializer for Serializer {
         Ok(Value::from(value.to_owned()))
     }
 
+    #[inline]
     fn serialize_bytes(self, value: &[u8]) -> Result<Value> {
-        Ok(value.iter().cloned().collect())
+        Ok(value.iter().copied().collect())
     }
 
     #[inline]

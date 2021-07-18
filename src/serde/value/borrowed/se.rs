@@ -153,9 +153,7 @@ impl<'se> serde::Serializer for Serializer<'se> {
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Value<'se>> {
-        Ok(Value::Array(
-            value.iter().map(|v| Value::from(*v)).collect(),
-        ))
+        Ok(value.iter().copied().collect())
     }
 
     #[inline]
