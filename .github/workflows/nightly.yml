@@ -13,6 +13,7 @@ jobs:
         rustflags:
           - '-C target-cpu=native'
           - '-C target-cpu=native -C target-feature=-avx2'
+          - '-C target-cpu=native -C target-feature=-avx2,-pclmulqdq'
         features:
           - ''
           - '--features known-key'
