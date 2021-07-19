@@ -1,16 +1,15 @@
 use crate::{static_cast_i32, static_cast_u32, Stage1Parse};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::{
-    __m128i, _mm_add_epi32, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8,
-    _mm_loadu_si128, _mm_max_epu8, _mm_movemask_epi8, _mm_or_si128,
-    _mm_set1_epi8, _mm_set_epi32, _mm_setr_epi8, _mm_setzero_si128,
-    _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128, _mm_testz_si128,
+    __m128i, _mm_add_epi32, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_loadu_si128,
+    _mm_max_epu8, _mm_movemask_epi8, _mm_or_si128, _mm_set1_epi8, _mm_set_epi32, _mm_setr_epi8,
+    _mm_setzero_si128, _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128, _mm_testz_si128,
 };
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::{
-    __m128i, _mm_add_epi32, _mm_and_si128, _mm_cmpeq_epi8,
-    _mm_loadu_si128, _mm_max_epu8, _mm_movemask_epi8, _mm_set1_epi8, _mm_set_epi32,
-    _mm_setr_epi8, _mm_setzero_si128, _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128,
+    __m128i, _mm_add_epi32, _mm_and_si128, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_max_epu8,
+    _mm_movemask_epi8, _mm_set1_epi8, _mm_set_epi32, _mm_setr_epi8, _mm_setzero_si128,
+    _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128,
 };
 
 use std::mem;
@@ -59,13 +58,9 @@ impl Stage1Parse<__m128i> for SimdInput {
     #[allow(clippy::cast_sign_loss)]
     fn compute_quote_mask(quote_bits: u64) -> u64 {
         #[cfg(target_arch = "x86")]
-        use std::arch::x86::{
-            _mm_cvtsi128_si64, _mm_clmulepi64_si128, _mm_set_epi64x
-        };
+        use std::arch::x86::{_mm_clmulepi64_si128, _mm_cvtsi128_si64, _mm_set_epi64x};
         #[cfg(target_arch = "x86_64")]
-        use std::arch::x86_64::{
-            _mm_cvtsi128_si64, _mm_clmulepi64_si128, _mm_set_epi64x
-        };
+        use std::arch::x86_64::{_mm_clmulepi64_si128, _mm_cvtsi128_si64, _mm_set_epi64x};
 
         unsafe {
             _mm_cvtsi128_si64(_mm_clmulepi64_si128(
