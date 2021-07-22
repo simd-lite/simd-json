@@ -9,6 +9,7 @@ jobs:
         rustflags:
           - "-C target-cpu=native"
           - "-C target-cpu=native -C target-feature=-avx2"
+          - "-C target-cpu=native -C target-feature=-avx2,-pclmulqdq"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -32,6 +33,7 @@ jobs:
         rustflags:
           - ""
           - "-C target-feature=-avx2"
+          - "-C target-feature=-avx2,-pclmulqdq"
         features:
           - ",known-key,128bit,beef"
           - ",known-key,beef"

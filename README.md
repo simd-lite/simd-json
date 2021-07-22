@@ -24,7 +24,7 @@
 
 To be able to take advantage of `simd-json` your system needs to be SIMD capable. This means that it needs to compile with native cpu support and the given features. This also requires that projects using `simd-json` also need to be configured with native cpu support. Look at [The cargo config in this repository](.cargo/config) to get an example of how to configure this in your project.
 
-`simd-json` supports AVX2, SSE4.2 and NEON. Both x86 backends (AVX2, SSE4.2) require your CPU to support [`pclmulqdq`](https://en.wikipedia.org/wiki/CLMUL_instruction_set) instructions.
+`simd-json` supports AVX2, SSE4.2 and NEON.
 
 Unless the `allow-non-simd` feature is passed to your `simd-json` dependency in your `Cargo.toml` `simd-json` will fail to compile, this is to prevent unexpected slowness in fallback mode that can be hard to understand and hard to debug.
 
