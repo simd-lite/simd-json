@@ -455,7 +455,7 @@ macro_rules! json_internal_owned {
     // TT muncher for parsing the inside of an array [...]. Produces a vec![...]
     // of the elements.
     //
-    // Must be invoked as: json_internal!(@array [] $($tt)*)
+    // Must be invoked as: json_internal_owned!(@array [] $($tt)*)
     //////////////////////////////////////////////////////////////////////////
 
     // Done with trailing comma.
@@ -515,7 +515,9 @@ macro_rules! json_internal_owned {
 
     //////////////////////////////////////////////////////////////////////////
     // TT muncher for parsing the inside of an object {...}. Each entry is
-    // inserted into the given map variable.
+    // inserted into the given map variable. Entries are parsed from the TT
+    // and then inserted into a stack of entries to be appended all at once
+    // at the end, allowing us to pre-allocate the map.
     //
     // Must be invoked as: json_internal!(@object $map () ($($tt)*) ($($tt)*))
     //
@@ -524,93 +526,114 @@ macro_rules! json_internal_owned {
     //////////////////////////////////////////////////////////////////////////
 
     // Done.
-    (@object $object:ident () () ()) => {};
+    (@object $object:ident [@entries] () () ()) => {};
 
-    // Insert the current entry followed by trailing comma.
-    (@object $object:ident [$($key:tt)+] ($value:expr) , $($rest:tt)*) => {
-        let _ = $object.insert(($($key)+).into(), $value);
-        json_internal_owned!(@object $object () ($($rest)*) ($($rest)*));
+    // Count the number of entries to insert.
+    // Modified version of https://docs.rs/halfbrown/0.1.11/src/halfbrown/macros.rs.html#46-62
+    (@object @count [@entries $(($value:expr => $($key:tt)+))*]) => {
+        <[()]>::len(&[$(json_internal_owned!(@object @count @single ($($key)+))),*])
+    };
+    (@object @count @single ($($key:tt)+)) => {()};
+
+    // Done. Insert all entries from the stack
+    (@object $object:ident [@entries $(($value:expr => $($key:tt)+))*] () () ()) => {
+        let len = json_internal_owned!(@object @count [@entries $(($value:expr => $($key:tt)+))*]);
+        $object = $crate::value::owned::Object::with_capacity(len);
+        $(
+            let _ = $object.insert(($($key)+).into(), $value);
+        )*
+    };
+
+    // Insert the current entry (followed by trailing comma) into the stack.
+    // Entries are inserted in reverse order, the captured $entries is expanded first,
+    // keeping inserts in the same order that they're defined in the macro.
+    //
+    // We expand the $key _after_ the $value since $key => $value leads to a parsing ambiguity.
+    (@object $object:ident [@entries $($entries:tt)*] [$($key:tt)+] ($value:expr) , $($rest:tt)*) => {
+        json_internal_owned!(@object $object [@entries $($entries)* ($value => $($key)+) ] () ($($rest)*) ($($rest)*));
+    };
+
+    // Insert the last entry (without trailing comma) into the stack.
+    // At this point the recursion is complete and the entries can now be inserted.
+    (@object $object:ident [@entries $($entries:tt)*] [$($key:tt)+] ($value:expr)) => {
+        json_internal_owned!(@object $object [@entries $($entries)* ($value => $($key)+) ] () () ());
     };
 
     // Current entry followed by unexpected token.
-    (@object $object:ident [$($key:tt)+] ($value:expr) $unexpected:tt $($rest:tt)*) => {
+    (@object $object:ident [@entries $($entries:tt)*] [$($key:tt)+] ($value:expr) $unexpected:tt $($rest:tt)*) => {
         json_unexpected!($unexpected);
     };
 
-    // Insert the last entry without trailing comma.
-    (@object $object:ident [$($key:tt)+] ($value:expr)) => {
-        let _ = $object.insert(($($key)+).into(), $value);
-    };
 
     // Next value is `null`.
-    (@object $object:ident ($($key:tt)+) (: null $($rest:tt)*) $copy:tt) => {
-        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!(null)) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: null $($rest:tt)*) $copy:tt) => {
+        json_internal_owned!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_owned!(null)) $($rest)*);
     };
 
     // Next value is `true`.
-    (@object $object:ident ($($key:tt)+) (: true $($rest:tt)*) $copy:tt) => {
-        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!(true)) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: true $($rest:tt)*) $copy:tt) => {
+        json_internal_owned!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_owned!(true)) $($rest)*);
     };
 
     // Next value is `false`.
-    (@object $object:ident ($($key:tt)+) (: false $($rest:tt)*) $copy:tt) => {
-        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!(false)) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: false $($rest:tt)*) $copy:tt) => {
+        json_internal_owned!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_owned!(false)) $($rest)*);
     };
 
     // Next value is an array.
-    (@object $object:ident ($($key:tt)+) (: [$($array:tt)*] $($rest:tt)*) $copy:tt) => {
-        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!([$($array)*])) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: [$($array:tt)*] $($rest:tt)*) $copy:tt) => {
+        json_internal_owned!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_owned!([$($array)*])) $($rest)*);
     };
 
     // Next value is a map.
-    (@object $object:ident ($($key:tt)+) (: {$($map:tt)*} $($rest:tt)*) $copy:tt) => {
-        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!({$($map)*})) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: {$($map:tt)*} $($rest:tt)*) $copy:tt) => {
+        json_internal_owned!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_owned!({$($map)*})) $($rest)*);
     };
 
     // Next value is an expression followed by comma.
-    (@object $object:ident ($($key:tt)+) (: $value:expr , $($rest:tt)*) $copy:tt) => {
-        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!($value)) , $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: $value:expr , $($rest:tt)*) $copy:tt) => {
+        json_internal_owned!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_owned!($value)) , $($rest)*);
     };
 
     // Last value is an expression with no trailing comma.
-    (@object $object:ident ($($key:tt)+) (: $value:expr) $copy:tt) => {
-        json_internal_owned!(@object $object [$($key)+] (json_internal_owned!($value)));
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: $value:expr) $copy:tt) => {
+        json_internal_owned!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_owned!($value)));
     };
 
     // Missing value for last entry. Trigger a reasonable error message.
-    (@object $object:ident ($($key:tt)+) (:) $copy:tt) => {
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (:) $copy:tt) => {
         // "unexpected end of macro invocation"
-        json_ijson_internal_ownedternal!();
+        json_internal_owned!();
     };
 
     // Missing colon and value for last entry. Trigger a reasonable error
     // message.
-    (@object $object:ident ($($key:tt)+) () $copy:tt) => {
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) () $copy:tt) => {
         // "unexpected end of macro invocation"
         json_internal_owned!();
     };
 
     // Misplaced colon. Trigger a reasonable error message.
-    (@object $object:ident () (: $($rest:tt)*) ($colon:tt $($copy:tt)*)) => {
+    (@object $object:ident [@entries $($entries:tt)*] () (: $($rest:tt)*) ($colon:tt $($copy:tt)*)) => {
         // Takes no arguments so "no rules expected the token `:`".
         json_unexpected!($colon);
     };
 
     // Found a comma inside a key. Trigger a reasonable error message.
-    (@object $object:ident ($($key:tt)*) (, $($rest:tt)*) ($comma:tt $($copy:tt)*)) => {
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)*) (, $($rest:tt)*) ($comma:tt $($copy:tt)*)) => {
         // Takes no arguments so "no rules expected the token `,`".
         json_unexpected!($comma);
     };
 
     // Key is fully parenthesized. This avoids clippy double_parens false
     // positives because the parenthesization may be necessary here.
-    (@object $object:ident () (($key:expr) : $($rest:tt)*) $copy:tt) => {
-        json_internal_owned!(@object $object ($key) (: $($rest)*) (: $($rest)*));
+    (@object $object:ident [@entries $($entries:tt)*] () (($key:expr) : $($rest:tt)*) $copy:tt) => {
+        json_internal_owned!(@object $object [@entries $($entries)*] ($key) (: $($rest)*) (: $($rest)*));
     };
 
     // Munch a token into the current key.
-    (@object $object:ident ($($key:tt)*) ($tt:tt $($rest:tt)*) $copy:tt) => {
-        json_internal_owned!(@object $object ($($key)* $tt) ($($rest)*) ($($rest)*));
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)*) ($tt:tt $($rest:tt)*) $copy:tt) => {
+        json_internal_owned!(@object $object [@entries $($entries)*] ($($key)* $tt) ($($rest)*) ($($rest)*));
     };
 
     //////////////////////////////////////////////////////////////////////////
@@ -641,15 +664,15 @@ macro_rules! json_internal_owned {
 
     ({}) => {
         {
-            use $crate::Builder;
+            use $crate::value::Builder;
             $crate::value::owned::Value::object()
         }
     };
 
     ({ $($tt:tt)+ }) => {
         $crate::value::owned::Value::from({
-            let mut object = $crate::value::owned::Object::new();
-            json_internal_owned!(@object object () ($($tt)+) ($($tt)+));
+            let mut object;
+            json_internal_owned!(@object object [@entries] () ($($tt)+) ($($tt)+));
             object
         })
     };
@@ -676,7 +699,7 @@ macro_rules! json_internal_borrowed {
     // TT muncher for parsing the inside of an array [...]. Produces a vec![...]
     // of the elements.
     //
-    // Must be invoked as: json_internal!(@array [] $($tt)*)
+    // Must be invoked as: json_internal_borrowed!(@array [] $($tt)*)
     //////////////////////////////////////////////////////////////////////////
 
     // Done with trailing comma.
@@ -736,7 +759,9 @@ macro_rules! json_internal_borrowed {
 
     //////////////////////////////////////////////////////////////////////////
     // TT muncher for parsing the inside of an object {...}. Each entry is
-    // inserted into the given map variable.
+    // inserted into the given map variable. Entries are parsed from the TT
+    // and then inserted into a stack of entries to be appended all at once
+    // at the end, allowing us to pre-allocate the map.
     //
     // Must be invoked as: json_internal!(@object $map () ($($tt)*) ($($tt)*))
     //
@@ -745,93 +770,114 @@ macro_rules! json_internal_borrowed {
     //////////////////////////////////////////////////////////////////////////
 
     // Done.
-    (@object $object:ident () () ()) => {};
+    (@object $object:ident [@entries] () () ()) => {};
 
-    // Insert the current entry followed by trailing comma.
-    (@object $object:ident [$($key:tt)+] ($value:expr) , $($rest:tt)*) => {
-        let _ = $object.insert(($($key)+).into(), $value);
-        json_internal_borrowed!(@object $object () ($($rest)*) ($($rest)*));
+    // Count the number of entries to insert.
+    // Modified version of https://docs.rs/halfbrown/0.1.11/src/halfbrown/macros.rs.html#46-62
+    (@object @count [@entries $(($value:expr => $($key:tt)+))*]) => {
+        <[()]>::len(&[$(json_internal_borrowed!(@object @count @single ($($key)+))),*])
+    };
+    (@object @count @single ($($key:tt)+)) => {()};
+
+    // Done. Insert all entries from the stack
+    (@object $object:ident [@entries $(($value:expr => $($key:tt)+))*] () () ()) => {
+        let len = json_internal_borrowed!(@object @count [@entries $(($value:expr => $($key:tt)+))*]);
+        $object = $crate::value::borrowed::Object::with_capacity(len);
+        $(
+            let _ = $object.insert(($($key)+).into(), $value);
+        )*
+    };
+
+    // Insert the current entry (followed by trailing comma) into the stack.
+    // Entries are inserted in reverse order, the captured $entries is expanded first,
+    // keeping inserts in the same order that they're defined in the macro.
+    //
+    // We expand the $key _after_ the $value since $key => $value leads to a parsing ambiguity.
+    (@object $object:ident [@entries $($entries:tt)*] [$($key:tt)+] ($value:expr) , $($rest:tt)*) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)* ($value => $($key)+) ] () ($($rest)*) ($($rest)*));
+    };
+
+    // Insert the last entry (without trailing comma) into the stack.
+    // At this point the recursion is complete and the entries can now be inserted.
+    (@object $object:ident [@entries $($entries:tt)*] [$($key:tt)+] ($value:expr)) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)* ($value => $($key)+) ] () () ());
     };
 
     // Current entry followed by unexpected token.
-    (@object $object:ident [$($key:tt)+] ($value:expr) $unexpected:tt $($rest:tt)*) => {
-        json_internal_borrowed!($unexpected);
+    (@object $object:ident [@entries $($entries:tt)*] [$($key:tt)+] ($value:expr) $unexpected:tt $($rest:tt)*) => {
+        json_unexpected!($unexpected);
     };
 
-    // Insert the last entry without trailing comma.
-    (@object $object:ident [$($key:tt)+] ($value:expr)) => {
-        let _ = $object.insert(($($key)+).into(), $value);
-    };
 
     // Next value is `null`.
-    (@object $object:ident ($($key:tt)+) (: null $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!(null)) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: null $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!(null)) $($rest)*);
     };
 
     // Next value is `true`.
-    (@object $object:ident ($($key:tt)+) (: true $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!(true)) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: true $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!(true)) $($rest)*);
     };
 
     // Next value is `false`.
-    (@object $object:ident ($($key:tt)+) (: false $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!(false)) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: false $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!(false)) $($rest)*);
     };
 
     // Next value is an array.
-    (@object $object:ident ($($key:tt)+) (: [$($array:tt)*] $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!([$($array)*])) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: [$($array:tt)*] $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!([$($array)*])) $($rest)*);
     };
 
     // Next value is a map.
-    (@object $object:ident ($($key:tt)+) (: {$($map:tt)*} $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!({$($map)*})) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: {$($map:tt)*} $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!({$($map)*})) $($rest)*);
     };
 
     // Next value is an expression followed by comma.
-    (@object $object:ident ($($key:tt)+) (: $value:expr , $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!($value)) , $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: $value:expr , $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!($value)) , $($rest)*);
     };
 
     // Last value is an expression with no trailing comma.
-    (@object $object:ident ($($key:tt)+) (: $value:expr) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!($value)));
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: $value:expr) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!($value)));
     };
 
     // Missing value for last entry. Trigger a reasonable error message.
-    (@object $object:ident ($($key:tt)+) (:) $copy:tt) => {
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (:) $copy:tt) => {
         // "unexpected end of macro invocation"
         json_internal_borrowed!();
     };
 
     // Missing colon and value for last entry. Trigger a reasonable error
     // message.
-    (@object $object:ident ($($key:tt)+) () $copy:tt) => {
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) () $copy:tt) => {
         // "unexpected end of macro invocation"
         json_internal_borrowed!();
     };
 
     // Misplaced colon. Trigger a reasonable error message.
-    (@object $object:ident () (: $($rest:tt)*) ($colon:tt $($copy:tt)*)) => {
+    (@object $object:ident [@entries $($entries:tt)*] () (: $($rest:tt)*) ($colon:tt $($copy:tt)*)) => {
         // Takes no arguments so "no rules expected the token `:`".
-        json_internal_borrowed!($colon);
+        json_unexpected!($colon);
     };
 
     // Found a comma inside a key. Trigger a reasonable error message.
-    (@object $object:ident ($($key:tt)*) (, $($rest:tt)*) ($comma:tt $($copy:tt)*)) => {
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)*) (, $($rest:tt)*) ($comma:tt $($copy:tt)*)) => {
         // Takes no arguments so "no rules expected the token `,`".
-        json_internal_borrowed!($comma);
+        json_unexpected!($comma);
     };
 
     // Key is fully parenthesized. This avoids clippy double_parens false
     // positives because the parenthesization may be necessary here.
-    (@object $object:ident () (($key:expr) : $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object ($key) (: $($rest)*) (: $($rest)*));
+    (@object $object:ident [@entries $($entries:tt)*] () (($key:expr) : $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] ($key) (: $($rest)*) (: $($rest)*));
     };
 
     // Munch a token into the current key.
-    (@object $object:ident ($($key:tt)*) ($tt:tt $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object ($($key)* $tt) ($($rest)*) ($($rest)*));
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)*) ($tt:tt $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] ($($key)* $tt) ($($rest)*) ($($rest)*));
     };
 
     //////////////////////////////////////////////////////////////////////////
@@ -869,8 +915,8 @@ macro_rules! json_internal_borrowed {
 
     ({ $($tt:tt)+ }) => {
         $crate::value::borrowed::Value::from({
-            let mut object = $crate::value::borrowed::Object::new();
-            json_internal_borrowed!(@object object () ($($tt)+) ($($tt)+));
+            let mut object;
+            json_internal_borrowed!(@object object [@entries] () ($($tt)+) ($($tt)+));
             object
         })
     };
@@ -890,7 +936,7 @@ macro_rules! json_internal_borrowed {
     // TT muncher for parsing the inside of an array [...]. Produces a vec![...]
     // of the elements.
     //
-    // Must be invoked as: json_internal!(@array [] $($tt)*)
+    // Must be invoked as: json_internal_borrowed!(@array [] $($tt)*)
     //////////////////////////////////////////////////////////////////////////
 
     // Done with trailing comma.
@@ -950,7 +996,9 @@ macro_rules! json_internal_borrowed {
 
     //////////////////////////////////////////////////////////////////////////
     // TT muncher for parsing the inside of an object {...}. Each entry is
-    // inserted into the given map variable.
+    // inserted into the given map variable. Entries are parsed from the TT
+    // and then inserted into a stack of entries to be appended all at once
+    // at the end, allowing us to pre-allocate the map.
     //
     // Must be invoked as: json_internal!(@object $map () ($($tt)*) ($($tt)*))
     //
@@ -959,93 +1007,114 @@ macro_rules! json_internal_borrowed {
     //////////////////////////////////////////////////////////////////////////
 
     // Done.
-    (@object $object:ident () () ()) => {};
+    (@object $object:ident [@entries] () () ()) => {};
 
-    // Insert the current entry followed by trailing comma.
-    (@object $object:ident [$($key:tt)+] ($value:expr) , $($rest:tt)*) => {
-        let _ = $object.insert(($($key)+).into(), $value);
-        json_internal_borrowed!(@object $object () ($($rest)*) ($($rest)*));
+    // Count the number of entries to insert.
+    // Modified version of https://docs.rs/halfbrown/0.1.11/src/halfbrown/macros.rs.html#46-62
+    (@object @count [@entries $(($value:expr => $($key:tt)+))*]) => {
+        <[()]>::len(&[$(json_internal_borrowed!(@object @count @single ($($key)+))),*])
+    };
+    (@object @count @single ($($key:tt)+)) => {()};
+
+    // Done. Insert all entries from the stack
+    (@object $object:ident [@entries $(($value:expr => $($key:tt)+))*] () () ()) => {
+        let len = json_internal_borrowed!(@object @count [@entries $(($value:expr => $($key:tt)+))*]);
+        $object = $crate::value::borrowed::Object::with_capacity(len);
+        $(
+            let _ = $object.insert(($($key)+).into(), $value);
+        )*
+    };
+
+    // Insert the current entry (followed by trailing comma) into the stack.
+    // Entries are inserted in reverse order, the captured $entries is expanded first,
+    // keeping inserts in the same order that they're defined in the macro.
+    //
+    // We expand the $key _after_ the $value since $key => $value leads to a parsing ambiguity.
+    (@object $object:ident [@entries $($entries:tt)*] [$($key:tt)+] ($value:expr) , $($rest:tt)*) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)* ($value => $($key)+) ] () ($($rest)*) ($($rest)*));
+    };
+
+    // Insert the last entry (without trailing comma) into the stack.
+    // At this point the recursion is complete and the entries can now be inserted.
+    (@object $object:ident [@entries $($entries:tt)*] [$($key:tt)+] ($value:expr)) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)* ($value => $($key)+) ] () () ());
     };
 
     // Current entry followed by unexpected token.
-    (@object $object:ident [$($key:tt)+] ($value:expr) $unexpected:tt $($rest:tt)*) => {
+    (@object $object:ident [@entries $($entries:tt)*] [$($key:tt)+] ($value:expr) $unexpected:tt $($rest:tt)*) => {
         json_unexpected!($unexpected);
     };
 
-    // Insert the last entry without trailing comma.
-    (@object $object:ident [$($key:tt)+] ($value:expr)) => {
-        let _ = $object.insert(($($key)+).into(), $value);
-    };
 
     // Next value is `null`.
-    (@object $object:ident ($($key:tt)+) (: null $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!(null)) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: null $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!(null)) $($rest)*);
     };
 
     // Next value is `true`.
-    (@object $object:ident ($($key:tt)+) (: true $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!(true)) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: true $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!(true)) $($rest)*);
     };
 
     // Next value is `false`.
-    (@object $object:ident ($($key:tt)+) (: false $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!(false)) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: false $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!(false)) $($rest)*);
     };
 
     // Next value is an array.
-    (@object $object:ident ($($key:tt)+) (: [$($array:tt)*] $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!([$($array)*])) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: [$($array:tt)*] $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!([$($array)*])) $($rest)*);
     };
 
     // Next value is a map.
-    (@object $object:ident ($($key:tt)+) (: {$($map:tt)*} $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!({$($map)*})) $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: {$($map:tt)*} $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!({$($map)*})) $($rest)*);
     };
 
     // Next value is an expression followed by comma.
-    (@object $object:ident ($($key:tt)+) (: $value:expr , $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!($value)) , $($rest)*);
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: $value:expr , $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!($value)) , $($rest)*);
     };
 
     // Last value is an expression with no trailing comma.
-    (@object $object:ident ($($key:tt)+) (: $value:expr) $copy:tt) => {
-        json_internal_borrowed!(@object $object [$($key)+] (json_internal_borrowed!($value)));
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (: $value:expr) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] [$($key)+] (json_internal_borrowed!($value)));
     };
 
     // Missing value for last entry. Trigger a reasonable error message.
-    (@object $object:ident ($($key:tt)+) (:) $copy:tt) => {
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) (:) $copy:tt) => {
         // "unexpected end of macro invocation"
         json_internal_borrowed!();
     };
 
     // Missing colon and value for last entry. Trigger a reasonable error
     // message.
-    (@object $object:ident ($($key:tt)+) () $copy:tt) => {
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)+) () $copy:tt) => {
         // "unexpected end of macro invocation"
         json_internal_borrowed!();
     };
 
     // Misplaced colon. Trigger a reasonable error message.
-    (@object $object:ident () (: $($rest:tt)*) ($colon:tt $($copy:tt)*)) => {
+    (@object $object:ident [@entries $($entries:tt)*] () (: $($rest:tt)*) ($colon:tt $($copy:tt)*)) => {
         // Takes no arguments so "no rules expected the token `:`".
         json_unexpected!($colon);
     };
 
     // Found a comma inside a key. Trigger a reasonable error message.
-    (@object $object:ident ($($key:tt)*) (, $($rest:tt)*) ($comma:tt $($copy:tt)*)) => {
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)*) (, $($rest:tt)*) ($comma:tt $($copy:tt)*)) => {
         // Takes no arguments so "no rules expected the token `,`".
         json_unexpected!($comma);
     };
 
     // Key is fully parenthesized. This avoids clippy double_parens false
     // positives because the parenthesization may be necessary here.
-    (@object $object:ident () (($key:expr) : $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object ($key) (: $($rest)*) (: $($rest)*));
+    (@object $object:ident [@entries $($entries:tt)*] () (($key:expr) : $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] ($key) (: $($rest)*) (: $($rest)*));
     };
 
     // Munch a token into the current key.
-    (@object $object:ident ($($key:tt)*) ($tt:tt $($rest:tt)*) $copy:tt) => {
-        json_internal_borrowed!(@object $object ($($key)* $tt) ($($rest)*) ($($rest)*));
+    (@object $object:ident [@entries $($entries:tt)*] ($($key:tt)*) ($tt:tt $($rest:tt)*) $copy:tt) => {
+        json_internal_borrowed!(@object $object [@entries $($entries)*] ($($key)* $tt) ($($rest)*) ($($rest)*));
     };
 
     //////////////////////////////////////////////////////////////////////////
@@ -1076,15 +1145,15 @@ macro_rules! json_internal_borrowed {
 
     ({}) => {
         {
-            use $crate::Builder;
+            use $crate::value::Builder;
             $crate::value::borrowed::Value::object()
         }
     };
 
     ({ $($tt:tt)+ }) => {
         $crate::value::borrowed::Value::from({
-            let mut object = $crate::value::borrowed::Object::new();
-            json_internal_borrowed!(@object object () ($($tt)+) ($($tt)+));
+            let mut object;
+            json_internal_borrowed!(@object object [@entries] () ($($tt)+) ($($tt)+));
             object
         })
     };
