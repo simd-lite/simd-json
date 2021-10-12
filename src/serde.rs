@@ -488,6 +488,7 @@ mod test {
 
     #[test]
     fn convert_enum() {
+        #[allow(dead_code)]
         #[derive(serde::Deserialize, Debug)]
         #[serde(tag = "type")]
         enum Message {
