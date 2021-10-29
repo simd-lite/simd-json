@@ -395,7 +395,8 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
 #[cfg(test)]
 mod test {
     #![allow(clippy::unwrap_used)]
-    use crate::{json, BorrowedValue, OwnedValue};
+    use crate::{json, BorrowedValue, Deserializer as SimdDeserializer, ErrorType, OwnedValue};
+    use serde::{Deserialize, Serialize};
     use serde_json::{json as sjson, Value as SerdeValue};
     use std::convert::TryInto;
     #[test]
@@ -576,5 +577,113 @@ mod test {
         let p: Point = crate::from_slice(&mut json).unwrap();
         assert_eq!(p.x, 1);
         assert_eq!(p.y, 2);
+    }
+    #[test]
+    fn vectors() {
+        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        struct Foo;
+        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        struct Bar1(u8);
+        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        struct Bar2(u8, u8);
+        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        struct Baz {
+            value: u8,
+        }
+        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        enum E {
+            N(u8),
+            R,
+            S { r: u8, g: u8, b: u8 },
+            T(u8, u8, u8),
+        }
+
+        let input: Vec<Foo> = vec![Foo];
+        let mut v_str = crate::to_string(&input).unwrap();
+        assert_eq!(input, crate::from_str::<Vec<Foo>>(&mut v_str).unwrap());
+        let input: Vec<()> = Vec::new();
+        let mut v_str = crate::to_string(&input).unwrap();
+        assert_eq!(input, crate::from_str::<Vec<()>>(&mut v_str).unwrap());
+        let input: Vec<Option<u8>> = vec![None, Some(3u8)];
+        let mut v_str = crate::to_string(&input).unwrap();
+        assert_eq!(
+            input,
+            crate::from_str::<Vec<Option<u8>>>(&mut v_str).unwrap()
+        );
+        let input: Vec<(i32, f32)> = vec![(3, 3.)];
+        let mut v_str = crate::to_string(&input).unwrap();
+        assert_eq!(
+            input,
+            crate::from_str::<Vec<(i32, f32)>>(&mut v_str).unwrap()
+        );
+        let input = vec![vec![3u8]];
+        let mut v_str = crate::to_string(&input).unwrap();
+        assert_eq!(input, crate::from_str::<Vec<Vec<u8>>>(&mut v_str).unwrap());
+        let input: Vec<Bar1> = vec![Bar1(3u8)];
+        let mut v_str = crate::to_string(&input).unwrap();
+        assert_eq!(input, crate::from_str::<Vec<Bar1>>(&mut v_str).unwrap());
+        let input: Vec<Bar2> = Vec::new();
+        let mut v_str = crate::to_string(&input).unwrap();
+        assert_eq!(input, crate::from_str::<Vec<Bar2>>(&mut v_str).unwrap());
+        let input = vec![Bar2(3, 3)];
+        let mut v_str = crate::to_string(&input).unwrap();
+        assert_eq!(input, crate::from_str::<Vec<Bar2>>(&mut v_str).unwrap());
+        let input = vec![E::N(3)];
+        let mut _v_str = crate::to_string(&input).unwrap();
+        // Enums are not handled yet
+        // assert_eq!(input, crate::from_str::<Vec<E>>(&mut v_str).unwrap());
+        let input = vec![E::R, E::R];
+        let mut _v_str = crate::to_string(&input).unwrap();
+        // Enums are not handled yet
+        // assert_eq!(input, crate::from_str::<Vec<E>>(&mut v_str).unwrap());
+        let input = vec![E::S { r: 0, g: 0, b: 0 }, E::S { r: 0, g: 0, b: 1 }];
+        let mut _v_str = crate::to_string(&input).unwrap();
+        // Enums are not handled yet
+        // assert_eq!(input, crate::from_str::<Vec<E>>(&mut v_str).unwrap());
+        let input = vec![E::T(0, 0, 0), E::T(1, 1, 1)];
+        let mut _v_str = crate::to_string(&input).unwrap();
+        // Enums are not handled yet
+        // assert_eq!(input, crate::from_str::<Vec<E>>(&mut v_str).unwrap());
+    }
+
+    macro_rules! parsing_error {
+        ($input:expr; $type:ty => $err:ident) => {{
+            let mut json_str = $input.to_string();
+            assert_eq!(
+                crate::from_str::<$type>(&mut json_str),
+                Err(SimdDeserializer::error(ErrorType::$err))
+            );
+        }};
+    }
+
+    #[test]
+    fn test_parsing_errors() {
+        parsing_error!(r#""3""#; i8 => ExpectedSigned);
+        parsing_error!(r#""3""#; i16 => ExpectedSigned);
+        parsing_error!(r#""3""#; i32 => ExpectedSigned);
+        parsing_error!(r#""3""#; i64 => ExpectedSigned);
+        parsing_error!(r#""3""#; u8 => ExpectedUnsigned);
+        parsing_error!(r#""3""#; u16 => ExpectedUnsigned);
+        parsing_error!(r#""3""#; u32 => ExpectedUnsigned);
+        parsing_error!(r#""3""#; u64 => ExpectedUnsigned);
+
+        parsing_error!("null"; i8 => ExpectedSigned);
+        parsing_error!("null"; i16 => ExpectedSigned);
+        parsing_error!("null"; i32 => ExpectedSigned);
+        parsing_error!("null"; i64 => ExpectedSigned);
+        parsing_error!("-3"; u8 => ExpectedUnsigned);
+        parsing_error!("-3"; u16 => ExpectedUnsigned);
+        parsing_error!("-3"; u32 => ExpectedUnsigned);
+        parsing_error!("-3"; u64 => ExpectedUnsigned);
+
+        #[cfg(feature = "128bit")]
+        {
+            parsing_error!(r#""3""#; i128 => ExpectedSigned);
+            parsing_error!(r#""3""#; u128 => ExpectedUnsigned);
+            parsing_error!("null"; i128 => ExpectedSigned);
+            parsing_error!("-3"; u128 => ExpectedUnsigned);
+        }
+
+        parsing_error!("null"; f64 => ExpectedFloat);
     }
 }
