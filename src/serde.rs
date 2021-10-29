@@ -405,18 +405,30 @@ mod test {
     use std::collections::BTreeMap;
     use std::convert::TryInto;
 
+    #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    struct UnitStruct;
+    #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    struct NewTypeStruct(u8);
+    #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    struct TupleStruct(u8, u8);
     #[derive(Debug, Serialize, Deserialize)]
     struct TestStruct {
         value: String,
     }
-
+    #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    struct TestStruct2 {
+        value: u8,
+    }
+    #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    enum E {
+        NewTypeVariant(u8),
+        UnitVariant,
+        StructVariant { r: u8, g: u8, b: u8 },
+        StructVariant2 { r: u8, g: u8, b: u8 },
+        TupleVariant(u8, u8, u8),
+    }
     #[derive(Debug, Serialize, Deserialize)]
     struct TestPoint(f64, f64);
-
-    #[derive(Debug, Serialize, Deserialize)]
-    enum E {
-        S { r: u8, g: u8, b: u8 },
-    }
 
     #[test]
     fn convert_owned_value() {
@@ -426,15 +438,21 @@ mod test {
             "float": 7.2,
             "neg-int": -23,
             "string": "string",
+            "bytes": b"bytes",
             "bool": true,
             "null": null,
+            "array": [42, 7, -23, false, null, {"key": "value"}],
             "object": {
             "array": [42, 7, -23, false, null, {"key": "value"}],
             },
             "tuple": (122, -14, true, 13_i8, -14_i16, 'c', 22_u8, 23_u16, 24_u32, 25_u64, (), None as Option<i32>, Some(3.25_f32), b"bytes"),
             "struct": TestStruct{value: "value".to_string()},
+            "test_struct": TestStruct2{value: 3},
             "point": TestPoint(3., 4.),
-            "enum": E::S{r:0, g:0, b:0},
+            "unit_variant": E::UnitVariant,
+            "new_type_variant": E::NewTypeVariant(3),
+            "struct_variant": E::StructVariant{r:0, g:0, b:0},
+            "tuple_variant": E::TupleVariant(3, 4, 5),
         });
 
         let s: SerdeValue = sjson!({
@@ -443,15 +461,21 @@ mod test {
             "float": 7.2,
             "neg-int": -23,
             "string": "string",
+            "bytes": b"bytes",
             "bool": true,
             "null": null,
+            "array": [42, 7, -23, false, null, {"key": "value"}],
             "object": {
             "array": [42, 7, -23, false, null, {"key": "value"}],
             },
             "tuple": (122, -14, true, 13_i8, -14_i16, 'c', 22_u8, 23_u16, 24_u32, 25_u64, (), None as Option<i32>, Some(3.25_f32), b"bytes"),
             "struct": TestStruct{value: "value".to_string()},
+            "test_struct": TestStruct2{value: 3},
             "point": TestPoint(3., 4.),
-            "enum": E::S{r:0, g:0, b:0},
+            "unit_variant": E::UnitVariant,
+            "new_type_variant": E::NewTypeVariant(3),
+            "struct_variant": E::StructVariant{r:0, g:0, b:0},
+            "tuple_variant": E::TupleVariant(3, 4, 5),
         });
         let s_c: SerdeValue = v.clone().try_into().unwrap();
         assert_eq!(s, s_c);
@@ -483,9 +507,16 @@ mod test {
             "array": [42, 7, -23, false, null, {"key": "value"}],
             },
             "tuple": (122, -14, true, 13_i8, -14_i16, 'c', 22_u8, 23_u16, 24_u32, 25_u64, (), None as Option<i32>, Some(3.25_f32), b"bytes"),
+            "unit_struct": UnitStruct,
+            "new_type_struct": NewTypeStruct(3),
+            "tuple_struct": TupleStruct(3, 4),
             "struct": TestStruct{value: "value".to_string()},
+            "test_struct": TestStruct2{value: 3},
             "point": TestPoint(3., 4.),
-            "enum": E::S{r:0, g:0, b:0},
+            "unit_variant": E::UnitVariant,
+            "new_type_variant": E::NewTypeVariant(3),
+            "struct_variant": E::StructVariant{r:0, g:0, b:0},
+            "tuple_variant": E::TupleVariant(3, 4, 5),
         })
         .into();
 
@@ -501,9 +532,16 @@ mod test {
             "array": [42, 7, -23, false, null, {"key": "value"}],
             },
             "tuple": (122, -14, true, 13_i8, -14_i16, 'c', 22_u8, 23_u16, 24_u32, 25_u64, (), None as Option<i32>, Some(3.25_f32), b"bytes"),
+            "unit_struct": UnitStruct,
+            "new_type_struct": NewTypeStruct(3),
+            "tuple_struct": TupleStruct(3, 4),
             "struct": TestStruct{value: "value".to_string()},
+            "test_struct": TestStruct2{value: 3},
             "point": TestPoint(3., 4.),
-            "enum": E::S{r:0, g:0, b:0},
+            "unit_variant": E::UnitVariant,
+            "new_type_variant": E::NewTypeVariant(3),
+            "struct_variant": E::StructVariant{r:0, g:0, b:0},
+            "tuple_variant": E::TupleVariant(3, 4, 5),
         });
         let s_c: SerdeValue = v.clone().try_into().unwrap();
         assert_eq!(s, s_c);
@@ -655,27 +693,12 @@ mod test {
 
     #[test]
     fn vectors() {
-        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        struct Foo;
-        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        struct Bar1(u8);
-        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        struct Bar2(u8, u8);
-        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        struct Baz {
-            value: u8,
-        }
-        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        enum E {
-            N(u8),
-            R,
-            S { r: u8, g: u8, b: u8 },
-            T(u8, u8, u8),
-        }
-
-        let input: Vec<Foo> = vec![Foo];
+        let input: Vec<UnitStruct> = vec![UnitStruct];
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(input, crate::from_str::<Vec<Foo>>(&mut v_str).unwrap());
+        assert_eq!(
+            input,
+            crate::from_str::<Vec<UnitStruct>>(&mut v_str).unwrap()
+        );
         let input: Vec<()> = Vec::new();
         let mut v_str = crate::to_string(&input).unwrap();
         assert_eq!(input, crate::from_str::<Vec<()>>(&mut v_str).unwrap());
@@ -694,28 +717,40 @@ mod test {
         let input = vec![vec![3_u8]];
         let mut v_str = crate::to_string(&input).unwrap();
         assert_eq!(input, crate::from_str::<Vec<Vec<u8>>>(&mut v_str).unwrap());
-        let input: Vec<Bar1> = vec![Bar1(3_u8)];
+        let input: Vec<NewTypeStruct> = vec![NewTypeStruct(3_u8)];
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(input, crate::from_str::<Vec<Bar1>>(&mut v_str).unwrap());
-        let input: Vec<Bar2> = Vec::new();
+        assert_eq!(
+            input,
+            crate::from_str::<Vec<NewTypeStruct>>(&mut v_str).unwrap()
+        );
+        let input: Vec<TupleStruct> = Vec::new();
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(input, crate::from_str::<Vec<Bar2>>(&mut v_str).unwrap());
-        let input = vec![Bar2(3, 3)];
+        assert_eq!(
+            input,
+            crate::from_str::<Vec<TupleStruct>>(&mut v_str).unwrap()
+        );
+        let input = vec![TupleStruct(3, 3)];
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(input, crate::from_str::<Vec<Bar2>>(&mut v_str).unwrap());
-        let input = vec![E::N(3)];
+        assert_eq!(
+            input,
+            crate::from_str::<Vec<TupleStruct>>(&mut v_str).unwrap()
+        );
+        let input = vec![E::NewTypeVariant(3)];
         let mut _v_str = crate::to_string(&input).unwrap();
         // Enums are not handled yet
         // assert_eq!(input, crate::from_str::<Vec<E>>(&mut v_str).unwrap());
-        let input = vec![E::R, E::R];
+        let input = vec![E::UnitVariant, E::UnitVariant];
         let mut _v_str = crate::to_string(&input).unwrap();
         // Enums are not handled yet
         // assert_eq!(input, crate::from_str::<Vec<E>>(&mut v_str).unwrap());
-        let input = vec![E::S { r: 0, g: 0, b: 0 }, E::S { r: 0, g: 0, b: 1 }];
+        let input = vec![
+            E::StructVariant { r: 0, g: 0, b: 0 },
+            E::StructVariant { r: 0, g: 0, b: 1 },
+        ];
         let mut _v_str = crate::to_string(&input).unwrap();
         // Enums are not handled yet
         // assert_eq!(input, crate::from_str::<Vec<E>>(&mut v_str).unwrap());
-        let input = vec![E::T(0, 0, 0), E::T(1, 1, 1)];
+        let input = vec![E::TupleVariant(0, 0, 0), E::TupleVariant(1, 1, 1)];
         let mut _v_str = crate::to_string(&input).unwrap();
         // Enums are not handled yet
         // assert_eq!(input, crate::from_str::<Vec<E>>(&mut v_str).unwrap());
@@ -774,25 +809,6 @@ mod test {
 
     #[test]
     fn maps() {
-        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        struct Foo;
-        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        struct Bar1(u8);
-        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        struct Bar2(u8, u8);
-        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        struct Baz {
-            value: u8,
-        }
-        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-        enum E {
-            N(u8),
-            R,
-            S { r: u8, g: u8, b: u8 },
-            S2 { r: u8, g: u8, b: u8 },
-            T(u8, u8, u8),
-        }
-
         let key_error = Err(Error::generic(ErrorType::KeyMustBeAString));
         assert_eq!(crate::to_string(&hashmap! {b"1234" => 3_i8}), key_error);
         assert_eq!(crate::to_string(&hashmap! {true => 3_i8}), key_error);
@@ -808,23 +824,29 @@ mod test {
         assert_eq!(crate::to_string(&hashmap! {() => 3_i8}), key_error);
         assert_eq!(crate::to_string(&hashmap! {(3, 4) => 3_i8}), key_error);
         assert_eq!(crate::to_string(&hashmap! {[3, 4] => 3_i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {Foo => 3_i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {Bar2(3, 3) => 3_i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {UnitStruct => 3_i8}), key_error);
         assert_eq!(
-            crate::to_string(&hashmap! {Baz{value:3} => 3_i8}),
-            key_error
-        );
-        assert_eq!(crate::to_string(&hashmap! {E::N(0) => 3_i8}), key_error);
-        assert_eq!(
-            crate::to_string(&hashmap! {E::S{r:0, g:0, b:0} => 3_i8}),
+            crate::to_string(&hashmap! {TupleStruct(3, 3) => 3_i8}),
             key_error
         );
         assert_eq!(
-            crate::to_string(&hashmap! {E::S2{r:0, g:0, b:0} => 3_i8}),
+            crate::to_string(&hashmap! {TestStruct2{value:3} => 3_i8}),
             key_error
         );
         assert_eq!(
-            crate::to_string(&hashmap! {E::T(0, 0, 0) => 3_i8}),
+            crate::to_string(&hashmap! {E::NewTypeVariant(0) => 3_i8}),
+            key_error
+        );
+        assert_eq!(
+            crate::to_string(&hashmap! {E::StructVariant{r:0, g:0, b:0} => 3_i8}),
+            key_error
+        );
+        assert_eq!(
+            crate::to_string(&hashmap! {E::StructVariant2{r:0, g:0, b:0} => 3_i8}),
+            key_error
+        );
+        assert_eq!(
+            crate::to_string(&hashmap! {E::TupleVariant(0, 0, 0) => 3_i8}),
             key_error
         );
         assert_eq!(
@@ -870,7 +892,7 @@ mod test {
             ser_deser_map!(3_i128 => 3_i8, HashMap<i128, i8>);
             ser_deser_map!(3_u128 => 3_i8, HashMap<u128, i8>);
         }
-        ser_deser_map!(Bar1(1) => 3_i8, HashMap<Bar1, i8>);
-        ser_deser_map!(E::R => 3_i8, HashMap<E, i8>);
+        ser_deser_map!(NewTypeStruct(1) => 3_i8, HashMap<NewTypeStruct, i8>);
+        ser_deser_map!(E::UnitVariant => 3_i8, HashMap<E, i8>);
     }
 }

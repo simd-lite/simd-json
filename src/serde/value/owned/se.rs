@@ -646,7 +646,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
 
 #[cfg(test)]
 mod test {
-    use crate::serde::from_slice;
+    use crate::serde::{from_slice, from_str, to_string};
     /*
     use crate::{
         owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
@@ -657,23 +657,38 @@ mod test {
     */
     use serde::{Deserialize, Serialize};
     use serde_json;
+
+    #[derive(Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    struct UnitStruct;
+    // newtype_struct are not deserializable yet
+    // #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    // struct NewTypeStruct(u8);
+    #[derive(Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    struct TupleStruct(u8, u8);
+    #[derive(Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    struct TestStruct {
+        key: u32,
+    }
     /*
     skipped due to https://github.com/simd-lite/simd-json/issues/65
-    #[derive(Deserialize, Serialize, PartialEq, Debug)]
-    enum Enum {
-        Opt1,
-        Opt2,
+    Enums are not deserializable yet
+    #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    enum E {
+        NewTypeVariant(u8),
+        UnitVariant,
+        StructVariant { r: u8, g: u8, b: u8 },
+        StructVariant2 { r: u8, g: u8, b: u8 },
+        TupleVariant(u8, u8, u8),
     }
-    impl std::default::Default for Enum {
+    impl Default for E {
         fn default() -> Self {
-            Self::Opt1
+            E::UnitVariant
         }
     }
     */
-    #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
-    struct Map {
-        key: u32,
-    }
+    #[derive(Debug, Serialize, Deserialize)]
+    struct TestPoint(f64, f64);
+
     #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
     struct Obj {
         v_i128: i128,
@@ -691,7 +706,12 @@ mod test {
         v_str: String,
         v_char: char,
         //v_enum: Enum,
-        v_map: Map,
+        v_unit_struct: UnitStruct,
+        // v_newtype_struct: NewTypeStruct,
+        v_tuple_struct: TupleStruct,
+        v_struct: TestStruct,
+        // v_enum: E,
+        v_option: Option<i8>,
         v_arr: Vec<usize>,
         v_null: (),
     }
@@ -730,6 +750,10 @@ mod test {
         v_bool in any::<bool>(),
         v_str in ".*",
         v_char in any::<char>(),
+        v_tuple_struct in any::<(u8, u8)>().prop_map(|(a, b)| TupleStruct(a, b)),
+        v_struct in any::<u32>().prop_map(|key| TestStruct{key}),
+        v_option in any::<Option<i8>>(),
+        v_arr in any::<Vec<usize>>(),
     ) -> Obj {
          Obj {
             v_i128,
@@ -746,6 +770,10 @@ mod test {
             v_bool,
             v_str,
             v_char,
+            v_tuple_struct,
+            v_struct,
+            v_option,
+            v_arr,
             ..Obj::default()
         }
       }
@@ -768,12 +796,13 @@ mod test {
             let borrowed: crate::BorrowedValue = serde_json::from_slice(& vec1).expect("from_slice");
             let owned: crate::OwnedValue = serde_json::from_slice(& vec2).expect("from_slice");
             prop_assert_eq!(&borrowed, &owned);
+            let mut owned_str = to_string(&obj).expect("to_string");
+            from_str::<crate::OwnedValue>(&mut owned_str).expect("from_str");
 
             let de: Obj = Obj::deserialize(borrowed).expect("deserialize");
             prop_assert_eq!(&obj, &de);
             let de: Obj = Obj::deserialize(owned).expect("deserialize");
             prop_assert_eq!(&obj, &de);
-
 
         }
     }

@@ -752,4 +752,72 @@ mod test {
             .and_then(super::super::from_value);
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn deserialize() {
+        use halfbrown::{hashmap, HashMap};
+        #[derive(serde::Deserialize, Debug, PartialEq)]
+        pub struct Point {
+            pub x: i64,
+            pub y: i64,
+            pub z: f64,
+            pub rotate: bool,
+        }
+        #[derive(serde::Deserialize, Debug, PartialEq)]
+        pub struct Person {
+            pub name: String,
+            pub middle_name: Option<String>,
+            pub friends: Vec<String>,
+            pub pos: Point,
+            pub age: u64,
+        }
+        #[derive(serde::Deserialize, Debug, PartialEq)]
+        pub struct TestStruct {
+            pub key: HashMap<String, String>,
+            pub vec: Vec<Vec<Option<u8>>>,
+        }
+
+        let mut raw_json =
+            r#"{"name":"bob","middle_name": "frank", "friends":[], "pos": [-1, 2, -3.25, true], "age": 123}"#.to_string();
+        let value =
+            crate::to_owned_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
+        let result: Person = super::super::from_refvalue(&value).expect("from_refvalue");
+        let expected = Person {
+            name: "bob".to_string(),
+            middle_name: Some("frank".to_string()),
+            friends: Vec::new(),
+            pos: Point {
+                x: -1,
+                y: 2,
+                z: -3.25_f64,
+                rotate: true,
+            },
+            age: 123,
+        };
+        assert_eq!(result, expected);
+
+        let mut raw_json = r#"{"key":{"subkey": "value"}, "vec":[[null], [1]]}"#.to_string();
+        let value =
+            crate::to_owned_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
+        let result: TestStruct = super::super::from_refvalue(&value).expect("from_refvalue");
+        let expected = TestStruct {
+            key: hashmap!("subkey".to_string() => "value".to_string()),
+            vec: vec![vec![None], vec![Some(1)]],
+        };
+        assert_eq!(result, expected);
+    }
+
+    #[cfg(feature = "128bit")]
+    #[test]
+    fn deserialize_128bit() {
+        let value = i64::MIN as i128 - 1;
+        let int128 = crate::OwnedValue::Static(crate::StaticNode::I128(value));
+        let res: i128 = super::super::from_refvalue(&int128).expect("from_refvalue");
+        assert_eq!(value, res);
+
+        let value = u64::MAX as u128;
+        let int128 = crate::OwnedValue::Static(crate::StaticNode::U128(value));
+        let res: u128 = super::super::from_refvalue(&int128).expect("from_refvalue");
+        assert_eq!(value, res);
+    }
 }

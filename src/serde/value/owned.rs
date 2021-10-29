@@ -31,3 +31,16 @@ where
 {
     T::deserialize(value)
 }
+
+/// Tries to convert a `&OwnedValue` into a struct that implements
+/// serde's Deserialize interface
+///
+/// # Errors
+///
+/// Will return `Err` if `value` fails to be deserialized
+pub fn from_refvalue<T>(value: &OwnedValue) -> Result<T>
+where
+    T: DeserializeOwned,
+{
+    T::deserialize(value)
+}
