@@ -31,3 +31,16 @@ where
 {
     T::deserialize(value)
 }
+
+/// Tries to convert a `&BorrowedValue` into a struct that implements
+/// serde's Deserialize interface
+///
+/// # Errors
+///
+/// Will return `Err` if `value` fails to be deserialized
+pub fn from_refvalue<'de, T>(value: &'de BorrowedValue<'de>) -> Result<T>
+where
+    T: Deserialize<'de>,
+{
+    T::deserialize(value)
+}
