@@ -34,7 +34,7 @@ impl<'de> Deserializer<'de> {
         buffer: &'invoke mut [u8],
         mut idx: usize,
     ) -> Result<&'de str> {
-        use ErrorType::{InvalidEscape, InvlaidUnicodeCodepoint};
+        use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
         let input: &mut [u8] = unsafe { std::mem::transmute(input) };
         // Add 1 to skip the initial "
         idx += 1;
@@ -168,10 +168,10 @@ impl<'de> Deserializer<'de> {
                         }) {
                         r
                     } else {
-                        return Err(Self::raw_error(src_i, 'u', InvlaidUnicodeCodepoint));
+                        return Err(Self::raw_error(src_i, 'u', InvalidUnicodeCodepoint));
                     };
                     if o == 0 {
-                        return Err(Self::raw_error(src_i, 'u', InvlaidUnicodeCodepoint));
+                        return Err(Self::raw_error(src_i, 'u', InvalidUnicodeCodepoint));
                     };
                     // We moved o steps forward at the destination and 6 on the source
                     src_i += s;
