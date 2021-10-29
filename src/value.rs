@@ -1,13 +1,13 @@
-/// This module holds the two dom implementations we use. We distingush between
+/// This module holds the two dom implementations we use. We distinguish between
 /// owned and borrowed. The difference being is that the borrowed value will
-/// use `&str` as its string type, refferencing the input, while owned will
+/// use `&str` as its string type, referencing the input, while owned will
 /// allocate a new String for each value.
 ///
 /// Note that since json strings allow for for escape sequences the borrowed
-/// value does not impement zero copy parsing, it does however not allocate
+/// value does not implement zero copy parsing, it does however not allocate
 /// new memory for strings.
 ///
-/// This differs notably from serds zero copy implementation as, unlike serde,
+/// This differs notably from serde's zero copy implementation as, unlike serde,
 /// we do not require prior knowledge about string content to to take advantage
 /// of it.
 ///
@@ -71,7 +71,7 @@ use std::marker::PhantomData;
 use tape::Node;
 pub use value_trait::*;
 
-/// Parses a slice of butes into a Value dom. This function will
+/// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
 /// has the same lifetime as the slice it was created from.
@@ -123,8 +123,8 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_array(&mut self, len: usize) -> Value {
-        // Rust doens't optimize the normal loop away here
-        // so we write our own avoiding the lenght
+        // Rust doesn't optimize the normal loop away here
+        // so we write our own avoiding the length
         // checks during push
         let mut res = Vec::with_capacity(len);
         unsafe {

@@ -62,7 +62,7 @@
 //!
 //! Compatibility with [serde](https://serde.rs/). This allows to use
 //! [simd-json.rs](https://simd-json.rs) to deserialize serde objects
-//! as well as serd compatibility of the different Value types.
+//! as well as serde compatibility of the different Value types.
 //! This can be disabled if serde is not used alongside simd-json.
 //!
 //! ### `128bit`
@@ -816,7 +816,7 @@ mod tests {
         let v = Value::from(-6.990_585_694_841_803e305);
         let s = v.encode();
         let mut bytes = s.as_bytes().to_vec();
-        let parsed = to_owned_value(&mut bytes).expect("failed to parse gernated float");
+        let parsed = to_owned_value(&mut bytes).expect("failed to parse generated float");
         assert_eq!(v, parsed);
     }
     #[cfg(not(feature = "128bit"))]
@@ -1404,7 +1404,7 @@ mod tests_serde {
         assert_eq!(v_simd, v_serde)
     }
 
-    // We ignore this since serde is less percise on this test
+    // We ignore this since serde is less precise on this test
     #[ignore]
     #[test]
     fn float2() {

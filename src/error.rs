@@ -24,7 +24,7 @@ pub enum ErrorType {
     ExpectedInteger,
     /// Expected a map
     ExpectedMap,
-    /// Expected an `:` to seperate key and value in an object
+    /// Expected an `:` to separate key and value in an object
     ExpectedObjectColon,
     /// Expected a `,` in an object
     ExpectedMapComma,
@@ -58,7 +58,7 @@ pub enum ErrorType {
     KeyMustBeAString,
     /// Non structural character
     NoStructure,
-    /// Parser Erropr
+    /// Parser Error
     Parser,
     /// Early End Of File
     Eof,
@@ -147,7 +147,7 @@ pub struct Error {
     index: usize,
     /// Current character
     character: char,
-    /// Tyep of error
+    /// Type of error
     error: ErrorType,
 }
 
