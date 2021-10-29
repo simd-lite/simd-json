@@ -48,12 +48,12 @@ pub enum ErrorType {
     InvalidExponent,
     /// Invalid number
     InvalidNumber,
-    /// Inbalid UTF8 codepoint
+    /// Invalid UTF8 codepoint
     InvalidUtf8,
     /// Invalid Unicode escape sequence
     InvalidUnicodeEscape,
-    /// Inbalid Unicode codepoint
-    InvlaidUnicodeCodepoint,
+    /// Invalid Unicode codepoint
+    InvalidUnicodeCodepoint,
     /// Object Key isn't a string
     KeyMustBeAString,
     /// Non structural character
@@ -121,7 +121,7 @@ impl PartialEq for ErrorType {
             | (Self::InvalidNumber, Self::InvalidNumber)
             | (Self::InvalidUtf8, Self::InvalidUtf8)
             | (Self::InvalidUnicodeEscape, Self::InvalidUnicodeEscape)
-            | (Self::InvlaidUnicodeCodepoint, Self::InvlaidUnicodeCodepoint)
+            | (Self::InvalidUnicodeCodepoint, Self::InvalidUnicodeCodepoint)
             | (Self::KeyMustBeAString, Self::KeyMustBeAString)
             | (Self::NoStructure, Self::NoStructure)
             | (Self::Parser, Self::Parser)
