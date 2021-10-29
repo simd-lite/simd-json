@@ -59,7 +59,7 @@ jobs:
           PROPTEST_CASES: 512
         with:
           version: "0.18.0-alpha3"
-          args: "--features no-inline${{ matrix.features }} --out Lcov"
+          args: "--features no-inline${{ matrix.features }} --out Lcov --ignore-tests"
       - name: Coveralls GitHub Action
         uses: coverallsapp/github-action@v1.1.2
         with:
