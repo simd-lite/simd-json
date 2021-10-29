@@ -689,6 +689,7 @@ mod test {
         v_u8: u8,
         v_bool: bool,
         v_str: String,
+        v_char: char,
         //v_enum: Enum,
         v_map: Map,
         v_arr: Vec<usize>,
@@ -728,7 +729,8 @@ mod test {
         v_u8 in any::<u8>(),
         v_bool in any::<bool>(),
         v_str in ".*",
-        ) -> Obj {
+        v_char in any::<char>(),
+    ) -> Obj {
          Obj {
             v_i128,
             v_i64,
@@ -743,6 +745,7 @@ mod test {
             v_u8,
             v_bool,
             v_str,
+            v_char,
             ..Obj::default()
         }
       }

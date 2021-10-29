@@ -875,7 +875,13 @@ mod test {
             Just(Value::Static(StaticNode::Null)),
             any::<bool>().prop_map(Value::from),
             //(-1.0e306f64..1.0e306f64).prop_map(Value::from), // damn you float!
+            any::<i8>().prop_map(Value::from),
+            any::<i16>().prop_map(Value::from),
+            any::<i32>().prop_map(Value::from),
             any::<i64>().prop_map(Value::from),
+            any::<u8>().prop_map(Value::from),
+            any::<u16>().prop_map(Value::from),
+            any::<u32>().prop_map(Value::from),
             any::<u64>().prop_map(Value::from),
             ".*".prop_map(Value::from),
         ];
@@ -900,9 +906,15 @@ mod test {
             Just(Value::Static(StaticNode::Null)),
             any::<bool>().prop_map(Value::from),
             //(-1.0e306f64..1.0e306f64).prop_map(Value::from), // damn you float!
+            any::<i8>().prop_map(Value::from),
+            any::<i16>().prop_map(Value::from),
+            any::<i32>().prop_map(Value::from),
             any::<i64>().prop_map(Value::from),
-            any::<u64>().prop_map(Value::from),
             any::<i128>().prop_map(Value::from),
+            any::<u8>().prop_map(Value::from),
+            any::<u16>().prop_map(Value::from),
+            any::<u32>().prop_map(Value::from),
+            any::<u64>().prop_map(Value::from),
             any::<u128>().prop_map(Value::from),
             ".*".prop_map(Value::from),
         ];
