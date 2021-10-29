@@ -52,7 +52,7 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
 /// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
 /// We do not keep any references to the raw data but re-allocate
-/// owned memory whereever required thus returning a value without
+/// owned memory wherever required thus returning a value without
 /// a lifetime.
 ///
 /// # Errors
@@ -315,8 +315,8 @@ impl<'de> OwnedDeserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_array(&mut self, len: usize) -> Value {
-        // Rust doens't optimize the normal loop away here
-        // so we write our own avoiding the lenght
+        // Rust doesn't optimize the normal loop away here
+        // so we write our own avoiding the length
         // checks during push
         let mut res = Vec::with_capacity(len);
         unsafe {

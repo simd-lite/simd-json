@@ -1,5 +1,5 @@
 // This is mostly taken from json-rust's codegen
-// as it seems to perform well and it makes snense to see
+// as it seems to perform well and it makes sense to see
 // if we can adopt the approach
 //
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs

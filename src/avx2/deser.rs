@@ -41,7 +41,7 @@ impl<'de> Deserializer<'de> {
         //let mut read: usize = 0;
 
         // we include the terminal '"' so we know where to end
-        // This is safe since we check sub's lenght in the range access above and only
+        // This is safe since we check sub's length in the range access above and only
         // create sub sliced form sub to `sub.len()`.
 
         let src: &[u8] = unsafe { data.get_unchecked(idx..) };
@@ -173,7 +173,7 @@ impl<'de> Deserializer<'de> {
                     if o == 0 {
                         return Err(Self::raw_error(src_i, 'u', InvlaidUnicodeCodepoint));
                     };
-                    // We moved o steps forword at the destiation and 6 on the source
+                    // We moved o steps forward at the destination and 6 on the source
                     src_i += s;
                     dst_i += o;
                 } else {
