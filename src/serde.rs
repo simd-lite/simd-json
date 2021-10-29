@@ -395,9 +395,13 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
 #[cfg(test)]
 mod test {
     #![allow(clippy::unwrap_used)]
-    use crate::{json, BorrowedValue, Deserializer as SimdDeserializer, ErrorType, OwnedValue};
+    use crate::{
+        error::Error, json, BorrowedValue, Deserializer as SimdDeserializer, ErrorType, OwnedValue,
+    };
+    use halfbrown::{hashmap, HashMap};
     use serde::{Deserialize, Serialize};
-    use serde_json::{json as sjson, Value as SerdeValue};
+    use serde_json::{json as sjson, to_string as sto_string, Value as SerdeValue};
+    use std::collections::BTreeMap;
     use std::convert::TryInto;
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -753,5 +757,110 @@ mod test {
         }
 
         parsing_error!("null"; f64 => ExpectedFloat);
+    }
+
+    macro_rules! ser_deser_map {
+        ($key:expr => $value:expr, $type:ty) => {
+            let input = hashmap! {$key => $value};
+            let mut m_str = crate::to_string(&input).unwrap();
+            assert_eq!(m_str, sto_string(&input).unwrap());
+            assert_eq!(input, crate::from_str::<$type>(&mut m_str).unwrap());
+        };
+    }
+
+    #[test]
+    fn maps() {
+        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        struct Foo;
+        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        struct Bar1(u8);
+        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        struct Bar2(u8, u8);
+        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        struct Baz {
+            value: u8,
+        }
+        #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        enum E {
+            N(u8),
+            R,
+            S { r: u8, g: u8, b: u8 },
+            S2 { r: u8, g: u8, b: u8 },
+            T(u8, u8, u8),
+        }
+
+        let key_error = Err(Error::generic(ErrorType::KeyMustBeAString));
+        assert_eq!(crate::to_string(&hashmap! {b"1234" => 3i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {true => 3i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {[3u8, 4u8] => 3i8}), key_error);
+        assert_eq!(
+            crate::to_string(&hashmap! {None as Option<u8> => 3i8}),
+            key_error
+        );
+        assert_eq!(crate::to_string(&hashmap! {Some(3u8) => 3i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {() => 3i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {(3, 4) => 3i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {[3, 4] => 3i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {Foo => 3i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {Bar2(3, 3) => 3i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {Baz{value:3} => 3i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {E::N(0) => 3i8}), key_error);
+        assert_eq!(
+            crate::to_string(&hashmap! {E::S{r:0, g:0, b:0} => 3i8}),
+            key_error
+        );
+        assert_eq!(
+            crate::to_string(&hashmap! {E::S2{r:0, g:0, b:0} => 3i8}),
+            key_error
+        );
+        assert_eq!(
+            crate::to_string(&hashmap! {E::T(0, 0, 0) => 3i8}),
+            key_error
+        );
+        assert_eq!(
+            crate::to_string(&hashmap! {vec![0, 0, 0] => 3i8}),
+            key_error
+        );
+        let mut m = BTreeMap::new();
+        m.insert("value", 3u8);
+        assert_eq!(crate::to_string(&hashmap! {m => 3i8}), key_error);
+
+        // f32 and f64 do not implement std::cmp:Eq nor Hash traits
+        // assert_eq!(crate::to_string(&hashmap! {3f32 => 3i8}), key_error);
+        // assert_eq!(crate::to_string(&hashmap! {3f64 => 3i8}), key_error);
+
+        let mut input = std::collections::HashMap::new();
+        input.insert(128u8, "3");
+        let mut input_str = crate::to_string(&input).unwrap();
+        assert_eq!(input_str, sto_string(&input).unwrap());
+        assert_eq!(
+            crate::from_str::<std::collections::HashMap<u8, i8>>(&mut input_str),
+            Err(Error::new(0, '?', ErrorType::ExpectedSigned))
+        );
+        assert_eq!(
+            crate::from_str::<std::collections::HashMap<i8, String>>(&mut input_str),
+            Err(Error::new(0, '?', ErrorType::InvalidNumber))
+        );
+        assert_eq!(
+            crate::from_str::<HashMap<Option<u8>, String>>(&mut input_str),
+            Ok(hashmap! {Some(128u8) => "3".to_string()})
+        );
+
+        ser_deser_map!('c' => 3i8, HashMap<char, i8>);
+        ser_deser_map!(3i8 => 3i8, HashMap<i8, i8>);
+        ser_deser_map!(3i16 => 3i8, HashMap<i16, i8>);
+        ser_deser_map!(3i32 => 3i8, HashMap<i32, i8>);
+        ser_deser_map!(3i64 => 3i8, HashMap<i64, i8>);
+        ser_deser_map!(3u8 => 3i8, HashMap<u8, i8>);
+        ser_deser_map!(3u16 => 3i8, HashMap<u16, i8>);
+        ser_deser_map!(3u32 => 3i8, HashMap<u32, i8>);
+        ser_deser_map!(3u64 => 3i8, HashMap<u64, i8>);
+        #[cfg(feature = "128bit")]
+        {
+            ser_deser_map!(3i128 => 3i8, HashMap<i128, i8>);
+            ser_deser_map!(3u128 => 3i8, HashMap<u128, i8>);
+        }
+        ser_deser_map!(Bar1(1) => 3i8, HashMap<Bar1, i8>);
+        ser_deser_map!(E::R => 3i8, HashMap<E, i8>);
     }
 }
