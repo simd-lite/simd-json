@@ -801,7 +801,6 @@ where
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        dbg!();
         iomap!(self
             .write(b"{")
             .and_then(|_| self.write_simple_string(variant))

@@ -399,10 +399,25 @@ mod test {
     use serde::{Deserialize, Serialize};
     use serde_json::{json as sjson, Value as SerdeValue};
     use std::convert::TryInto;
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct TestStruct {
+        value: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct TestPoint(f64, f64);
+
+    #[derive(Debug, Serialize, Deserialize)]
+    enum E {
+        S { r: u8, g: u8, b: u8 },
+    }
+
     #[test]
     fn convert_owned_value() {
         let v: OwnedValue = json!({
             "int": 42,
+            "int2": i64::MAX as u64 + 1,
             "float": 7.2,
             "neg-int": -23,
             "string": "string",
@@ -410,11 +425,16 @@ mod test {
             "null": null,
             "object": {
             "array": [42, 7, -23, false, null, {"key": "value"}],
-            }
+            },
+            "tuple": (122, -14, true, 13i8, -14i16, 'c', 22u8, 23u16, 24u32, 25u64, (), None as Option<i32>, Some(3.14f32), b"bytes"),
+            "struct": TestStruct{value: "value".to_string()},
+            "point": TestPoint(3., 4.),
+            "enum": E::S{r:0, g:0, b:0},
         });
 
         let s: SerdeValue = sjson!({
             "int": 42,
+            "int2": i64::MAX as u64 + 1,
             "float": 7.2,
             "neg-int": -23,
             "string": "string",
@@ -422,18 +442,33 @@ mod test {
             "null": null,
             "object": {
             "array": [42, 7, -23, false, null, {"key": "value"}],
-            }
+            },
+            "tuple": (122, -14, true, 13i8, -14i16, 'c', 22u8, 23u16, 24u32, 25u64, (), None as Option<i32>, Some(3.14f32), b"bytes"),
+            "struct": TestStruct{value: "value".to_string()},
+            "point": TestPoint(3., 4.),
+            "enum": E::S{r:0, g:0, b:0},
         });
         let s_c: SerdeValue = v.clone().try_into().unwrap();
         assert_eq!(s, s_c);
-        let v_c: OwnedValue = s.try_into().unwrap();
+        let v_c: OwnedValue = s.clone().try_into().unwrap();
         assert_eq!(v, v_c);
+
+        let mut v_ser = crate::serde::to_string(&v).unwrap();
+        let s_ser = serde_json::to_string(&v).unwrap();
+        assert_eq!(s_ser, v_ser);
+
+        let s_deser: OwnedValue = serde_json::from_str(&v_ser).unwrap();
+        assert_eq!(v, s_deser);
+
+        let v_deser: OwnedValue = crate::serde::from_str(&mut v_ser).unwrap();
+        assert_eq!(v, v_deser);
     }
 
     #[test]
     fn convert_borrowed_value() {
         let v: BorrowedValue = json!({
             "int": 42,
+            "int2": i64::MAX as u64 + 1,
             "float": 7.2,
             "neg-int": -23,
             "string": "string",
@@ -441,12 +476,17 @@ mod test {
             "null": null,
             "object": {
             "array": [42, 7, -23, false, null, {"key": "value"}],
-            }
+            },
+            "tuple": (122, -14, true, 13i8, -14i16, 'c', 22u8, 23u16, 24u32, 25u64, (), None as Option<i32>, Some(3.14f32), b"bytes"),
+            "struct": TestStruct{value: "value".to_string()},
+            "point": TestPoint(3., 4.),
+            "enum": E::S{r:0, g:0, b:0},
         })
         .into();
 
         let s: SerdeValue = sjson!({
             "int": 42,
+            "int2": i64::MAX as u64 + 1,
             "float": 7.2,
             "neg-int": -23,
             "string": "string",
@@ -454,7 +494,11 @@ mod test {
             "null": null,
             "object": {
             "array": [42, 7, -23, false, null, {"key": "value"}],
-            }
+            },
+            "tuple": (122, -14, true, 13i8, -14i16, 'c', 22u8, 23u16, 24u32, 25u64, (), None as Option<i32>, Some(3.14f32), b"bytes"),
+            "struct": TestStruct{value: "value".to_string()},
+            "point": TestPoint(3., 4.),
+            "enum": E::S{r:0, g:0, b:0},
         });
         let s_c: SerdeValue = v.clone().try_into().unwrap();
         assert_eq!(s, s_c);
@@ -578,6 +622,29 @@ mod test {
         assert_eq!(p.x, 1);
         assert_eq!(p.y, 2);
     }
+
+    #[test]
+    fn floats() {
+        #[derive(serde_ext::Deserialize)]
+        struct Point {
+            x: f64,
+            y: f64,
+        }
+
+        let mut json = br#"{"x":1.0,"y":2.0}"#.to_vec();
+
+        let p: Point = crate::from_slice(&mut json).unwrap();
+        assert_eq!(p.x, 1f64);
+        assert_eq!(p.y, 2f64);
+
+        let json = json!({"x":-1,"y":i64::MAX as u64 + 1});
+        // let mut json_str = format!("\{\"x\":1, \"y\":{}\}", i64::MAX as u64 + 1);
+
+        let p: Point = crate::from_str(&mut crate::to_string(&json).unwrap()).unwrap();
+        assert_eq!(p.x, -1f64);
+        assert_eq!(p.y, i64::MAX as f64 + 1.0);
+    }
+
     #[test]
     fn vectors() {
         #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -675,6 +742,7 @@ mod test {
         parsing_error!("-3"; u16 => ExpectedUnsigned);
         parsing_error!("-3"; u32 => ExpectedUnsigned);
         parsing_error!("-3"; u64 => ExpectedUnsigned);
+        parsing_error!("-3"; String => ExpectedString);
 
         #[cfg(feature = "128bit")]
         {
