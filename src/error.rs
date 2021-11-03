@@ -24,7 +24,7 @@ pub enum ErrorType {
     ExpectedInteger,
     /// Expected a map
     ExpectedMap,
-    /// Expected an `:` to seperate key and value in an object
+    /// Expected an `:` to separate key and value in an object
     ExpectedObjectColon,
     /// Expected a `,` in an object
     ExpectedMapComma,
@@ -48,17 +48,17 @@ pub enum ErrorType {
     InvalidExponent,
     /// Invalid number
     InvalidNumber,
-    /// Inbalid UTF8 codepoint
+    /// Invalid UTF8 codepoint
     InvalidUtf8,
     /// Invalid Unicode escape sequence
     InvalidUnicodeEscape,
-    /// Inbalid Unicode codepoint
-    InvlaidUnicodeCodepoint,
+    /// Invalid Unicode codepoint
+    InvalidUnicodeCodepoint,
     /// Object Key isn't a string
     KeyMustBeAString,
     /// Non structural character
     NoStructure,
-    /// Parser Erropr
+    /// Parser Error
     Parser,
     /// Early End Of File
     Eof,
@@ -121,7 +121,7 @@ impl PartialEq for ErrorType {
             | (Self::InvalidNumber, Self::InvalidNumber)
             | (Self::InvalidUtf8, Self::InvalidUtf8)
             | (Self::InvalidUnicodeEscape, Self::InvalidUnicodeEscape)
-            | (Self::InvlaidUnicodeCodepoint, Self::InvlaidUnicodeCodepoint)
+            | (Self::InvalidUnicodeCodepoint, Self::InvalidUnicodeCodepoint)
             | (Self::KeyMustBeAString, Self::KeyMustBeAString)
             | (Self::NoStructure, Self::NoStructure)
             | (Self::Parser, Self::Parser)
@@ -147,7 +147,7 @@ pub struct Error {
     index: usize,
     /// Current character
     character: char,
-    /// Tyep of error
+    /// Type of error
     error: ErrorType,
 }
 

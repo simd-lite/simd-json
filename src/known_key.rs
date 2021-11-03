@@ -6,7 +6,7 @@ use std::fmt;
 use std::hash::{BuildHasher, Hash, Hasher};
 
 /// Well known key that can be looked up in a `Value` faster.
-/// It achives this by memorizing the hash.
+/// It achieves this by memorizing the hash.
 #[derive(Debug, Clone, PartialEq)]
 pub struct KnownKey<'key> {
     key: Cow<'key, str>,

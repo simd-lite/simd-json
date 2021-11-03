@@ -4,7 +4,7 @@
 /// better performance.
 ///
 /// However if have to use serde for other reasons or are parsing
-/// directly to structs this is th4 place to go.
+/// directly to structs this is the place to go.
 ///
 mod de;
 mod se;
@@ -83,7 +83,7 @@ where
 ///
 /// # Errors
 ///
-/// Will return `Err` if an IO error is encountred while reading
+/// Will return `Err` if an IO error is encountered while reading
 /// rdr or if the readers content is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn from_reader<R, T>(mut rdr: R) -> Result<T>

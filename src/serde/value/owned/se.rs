@@ -765,11 +765,11 @@ mod test {
             let de: Obj = from_slice(&mut vec).expect("from_slice");
             prop_assert_eq!(&obj, &de);
 
-            let borroed: crate::BorrowedValue = serde_json::from_slice(& vec1).expect("from_slice");
+            let borrowed: crate::BorrowedValue = serde_json::from_slice(& vec1).expect("from_slice");
             let owned: crate::OwnedValue = serde_json::from_slice(& vec2).expect("from_slice");
-            prop_assert_eq!(&borroed, &owned);
+            prop_assert_eq!(&borrowed, &owned);
 
-            let de: Obj = Obj::deserialize(borroed).expect("deserialize");
+            let de: Obj = Obj::deserialize(borrowed).expect("deserialize");
             prop_assert_eq!(&obj, &de);
             let de: Obj = Obj::deserialize(owned).expect("deserialize");
             prop_assert_eq!(&obj, &de);

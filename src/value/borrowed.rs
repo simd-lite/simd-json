@@ -377,8 +377,8 @@ impl<'de> BorrowDeserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_array(&mut self, len: usize) -> Value<'de> {
-        // Rust doens't optimize the normal loop away here
-        // so we write our own avoiding the lenght
+        // Rust doesn't optimize the normal loop away here
+        // so we write our own avoiding the length
         // checks during push
         let mut res = Vec::with_capacity(len);
         unsafe {

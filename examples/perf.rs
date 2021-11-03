@@ -175,7 +175,7 @@ mod int {
             let r = simd_json::to_borrowed_value(&mut bytes);
             // Stop counters
             stats.stop(pc);
-            // we make sure that dropping doesn't happen untill we are done with our counting.
+            // we make sure that dropping doesn't happen until we are done with our counting.
             // better safe then sorry.
             assert!(r.is_ok());
             // do our accounting

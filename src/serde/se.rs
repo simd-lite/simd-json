@@ -825,7 +825,7 @@ mod test {
     use proptest::prelude::*;
 
     #[test]
-    fn prety_print_serde() {
+    fn pretty_print_serde() {
         #[derive(Clone, Debug, PartialEq, serde::Serialize)]
         enum Segment {
             Id { mid: usize },
