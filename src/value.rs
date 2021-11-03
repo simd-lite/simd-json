@@ -146,7 +146,7 @@ where
             if let Node::String(key) = unsafe { self.de.next_() } {
                 res.insert_nocheck(key.into(), self.parse());
             } else {
-                unreachable!()
+                unreachable!();
             }
         }
         Value::from(res)

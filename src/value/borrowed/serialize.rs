@@ -20,14 +20,14 @@ impl<'value> Writable for Value<'value> {
     #[inline]
     fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
-        let _r = g.write_json(&self);
+        let _r = g.write_json(self);
         g.consume()
     }
 
     #[inline]
     fn encode_pp(&self) -> String {
         let mut g = PrettyGenerator::new(2);
-        let _r = g.write_json(&self);
+        let _r = g.write_json(self);
         g.consume()
     }
 
@@ -66,7 +66,7 @@ trait Generator: BaseGenerator {
                 v
             } else {
                 // We check against size
-                unreachable!()
+                unreachable!();
             };
             self.indent();
             stry!(self.new_line());
@@ -112,7 +112,7 @@ trait Generator: BaseGenerator {
                         v
                     } else {
                         // We check against size
-                        unreachable!()
+                        unreachable!();
                     };
                     stry!(self.write(b"["));
                     self.indent();
@@ -151,7 +151,7 @@ trait FastGenerator: BaseGenerator {
                 v
             } else {
                 // We check against size
-                unreachable!()
+                unreachable!();
             };
             stry!(self.write_simple_str_content(key));
             stry!(self.write(b"\":"));
@@ -191,7 +191,7 @@ trait FastGenerator: BaseGenerator {
                         v
                     } else {
                         // We check against size
-                        unreachable!()
+                        unreachable!();
                     };
 
                     stry!(self.write(b"["));
@@ -239,26 +239,26 @@ mod test {
 
     #[test]
     fn null() {
-        assert_eq!(Value::Static(StaticNode::Null).encode(), "null")
+        assert_eq!(Value::Static(StaticNode::Null).encode(), "null");
     }
     #[test]
     fn bool_true() {
-        assert_eq!(Value::Static(StaticNode::Bool(true)).encode(), "true")
+        assert_eq!(Value::Static(StaticNode::Bool(true)).encode(), "true");
     }
     #[test]
     fn bool_false() {
-        assert_eq!(Value::Static(StaticNode::Bool(false)).encode(), "false")
+        assert_eq!(Value::Static(StaticNode::Bool(false)).encode(), "false");
     }
 
     #[test]
     fn obj() {
         let mut o = Value::object();
-        o.insert("k", ()).unwrap();
-        assert_eq!(o.encode(), r#"{"k":null}"#)
+        o.insert("k", ()).expect("insert");
+        assert_eq!(o.encode(), r#"{"k":null}"#);
     }
 
     fn assert_str(from: &str, to: &str) {
-        assert_eq!(Value::String(from.into()).encode(), to)
+        assert_eq!(Value::String(from.into()).encode(), to);
     }
     #[test]
     fn string() {

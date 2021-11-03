@@ -833,7 +833,7 @@ mod test {
 
         assert_eq!(
             "{\n  \"Id\": {\n    \"mid\": 0\n  }\n}",
-            crate::to_string_pretty(&Segment::Id { mid: 0 }).unwrap()
+            crate::to_string_pretty(&Segment::Id { mid: 0 }).expect("to_string_pretty")
         );
     }
 
@@ -846,7 +846,7 @@ mod test {
 
         assert_eq!(
             "{\"Id\":{\"mid\":0}}",
-            crate::to_string(&Segment::Id { mid: 0 }).unwrap()
+            crate::to_string(&Segment::Id { mid: 0 }).expect("to_string")
         );
     }
 
@@ -865,7 +865,10 @@ mod test {
 
         foo.bar.insert(1337, 1337);
 
-        assert_eq!(r#"{"bar":{"1337":1337}}"#, crate::to_string(&foo).unwrap());
+        assert_eq!(
+            r#"{"bar":{"1337":1337}}"#,
+            crate::to_string(&foo).expect("to_string")
+        );
     }
 
     #[cfg(not(feature = "128bit"))]
@@ -943,7 +946,7 @@ mod test {
 
         #[test]
         fn prop_json_encode_decode(val in arb_json_value()) {
-            let mut encoded = crate::to_vec(&val).unwrap();
+            let mut encoded = crate::to_vec(&val).expect("to_vec");
             println!("{}", String::from_utf8_lossy(&encoded.clone()));
             let res: Value = crate::from_slice(encoded.as_mut_slice()).expect("can't convert");
             assert_eq!(val, res);

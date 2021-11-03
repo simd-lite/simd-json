@@ -108,7 +108,7 @@ impl<'de> Deserializer<'de> {
                         .add(dst_i)
                         .cast::<std::arch::x86_64::__m128i>(),
                     v,
-                )
+                );
             };
 
             // store to dest unconditionally - we can overwrite the bits we don't like
@@ -138,7 +138,7 @@ impl<'de> Deserializer<'de> {
                 unsafe {
                     input
                         .get_unchecked_mut(idx + len..idx + len + dst_i)
-                        .clone_from_slice(&buffer.get_unchecked(..dst_i));
+                        .clone_from_slice(buffer.get_unchecked(..dst_i));
                     let v =
                         input.get_unchecked(idx..idx + len + dst_i) as *const [u8] as *const str;
                     return Ok(&*v);

@@ -31,10 +31,10 @@ mod test {
 
     #[test]
     #[should_panic]
-    #[allow(unused_variables)]
+    #[allow(unused_variables, clippy::no_effect)]
     fn object_index() {
         let v = StaticNode::Null;
-        let a = v["test"];
+        v["test"];
     }
 
     #[test]
@@ -46,10 +46,10 @@ mod test {
 
     #[test]
     #[should_panic]
-    #[allow(unused_variables)]
+    #[allow(unused_variables, clippy::no_effect)]
     fn array_index() {
         let v = StaticNode::Null;
-        let a = v[0];
+        v[0];
     }
 
     #[test]
@@ -62,19 +62,19 @@ mod test {
     #[test]
     fn conversion_obj() {
         let v = StaticNode::Null;
-        assert!(!v.is_object())
+        assert!(!v.is_object());
     }
 
     #[test]
     fn conversion_arr() {
         let v = StaticNode::Null;
-        assert!(!v.is_array())
+        assert!(!v.is_array());
     }
 
     #[test]
     fn conversion_str() {
         let v = StaticNode::Null;
-        assert!(!v.is_str())
+        assert!(!v.is_str());
     }
     #[cfg(feature = "128bit")]
     #[test]
@@ -447,7 +447,7 @@ mod test {
 
     #[test]
     fn default() {
-        assert_eq!(Value::default(), Value::Null)
+        assert_eq!(Value::default(), Value::Null);
     }
 
     #[test]
@@ -478,9 +478,10 @@ mod test {
     #[test]
     fn test_union_cmp() {
         let v: Value = ().into();
-        assert_eq!(v, ())
+        assert_eq!(v, ());
     }
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn test_bool_cmp() {
         let v: Value = true.into();
         assert_eq!(v, true);

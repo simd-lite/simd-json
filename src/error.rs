@@ -198,6 +198,6 @@ mod test {
         assert_eq!(
             format!("{}", e),
             "InternalError at character 0 ('\u{1f4a9}')"
-        )
+        );
     }
 }

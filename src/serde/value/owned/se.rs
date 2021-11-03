@@ -21,7 +21,7 @@ impl Serialize for Value {
             Self::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
             #[cfg(feature = "128bit")]
             Self::Static(StaticNode::I128(i)) => serializer.serialize_i128(*i),
-            Self::String(s) => serializer.serialize_str(&s),
+            Self::String(s) => serializer.serialize_str(s),
             Self::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
                 for e in v {
