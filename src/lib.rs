@@ -476,7 +476,7 @@ impl<'de> Deserializer<'de> {
         };
 
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
-            unsafe { Self::find_structural_bits(&input_buffer) };
+            unsafe { Self::find_structural_bits(input_buffer) };
 
         let structural_indexes = match s1_result {
             Ok(i) => i,
@@ -486,7 +486,7 @@ impl<'de> Deserializer<'de> {
         };
 
         let tape: Vec<Node> =
-            Self::build_tape(input, &input_buffer, string_buffer, &structural_indexes)?;
+            Self::build_tape(input, input_buffer, string_buffer, &structural_indexes)?;
 
         Ok(Self { tape, idx: 0 })
     }
@@ -715,7 +715,7 @@ impl DerefMut for AlignedBuf {
 mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::{owned::Value, to_borrowed_value, to_owned_value, Deserializer};
-    use crate::tape::*;
+    use crate::tape::Node;
     use proptest::prelude::*;
     use value_trait::{StaticNode, Writable};
 
@@ -883,7 +883,7 @@ mod tests {
         #[test]
         fn prop_json_encode_decode(val in arb_json_value()) {
             let mut encoded: Vec<u8> = Vec::new();
-            let _ = val.write(&mut encoded);
+            val.write(&mut encoded).expect("write");
             println!("{}", String::from_utf8_lossy(&encoded.clone()));
             let mut e = encoded.clone();
             let res = to_owned_value(&mut e).expect("can't convert");
@@ -892,7 +892,7 @@ mod tests {
             let res = to_borrowed_value(&mut e).expect("can't convert");
             assert_eq!(val, res);
             #[cfg(not(feature = "128bit"))]
-            { // we can't dop 128 bit w/ serde
+            { // we can't do 128 bit w/ serde
                 use crate::{deserialize, BorrowedValue, OwnedValue};
                 let mut e = encoded.clone();
                 let res: OwnedValue = deserialize(&mut e).expect("can't convert");
@@ -915,7 +915,7 @@ mod tests_serde {
     use halfbrown::HashMap;
     use proptest::prelude::*;
     use serde::Deserialize;
-    use serde_json;
+
     use value_trait::{Builder, Mutable, StaticNode};
 
     #[test]
@@ -1110,11 +1110,11 @@ mod tests_serde {
         let mut d1 = unsafe { d1.as_bytes_mut() };
         let mut d2 = unsafe { d2.as_bytes_mut() };
         let v_serde: Result<serde_json::Value, _> = serde_json::from_slice(d);
-        let v_simd_ov = to_owned_value(&mut d);
-        let v_simd_bv = to_borrowed_value(&mut d1);
+        let v_simd_owned_value = to_owned_value(&mut d);
+        let v_simd_borrowed_value = to_borrowed_value(&mut d1);
         let v_simd: Result<serde_json::Value, _> = from_slice(&mut d2);
-        assert!(v_simd_ov.is_err());
-        assert!(v_simd_bv.is_err());
+        assert!(v_simd_owned_value.is_err());
+        assert!(v_simd_borrowed_value.is_err());
         assert!(v_simd.is_err());
         assert!(v_serde.is_err());
     }
@@ -1232,7 +1232,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1243,7 +1243,7 @@ mod tests_serde {
         assert_eq!(v_simd, "\u{e}");
         // NOTE: serde is broken for this
         //assert_eq!(v_serde, "\u{e}");
-        //assert_eq!(v_simd, v_serde)
+        //assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1299,7 +1299,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1374,7 +1374,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1383,7 +1383,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1392,7 +1392,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1401,7 +1401,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     // We ignore this since serde is less precise on this test
@@ -1412,7 +1412,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1451,7 +1451,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: (f32, f32) = serde_json::from_slice(d).expect("serde_json");
         let v_simd: (f32, f32) = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1460,7 +1460,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<(f32, f32)> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<(f32, f32)> = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1471,7 +1471,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<(f32, f32)> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<(f32, f32)> = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
     #[test]
     fn tpl4() {
@@ -1479,7 +1479,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
     #[test]
     fn tpl5() {
@@ -1487,7 +1487,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1496,7 +1496,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<Vec<Vec<(f32, f32)>>> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<Vec<Vec<(f32, f32)>>> = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1505,7 +1505,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<Vec<Vec<[f32; 2]>>> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<Vec<Vec<[f32; 2]>>> = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[derive(Deserialize, PartialEq, Debug)]
@@ -1525,7 +1525,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Obj = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Obj = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1535,7 +1535,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: HashMap<String, Obj> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: HashMap<String, Obj> = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1547,7 +1547,7 @@ mod tests_serde {
         let v_serde: HashMap<String, HashMap<String, Obj>> =
             serde_json::from_slice(d).expect("serde_json");
         let v_simd: HashMap<String, HashMap<String, Obj>> = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1556,7 +1556,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: HashMap<String, Obj1> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: HashMap<String, Obj1> = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1565,7 +1565,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
         let v_simd: Vec<Vec<(f32, f32)>> = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[test]
@@ -1576,7 +1576,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json");
         let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     #[cfg(feature = "serde_impl")]
@@ -1672,7 +1672,7 @@ mod tests_serde {
         let mut d = unsafe { d.as_bytes_mut() };
         let v_serde: CitmCatalog = serde_json::from_slice(d).expect("serde_json");
         let v_simd: CitmCatalog = from_slice(&mut d).expect("simd_json");
-        assert_eq!(v_simd, v_serde)
+        assert_eq!(v_simd, v_serde);
     }
 
     //6.576692109929364e305
@@ -1698,7 +1698,7 @@ mod tests_serde {
                 ]
             },
         )
-        .prop_map(|v| serde_json::to_string(&v).expect("").to_string())
+        .prop_map(|v| serde_json::to_string(&v).expect(""))
         .boxed()
     }
 
@@ -1714,7 +1714,7 @@ mod tests_serde {
         #[test]
         fn prop_json(d in arb_json()) {
             use super::{OwnedValue, deserialize};
-            if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(&d.as_bytes()) {
+            if let Ok(v_serde) = serde_json::from_slice::<serde_json::Value>(d.as_bytes()) {
                 let mut d1 = d.clone();
                 let d1 = unsafe{ d1.as_bytes_mut()};
                 let v_simd_serde: serde_json::Value = from_slice(d1).expect("");
@@ -1749,14 +1749,15 @@ mod tests_serde {
             .. ProptestConfig::default()
         })]
         #[test]
+        #[should_panic]
         fn prop_junk(d in arb_junk()) {
             let mut d1 = d.clone();
             let mut d2 = d.clone();
-            let mut d3 = d.clone();
+            let mut d3 = d;
 
-            let _ = from_slice::<serde_json::Value>(&mut d1);
-            let _ = to_borrowed_value(&mut d2);
-            let _ = to_owned_value(&mut d3);
+            from_slice::<serde_json::Value>(&mut d1).expect("from_slice");
+            to_borrowed_value(&mut d2).expect("to_borrowed_value");
+            to_owned_value(&mut d3).expect("to_owned_value");
 
         }
     }
@@ -1771,16 +1772,17 @@ mod tests_serde {
         })]
 
         #[test]
+        #[should_panic]
         fn prop_string(d in "\\PC*") {
             let mut d1 = d.clone();
             let mut d1 = unsafe{ d1.as_bytes_mut()};
             let mut d2 = d.clone();
             let mut d2 = unsafe{ d2.as_bytes_mut()};
-            let mut d3 = d.clone();
+            let mut d3 = d;
             let mut d3 = unsafe{ d3.as_bytes_mut()};
-            let _ = from_slice::<serde_json::Value>(&mut d1);
-            let _ = to_borrowed_value(&mut d2);
-            let _ = to_owned_value(&mut d3);
+            from_slice::<serde_json::Value>(&mut d1).expect("from_slice");
+            to_borrowed_value(&mut d2).expect("to_borrowed_value");
+            to_owned_value(&mut d3).expect("to_owned_value");
 
         }
     }

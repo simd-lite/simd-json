@@ -73,15 +73,15 @@ impl Stage1Parse<__m128i> for SimdInput {
 
     #[cfg(not(target_feature = "pclmulqdq"))]
     fn compute_quote_mask(mut quote_bits: u64) -> u64 {
-        let b = -1i64 as u64;
+        let b = -1_i64 as u64;
         let mut prod = 0;
 
         while quote_bits != 0 {
-            prod ^= b.wrapping_mul(quote_bits & 0u64.wrapping_sub(quote_bits));
+            prod ^= b.wrapping_mul(quote_bits & 0_u64.wrapping_sub(quote_bits));
             quote_bits &= quote_bits.wrapping_sub(1);
         }
 
-        return prod;
+        prod
     }
 
     /// a straightforward comparison of a mask against input

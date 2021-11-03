@@ -400,7 +400,7 @@ impl<'de> BorrowDeserializer<'de> {
             if let Node::String(key) = unsafe { self.0.next_() } {
                 res.insert_nocheck(key.into(), self.parse());
             } else {
-                unreachable!()
+                unreachable!();
             }
         }
         Value::from(res)
@@ -840,7 +840,7 @@ mod test {
 
     #[test]
     fn default() {
-        assert_eq!(Value::default(), Value::null())
+        assert_eq!(Value::default(), Value::null());
     }
 
     use proptest::prelude::*;
@@ -904,13 +904,13 @@ mod test {
             let mut string = borrowed.encode();
             let mut bytes = unsafe{ string.as_bytes_mut()};
             let decoded = to_value(&mut bytes).expect("Failed to decode");
-            prop_assert_eq!(borrowed, decoded)
+            prop_assert_eq!(borrowed, decoded);
         }
         #[test]
         #[allow(clippy::float_cmp)]
         fn prop_f64_cmp(f in proptest::num::f64::NORMAL) {
             let v: Value = f.into();
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
 
         }
 
@@ -918,56 +918,56 @@ mod test {
         #[allow(clippy::float_cmp)]
         fn prop_f32_cmp(f in proptest::num::f32::NORMAL) {
             let v: Value = f.into();
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
 
         }
         #[test]
         fn prop_i64_cmp(f in proptest::num::i64::ANY) {
             let v: Value = f.into();
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
         }
         #[test]
         fn prop_i32_cmp(f in proptest::num::i32::ANY) {
             let v: Value = f.into();
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
         }
         #[test]
         fn prop_i16_cmp(f in proptest::num::i16::ANY) {
             let v: Value = f.into();
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
         }
         #[test]
         fn prop_i8_cmp(f in proptest::num::i8::ANY) {
             let v: Value = f.into();
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
         }
         #[test]
         fn prop_u64_cmp(f in proptest::num::u64::ANY) {
             let v: Value = f.into();
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
         }
 
         #[test]
         #[allow(clippy::cast_possible_truncation)]
         fn prop_usize_cmp(f in proptest::num::usize::ANY) {
             let v: Value = f.into();
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
         }
          #[test]
         fn prop_u32_cmp(f in proptest::num::u32::ANY) {
             let v: Value = f.into();
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
         }
         #[test]
         fn prop_u16_cmp(f in proptest::num::u16::ANY) {
             let v: Value = f.into();
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
         }
         #[test]
         fn prop_u8_cmp(f in proptest::num::u8::ANY) {
             let v: Value = f.into();
             assert_eq!(v, &f);
-            prop_assert_eq!(v, f)
+            prop_assert_eq!(v, f);
         }
         #[test]
         fn prop_string_cmp(f in ".*") {
@@ -980,9 +980,10 @@ mod test {
     #[test]
     fn test_union_cmp() {
         let v: Value = ().into();
-        assert_eq!(v, ())
+        assert_eq!(v, ());
     }
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn test_bool_cmp() {
         let v: Value = true.into();
         assert_eq!(v, true);
@@ -1003,7 +1004,7 @@ mod test {
             v,
             vec![("a", 1)]
                 .iter()
-                .cloned()
+                .copied()
                 .collect::<std::collections::HashMap<&str, i32>>()
         );
     }

@@ -340,7 +340,7 @@ impl<'de> Deserializer<'de> {
                     cnt = 0;
                     state = State::ScopeEnd;
                 } else {
-                    state = State::MainArraySwitch
+                    state = State::MainArraySwitch;
                 }
             }
             b't' => {
@@ -428,7 +428,7 @@ impl<'de> Deserializer<'de> {
                     match c {
                         b'"' => {
                             insert_str!();
-                            object_continue!()
+                            object_continue!();
                         }
                         b't' => {
                             insert_res!(Node::Static(StaticNode::Bool(true)));
@@ -537,7 +537,7 @@ impl<'de> Deserializer<'de> {
                     match c {
                         b'"' => {
                             insert_str!();
-                            array_continue!()
+                            array_continue!();
                         }
                         b't' => {
                             insert_res!(Node::Static(StaticNode::Bool(true)));

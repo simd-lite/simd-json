@@ -398,6 +398,7 @@ mod test {
     use crate::{
         error::Error, json, BorrowedValue, Deserializer as SimdDeserializer, ErrorType, OwnedValue,
     };
+    use float_cmp::assert_approx_eq;
     use halfbrown::{hashmap, HashMap};
     use serde::{Deserialize, Serialize};
     use serde_json::{json as sjson, to_string as sto_string, Value as SerdeValue};
@@ -430,7 +431,7 @@ mod test {
             "object": {
             "array": [42, 7, -23, false, null, {"key": "value"}],
             },
-            "tuple": (122, -14, true, 13i8, -14i16, 'c', 22u8, 23u16, 24u32, 25u64, (), None as Option<i32>, Some(3.14f32), b"bytes"),
+            "tuple": (122, -14, true, 13_i8, -14_i16, 'c', 22_u8, 23_u16, 24_u32, 25_u64, (), None as Option<i32>, Some(3.25_f32), b"bytes"),
             "struct": TestStruct{value: "value".to_string()},
             "point": TestPoint(3., 4.),
             "enum": E::S{r:0, g:0, b:0},
@@ -447,14 +448,14 @@ mod test {
             "object": {
             "array": [42, 7, -23, false, null, {"key": "value"}],
             },
-            "tuple": (122, -14, true, 13i8, -14i16, 'c', 22u8, 23u16, 24u32, 25u64, (), None as Option<i32>, Some(3.14f32), b"bytes"),
+            "tuple": (122, -14, true, 13_i8, -14_i16, 'c', 22_u8, 23_u16, 24_u32, 25_u64, (), None as Option<i32>, Some(3.25_f32), b"bytes"),
             "struct": TestStruct{value: "value".to_string()},
             "point": TestPoint(3., 4.),
             "enum": E::S{r:0, g:0, b:0},
         });
         let s_c: SerdeValue = v.clone().try_into().unwrap();
         assert_eq!(s, s_c);
-        let v_c: OwnedValue = s.clone().try_into().unwrap();
+        let v_c: OwnedValue = s.try_into().unwrap();
         assert_eq!(v, v_c);
 
         let mut v_ser = crate::serde::to_string(&v).unwrap();
@@ -481,7 +482,7 @@ mod test {
             "object": {
             "array": [42, 7, -23, false, null, {"key": "value"}],
             },
-            "tuple": (122, -14, true, 13i8, -14i16, 'c', 22u8, 23u16, 24u32, 25u64, (), None as Option<i32>, Some(3.14f32), b"bytes"),
+            "tuple": (122, -14, true, 13_i8, -14_i16, 'c', 22_u8, 23_u16, 24_u32, 25_u64, (), None as Option<i32>, Some(3.25_f32), b"bytes"),
             "struct": TestStruct{value: "value".to_string()},
             "point": TestPoint(3., 4.),
             "enum": E::S{r:0, g:0, b:0},
@@ -499,7 +500,7 @@ mod test {
             "object": {
             "array": [42, 7, -23, false, null, {"key": "value"}],
             },
-            "tuple": (122, -14, true, 13i8, -14i16, 'c', 22u8, 23u16, 24u32, 25u64, (), None as Option<i32>, Some(3.14f32), b"bytes"),
+            "tuple": (122, -14, true, 13_i8, -14_i16, 'c', 22_u8, 23_u16, 24_u32, 25_u64, (), None as Option<i32>, Some(3.25_f32), b"bytes"),
             "struct": TestStruct{value: "value".to_string()},
             "point": TestPoint(3., 4.),
             "enum": E::S{r:0, g:0, b:0},
@@ -544,13 +545,6 @@ mod test {
             Request { id: usize, method: String },
             Response { id: String, result: String },
         }
-        let mut raw_json = r#"{"type": "Request", "id": 1, "method": "..."}"#.to_string();
-        let result: Result<Message, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
-
-        let mut raw_json = r#"{"type": "Response", "id": "1", "result": "..."}"#.to_string();
-        let result: Result<Message, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
 
         #[derive(serde::Deserialize, Debug)]
         #[serde(tag = "type", content = "v")]
@@ -559,13 +553,6 @@ mod test {
             Green { v: bool },
             Blue,
         }
-        let mut raw_json = r#"{"type": "Red", "v": "1"}"#.to_string();
-        let result: Result<Color, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
-
-        let mut raw_json = r#"{"type": "Blue"}"#.to_string();
-        let result: Result<Color, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
 
         #[derive(serde::Deserialize, Debug)]
         #[serde(tag = "type")]
@@ -574,6 +561,23 @@ mod test {
             Green { v: bool }, // TODO: If `content` flag is absent, `Green` works and `Red` doesn't
             Blue,
         }
+
+        let mut raw_json = r#"{"type": "Request", "id": 1, "method": "..."}"#.to_string();
+        let result: Result<Message, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+
+        let mut raw_json = r#"{"type": "Response", "id": "1", "result": "..."}"#.to_string();
+        let result: Result<Message, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+
+        let mut raw_json = r#"{"type": "Red", "v": "1"}"#.to_string();
+        let result: Result<Color, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+
+        let mut raw_json = r#"{"type": "Blue"}"#.to_string();
+        let result: Result<Color, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
+        assert!(result.is_ok());
+
         let mut raw_json = r#"{"type": "Green", "v": false}"#.to_string();
         let result: Result<Color1, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
         assert!(result.is_ok());
@@ -628,6 +632,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::cast_precision_loss)]
     fn floats() {
         #[derive(serde_ext::Deserialize)]
         struct Point {
@@ -638,15 +643,14 @@ mod test {
         let mut json = br#"{"x":1.0,"y":2.0}"#.to_vec();
 
         let p: Point = crate::from_slice(&mut json).unwrap();
-        assert_eq!(p.x, 1f64);
-        assert_eq!(p.y, 2f64);
+        assert_approx_eq!(f64, p.x, 1_f64);
+        assert_approx_eq!(f64, p.y, 2_f64);
 
         let json = json!({"x":-1,"y":i64::MAX as u64 + 1});
-        // let mut json_str = format!("\{\"x\":1, \"y\":{}\}", i64::MAX as u64 + 1);
 
         let p: Point = crate::from_str(&mut crate::to_string(&json).unwrap()).unwrap();
-        assert_eq!(p.x, -1f64);
-        assert_eq!(p.y, i64::MAX as f64 + 1.0);
+        assert_approx_eq!(f64, p.x, -1_f64);
+        assert_approx_eq!(f64, p.y, i64::MAX as f64 + 1.0);
     }
 
     #[test]
@@ -675,7 +679,7 @@ mod test {
         let input: Vec<()> = Vec::new();
         let mut v_str = crate::to_string(&input).unwrap();
         assert_eq!(input, crate::from_str::<Vec<()>>(&mut v_str).unwrap());
-        let input: Vec<Option<u8>> = vec![None, Some(3u8)];
+        let input: Vec<Option<u8>> = vec![None, Some(3_u8)];
         let mut v_str = crate::to_string(&input).unwrap();
         assert_eq!(
             input,
@@ -687,10 +691,10 @@ mod test {
             input,
             crate::from_str::<Vec<(i32, f32)>>(&mut v_str).unwrap()
         );
-        let input = vec![vec![3u8]];
+        let input = vec![vec![3_u8]];
         let mut v_str = crate::to_string(&input).unwrap();
         assert_eq!(input, crate::from_str::<Vec<Vec<u8>>>(&mut v_str).unwrap());
-        let input: Vec<Bar1> = vec![Bar1(3u8)];
+        let input: Vec<Bar1> = vec![Bar1(3_u8)];
         let mut v_str = crate::to_string(&input).unwrap();
         assert_eq!(input, crate::from_str::<Vec<Bar1>>(&mut v_str).unwrap());
         let input: Vec<Bar2> = Vec::new();
@@ -790,47 +794,53 @@ mod test {
         }
 
         let key_error = Err(Error::generic(ErrorType::KeyMustBeAString));
-        assert_eq!(crate::to_string(&hashmap! {b"1234" => 3i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {true => 3i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {[3u8, 4u8] => 3i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {b"1234" => 3_i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {true => 3_i8}), key_error);
         assert_eq!(
-            crate::to_string(&hashmap! {None as Option<u8> => 3i8}),
-            key_error
-        );
-        assert_eq!(crate::to_string(&hashmap! {Some(3u8) => 3i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {() => 3i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {(3, 4) => 3i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {[3, 4] => 3i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {Foo => 3i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {Bar2(3, 3) => 3i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {Baz{value:3} => 3i8}), key_error);
-        assert_eq!(crate::to_string(&hashmap! {E::N(0) => 3i8}), key_error);
-        assert_eq!(
-            crate::to_string(&hashmap! {E::S{r:0, g:0, b:0} => 3i8}),
+            crate::to_string(&hashmap! {[3_u8, 4_u8] => 3_i8}),
             key_error
         );
         assert_eq!(
-            crate::to_string(&hashmap! {E::S2{r:0, g:0, b:0} => 3i8}),
+            crate::to_string(&hashmap! {None as Option<u8> => 3_i8}),
+            key_error
+        );
+        assert_eq!(crate::to_string(&hashmap! {Some(3_u8) => 3_i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {() => 3_i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {(3, 4) => 3_i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {[3, 4] => 3_i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {Foo => 3_i8}), key_error);
+        assert_eq!(crate::to_string(&hashmap! {Bar2(3, 3) => 3_i8}), key_error);
+        assert_eq!(
+            crate::to_string(&hashmap! {Baz{value:3} => 3_i8}),
+            key_error
+        );
+        assert_eq!(crate::to_string(&hashmap! {E::N(0) => 3_i8}), key_error);
+        assert_eq!(
+            crate::to_string(&hashmap! {E::S{r:0, g:0, b:0} => 3_i8}),
             key_error
         );
         assert_eq!(
-            crate::to_string(&hashmap! {E::T(0, 0, 0) => 3i8}),
+            crate::to_string(&hashmap! {E::S2{r:0, g:0, b:0} => 3_i8}),
             key_error
         );
         assert_eq!(
-            crate::to_string(&hashmap! {vec![0, 0, 0] => 3i8}),
+            crate::to_string(&hashmap! {E::T(0, 0, 0) => 3_i8}),
+            key_error
+        );
+        assert_eq!(
+            crate::to_string(&hashmap! {vec![0, 0, 0] => 3_i8}),
             key_error
         );
         let mut m = BTreeMap::new();
-        m.insert("value", 3u8);
-        assert_eq!(crate::to_string(&hashmap! {m => 3i8}), key_error);
+        m.insert("value", 3_u8);
+        assert_eq!(crate::to_string(&hashmap! {m => 3_i8}), key_error);
 
         // f32 and f64 do not implement std::cmp:Eq nor Hash traits
         // assert_eq!(crate::to_string(&hashmap! {3f32 => 3i8}), key_error);
         // assert_eq!(crate::to_string(&hashmap! {3f64 => 3i8}), key_error);
 
         let mut input = std::collections::HashMap::new();
-        input.insert(128u8, "3");
+        input.insert(128_u8, "3");
         let mut input_str = crate::to_string(&input).unwrap();
         assert_eq!(input_str, sto_string(&input).unwrap());
         assert_eq!(
@@ -843,24 +853,24 @@ mod test {
         );
         assert_eq!(
             crate::from_str::<HashMap<Option<u8>, String>>(&mut input_str),
-            Ok(hashmap! {Some(128u8) => "3".to_string()})
+            Ok(hashmap! {Some(128_u8) => "3".to_string()})
         );
 
-        ser_deser_map!('c' => 3i8, HashMap<char, i8>);
-        ser_deser_map!(3i8 => 3i8, HashMap<i8, i8>);
-        ser_deser_map!(3i16 => 3i8, HashMap<i16, i8>);
-        ser_deser_map!(3i32 => 3i8, HashMap<i32, i8>);
-        ser_deser_map!(3i64 => 3i8, HashMap<i64, i8>);
-        ser_deser_map!(3u8 => 3i8, HashMap<u8, i8>);
-        ser_deser_map!(3u16 => 3i8, HashMap<u16, i8>);
-        ser_deser_map!(3u32 => 3i8, HashMap<u32, i8>);
-        ser_deser_map!(3u64 => 3i8, HashMap<u64, i8>);
+        ser_deser_map!('c' => 3_i8, HashMap<char, i8>);
+        ser_deser_map!(3_i8 => 3_i8, HashMap<i8, i8>);
+        ser_deser_map!(3_i16 => 3_i8, HashMap<i16, i8>);
+        ser_deser_map!(3_i32 => 3_i8, HashMap<i32, i8>);
+        ser_deser_map!(3_i64 => 3_i8, HashMap<i64, i8>);
+        ser_deser_map!(3_u8 => 3_i8, HashMap<u8, i8>);
+        ser_deser_map!(3_u16 => 3_i8, HashMap<u16, i8>);
+        ser_deser_map!(3_u32 => 3_i8, HashMap<u32, i8>);
+        ser_deser_map!(3_u64 => 3_i8, HashMap<u64, i8>);
         #[cfg(feature = "128bit")]
         {
-            ser_deser_map!(3i128 => 3i8, HashMap<i128, i8>);
-            ser_deser_map!(3u128 => 3i8, HashMap<u128, i8>);
+            ser_deser_map!(3_i128 => 3_i8, HashMap<i128, i8>);
+            ser_deser_map!(3_u128 => 3_i8, HashMap<u128, i8>);
         }
-        ser_deser_map!(Bar1(1) => 3i8, HashMap<Bar1, i8>);
-        ser_deser_map!(E::R => 3i8, HashMap<E, i8>);
+        ser_deser_map!(Bar1(1) => 3_i8, HashMap<Bar1, i8>);
+        ser_deser_map!(E::R => 3_i8, HashMap<E, i8>);
     }
 }

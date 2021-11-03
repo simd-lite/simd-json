@@ -26,7 +26,7 @@ impl<'value> Serialize for Value<'value> {
             Value::Static(StaticNode::I64(i)) => serializer.serialize_i64(*i),
             #[cfg(feature = "128bit")]
             Value::Static(StaticNode::I128(i)) => serializer.serialize_i128(*i),
-            Value::String(s) => serializer.serialize_str(&s),
+            Value::String(s) => serializer.serialize_str(s),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
                 for e in v {
@@ -37,7 +37,7 @@ impl<'value> Serialize for Value<'value> {
             Value::Object(m) => {
                 let mut map = serializer.serialize_map(Some(m.len()))?;
                 for (k, v) in m.iter() {
-                    let k: &str = &k;
+                    let k: &str = k;
                     map.serialize_entry(k, v)?;
                 }
                 map.end()
@@ -687,28 +687,28 @@ mod test {
     fn null() {
         let v = Value::Static(crate::StaticNode::Null);
         let s = serde_json::to_string(&v).expect("Failed to serialize");
-        assert_eq!(s, "null")
+        assert_eq!(s, "null");
     }
 
     #[test]
     fn bool_true() {
         let v = Value::Static(StaticNode::Bool(true));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
-        assert_eq!(s, "true")
+        assert_eq!(s, "true");
     }
 
     #[test]
     fn bool_false() {
         let v = Value::Static(StaticNode::Bool(false));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
-        assert_eq!(s, "false")
+        assert_eq!(s, "false");
     }
 
     #[test]
     fn float() {
         let v = Value::Static(StaticNode::F64(1.0));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
-        assert_eq!(s, "1.0")
+        assert_eq!(s, "1.0");
     }
 
     #[test]
@@ -726,7 +726,7 @@ mod test {
     fn int() {
         let v = Value::Static(StaticNode::I64(42));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
-        assert_eq!(s, "42")
+        assert_eq!(s, "42");
     }
 
     #[test]
@@ -736,7 +736,7 @@ mod test {
             Value::Static(StaticNode::I64(23)),
         ]);
         let s = serde_json::to_string(&v).expect("Failed to serialize");
-        assert_eq!(s, "[42,23]")
+        assert_eq!(s, "[42,23]");
     }
 
     #[test]
@@ -746,7 +746,7 @@ mod test {
         m.insert("b".into(), Value::from(23));
         let v = Value::Object(Box::new(m));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
-        assert_eq!(s, r#"{"a":42,"b":23}"#)
+        assert_eq!(s, r#"{"a":42,"b":23}"#);
     }
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]

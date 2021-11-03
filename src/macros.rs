@@ -443,7 +443,7 @@ macro_rules! json_internal_owned {
     // Any Serialize type: numbers, strings, struct literals, variables etc.
     // Must be below every other rule.
     ($other:expr) => {
-        $crate::serde::to_owned_value(&$other).unwrap()
+        $crate::serde::to_owned_value(&$other).expect("serde::to_owned_value")
     };
 }
 
@@ -924,7 +924,7 @@ macro_rules! json_internal_borrowed {
     // Any Serialize type: numbers, strings, struct literals, variables etc.
     // Must be below every other rule.
     ($other:expr) => {
-        $crate::serde::to_borrowed_value(&$other).unwrap()
+        $crate::serde::to_borrowed_value(&$other).expect("serde::to_borrowed_value")
     };
 }
 
@@ -1282,7 +1282,7 @@ macro_rules! stry {
 #[cfg(test)]
 mod test {
     use crate::prelude::*;
-    use crate::*;
+    use crate::{json, json_typed, BorrowedValue, OwnedValue};
     #[test]
     fn array() {
         let v: OwnedValue = json!(vec![1]);

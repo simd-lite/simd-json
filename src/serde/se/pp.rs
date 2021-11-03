@@ -729,15 +729,15 @@ mod test {
 
         #[test]
         fn prop_json_encode_decode(val in arb_json_value()) {
-            let mut encoded = crate::to_vec_pretty(&val).unwrap();
+            let mut encoded = crate::to_vec_pretty(&val).expect("to_vec_pretty");
             println!("{}", String::from_utf8_lossy(&encoded.clone()));
             let res: Value = crate::from_slice(encoded.as_mut_slice()).expect("can't convert");
             assert_eq!(val, res);
         }
         #[test]
         fn prop_serd_compat(val in arb_json_value()) {
-            let simd = crate::to_string_pretty(&val).unwrap();
-            let serde = serde_json::to_string_pretty(&val).unwrap();
+            let simd = crate::to_string_pretty(&val).expect("to_string_pretty");
+            let serde = serde_json::to_string_pretty(&val).expect("to_string_pretty");
             assert_eq!(simd, serde);
         }
     }
