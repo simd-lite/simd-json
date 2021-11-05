@@ -635,42 +635,44 @@ mod test {
         assert!(!is_valid_null_atom(b"nul     "));
         assert!(!is_valid_null_atom(b" ull    "));
     }
+
+    #[cfg(feature = "serde_impl")]
     #[test]
     fn parsing_errors() {
         assert_eq!(
-            crate::from_slice::<bool>(&mut b"time".to_vec()),
+            crate::serde::from_slice::<bool>(&mut b"time".to_vec()),
             Err(Error::new(0, 't', ErrorType::ExpectedNull))
         );
         assert_eq!(
-            crate::from_slice::<bool>(&mut b"falsy".to_vec()),
+            crate::serde::from_slice::<bool>(&mut b"falsy".to_vec()),
             Err(Error::new(0, 'f', ErrorType::ExpectedNull))
         );
         assert_eq!(
-            crate::from_slice::<bool>(&mut b"new".to_vec()),
+            crate::serde::from_slice::<bool>(&mut b"new".to_vec()),
             Err(Error::new(0, 'n', ErrorType::ExpectedNull))
         );
         assert_eq!(
-            crate::from_slice::<bool>(&mut b"[true, time]".to_vec()),
+            crate::serde::from_slice::<bool>(&mut b"[true, time]".to_vec()),
             Err(Error::new(7, 't', ErrorType::ExpectedBoolean))
         );
         assert_eq!(
-            crate::from_slice::<bool>(&mut b"[true, falsy]".to_vec()),
+            crate::serde::from_slice::<bool>(&mut b"[true, falsy]".to_vec()),
             Err(Error::new(7, 'f', ErrorType::ExpectedBoolean))
         );
         assert_eq!(
-            crate::from_slice::<bool>(&mut b"[null, new]".to_vec()),
+            crate::serde::from_slice::<bool>(&mut b"[null, new]".to_vec()),
             Err(Error::new(7, 'n', ErrorType::ExpectedNull))
         );
         assert_eq!(
-            crate::from_slice::<bool>(&mut br#"{"1":time}"#.to_vec()),
+            crate::serde::from_slice::<bool>(&mut br#"{"1":time}"#.to_vec()),
             Err(Error::new(5, 't', ErrorType::ExpectedBoolean))
         );
         assert_eq!(
-            crate::from_slice::<bool>(&mut br#"{"0":falsy}"#.to_vec()),
+            crate::serde::from_slice::<bool>(&mut br#"{"0":falsy}"#.to_vec()),
             Err(Error::new(5, 'f', ErrorType::ExpectedBoolean))
         );
         assert_eq!(
-            crate::from_slice::<bool>(&mut br#"{"0":new}"#.to_vec()),
+            crate::serde::from_slice::<bool>(&mut br#"{"0":new}"#.to_vec()),
             Err(Error::new(5, 'n', ErrorType::ExpectedNull))
         );
     }
