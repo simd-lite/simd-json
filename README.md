@@ -1,4 +1,4 @@
-# SIMD Json for Rust &emsp; [![Build Status]][simd-json.rs] [![Build Status ARM]][drone.io] [![Quality]][simd-json.rs]  [![Latest Version]][crates.io] [![Code Coverage]][codecov.io]
+# SIMD Json for Rust &emsp; [![Build Status]][simd-json.rs] [![Build Status ARM]][drone.io] [![Quality]][simd-json.rs]  [![Latest Version]][crates.io] [![Code Coverage]][coveralls]
 
 [Build Status ARM]: https://cloud.drone.io/api/badges/simd-lite/simd-json/status.svg
 [drone.io]: https://cloud.drone.io/simd-lite/simd-json
@@ -7,8 +7,8 @@
 [simd-json.rs]: https://simd-json.rs
 [Latest Version]: https://img.shields.io/crates/v/simd-json.svg
 [crates.io]: https://crates.io/crates/simd-json
-[Code Coverage]: https://codecov.io/gh/simd-lite/simd-json/badge.svg
-[codecov.io]: https://codecov.io/gh/simd-lite/simd-json
+[Code Coverage]: https://coveralls.io/repos/github/simd-lite/simd-json/badge.svg?branch=main
+[coveralls]: https://coveralls.io/github/simd-lite/simd-json?branch=main
 
 **Rust port of extremely fast [simdjson](https://github.com/lemire/simdjson) JSON parser with [serde][1] compatibility.**
 
