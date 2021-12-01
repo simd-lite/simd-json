@@ -718,7 +718,6 @@ where
     where
         T: serde_ext::Serialize,
     {
-        dbg!();
         iomap!(self
             .write(b"{")
             .and_then(|_| self.write_simple_string(variant))
