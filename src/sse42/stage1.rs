@@ -73,6 +73,7 @@ impl Stage1Parse<__m128i> for SimdInput {
 
     #[cfg(not(target_feature = "pclmulqdq"))]
     fn compute_quote_mask(mut quote_bits: u64) -> u64 {
+        #[allow(clippy::cast_sign_loss)]
         let b = -1_i64 as u64;
         let mut prod = 0;
 
