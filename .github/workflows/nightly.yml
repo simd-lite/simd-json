@@ -3,7 +3,7 @@ name: Tests - Nightly
 on: [push, pull_request]
 
 jobs:
-  build:
+  build-nightly:
     strategy:
       matrix:
         os:
