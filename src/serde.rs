@@ -314,7 +314,7 @@ impl TryInto<serde_json::Value> for OwnedValue {
             Self::String(b) => Value::String(b),
             Self::Array(a) => Value::Array(
                 a.into_iter()
-                    .map(|v| v.try_into())
+                    .map(TryInto::try_into)
                     .collect::<ConvertResult<Vec<Value>>>()?,
             ),
             Self::Object(o) => Value::Object(
@@ -380,7 +380,7 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
             BorrowedValue::String(b) => Value::String(b.to_string()),
             BorrowedValue::Array(a) => Value::Array(
                 a.into_iter()
-                    .map(|v| v.try_into())
+                    .map(TryInto::try_into)
                     .collect::<ConvertResult<Vec<Value>>>()?,
             ),
             BorrowedValue::Object(o) => Value::Object(

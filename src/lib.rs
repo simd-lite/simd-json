@@ -216,7 +216,7 @@ mod stage2;
 /// simd-json JSON-DOM value
 pub mod value;
 
-use std::mem;
+use std::{alloc::dealloc, mem};
 pub use value_trait::StaticNode;
 
 pub use crate::error::{Error, ErrorType};
@@ -669,7 +669,10 @@ impl<'de> Deserializer<'de> {
 
 /// SIMD aligned buffer
 pub struct AlignedBuf {
-    inner: Vec<u8>,
+    layout: Layout,
+    capacity: usize,
+    len: usize,
+    inner: NonNull<u8>,
 }
 
 impl AlignedBuf {
@@ -683,31 +686,56 @@ impl AlignedBuf {
         if mem::size_of::<usize>() < 8 && capacity > isize::MAX as usize {
             Self::capacity_overflow()
         }
-        let ptr = match unsafe { NonNull::new(alloc(layout)) } {
+        let inner = match unsafe { NonNull::new(alloc(layout)) } {
             Some(ptr) => ptr,
             None => handle_alloc_error(layout),
         };
         Self {
-            inner: unsafe { Vec::from_raw_parts(ptr.as_ptr(), 0, capacity) },
+            layout,
+            capacity,
+            len: 0,
+            inner,
         }
     }
 
     fn capacity_overflow() -> ! {
         panic!("capacity overflow");
     }
+    fn capacity(&self) -> usize {
+        self.capacity
+    }
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        unsafe { std::slice::from_raw_parts_mut(self.inner.as_ptr(), self.len) }
+    }
+    unsafe fn set_len(&mut self, n: usize) {
+        assert!(
+            n <= self.capacity,
+            "New size ({}) can not be larger then capacity ({}).",
+            n,
+            self.capacity
+        );
+        self.len = n;
+    }
+}
+impl Drop for AlignedBuf {
+    fn drop(&mut self) {
+        unsafe {
+            dealloc(self.inner.as_ptr(), self.layout);
+        }
+    }
 }
 
 impl Deref for AlignedBuf {
-    type Target = Vec<u8>;
+    type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        unsafe { std::slice::from_raw_parts(self.inner.as_ptr(), self.len) }
     }
 }
 
 impl DerefMut for AlignedBuf {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+        unsafe { std::slice::from_raw_parts_mut(self.inner.as_ptr(), self.len) }
     }
 }
 
