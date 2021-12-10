@@ -14,7 +14,7 @@ where
     // deserialize as. Not all data formats are able to support this operation.
     // Formats that support `deserialize_any` are known as self-describing.
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -29,8 +29,8 @@ where
             Node::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
             #[cfg(feature = "128bit")]
             Node::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
-            Node::Array(len, _) => visitor.visit_seq(CommaSeparated::new(&mut self, len as usize)),
-            Node::Object(len, _) => visitor.visit_map(CommaSeparated::new(&mut self, len as usize)),
+            Node::Array(len, _) => visitor.visit_seq(CommaSeparated::new(self, len as usize)),
+            Node::Object(len, _) => visitor.visit_map(CommaSeparated::new(self, len as usize)),
         }
     }
 
@@ -229,14 +229,14 @@ where
     // passing the visitor an "Access" object that gives it the ability to
     // iterate through the data contained in the sequence.
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
         if let Ok(Node::Array(len, _)) = self.next() {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
+            visitor.visit_seq(CommaSeparated::new(self, len as usize))
         } else {
             Err(Deserializer::error(ErrorType::ExpectedArray))
         }
@@ -292,14 +292,14 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         // Parse the opening bracket of the sequence.
         if let Ok(Node::Object(len, _)) = self.next() {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
+            visitor.visit_map(CommaSeparated::new(self, len as usize))
         } else {
             Err(Deserializer::error(ErrorType::ExpectedMap))
         }
@@ -307,7 +307,7 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_struct<V>(
-        mut self,
+        self,
         _name: &'static str,
         _fields: &'static [&'static str],
         visitor: V,
@@ -317,19 +317,15 @@ where
     {
         match self.next() {
             // Give the visitor access to each element of the sequence.
-            Ok(Node::Object(len, _)) => {
-                visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
-            }
-            Ok(Node::Array(len, _)) => {
-                visitor.visit_seq(CommaSeparated::new(&mut self, len as usize))
-            }
+            Ok(Node::Object(len, _)) => visitor.visit_map(CommaSeparated::new(self, len as usize)),
+            Ok(Node::Array(len, _)) => visitor.visit_seq(CommaSeparated::new(self, len as usize)),
             _ => Err(Deserializer::error(ErrorType::ExpectedMap)),
         }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_enum<V>(
-        mut self,
+        self,
         _name: &'static str,
         _variants: &'static [&'static str],
         visitor: V,
@@ -341,7 +337,7 @@ where
         match self.next() {
             Ok(Node::Object(len, _)) => {
                 // Give the visitor access to each element of the sequence.
-                visitor.visit_map(CommaSeparated::new(&mut self, len as usize))
+                visitor.visit_map(CommaSeparated::new(self, len as usize))
             }
             Ok(Node::String(s)) => visitor.visit_enum(s.into_deserializer()),
             _ => Err(Deserializer::error(ErrorType::ExpectedMap)),
