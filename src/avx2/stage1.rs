@@ -59,7 +59,6 @@ impl SimdInput {
 
 impl Stage1Parse<__m256i> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
     #[allow(clippy::cast_sign_loss)]
     fn compute_quote_mask(quote_bits: u64) -> u64 {
         unsafe {
