@@ -674,7 +674,14 @@ pub struct AlignedBuf {
     len: usize,
     inner: NonNull<u8>,
 }
+// We use allow Sync + Send here since we know u8 is sync and send
+// we never reallocate or grow this buffer only allocate it in
+// create then deallocate it in drop.
+//
+// An example of this can be found [in the official rust docs](https://doc.rust-lang.org/nomicon/vec/vec-raw.html).
 
+unsafe impl Send for AlignedBuf {}
+unsafe impl Sync for AlignedBuf {}
 impl AlignedBuf {
     /// Creates a new buffer that is  aligned with the simd register size
     #[must_use]
@@ -741,11 +748,21 @@ impl DerefMut for AlignedBuf {
 
 #[cfg(test)]
 mod tests {
+
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::{owned::Value, to_borrowed_value, to_owned_value, Deserializer};
     use crate::tape::Node;
     use proptest::prelude::*;
     use value_trait::{StaticNode, Writable};
+
+    #[test]
+    fn test_send_sync() {
+        struct TestStruct<T: Sync + Send>(T);
+
+        let _ = TestStruct(super::AlignedBuf::with_capacity(0));
+
+        assert!(true)
+    }
 
     #[test]
     fn count1() {
