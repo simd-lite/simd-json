@@ -210,7 +210,7 @@ use simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
         target_feature = "neon"
     ))
 ))]
-fn please_compile_with_a_simd_compatible_cpu_setting_read_the_simdjonsrs_readme() -> ! {}
+fn please_compile_with_a_simd_compatible_cpu_setting_read_the_simdjsonrs_readme() -> ! {}
 
 mod stage2;
 /// simd-json JSON-DOM value
