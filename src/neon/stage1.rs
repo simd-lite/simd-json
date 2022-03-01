@@ -11,15 +11,6 @@ pub(crate) unsafe fn bit_mask() -> uint8x16_t {
     ])
 }
 
-// FIXME this needs to be upstream
-//
-// vtstq_u8
-// vmovq_n_s8
-
-pub unsafe fn vtstq_u8(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
-    vcgtq_u8(vandq_u8(a, b), vdupq_n_u8(0))
-}
-
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub unsafe fn neon_movemask_bulk(
     p0: uint8x16_t,

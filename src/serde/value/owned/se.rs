@@ -642,7 +642,9 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
 
 #[cfg(test)]
 mod test {
-    use crate::serde::{from_slice, from_str, to_string};
+    use crate::serde::from_slice;
+    #[cfg(not(target_arch = "wasm32"))]
+    use crate::serde::{from_str, to_string};
     /*
     use crate::{
         owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
@@ -729,7 +731,9 @@ mod test {
         assert_eq!(vec, vec3);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
+    #[cfg(not(target_arch = "wasm32"))]
     prop_compose! {
       fn obj_case()(
         v_i128 in any::<i64>().prop_map(i128::from),
@@ -775,6 +779,7 @@ mod test {
       }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     proptest! {
         #![proptest_config(ProptestConfig {
             .. ProptestConfig::default()

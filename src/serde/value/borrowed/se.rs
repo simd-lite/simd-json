@@ -793,7 +793,9 @@ mod test {
         assert_eq!(vec, vec3);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
+    #[cfg(not(target_arch = "wasm32"))]
     prop_compose! {
       fn obj_case()(
         v_i128 in any::<i64>().prop_map(i128::from),
@@ -831,6 +833,7 @@ mod test {
       }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     proptest! {
         #![proptest_config(ProptestConfig {
             .. ProptestConfig::default()

@@ -160,7 +160,7 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-#[cfg(target_feature = "neon")]
+#[cfg(any(target_feature = "neon", target_feature = "simd128"))]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
     let val: u64 = unsafe { *(chars.as_ptr() as *const u64) };
     //    memcpy(&val, chars, sizeof(u64));
