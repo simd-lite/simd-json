@@ -843,8 +843,10 @@ mod test {
         assert_eq!(Value::default(), Value::null());
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn arb_value() -> BoxedStrategy<Value<'static>> {
         let leaf = prop_oneof![
             Just(Value::Static(StaticNode::Null)),
@@ -878,6 +880,7 @@ mod test {
         .boxed()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     proptest! {
         #![proptest_config(ProptestConfig {
             .. ProptestConfig::default()

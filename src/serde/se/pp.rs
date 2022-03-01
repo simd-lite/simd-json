@@ -651,10 +651,13 @@ where
 
 #[cfg(test)]
 mod test {
+    #[cfg(not(target_arch = "wasm32"))]
     use crate::{OwnedValue as Value, StaticNode};
+    #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
 
     #[cfg(not(feature = "128bit"))]
+    #[cfg(not(target_arch = "wasm32"))]
     fn arb_json_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
             Just(Value::Static(StaticNode::Null)),
@@ -686,6 +689,7 @@ mod test {
     }
 
     #[cfg(feature = "128bit")]
+    #[cfg(not(target_arch = "wasm32"))]
     fn arb_json_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
             Just(Value::Static(StaticNode::Null)),
@@ -718,6 +722,7 @@ mod test {
         .boxed()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     proptest! {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies

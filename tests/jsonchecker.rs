@@ -1,5 +1,4 @@
-use std::fs::File;
-use std::io::Read;
+use std::{fs::File, io::Read};
 
 macro_rules! pass {
     ($file:ident) => {

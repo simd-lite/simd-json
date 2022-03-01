@@ -171,34 +171,42 @@ use crate::neon::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 #[cfg(target_feature = "neon")]
 use simdutf8::basic::imp::aarch64::neon::ChunkedUtf8ValidatorImp;
 
+#[cfg(target_feature = "simd128")]
+mod simd128;
+#[cfg(target_feature = "simd128")]
+pub use crate::simd128::deser::*;
+#[cfg(target_feature = "simd128")]
+use crate::simd128::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
+#[cfg(target_feature = "simd128")]
+use simdutf8::basic::imp::wasm32::simd128::ChunkedUtf8ValidatorImp;
+
 // We import this as generics
 #[cfg(all(not(any(
     target_feature = "sse4.2",
     target_feature = "avx2",
-    target_feature = "neon"
+    target_feature = "neon",
+    target_feature = "simd128"
 ))))]
 mod sse42;
 #[cfg(all(not(any(
     target_feature = "sse4.2",
     target_feature = "avx2",
-    target_feature = "neon"
-))))]
-#[cfg(all(not(any(
-    target_feature = "sse4.2",
-    target_feature = "avx2",
-    target_feature = "neon"
+    target_feature = "neon",
+    target_feature = "simd128"
 ))))]
 pub use crate::sse42::deser::*;
 #[cfg(all(not(any(
     target_feature = "sse4.2",
     target_feature = "avx2",
-    target_feature = "neon"
+    target_feature = "neon",
+    target_feature = "simd128"
 ))))]
 use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 #[cfg(all(not(any(
     target_feature = "sse4.2",
     target_feature = "avx2",
-    target_feature = "neon"
+    target_feature = "neon",
+    target_feature = "simd128"
 ))))]
 use simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
 
@@ -207,7 +215,8 @@ use simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
     not(any(
         target_feature = "sse4.2",
         target_feature = "avx2",
-        target_feature = "neon"
+        target_feature = "neon",
+        target_feature = "simd128"
     ))
 ))]
 fn please_compile_with_a_simd_compatible_cpu_setting_read_the_simdjsonrs_readme() -> ! {}
@@ -750,10 +759,15 @@ impl DerefMut for AlignedBuf {
 mod tests {
 
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
-    use super::{owned::Value, to_borrowed_value, to_owned_value, Deserializer};
+    #[cfg(not(target_arch = "wasm32"))]
+    use super::to_borrowed_value;
+    use super::{owned::Value, to_owned_value, Deserializer};
     use crate::tape::Node;
+    #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
-    use value_trait::{StaticNode, Writable};
+    #[cfg(not(target_arch = "wasm32"))]
+    use value_trait::StaticNode;
+    use value_trait::Writable;
 
     #[test]
     fn test_send_sync() {
@@ -865,6 +879,7 @@ mod tests {
         assert_eq!(v, parsed);
     }
     #[cfg(not(feature = "128bit"))]
+    #[cfg(not(target_arch = "wasm32"))]
     fn arb_json_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
             Just(Value::Static(StaticNode::Null)),
@@ -890,6 +905,7 @@ mod tests {
     }
 
     #[cfg(feature = "128bit")]
+    #[cfg(not(target_arch = "wasm32"))]
     fn arb_json_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
             Just(Value::Static(StaticNode::Null)),
@@ -916,6 +932,7 @@ mod tests {
         .boxed()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     proptest! {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies
@@ -958,6 +975,7 @@ mod tests_serde {
     use super::serde::from_slice;
     use super::{owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value};
     use halfbrown::HashMap;
+    #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
     use serde::Deserialize;
 
@@ -1721,6 +1739,7 @@ mod tests_serde {
     }
 
     //6.576692109929364e305
+    #[cfg(not(target_arch = "wasm32"))]
     fn arb_json() -> BoxedStrategy<String> {
         let leaf = prop_oneof![
             Just(Value::Static(StaticNode::Null)),
@@ -1747,6 +1766,7 @@ mod tests_serde {
         .boxed()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     proptest! {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies
@@ -1782,9 +1802,11 @@ mod tests_serde {
 
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn arb_junk() -> BoxedStrategy<Vec<u8>> {
         prop::collection::vec(any::<u8>(), 0..(1024 * 8)).boxed()
     }
+    #[cfg(not(target_arch = "wasm32"))]
     proptest! {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies
@@ -1807,6 +1829,7 @@ mod tests_serde {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     proptest! {
         #![proptest_config(ProptestConfig {
             // Setting both fork and timeout is redundant since timeout implies
