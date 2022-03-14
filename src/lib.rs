@@ -1,5 +1,4 @@
 #![deny(warnings)]
-#![cfg_attr(target_feature = "neon", feature(stdsimd,))]
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
 #![deny(warnings)]
 #![warn(unused_extern_crates)]
@@ -181,33 +180,33 @@ use crate::simd128::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 use simdutf8::basic::imp::wasm32::simd128::ChunkedUtf8ValidatorImp;
 
 // We import this as generics
-#[cfg(all(not(any(
+#[cfg(not(any(
     target_feature = "sse4.2",
     target_feature = "avx2",
     target_feature = "neon",
     target_feature = "simd128"
-))))]
+)))]
 mod sse42;
-#[cfg(all(not(any(
+#[cfg(not(any(
     target_feature = "sse4.2",
     target_feature = "avx2",
     target_feature = "neon",
     target_feature = "simd128"
-))))]
+)))]
 pub use crate::sse42::deser::*;
-#[cfg(all(not(any(
+#[cfg(not(any(
     target_feature = "sse4.2",
     target_feature = "avx2",
     target_feature = "neon",
     target_feature = "simd128"
-))))]
+)))]
 use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
-#[cfg(all(not(any(
+#[cfg(not(any(
     target_feature = "sse4.2",
     target_feature = "avx2",
     target_feature = "neon",
     target_feature = "simd128"
-))))]
+)))]
 use simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
 
 #[cfg(all(
