@@ -96,6 +96,3 @@ lto = "thin"
 
 [profile.release]
 lto = "thin"
-
-[patch.crates-io.simdutf8]
-git = "https://github.com/rusticstuff/simdutf8.git"
