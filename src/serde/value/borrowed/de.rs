@@ -102,6 +102,18 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_newtype_struct<V>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_newtype_struct(self)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_struct<V>(
         self,
         _name: &'static str,
@@ -124,7 +136,7 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
 
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-            bytes byte_buf unit unit_struct newtype_struct seq tuple
+            bytes byte_buf unit unit_struct seq tuple
             tuple_struct map identifier ignored_any
     }
 }
@@ -607,6 +619,17 @@ impl<'de> de::Deserializer<'de> for &'de Value<'de> {
             visitor.visit_some(self)
         }
     }
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn deserialize_newtype_struct<V>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_newtype_struct(self)
+    }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_struct<V>(
@@ -664,7 +687,7 @@ impl<'de> de::Deserializer<'de> for &'de Value<'de> {
 
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-            bytes byte_buf unit unit_struct newtype_struct seq tuple
+            bytes byte_buf unit unit_struct seq tuple
             tuple_struct map identifier ignored_any
     }
 }
