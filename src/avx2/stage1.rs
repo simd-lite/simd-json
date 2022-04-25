@@ -174,7 +174,11 @@ impl Stage1Parse<__m256i> for SimdInput {
     // needs to be large enough to handle this
     //TODO: usize was u32 here does this matter?
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    #[allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
+    #[allow(
+        clippy::cast_possible_wrap,
+        clippy::cast_ptr_alignment,
+        clippy::uninit_vec
+    )]
     fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();

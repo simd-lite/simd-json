@@ -110,7 +110,12 @@ enum StackState {
 }
 
 impl<'de> Deserializer<'de> {
-    #[allow(clippy::cognitive_complexity, clippy::too_many_lines, unused_unsafe)]
+    #[allow(
+        clippy::cognitive_complexity,
+        clippy::too_many_lines,
+        unused_unsafe,
+        clippy::uninit_vec
+    )]
     pub(crate) fn build_tape(
         input: &'de mut [u8],
         input2: &[u8],

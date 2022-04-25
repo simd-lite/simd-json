@@ -422,6 +422,7 @@ impl<'de> Deserializer<'de> {
     /// # Errors
     ///
     /// Will return `Err` if `s` is invalid JSON.
+    #[allow(clippy::uninit_vec)]
     pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
         let len = input.len();
 
