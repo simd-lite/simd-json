@@ -9,7 +9,7 @@ description = "High performance JSON parser based on a port of simdjson"
 repository = "https://github.com/simd-lite/simd-json"
 readme = "README.md"
 documentation = "https://docs.rs/simd-json"
-rust-version = "1.59"
+rust-version = "1.49"
 
 [dependencies]
 beef = { version = "0.5", optional = true }
