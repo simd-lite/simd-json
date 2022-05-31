@@ -396,7 +396,6 @@ impl<'de> Deserializer<'de> {
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
     fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
-        use std::convert::TryFrom;
         let mut digitcount = if negative { 1 } else { 0 };
         let mut i: u128;
         let mut d = unsafe { *buf.get_unchecked(digitcount) };
