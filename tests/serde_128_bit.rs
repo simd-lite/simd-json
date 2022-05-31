@@ -4,8 +4,8 @@
 fn lgostash_int_bug() {
     use serde::Deserialize;
     use simd_json::serde::from_slice;
-    #[serde(untagged)]
     #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(untagged)]
     pub enum RawMessageMetricValue {
         Boolean(bool),
         Float(f64),
