@@ -25,7 +25,7 @@ serde_json = { version = "1", optional = true }
 alloc_counter = { version = "0.0.4", optional = true }
 colored = { version = "2.0", optional = true }
 getopts = { version = "0.2", optional = true }
-jemallocator = { version = "0.3", optional = true }
+jemallocator = { version = "0.5", optional = true }
 perfcnt = { version = "0.8", optional = true }
 
 # benchmarking
