@@ -1,5 +1,9 @@
-use crate::*;
-use std::arch::aarch64::*;
+use crate::{static_cast_i32, Stage1Parse};
+use std::arch::aarch64::{
+    int32x4_t, int8x16_t, uint8x16_t, vaddq_s32, vandq_u8, vceqq_u8, vcleq_u8, vdupq_n_s8,
+    vgetq_lane_u64, vld1q_u8, vmovq_n_u8, vmull_p64, vpaddq_u8, vqtbl1q_u8, vreinterpretq_u64_u8,
+    vreinterpretq_u8_s8, vshrq_n_u8, vtstq_u8,
+};
 use std::mem;
 
 // NEON-SPECIFIC
@@ -51,10 +55,10 @@ impl SimdInput {
     pub(crate) fn new(ptr: &[u8]) -> Self {
         unsafe {
             Self {
-                v0: vld1q_u8(ptr.as_ptr() as *const u8),
-                v1: vld1q_u8(ptr.as_ptr().add(16) as *const u8),
-                v2: vld1q_u8(ptr.as_ptr().add(32) as *const u8),
-                v3: vld1q_u8(ptr.as_ptr().add(48) as *const u8),
+                v0: vld1q_u8(ptr.as_ptr().cast::<u8>()),
+                v1: vld1q_u8(ptr.as_ptr().add(16).cast::<u8>()),
+                v2: vld1q_u8(ptr.as_ptr().add(32).cast::<u8>()),
+                v3: vld1q_u8(ptr.as_ptr().add(48).cast::<u8>()),
             }
         }
     }
@@ -66,8 +70,8 @@ impl Stage1Parse<int8x16_t> for SimdInput {
         unsafe {
             vgetq_lane_u64(
                 vreinterpretq_u64_u8(mem::transmute(vmull_p64(
-                    mem::transmute(-1 as i64),
-                    mem::transmute(quote_bits as i64),
+                    mem::transmute(-1_i64),
+                    mem::transmute(quote_bits),
                 ))),
                 0,
             )
@@ -178,7 +182,11 @@ impl Stage1Parse<int8x16_t> for SimdInput {
     // needs to be large enough to handle this
     //TODO: usize was u32 here does this matter?
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    #[allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
+    #[allow(
+        clippy::cast_possible_wrap,
+        clippy::cast_ptr_alignment,
+        clippy::uninit_vec
+    )]
     fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
@@ -215,7 +223,7 @@ impl Stage1Parse<int8x16_t> for SimdInput {
 
                 let v: int32x4_t = mem::transmute([v0, v1, v2, v3]);
                 let v: int32x4_t = vaddq_s32(idx_64_v, v);
-                std::ptr::write(base.as_mut_ptr().add(l) as *mut int32x4_t, v);
+                std::ptr::write(base.as_mut_ptr().add(l).cast::<int32x4_t>(), v);
             }
             l += 4;
         }
