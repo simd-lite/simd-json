@@ -39,20 +39,6 @@ macro_rules! get {
     }};
 }
 
-#[cfg(feature = "safe")]
-macro_rules! get_mut {
-    ($a:expr, $i:expr) => {
-        &mut $a[$i]
-    };
-}
-
-#[cfg(not(feature = "safe"))]
-macro_rules! get_mut {
-    ($a:expr, $i:expr) => {{
-        unsafe { $a.get_unchecked_mut($i) }
-    }};
-}
-
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 #[allow(clippy::cast_ptr_alignment, unused_unsafe)]
 pub fn is_valid_false_atom(loc: &[u8]) -> bool {
@@ -126,10 +112,6 @@ impl<'de> Deserializer<'de> {
         // a invalid json might exceed this `[[[[[[` and we need to protect against that.
         let mut res: Vec<Node<'de>> = Vec::with_capacity(structural_indexes.len());
         let mut stack = Vec::with_capacity(structural_indexes.len());
-        unsafe {
-            stack.set_len(structural_indexes.len());
-            res.set_len(structural_indexes.len());
-        }
 
         let mut depth: usize = 0;
         let mut last_start = 1;
@@ -166,7 +148,7 @@ impl<'de> Deserializer<'de> {
         macro_rules! insert_res {
             ($t:expr) => {
                 unsafe {
-                    std::ptr::write(get_mut!(res, r_i), $t);
+                    res.as_mut_ptr().add(r_i).write($t);
                     r_i += 1;
                 }
             };
@@ -175,8 +157,8 @@ impl<'de> Deserializer<'de> {
             () => {
                 unsafe {
                     res.set_len(r_i);
-                    return Ok(res);
                 }
+                return Ok(res);
             };
         }
         macro_rules! update_char {
@@ -308,7 +290,10 @@ impl<'de> Deserializer<'de> {
         update_char!();
         match c {
             b'{' => {
-                *get_mut!(stack, depth) = (StackState::Start, last_start, cnt);
+                unsafe {
+                    let s: *mut (StackState, usize, usize) = stack.as_mut_ptr();
+                    s.add(depth).write((StackState::Start, last_start, cnt));
+                }
 
                 last_start = r_i;
                 insert_res!(Node::Object(0, 0));
@@ -332,7 +317,10 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'[' => {
-                *get_mut!(stack, depth) = (StackState::Start, last_start, cnt);
+                unsafe {
+                    let s: *mut (StackState, usize, usize) = stack.as_mut_ptr();
+                    s.add(depth).write((StackState::Start, last_start, cnt));
+                }
 
                 last_start = r_i;
                 insert_res!(Node::Array(0, 0));
@@ -474,8 +462,8 @@ impl<'de> Deserializer<'de> {
                         }
                         b'{' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) =
-                                    (StackState::Object, last_start, cnt);
+                                let s: *mut (StackState, usize, usize) = stack.as_mut_ptr();
+                                s.add(depth).write((StackState::Object, last_start, cnt));
                             }
                             last_start = r_i;
                             insert_res!(Node::Object(0, 0));
@@ -485,8 +473,8 @@ impl<'de> Deserializer<'de> {
                         }
                         b'[' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) =
-                                    (StackState::Object, last_start, cnt);
+                                let s: *mut (StackState, usize, usize) = stack.as_mut_ptr();
+                                s.add(depth).write((StackState::Object, last_start, cnt));
                             }
                             last_start = r_i;
                             insert_res!(Node::Array(0, 0));
@@ -506,7 +494,7 @@ impl<'de> Deserializer<'de> {
                     }
                     depth -= 1;
                     unsafe {
-                        match res.get_unchecked_mut(last_start) {
+                        match *res.as_mut_ptr().add(last_start) {
                             Node::Array(ref mut len, ref mut end)
                             | Node::Object(ref mut len, ref mut end) => {
                                 *len = cnt;
@@ -515,24 +503,23 @@ impl<'de> Deserializer<'de> {
                             _ => unreachable!(),
                         };
                     }
+                    unsafe {
+                        let a = stack.as_ptr().add(depth);
 
-                    let (a_state, a_last_start, a_cnt) = unsafe { stack.get_unchecked(depth) };
-                    //                    let (a_state, a_last_start, a_cnt) = unsafe {  };
-                    //s2try!(stack.pop().ok_or_else(|| Error::generic(ErrorType::Syntax)));
+                        last_start = (*a).1;
+                        cnt = (*a).2;
 
-                    last_start = *a_last_start;
-                    cnt = *a_cnt;
-
-                    match &a_state {
-                        StackState::Object => object_continue!(),
-                        StackState::Array => array_continue!(),
-                        StackState::Start => {
-                            if i == structural_indexes.len() {
-                                success!();
+                        match (*a).0 {
+                            StackState::Object => object_continue!(),
+                            StackState::Array => array_continue!(),
+                            StackState::Start => {
+                                if i == structural_indexes.len() {
+                                    success!();
+                                }
+                                fail!();
                             }
-                            fail!();
-                        }
-                    };
+                        };
+                    }
                 }
 
                 ////////////////////////////// ARRAY STATES /////////////////////////////
@@ -583,8 +570,8 @@ impl<'de> Deserializer<'de> {
                         }
                         b'{' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) =
-                                    (StackState::Array, last_start, cnt);
+                                let s: *mut (StackState, usize, usize) = stack.as_mut_ptr();
+                                s.add(depth).write((StackState::Array, last_start, cnt));
                             }
                             last_start = r_i;
                             insert_res!(Node::Object(0, 0));
@@ -594,8 +581,8 @@ impl<'de> Deserializer<'de> {
                         }
                         b'[' => {
                             unsafe {
-                                *stack.get_unchecked_mut(depth) =
-                                    (StackState::Array, last_start, cnt);
+                                let s: *mut (StackState, usize, usize) = stack.as_mut_ptr();
+                                s.add(depth).write((StackState::Array, last_start, cnt));
                             }
                             last_start = r_i;
                             insert_res!(Node::Array(0, 0));

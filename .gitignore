@@ -6,3 +6,4 @@ proptest-regressions
 .baseline
 .current
 .cargo
+.vscode
