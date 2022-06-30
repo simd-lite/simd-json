@@ -27,7 +27,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all
-  tarpaulin:
+  coverage:
     strategy:
       matrix:
         rustflags:
@@ -50,30 +50,26 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config cmake zlib1g-dev
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
-          override: true
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
+          toolchain: stable        
+          profile: minimal
+          components: llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Run codecov
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
           PROPTEST_CASES: 512
+        run: cargo llvm-cov --lcov --output-path lcov.txt --features no-inline${{ matrix.features }}
+      - name: Generate matrix name
+        run: |
+              flags="${{ matrix.rustflags }}${{ matrix.features }}"
+              flags="${flags/-C target-feature=/}"
+              flags="${flags//[- ]/}"
+              echo "$flags"
+              echo "flags=$flags" >> $GITHUB_ENV
+      - uses: codecov/codecov-action@v3
         with:
-          version: "0.18.0-alpha3"
-          args: "--features no-inline${{ matrix.features }} --out Lcov --ignore-tests"
-      - name: Coveralls GitHub Action
-        uses: coverallsapp/github-action@v1.1.2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel: true
-          flag-name: run-${{ matrix.rustflags }}-${{ matrix.features }}
-          path-to-lcov: ./lcov.info
-  finish:
-    needs:
-      - tarpaulin
-    runs-on: ubuntu-latest
-    steps:
-      - name: Coveralls Finished
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel-finished: true
+          files: ./lcov.txt # optional
+          flags: ${{ env.flags }} # optional
+          fail_ci_if_error: true # optional (default = false)
+          verbose: true # optional (default = false)
