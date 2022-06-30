@@ -2,6 +2,7 @@
 use crate::charutils::is_not_structural_or_whitespace;
 use crate::value::tape::Node;
 use crate::{Deserializer, Error, ErrorType, Result};
+use crate::safer_unchecked::GetSaferUnchecked;
 use value_trait::StaticNode;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -20,7 +21,7 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
         let locval: u64 = *(loc.as_ptr().cast::<u64>());
 
         error = (locval & MASK4) ^ TV;
-        error |= u64::from(is_not_structural_or_whitespace(*loc.get_unchecked(4)));
+        error |= u64::from(is_not_structural_or_whitespace(*loc.get_kinda_unchecked(4)));
     }
     error == 0
 }
@@ -35,7 +36,7 @@ macro_rules! get {
 #[cfg(not(feature = "safe"))]
 macro_rules! get {
     ($a:expr, $i:expr) => {{
-        unsafe { $a.get_unchecked($i) }
+        unsafe { $a.get_kinda_unchecked($i) }
     }};
 }
 

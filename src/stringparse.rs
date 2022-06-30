@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use crate::safer_unchecked::GetSaferUnchecked;
 use crate::charutils::{codepoint_to_utf8, hex_to_u32_nocheck};
 use crate::error::ErrorType;
 
@@ -38,19 +39,19 @@ pub(crate) fn handle_unicode_codepoint(
     // hex_to_u32_nocheck fills high 16 bits of the return value with 1s if the
     // conversion isn't valid; we defer the check for this to inside the
     // multilingual plane check
-    let mut code_point: u32 = hex_to_u32_nocheck(unsafe { src_ptr.get_unchecked(2..) });
-    src_ptr = unsafe { src_ptr.get_unchecked(6..) };
+    let mut code_point: u32 = hex_to_u32_nocheck(unsafe { src_ptr.get_kinda_unchecked(2..) });
+    src_ptr = unsafe { src_ptr.get_kinda_unchecked(6..) };
     let mut src_offset = 6;
     // check for low surrogate for characters outside the Basic
     // Multilingual Plane.
     if HIGH_SURROGATES.contains(&code_point) {
-        if (unsafe { *src_ptr.get_unchecked(0) } != b'\\')
-            || unsafe { *src_ptr.get_unchecked(1) } != b'u'
+        if (unsafe { *src_ptr.get_kinda_unchecked(0) } != b'\\')
+            || unsafe { *src_ptr.get_kinda_unchecked(1) } != b'u'
         {
             return Ok((0, src_offset));
         }
 
-        let code_point_2: u32 = hex_to_u32_nocheck(unsafe { src_ptr.get_unchecked(2..) });
+        let code_point_2: u32 = hex_to_u32_nocheck(unsafe { src_ptr.get_kinda_unchecked(2..) });
 
         // if the first code point is invalid we will get here, as we will go past
         // the check for being outside the Basic Multilingual plane. If we don't

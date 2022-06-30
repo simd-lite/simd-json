@@ -12,6 +12,7 @@ use std::arch::x86_64::{
 use std::mem;
 
 pub use crate::error::{Error, ErrorType};
+use crate::safer_unchecked::GetSaferUnchecked;
 use crate::stringparse::{handle_unicode_codepoint, ESCAPE_MAP};
 use crate::Deserializer;
 pub use crate::Result;
@@ -44,7 +45,7 @@ impl<'de> Deserializer<'de> {
         // This is safe since we check sub's length in the range access above and only
         // create sub sliced form sub to `sub.len()`.
 
-        let src: &[u8] = unsafe { data.get_unchecked(idx..) };
+        let src: &[u8] = unsafe { data.get_kinda_unchecked(idx..) };
         let mut src_i: usize = 0;
         let mut len = src_i;
         loop {
@@ -77,7 +78,7 @@ impl<'de> Deserializer<'de> {
 
                 len += quote_dist as usize;
                 unsafe {
-                    let v = input.get_unchecked(idx..idx + len) as *const [u8] as *const str;
+                    let v = input.get_kinda_unchecked(idx..idx + len) as *const [u8] as *const str;
                     return Ok(&*v);
                 }
 
@@ -142,10 +143,10 @@ impl<'de> Deserializer<'de> {
                 dst_i += quote_dist as usize;
                 unsafe {
                     input
-                        .get_unchecked_mut(idx + len..idx + len + dst_i)
-                        .clone_from_slice(buffer.get_unchecked(..dst_i));
+                        .get_kinda_unchecked_mut(idx + len..idx + len + dst_i)
+                        .clone_from_slice(buffer.get_kinda_unchecked(..dst_i));
                     let v =
-                        input.get_unchecked(idx..idx + len + dst_i) as *const [u8] as *const str;
+                        input.get_kinda_unchecked(idx..idx + len + dst_i) as *const [u8] as *const str;
                     return Ok(&*v);
                 }
 
@@ -155,7 +156,7 @@ impl<'de> Deserializer<'de> {
             if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
                 // find out where the backspace is
                 let bs_dist: u32 = bs_bits.trailing_zeros();
-                let escape_char: u8 = unsafe { *src.get_unchecked(src_i + bs_dist as usize + 1) };
+                let escape_char: u8 = unsafe { *src.get_kinda_unchecked(src_i + bs_dist as usize + 1) };
                 // we encountered backslash first. Handle backslash
                 if escape_char == b'u' {
                     // move src/dst up to the start; they will be further adjusted
@@ -163,8 +164,8 @@ impl<'de> Deserializer<'de> {
                     src_i += bs_dist as usize;
                     dst_i += bs_dist as usize;
                     let (o, s) = if let Ok(r) =
-                        handle_unicode_codepoint(unsafe { src.get_unchecked(src_i..) }, unsafe {
-                            buffer.get_unchecked_mut(dst_i..)
+                        handle_unicode_codepoint(unsafe { src.get_kinda_unchecked(src_i..) }, unsafe {
+                            buffer.get_kinda_unchecked_mut(dst_i..)
                         }) {
                         r
                     } else {
@@ -182,12 +183,12 @@ impl<'de> Deserializer<'de> {
                     // note this may reach beyond the part of the buffer we've actually
                     // seen. I think this is ok
                     let escape_result: u8 =
-                        unsafe { *ESCAPE_MAP.get_unchecked(escape_char as usize) };
+                        unsafe { *ESCAPE_MAP.get_kinda_unchecked(escape_char as usize) };
                     if escape_result == 0 {
                         return Err(Self::raw_error(src_i, escape_char as char, InvalidEscape));
                     }
                     unsafe {
-                        *buffer.get_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
+                        *buffer.get_kinda_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
                     }
                     src_i += bs_dist as usize + 2;
                     dst_i += bs_dist as usize + 1;
