@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::charutils::{codepoint_to_utf8, hex_to_u32_nocheck};
 use crate::error::ErrorType;
 
@@ -19,6 +21,9 @@ pub(crate) const ESCAPE_MAP: [u8; 256] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
+const HIGH_SURROGATES: Range<u32> = 0xd800..0xdc00;
+const LOW_SURROGATES: Range<u32> = 0xdc00..0xe000;
+
 /// handle a unicode codepoint
 /// write appropriate values into dest
 /// src will advance 6 bytes or 12 bytes
@@ -38,7 +43,7 @@ pub(crate) fn handle_unicode_codepoint(
     let mut src_offset = 6;
     // check for low surrogate for characters outside the Basic
     // Multilingual Plane.
-    if (0xd800..0xdc00).contains(&code_point) {
+    if HIGH_SURROGATES.contains(&code_point) {
         if (unsafe { *src_ptr.get_unchecked(0) } != b'\\')
             || unsafe { *src_ptr.get_unchecked(1) } != b'u'
         {
@@ -67,6 +72,9 @@ pub(crate) fn handle_unicode_codepoint(
         };
         code_point = ((c1 << 10) | c2) + 0x10000;
         src_offset += 6;
+    } else if LOW_SURROGATES.contains(&code_point) {
+        // This is a low surrogate on it's own, which is invalid.
+        return Err(ErrorType::InvalidUtf8);
     }
     let offset: usize = codepoint_to_utf8(code_point, dst_ptr);
     Ok((offset, src_offset))
