@@ -139,6 +139,9 @@ mod macros;
 mod error;
 mod numberparse;
 mod stringparse;
+mod safer_unchecked;
+
+use safer_unchecked::GetSaferUnchecked;
 
 /// Reexport of Cow
 pub mod cow;
@@ -481,9 +484,9 @@ impl<'de> Deserializer<'de> {
         unsafe {
             input_buffer
                 .as_mut_slice()
-                .get_unchecked_mut(..len)
+                .get_kinda_unchecked_mut(..len)
                 .clone_from_slice(input);
-            *(input_buffer.get_unchecked_mut(len)) = 0;
+            *(input_buffer.get_kinda_unchecked_mut(len)) = 0;
             input_buffer.set_len(len);
         };
 
@@ -519,7 +522,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub unsafe fn next_(&mut self) -> Node<'de> {
         self.idx += 1;
-        *self.tape.get_unchecked(self.idx)
+        *self.tape.get_kinda_unchecked(self.idx)
     }
 
     //#[inline(never)]
@@ -569,7 +572,7 @@ impl<'de> Deserializer<'de> {
               __builtin_prefetch(buf + idx + 128);
             #endif
              */
-            let chunk = input.get_unchecked(idx..idx + 64);
+            let chunk = input.get_kinda_unchecked(idx..idx + 64);
             utf8_validator.update_from_chunks(chunk);
 
             let input = SimdInput::new(chunk);

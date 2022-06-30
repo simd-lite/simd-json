@@ -65,6 +65,7 @@ pub use self::owned::{
     Value as OwnedValue,
 };
 use crate::{Deserializer, Result};
+use crate::safer_unchecked::GetSaferUnchecked;
 use halfbrown::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -131,7 +132,7 @@ where
         unsafe {
             res.set_len(len);
             for i in 0..len {
-                std::ptr::write(res.get_unchecked_mut(i), self.parse());
+                std::ptr::write(res.get_kinda_unchecked_mut(i), self.parse());
             }
         }
         Value::from(res)

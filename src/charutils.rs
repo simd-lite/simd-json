@@ -1,3 +1,5 @@
+use crate::safer_unchecked::GetSaferUnchecked;
+
 const STRUCTURAL_OR_WHITESPACE_NEGATED: [u32; 256] = [
     0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
@@ -22,12 +24,12 @@ const STRUCTURAL_OR_WHITESPACE: [u32; 256] = [
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_not_structural_or_whitespace(c: u8) -> u32 {
-    unsafe { *STRUCTURAL_OR_WHITESPACE_NEGATED.get_unchecked(c as usize) }
+    unsafe { *STRUCTURAL_OR_WHITESPACE_NEGATED.get_kinda_unchecked(c as usize) }
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_structural_or_whitespace(c: u8) -> u32 {
-    unsafe { *STRUCTURAL_OR_WHITESPACE.get_unchecked(c as usize) }
+    unsafe { *STRUCTURAL_OR_WHITESPACE.get_kinda_unchecked(c as usize) }
 }
 
 const DIGITTOVAL: [i8; 256] = [
@@ -55,10 +57,10 @@ pub fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
     // invalid value. After the shifts, this will *still* result in the outcome that the high 16 bits of any
     // value with any invalid char will be all 1's. We check for this in the caller.
     unsafe {
-        let v1: i32 = i32::from(*DIGITTOVAL.get_unchecked(*src.get_unchecked(0) as usize));
-        let v2: i32 = i32::from(*DIGITTOVAL.get_unchecked(*src.get_unchecked(1) as usize));
-        let v3: i32 = i32::from(*DIGITTOVAL.get_unchecked(*src.get_unchecked(2) as usize));
-        let v4: i32 = i32::from(*DIGITTOVAL.get_unchecked(*src.get_unchecked(3) as usize));
+        let v1: i32 = i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(0) as usize));
+        let v2: i32 = i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(1) as usize));
+        let v3: i32 = i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(2) as usize));
+        let v4: i32 = i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(3) as usize));
         (v1 << 12 | v2 << 8 | v3 << 4 | v4) as u32
     }
 }
@@ -80,27 +82,27 @@ pub fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
 pub fn codepoint_to_utf8(cp: u32, c: &mut [u8]) -> usize {
     unsafe {
         if cp <= 0x7F {
-            *c.get_unchecked_mut(0) = cp as u8;
+            *c.get_kinda_unchecked_mut(0) = cp as u8;
             return 1; // ascii
         }
         if cp <= 0x7FF {
-            *c.get_unchecked_mut(0) = ((cp >> 6) + 192) as u8;
-            *c.get_unchecked_mut(1) = ((cp & 63) + 128) as u8;
+            *c.get_kinda_unchecked_mut(0) = ((cp >> 6) + 192) as u8;
+            *c.get_kinda_unchecked_mut(1) = ((cp & 63) + 128) as u8;
             return 2; // universal plane
                       //  Surrogates are treated elsewhere...
                       //} //else if (0xd800 <= cp && cp <= 0xdfff) {
                       //  return 0; // surrogates // could put assert here
         } else if cp <= 0xFFFF {
-            *c.get_unchecked_mut(0) = ((cp >> 12) + 224) as u8;
-            *c.get_unchecked_mut(1) = (((cp >> 6) & 63) + 128) as u8;
-            *c.get_unchecked_mut(2) = ((cp & 63) + 128) as u8;
+            *c.get_kinda_unchecked_mut(0) = ((cp >> 12) + 224) as u8;
+            *c.get_kinda_unchecked_mut(1) = (((cp >> 6) & 63) + 128) as u8;
+            *c.get_kinda_unchecked_mut(2) = ((cp & 63) + 128) as u8;
             return 3;
         } else if cp <= 0x0010_FFFF {
             // if you know you have a valid code point, this is not needed
-            *c.get_unchecked_mut(0) = ((cp >> 18) + 240) as u8;
-            *c.get_unchecked_mut(1) = (((cp >> 12) & 63) + 128) as u8;
-            *c.get_unchecked_mut(2) = (((cp >> 6) & 63) + 128) as u8;
-            *c.get_unchecked_mut(3) = ((cp & 63) + 128) as u8;
+            *c.get_kinda_unchecked_mut(0) = ((cp >> 18) + 240) as u8;
+            *c.get_kinda_unchecked_mut(1) = (((cp >> 12) & 63) + 128) as u8;
+            *c.get_kinda_unchecked_mut(2) = (((cp >> 6) & 63) + 128) as u8;
+            *c.get_kinda_unchecked_mut(3) = ((cp & 63) + 128) as u8;
             return 4;
         }
     }
