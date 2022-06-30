@@ -1308,6 +1308,14 @@ mod tests_serde {
         //assert_eq!(v_serde, "\u{e}");
         //assert_eq!(v_simd, v_serde);
     }
+    #[test]
+    fn utf8_invalid_surrogates() {
+        // This is invalid UTF-8, the first character is a high surrogate
+        let mut d = String::from(r#""\uDE71""#);
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_simd: Result<serde_json::Value, _> = from_slice(&mut d);
+        assert!(v_simd.is_err());
+    }
 
     #[test]
     fn unicode() {
