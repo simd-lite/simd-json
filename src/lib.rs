@@ -482,11 +482,14 @@ impl<'de> Deserializer<'de> {
         }
 
         unsafe {
-            input_buffer
-                .as_mut_slice()
-                .get_kinda_unchecked_mut(..len)
-                .clone_from_slice(input);
-            *(input_buffer.get_kinda_unchecked_mut(len)) = 0;
+            std::ptr::copy_nonoverlapping(
+                input.as_ptr(),
+                input_buffer.as_mut_ptr(),
+                len,
+            );
+
+            input_buffer.as_mut_ptr().add(len).write(0);
+
             input_buffer.set_len(len);
         };
 
@@ -720,14 +723,15 @@ impl AlignedBuf {
         }
     }
 
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.inner.as_ptr()
+    }
+
     fn capacity_overflow() -> ! {
         panic!("capacity overflow");
     }
     fn capacity(&self) -> usize {
         self.capacity
-    }
-    fn as_mut_slice(&mut self) -> &mut [u8] {
-        unsafe { std::slice::from_raw_parts_mut(self.inner.as_ptr(), self.len) }
     }
     unsafe fn set_len(&mut self, n: usize) {
         assert!(
