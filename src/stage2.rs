@@ -8,6 +8,8 @@ use value_trait::StaticNode;
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 #[allow(clippy::cast_ptr_alignment)]
 pub fn is_valid_true_atom(loc: &[u8]) -> bool {
+    debug_assert!(loc.len() >= 8, "input too short to safely read a u64 from");
+
     // TODO is this expensive?
     let mut error: u64;
     unsafe {
