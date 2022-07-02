@@ -1,6 +1,5 @@
 #![deny(warnings)]
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
-#![deny(warnings)]
 #![warn(unused_extern_crates)]
 #![deny(
     clippy::all,
@@ -488,13 +487,14 @@ impl<'de> Deserializer<'de> {
                 len,
             );
 
-            input_buffer.as_mut_ptr().add(len).write(0);
+            let to_fill = input_buffer.capacity() - len;
+            std::ptr::write_bytes(input_buffer.as_mut_ptr().add(len), 0, to_fill);
 
-            input_buffer.set_len(len);
+            input_buffer.set_len(input_buffer.capacity());
         };
 
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
-            unsafe { Self::find_structural_bits(input_buffer) };
+            unsafe { Self::find_structural_bits(input) };
 
         let structural_indexes = match s1_result {
             Ok(i) => i,
