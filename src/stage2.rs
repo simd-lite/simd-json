@@ -8,7 +8,7 @@ use value_trait::StaticNode;
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 #[allow(clippy::cast_ptr_alignment)]
 pub fn is_valid_true_atom(loc: &[u8]) -> bool {
-    debug_assert!(loc.len() >= 8, "input too short to safely read a u64 from");
+    debug_assert!(loc.len() >= 8, "loc too short for a u64 read");
 
     // TODO is this expensive?
     let mut error: u64;
@@ -20,7 +20,7 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
 
         // TODO: does this has the same effect as:
         //   std::memcpy(&locval, loc, sizeof(uint64_t));
-        let locval: u64 = *(loc.as_ptr().cast::<u64>());
+        let locval: u64 = loc.as_ptr().cast::<u64>().read_unaligned();
 
         error = (locval & MASK4) ^ TV;
         error |= u64::from(is_not_structural_or_whitespace(*loc.get_kinda_unchecked(4)));
@@ -45,6 +45,8 @@ macro_rules! get {
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 #[allow(clippy::cast_ptr_alignment, unused_unsafe)]
 pub fn is_valid_false_atom(loc: &[u8]) -> bool {
+    debug_assert!(loc.len() >= 8, "loc too short for a u64 read");
+
     // TODO: this is ugly and probably copies data every time
     let mut error: u64;
     unsafe {
@@ -54,7 +56,7 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
         const FV: u64 = 0x00_00_00_65_73_6c_61_66;
         const MASK5: u64 = 0x00_00_00_ff_ff_ff_ff_ff;
 
-        let locval: u64 = *(loc.as_ptr().cast::<u64>());
+        let locval: u64 = loc.as_ptr().cast::<u64>().read_unaligned();
 
         // FIXME the original code looks like this:
         // error = ((locval & mask5) ^ fv) as u32;
@@ -70,6 +72,8 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 #[allow(clippy::cast_ptr_alignment, unused_unsafe)]
 pub fn is_valid_null_atom(loc: &[u8]) -> bool {
+    debug_assert!(loc.len() >= 8, "loc too short for a u64 read");
+
     // TODO is this expensive?
     let mut error: u64;
     unsafe {
@@ -77,7 +81,7 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
         // this is the same:
         const NV: u64 = 0x00_00_00_00_6c_6c_75_6e;
         const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
-        let locval: u64 = *(loc.as_ptr().cast::<u64>());
+        let locval: u64 = loc.as_ptr().cast::<u64>().read_unaligned();
 
         error = (locval & MASK4) ^ NV;
         error |= u64::from(is_not_structural_or_whitespace(*get!(loc, 4)));
