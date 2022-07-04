@@ -52,7 +52,7 @@ where
 }
 struct Serializer<W: Write>(W);
 
-impl<'writer, W> BaseGenerator for Serializer<W>
+impl<W> BaseGenerator for Serializer<W>
 where
     W: Write,
 {

@@ -58,7 +58,7 @@ impl<W: Write> PrettySerializer<W> {
     }
 }
 
-impl<'writer, W> BaseGenerator for PrettySerializer<W>
+impl<W> BaseGenerator for PrettySerializer<W>
 where
     W: Write,
 {
