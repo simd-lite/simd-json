@@ -64,8 +64,8 @@ pub use self::owned::{
     to_value as to_owned_value, to_value_with_buffers as to_owned_value_with_buffers,
     Value as OwnedValue,
 };
-use crate::{Deserializer, Result};
 use crate::safer_unchecked::GetSaferUnchecked;
+use crate::{Deserializer, Result};
 use halfbrown::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;

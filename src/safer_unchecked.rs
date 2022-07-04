@@ -5,7 +5,10 @@ pub trait GetSaferUnchecked<T> {
     where
         I: SliceIndex<[T]>;
 
-    unsafe fn get_kinda_unchecked_mut<I>(&mut self, index: I) -> &mut <I as SliceIndex<[T]>>::Output
+    unsafe fn get_kinda_unchecked_mut<I>(
+        &mut self,
+        index: I,
+    ) -> &mut <I as SliceIndex<[T]>>::Output
     where
         I: SliceIndex<[T]>;
 }

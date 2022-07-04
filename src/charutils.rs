@@ -57,10 +57,14 @@ pub fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
     // invalid value. After the shifts, this will *still* result in the outcome that the high 16 bits of any
     // value with any invalid char will be all 1's. We check for this in the caller.
     unsafe {
-        let v1: i32 = i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(0) as usize));
-        let v2: i32 = i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(1) as usize));
-        let v3: i32 = i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(2) as usize));
-        let v4: i32 = i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(3) as usize));
+        let v1: i32 =
+            i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(0) as usize));
+        let v2: i32 =
+            i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(1) as usize));
+        let v3: i32 =
+            i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(2) as usize));
+        let v4: i32 =
+            i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(3) as usize));
         (v1 << 12 | v2 << 8 | v3 << 4 | v4) as u32
     }
 }

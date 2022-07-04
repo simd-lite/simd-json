@@ -137,8 +137,8 @@ mod charutils;
 mod macros;
 mod error;
 mod numberparse;
-mod stringparse;
 mod safer_unchecked;
+mod stringparse;
 
 use safer_unchecked::GetSaferUnchecked;
 
@@ -481,11 +481,7 @@ impl<'de> Deserializer<'de> {
         }
 
         unsafe {
-            std::ptr::copy_nonoverlapping(
-                input.as_ptr(),
-                input_buffer.as_mut_ptr(),
-                len,
-            );
+            std::ptr::copy_nonoverlapping(input.as_ptr(), input_buffer.as_mut_ptr(), len);
 
             let to_fill = input_buffer.capacity() - len;
             std::ptr::write_bytes(input_buffer.as_mut_ptr().add(len), 0, to_fill);

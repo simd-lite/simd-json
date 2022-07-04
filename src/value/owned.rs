@@ -24,8 +24,8 @@ mod from;
 mod serialize;
 
 use crate::prelude::*;
-use crate::{AlignedBuf, Deserializer, Node, Result, StaticNode};
 use crate::safer_unchecked::GetSaferUnchecked;
+use crate::{AlignedBuf, Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};

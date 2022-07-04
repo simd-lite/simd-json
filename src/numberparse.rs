@@ -1,5 +1,5 @@
-use crate::safer_unchecked::GetSaferUnchecked;
 use crate::charutils::is_structural_or_whitespace;
+use crate::safer_unchecked::GetSaferUnchecked;
 use crate::unlikely;
 use crate::StaticNode;
 use crate::{mem, static_cast_i64, Deserializer, ErrorType, Result};
@@ -99,7 +99,9 @@ const STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED: [bool; 256] = [
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
-    unsafe { *STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED.get_kinda_unchecked(c as usize) }
+    unsafe {
+        *STRUCTURAL_OR_WHITESPACE_OR_EXPONENT_OR_DECIMAL_NEGATED.get_kinda_unchecked(c as usize)
+    }
 }
 
 // #ifdef _MSC_VER
@@ -550,7 +552,9 @@ impl<'de> Deserializer<'de> {
 
                 if is_made_of_eight_digits_fast(unsafe { buf.get_kinda_unchecked(byte_count..) }) {
                     i = i.wrapping_mul(100_000_000).wrapping_add(u64::from(
-                        parse_eight_digits_unrolled(unsafe { buf.get_kinda_unchecked(byte_count..) }),
+                        parse_eight_digits_unrolled(unsafe {
+                            buf.get_kinda_unchecked(byte_count..)
+                        }),
                     ));
                     byte_count += 8;
                 }

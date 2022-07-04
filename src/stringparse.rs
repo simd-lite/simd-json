@@ -1,8 +1,8 @@
 use std::ops::Range;
 
-use crate::safer_unchecked::GetSaferUnchecked;
 use crate::charutils::{codepoint_to_utf8, hex_to_u32_nocheck};
 use crate::error::ErrorType;
+use crate::safer_unchecked::GetSaferUnchecked;
 
 /// begin copypasta
 /// These chars yield themselves: " \ /

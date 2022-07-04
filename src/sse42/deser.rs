@@ -10,8 +10,8 @@ use std::arch::x86_64::{
 use std::mem;
 
 pub use crate::error::{Error, ErrorType};
-use crate::stringparse::{handle_unicode_codepoint, ESCAPE_MAP};
 use crate::safer_unchecked::GetSaferUnchecked;
+use crate::stringparse::{handle_unicode_codepoint, ESCAPE_MAP};
 use crate::Deserializer;
 pub use crate::Result;
 
@@ -140,8 +140,8 @@ impl<'de> Deserializer<'de> {
                     input
                         .get_kinda_unchecked_mut(idx + len..idx + len + dst_i)
                         .clone_from_slice(buffer.get_kinda_unchecked(..dst_i));
-                    let v =
-                        input.get_kinda_unchecked(idx..idx + len + dst_i) as *const [u8] as *const str;
+                    let v = input.get_kinda_unchecked(idx..idx + len + dst_i) as *const [u8]
+                        as *const str;
                     return Ok(&*v);
                 }
 
@@ -151,17 +151,18 @@ impl<'de> Deserializer<'de> {
             if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
                 // find out where the backspace is
                 let bs_dist: u32 = bs_bits.trailing_zeros();
-                let escape_char: u8 = unsafe { *src.get_kinda_unchecked(src_i + bs_dist as usize + 1) };
+                let escape_char: u8 =
+                    unsafe { *src.get_kinda_unchecked(src_i + bs_dist as usize + 1) };
                 // we encountered backslash first. Handle backslash
                 if escape_char == b'u' {
                     // move src/dst up to the start; they will be further adjusted
                     // within the unicode codepoint handling code.
                     src_i += bs_dist as usize;
                     dst_i += bs_dist as usize;
-                    let (o, s) = if let Ok(r) =
-                        handle_unicode_codepoint(unsafe { src.get_kinda_unchecked(src_i..) }, unsafe {
-                            buffer.get_kinda_unchecked_mut(dst_i..)
-                        }) {
+                    let (o, s) = if let Ok(r) = handle_unicode_codepoint(
+                        unsafe { src.get_kinda_unchecked(src_i..) },
+                        unsafe { buffer.get_kinda_unchecked_mut(dst_i..) },
+                    ) {
                         r
                     } else {
                         return Err(Self::raw_error(src_i, 'u', InvalidUnicodeCodepoint));

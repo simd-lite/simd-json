@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 use crate::charutils::is_not_structural_or_whitespace;
+use crate::safer_unchecked::GetSaferUnchecked;
 use crate::value::tape::Node;
 use crate::{Deserializer, Error, ErrorType, Result};
-use crate::safer_unchecked::GetSaferUnchecked;
 use value_trait::StaticNode;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
