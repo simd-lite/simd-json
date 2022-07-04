@@ -5,8 +5,8 @@ pub use crate::{
     Result,
 };
 use crate::{
+    safer_unchecked::GetSaferUnchecked,
     stringparse::{handle_unicode_codepoint, ESCAPE_MAP},
-    safer_unchecked::GetSaferUnchecked;
     Deserializer,
 };
 
@@ -111,8 +111,8 @@ impl<'de> Deserializer<'de> {
                     input
                         .get_kinda_unchecked_mut(idx + len..idx + len + dst_i)
                         .clone_from_slice(buffer.get_kinda_unchecked(..dst_i));
-                    let v =
-                        input.get_kinda_unchecked(idx..idx + len + dst_i) as *const [u8] as *const str;
+                    let v = input.get_kinda_unchecked(idx..idx + len + dst_i) as *const [u8]
+                        as *const str;
                     return Ok(&*v);
                 }
 
@@ -129,10 +129,10 @@ impl<'de> Deserializer<'de> {
                     // within the unicode codepoint handling code.
                     src_i += bs_dist as usize;
                     dst_i += bs_dist as usize;
-                    let (o, s) = if let Ok(r) =
-                        handle_unicode_codepoint(unsafe { src.get_kinda_unchecked(src_i..) }, unsafe {
-                            buffer.get_kinda_unchecked_mut(dst_i..)
-                        }) {
+                    let (o, s) = if let Ok(r) = handle_unicode_codepoint(
+                        unsafe { src.get_kinda_unchecked(src_i..) },
+                        unsafe { buffer.get_kinda_unchecked_mut(dst_i..) },
+                    ) {
                         r
                     } else {
                         return Err(Self::raw_error(src_i, 'u', InvalidUnicodeCodepoint));
@@ -148,7 +148,8 @@ impl<'de> Deserializer<'de> {
                     // write bs_dist+1 characters to output
                     // note this may reach beyond the part of the buffer we've actually
                     // seen. I think this is ok
-                    let escape_result = unsafe { *ESCAPE_MAP.get_kinda_unchecked(escape_char as usize) };
+                    let escape_result =
+                        unsafe { *ESCAPE_MAP.get_kinda_unchecked(escape_char as usize) };
                     if escape_result == 0 {
                         return Err(Self::raw_error(src_i, escape_char as char, InvalidEscape));
                     }
