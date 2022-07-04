@@ -225,10 +225,7 @@ use simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
         target_feature = "simd128"
     ))
 ))]
-compile_error!(concat!(
-    "Please compile with a simd compatible cpu setting. Read the simd-json readme for more:\n",
-    "    https://github.com/simd-lite/simd-json/blob/main/README.md",
-));
+fn please_compile_with_a_simd_compatible_cpu_setting_read_the_simdjsonrs_readme() -> ! {}
 
 mod stage2;
 /// simd-json JSON-DOM value
