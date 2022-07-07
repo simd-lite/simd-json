@@ -14,7 +14,7 @@ rust-version = "1.59"
 [dependencies]
 beef = { version = "0.5", optional = true }
 halfbrown = "0.1"
-value-trait = { version = "0.2.12" }
+value-trait = { version = "0.3.0" }
 simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
 
 # serde compatibilty
