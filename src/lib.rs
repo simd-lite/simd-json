@@ -57,7 +57,7 @@
 //!
 //! ### `swar-number-parsing` (default)
 //!
-//! Enables a parsing method that will parse 8 digests at a time for
+//! Enables a parsing method that will parse 8 digits at a time for
 //! floats - this is a common pattern but comes as a slight perf hit
 //! if all the floats have less then 8 digits.
 //!
