@@ -126,16 +126,6 @@ impl Mutable for Value {
 impl ValueTrait for Value {
     #[inline]
     #[must_use]
-    fn value_type(&self) -> ValueType {
-        match self {
-            Self::Static(s) => s.value_type(),
-            Self::String(_) => ValueType::String,
-            Self::Array(_) => ValueType::Array,
-            Self::Object(_) => ValueType::Object,
-        }
-    }
-    #[inline]
-    #[must_use]
     fn is_null(&self) -> bool {
         matches!(self, Self::Static(StaticNode::Null))
     }
@@ -146,6 +136,17 @@ impl ValueAccess for Value {
     type Key = String;
     type Array = Vec<Self>;
     type Object = HashMap<Self::Key, Self>;
+
+    #[inline]
+    #[must_use]
+    fn value_type(&self) -> ValueType {
+        match self {
+            Self::Static(s) => s.value_type(),
+            Self::String(_) => ValueType::String,
+            Self::Array(_) => ValueType::Array,
+            Self::Object(_) => ValueType::Object,
+        }
+    }
 
     #[inline]
     #[must_use]
