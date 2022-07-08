@@ -187,17 +187,6 @@ impl<'value> Mutable for Value<'value> {
 impl<'value> ValueTrait for Value<'value> {
     #[inline]
     #[must_use]
-    fn value_type(&self) -> ValueType {
-        match self {
-            Self::Static(s) => s.value_type(),
-            Self::String(_) => ValueType::String,
-            Self::Array(_) => ValueType::Array,
-            Self::Object(_) => ValueType::Object,
-        }
-    }
-
-    #[inline]
-    #[must_use]
     fn is_null(&self) -> bool {
         matches!(self, Self::Static(StaticNode::Null))
     }
@@ -208,6 +197,17 @@ impl<'value> ValueAccess for Value<'value> {
     type Key = Cow<'value, str>;
     type Array = Vec<Self>;
     type Object = HashMap<Self::Key, Self>;
+
+    #[inline]
+    #[must_use]
+    fn value_type(&self) -> ValueType {
+        match self {
+            Self::Static(s) => s.value_type(),
+            Self::String(_) => ValueType::String,
+            Self::Array(_) => ValueType::Array,
+            Self::Object(_) => ValueType::Object,
+        }
+    }
 
     #[inline]
     #[must_use]
