@@ -798,7 +798,7 @@ mod test {
             let owned: crate::OwnedValue = serde_json::from_slice(& vec2).expect("from_slice");
             prop_assert_eq!(&borrowed, &owned);
             let mut owned_str = to_string(&obj).expect("to_string");
-            from_str::<crate::OwnedValue>(&mut owned_str).expect("from_str");
+            unsafe{from_str::<crate::OwnedValue>(&mut owned_str).expect("from_str")};
 
             let de: Obj = Obj::deserialize(borrowed).expect("deserialize");
             prop_assert_eq!(&obj, &de);

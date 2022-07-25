@@ -69,12 +69,18 @@ where
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
+///
+/// # Safety
+///
+/// This function mutates the string passed into it, it's a convinience wrapper around `from_slice`,
+/// holding the same guarantees as `str::as_bytes_mut` in that after the call &str might include
+/// invalid utf8 bytes.
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
-pub fn from_str<'a, T>(s: &'a mut str) -> Result<T>
+pub unsafe fn from_str<'a, T>(s: &'a mut str) -> Result<T>
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = stry!(Deserializer::from_slice(unsafe { s.as_bytes_mut() }));
+    let mut deserializer = stry!(Deserializer::from_slice(s.as_bytes_mut()));
 
     T::deserialize(&mut deserializer)
 }
@@ -489,7 +495,7 @@ mod test {
         let s_deser: OwnedValue = serde_json::from_str(&v_ser).unwrap();
         assert_eq!(v, s_deser);
 
-        let v_deser: OwnedValue = crate::serde::from_str(&mut v_ser).unwrap();
+        let v_deser: OwnedValue = unsafe { crate::serde::from_str(&mut v_ser).unwrap() };
         assert_eq!(v, v_deser);
     }
 
@@ -686,7 +692,7 @@ mod test {
 
         let json = json!({"x":-1,"y":i64::MAX as u64 + 1});
 
-        let p: Point = crate::from_str(&mut crate::to_string(&json).unwrap()).unwrap();
+        let p: Point = unsafe { crate::from_str(&mut crate::to_string(&json).unwrap()).unwrap() };
         assert_approx_eq!(f64, p.x, -1_f64);
         assert_approx_eq!(f64, p.y, i64::MAX as f64 + 1.0);
     }
@@ -695,46 +701,44 @@ mod test {
     fn vectors() {
         let input: Vec<UnitStruct> = vec![UnitStruct];
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(
-            input,
+        assert_eq!(input, unsafe {
             crate::from_str::<Vec<UnitStruct>>(&mut v_str).unwrap()
-        );
+        });
         let input: Vec<()> = Vec::new();
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(input, crate::from_str::<Vec<()>>(&mut v_str).unwrap());
+        assert_eq!(input, unsafe {
+            crate::from_str::<Vec<()>>(&mut v_str).unwrap()
+        });
         let input: Vec<Option<u8>> = vec![None, Some(3_u8)];
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(
-            input,
+        assert_eq!(input, unsafe {
             crate::from_str::<Vec<Option<u8>>>(&mut v_str).unwrap()
-        );
+        });
         let input: Vec<(i32, f32)> = vec![(3, 3.)];
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(
-            input,
+        assert_eq!(input, unsafe {
             crate::from_str::<Vec<(i32, f32)>>(&mut v_str).unwrap()
-        );
+        });
         let input = vec![vec![3_u8]];
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(input, crate::from_str::<Vec<Vec<u8>>>(&mut v_str).unwrap());
+        assert_eq!(input, unsafe {
+            crate::from_str::<Vec<Vec<u8>>>(&mut v_str).unwrap()
+        });
         let input: Vec<NewTypeStruct> = vec![NewTypeStruct(3_u8)];
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(
-            input,
+        assert_eq!(input, unsafe {
             crate::from_str::<Vec<NewTypeStruct>>(&mut v_str).unwrap()
-        );
+        });
         let input: Vec<TupleStruct> = Vec::new();
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(
-            input,
+        assert_eq!(input, unsafe {
             crate::from_str::<Vec<TupleStruct>>(&mut v_str).unwrap()
-        );
+        });
         let input = vec![TupleStruct(3, 3)];
         let mut v_str = crate::to_string(&input).unwrap();
-        assert_eq!(
-            input,
+        assert_eq!(input, unsafe {
             crate::from_str::<Vec<TupleStruct>>(&mut v_str).unwrap()
-        );
+        });
         let input = vec![E::NewTypeVariant(3)];
         let mut _v_str = crate::to_string(&input).unwrap();
         // Enums are not handled yet
@@ -760,7 +764,7 @@ mod test {
         ($input:expr; $type:ty => $err:ident) => {{
             let mut json_str = $input.to_string();
             assert_eq!(
-                crate::from_str::<$type>(&mut json_str),
+                unsafe { crate::from_str::<$type>(&mut json_str) },
                 Err(SimdDeserializer::error(ErrorType::$err))
             );
         }};
@@ -803,7 +807,9 @@ mod test {
             let input = hashmap! {$key => $value};
             let mut m_str = crate::to_string(&input).unwrap();
             assert_eq!(m_str, sto_string(&input).unwrap());
-            assert_eq!(input, crate::from_str::<$type>(&mut m_str).unwrap());
+            assert_eq!(input, unsafe {
+                crate::from_str::<$type>(&mut m_str).unwrap()
+            });
         };
     }
 
@@ -866,15 +872,15 @@ mod test {
         let mut input_str = crate::to_string(&input).unwrap();
         assert_eq!(input_str, sto_string(&input).unwrap());
         assert_eq!(
-            crate::from_str::<std::collections::HashMap<u8, i8>>(&mut input_str),
+            unsafe { crate::from_str::<std::collections::HashMap<u8, i8>>(&mut input_str) },
             Err(Error::new(0, '?', ErrorType::ExpectedSigned))
         );
         assert_eq!(
-            crate::from_str::<std::collections::HashMap<i8, String>>(&mut input_str),
+            unsafe { crate::from_str::<std::collections::HashMap<i8, String>>(&mut input_str) },
             Err(Error::new(0, '?', ErrorType::InvalidNumber))
         );
         assert_eq!(
-            crate::from_str::<HashMap<Option<u8>, String>>(&mut input_str),
+            unsafe { crate::from_str::<HashMap<Option<u8>, String>>(&mut input_str) },
             Ok(hashmap! {Some(128_u8) => "3".to_string()})
         );
 
