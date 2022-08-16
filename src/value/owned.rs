@@ -29,7 +29,7 @@ use crate::{AlignedBuf, Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
-use value_trait::ValueAccess;
+use value_trait::{ValueAccess, ValueInto};
 
 /// Representation of a JSON object
 pub type Object = HashMap<String, Value>;
@@ -238,6 +238,31 @@ impl ValueAccess for Value {
     fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
         match self {
             Self::Object(m) => Some(m),
+            _ => None,
+        }
+    }
+}
+
+impl ValueInto for Value {
+    type String = String;
+
+    fn into_string(self) -> Option<<Value as ValueInto>::String> {
+        match self {
+            Self::String(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    fn into_array(self) -> Option<<Value as ValueAccess>::Array> {
+        match self {
+            Self::Array(a) => Some(a),
+            _ => None,
+        }
+    }
+
+    fn into_object(self) -> Option<<Value as ValueAccess>::Object> {
+        match self {
+            Self::Object(a) => Some(*a),
             _ => None,
         }
     }
