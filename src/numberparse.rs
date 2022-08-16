@@ -303,7 +303,7 @@ impl<'de> Deserializer<'de> {
             } else {
                 expnumber as i32
             };
-            if (exponent > 308) || (exponent < -323) {
+            if !(-323..=308).contains(&exponent) {
                 // we refuse to parse this
                 return Err(Self::raw_error(
                     idx + digitcount,
@@ -635,7 +635,7 @@ impl<'de> Deserializer<'de> {
             if i == 0 {
                 StaticNode::F64(0.0)
             } else {
-                if (exponent > 308) || (exponent < -323) {
+                if !(-323..=308).contains(&exponent) {
                     //FIXME Parse it as a expensive float perhaps
                     return Self::parse_float(idx, buf, negative);
                 }
