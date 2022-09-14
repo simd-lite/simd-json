@@ -19,6 +19,7 @@ use arch::{
     _mm_packus_epi32, _mm_set1_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_sub_epi8,
 };
 
+
 const POWER_OF_TEN: [f64; 632] = [
     1e-323, 1e-322, 1e-321, 1e-320, 1e-319, 1e-318, 1e-317, 1e-316, 1e-315, 1e-314, 1e-313, 1e-312,
     1e-311, 1e-310, 1e-309, 1e-308, 1e-307, 1e-306, 1e-305, 1e-304, 1e-303, 1e-302, 1e-301, 1e-300,
