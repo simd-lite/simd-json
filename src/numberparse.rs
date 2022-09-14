@@ -12,7 +12,10 @@ use std::arch::x86 as arch;
 #[cfg(all(target_arch = "x86_64", feature = "swar-number-parsing"))]
 use std::arch::x86_64 as arch;
 
-#[cfg(feature = "swar-number-parsing")]
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    feature = "swar-number-parsing"
+))]
 use arch::{
     __m128i, _mm_cvtsi128_si32, _mm_loadu_si128, _mm_madd_epi16, _mm_maddubs_epi16,
     _mm_packus_epi32, _mm_set1_epi8, _mm_setr_epi16, _mm_setr_epi8, _mm_sub_epi8,
