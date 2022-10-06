@@ -1787,12 +1787,12 @@ mod tests_serde {
     fn enum_test() {
         use serde::{Deserialize, Serialize};
 
-        #[derive(Debug, Serialize, Deserialize)]
+        #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
         struct MyStruct {
             field: u8,
         }
 
-        #[derive(Debug, Serialize, Deserialize)]
+        #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
         enum MyEnum {
             First(MyStruct),
             Second(u8),
@@ -1803,6 +1803,7 @@ mod tests_serde {
         println!("Ser {:?}", ser);
         let des: MyEnum = unsafe { crate::serde::from_str(&mut ser).unwrap() };
         println!("Des {:?}", des);
+        assert_eq!(thing, des);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
