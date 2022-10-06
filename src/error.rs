@@ -146,7 +146,7 @@ pub struct Error {
     /// Byte index it was encountered at
     index: usize,
     /// Current character
-    character: char,
+    character: Option<char>,
     /// Type of error
     error: ErrorType,
 }
@@ -155,7 +155,7 @@ impl Error {
     pub(crate) fn new(index: usize, character: char, error: ErrorType) -> Self {
         Self {
             index,
-            character,
+            character: Some(character),
             error,
         }
     }
@@ -164,7 +164,7 @@ impl Error {
     pub fn generic(t: ErrorType) -> Self {
         Self {
             index: 0,
-            character: '💩', //this is the poop emoji
+            character: None,
             error: t,
         }
     }
@@ -174,11 +174,11 @@ impl std::error::Error for Error {}
 #[cfg(not(tarpaulin_include))]
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{:?} at character {} ('{}')",
-            self.error, self.index, self.character
-        )
+        if let Some(c) = self.character {
+            write!(f, "{:?} at character {} ('{c}')", self.error, self.index)
+        } else {
+            write!(f, "{:?} at character {}", self.error, self.index)
+        }
     }
 }
 
@@ -195,9 +195,6 @@ mod test {
     #[test]
     fn fmt() {
         let e = Error::generic(ErrorType::InternalError);
-        assert_eq!(
-            format!("{}", e),
-            "InternalError at character 0 ('\u{1f4a9}')"
-        );
+        assert_eq!(format!("{}", e), "InternalError at character 0");
     }
 }
