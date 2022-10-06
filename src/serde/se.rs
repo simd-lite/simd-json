@@ -655,9 +655,7 @@ where
             if let Some((first, rest)) = v.split_first() {
                 self.write_int(*first).and_then(|_| {
                     for v in rest {
-                        if let Err(e) = self.write(b",").and_then(|_| self.write_int(*v)) {
-                            return Err(e);
-                        }
+                        self.write(b",").and_then(|_| self.write_int(*v))?;
                     }
                     self.write(b"]")
                 })
