@@ -279,12 +279,7 @@ impl Stage1Parse<__m128i> for SimdInput {
 
                 let v: __m128i = _mm_set_epi32(v3, v2, v1, v0);
                 let v: __m128i = _mm_add_epi32(idx_64_v, v);
-                _mm_storeu_si128(
-                    base.as_mut_ptr()
-                        .add(l)
-                        .cast::<arch::__m128i>(),
-                    v,
-                );
+                _mm_storeu_si128(base.as_mut_ptr().add(l).cast::<arch::__m128i>(), v);
             }
             l += 4;
         }
