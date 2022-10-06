@@ -481,9 +481,7 @@ where
                 self.new_line().and_then(|_| {
                     self.write_int(*first).and_then(|_| {
                         for v in rest {
-                            if let Err(e) = self.write(b",").and_then(|_| self.write_int(*v)) {
-                                return Err(e);
-                            }
+                            self.write(b",").and_then(|_| self.write_int(*v))?;
                         }
                         self.dedent();
                         self.new_line().and_then(|_| self.write(b"]"))
