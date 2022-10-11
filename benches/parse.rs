@@ -10,10 +10,27 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 #[cfg(feature = "bench-serde")]
 use serde_json;
 
-use criterion::{BatchSize, Criterion, ParameterizedBenchmark, Throughput};
+use criterion::{criterion_group, BatchSize, Criterion, Throughput};
 use simd_json;
 use std::fs::File;
 use std::io::Read;
+
+fn to_tape(data: &mut [u8]) {
+    simd_json::to_tape(data).unwrap();
+}
+
+fn to_borrowed_value(data: &mut [u8]) {
+    simd_json::to_borrowed_value(data).unwrap();
+}
+
+fn to_owned_value(data: &mut [u8]) {
+    simd_json::to_owned_value(data).unwrap();
+}
+
+#[cfg(feature = "bench-serde")]
+fn serde_from_slice(data: &[u8]) {
+    let _: serde_json::Value = serde_json::from_slice(data).unwrap();
+}
 
 macro_rules! bench_file {
     ($name:ident) => {
@@ -27,57 +44,45 @@ macro_rules! bench_file {
                 .read_to_end(&mut vec)
                 .unwrap();
 
-            let b = ParameterizedBenchmark::new(
-                "simd_json::to_tape",
-                |b, data| {
-                    b.iter_batched(
-                        || data.clone(),
-                        |mut bytes| {
-                            simd_json::to_tape(&mut bytes).unwrap();
-                        },
-                        BatchSize::SmallInput,
-                    )
-                },
-                vec![vec],
-            )
-            .warm_up_time(Duration::from_secs(1))
-            .measurement_time(Duration::from_secs(20));
+            let mut group = c.benchmark_group(stringify!($name));
+            group
+                .warm_up_time(Duration::from_secs(1))
+                .measurement_time(Duration::from_secs(20));
 
-            let b = b.with_function("simd_json::to_borrowed_value", |b, data| {
+            group.bench_with_input("simd_json::to_tape", &vec, |b, data| {
                 b.iter_batched(
                     || data.clone(),
-                    |mut bytes| {
-                        simd_json::to_borrowed_value(&mut bytes).unwrap();
-                    },
+                    |mut bytes| to_tape(&mut bytes),
                     BatchSize::SmallInput,
                 )
             });
 
-            let b = b.with_function("simd_json::to_owned_value", |b, data| {
+            group.bench_with_input("simd_json::to_borrowed_value", &vec, |b, data| {
                 b.iter_batched(
                     || data.clone(),
-                    |mut bytes| {
-                        simd_json::to_owned_value(&mut bytes).unwrap();
-                    },
+                    |mut bytes| to_borrowed_value(&mut bytes),
+                    BatchSize::SmallInput,
+                )
+            });
+
+            group.bench_with_input("simd_json::to_owned_value", &vec, |b, data| {
+                b.iter_batched(
+                    || data.clone(),
+                    |mut bytes| to_owned_value(&mut bytes),
                     BatchSize::SmallInput,
                 )
             });
 
             #[cfg(feature = "bench-serde")]
-            let b = b.with_function("serde_json::from_slice", |b, data| {
+            group.bench_with_input("serde_json::from_slice", &vec, |b, data| {
                 b.iter_batched(
                     || data,
-                    |bytes| {
-                        let _: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-                    },
+                    |bytes| serde_from_slice(&bytes),
                     BatchSize::SmallInput,
                 )
             });
 
-            c.bench(
-                stringify!($name),
-                b.throughput(|data| Throughput::Bytes(data.len() as u64)),
-            );
+            group.throughput(Throughput::Bytes(vec.len() as u64));
         }
     };
 }
