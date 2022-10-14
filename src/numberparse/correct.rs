@@ -124,7 +124,7 @@ impl<'de> Deserializer<'de> {
                     idx += 1;
                 }
                 while is_integer(get!(buf, idx)) {
-                    if exp_number > 0x100_000_000 {
+                    if exp_number > 0x0001_0000_0000 {
                         err!(idx, get!(buf, idx))
                     }
                     exp_number = 10 * exp_number + i64::from(get!(buf, idx) - b'0');
@@ -223,7 +223,7 @@ fn f64_from_parts(
     slice: &[u8],
     offset: usize,
 ) -> Result<StaticNode> {
-    if -22 <= exponent && exponent <= 22 && significand <= 9_007_199_254_740_991 {
+    if (-22..=22).contains(&exponent) && significand <= 9_007_199_254_740_991 {
         let mut f = significand as f64;
         if exponent < 0 {
             f /= get!(POW10, -exponent);
@@ -233,7 +233,7 @@ fn f64_from_parts(
         Ok(StaticNode::F64(if positive { f } else { -f }))
     } else if significand == 0 {
         Ok(StaticNode::F64(if positive { 0.0 } else { -0.0 }))
-    } else if exponent >= -325 && exponent <= 308 {
+    } else if (-325..=308).contains(&exponent) {
         let (factor_mantissa, factor_exponent) = get!(POW10_COMPONENTS, exponent + 325);
         let mut leading_zeroes = u64::from(significand.leading_zeros());
         let f = significand << leading_zeroes;
@@ -273,11 +273,11 @@ fn f64_from_parts(
         mantissa &= !(1 << 52);
         let real_exponent = (factor_exponent as u64).wrapping_sub(leading_zeroes);
         // we have to check that real_exponent is in range, otherwise we bail out
-        if real_exponent < 1 || real_exponent > 2046 {
+        if !(1..=2046).contains(&real_exponent) {
             return f64_from_parts_slow(slice, offset);
         }
         mantissa |= real_exponent.wrapping_shl(52);
-        mantissa |= (!positive as u64) << 63;
+        mantissa |= u64::from(!positive) << 63;
         let res = f64::from_bits(mantissa);
         if res.is_infinite() {
             err!(offset, get!(slice, offset))
@@ -315,8 +315,8 @@ mod test {
 
     fn to_value_from_str(buf: &str) -> Result<Value, Error> {
         let mut val = String::from(buf);
-        let mut val = unsafe { val.as_bytes_mut() };
-        to_value(&mut val)
+        let val = unsafe { val.as_bytes_mut() };
+        to_value(val)
     }
 
     #[test]

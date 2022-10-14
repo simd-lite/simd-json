@@ -11,7 +11,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 use serde_json;
 
 use criterion::{criterion_group, BatchSize, Criterion, Throughput};
-use simd_json;
+
 use std::fs::File;
 use std::io::Read;
 
