@@ -191,7 +191,7 @@ impl From<Error> for std::io::Error {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use super::{Error, ErrorType};
     #[test]
     fn fmt() {
         let e = Error::generic(ErrorType::InternalError);

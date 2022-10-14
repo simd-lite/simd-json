@@ -954,7 +954,7 @@ mod tests {
         fn prop_json_encode_decode(val in arb_json_value()) {
             let mut encoded: Vec<u8> = Vec::new();
             val.write(&mut encoded).expect("write");
-            println!("{}", String::from_utf8_lossy(&encoded.clone()));
+            println!("{}", String::from_utf8_lossy(&encoded));
             let mut e = encoded.clone();
             let res = to_owned_value(&mut e).expect("can't convert");
             assert_eq!(val, res);
@@ -967,7 +967,7 @@ mod tests {
                 let mut e = encoded.clone();
                 let res: OwnedValue = deserialize(&mut e).expect("can't convert");
                 assert_eq!(val, res);
-                let mut e = encoded.clone();
+                let mut e = encoded;
                 let res: BorrowedValue = deserialize(&mut e).expect("can't convert");
                 assert_eq!(val, res);
             }
