@@ -17,7 +17,7 @@ macro_rules! get {
 }
 macro_rules! err {
     ($idx:ident, $num:expr) => {
-        return Err(Error::new($idx, $num as char, ErrorType::InvalidNumber));
+        return Err(Error::new($idx, $num as char, ErrorType::InvalidNumber))
     };
 }
 
