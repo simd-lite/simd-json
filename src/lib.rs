@@ -1495,6 +1495,15 @@ mod tests_serde {
     }
 
     #[test]
+    fn float3() {
+        let mut d = String::from("0.6");
+        let mut d = unsafe { d.as_bytes_mut() };
+        let v_serde: serde_json::Number = serde_json::from_slice(d).expect("serde_json");
+        let v_simd: serde_json::Number = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde);
+    }
+
+    #[test]
     fn map0() {
         let mut d = String::from(r#"{"snot": "badger"}"#);
         let mut d1 = d.clone();
