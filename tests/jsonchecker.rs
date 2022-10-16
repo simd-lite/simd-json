@@ -115,7 +115,9 @@ fail!(fail38);
 //fail!(fail39_EXCLUDED);
 
 //fail!(fail40_s64boverflow); No longer a failure!
+#[cfg(feature = "approx-number-parsing")]
 fail!(fail41_toolarge);
+
 fail!(fail42);
 fail!(fail43);
 fail!(fail44);
