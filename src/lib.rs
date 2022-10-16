@@ -1494,6 +1494,7 @@ mod tests_serde {
         assert_eq!(v_simd, v_serde);
     }
 
+    #[cfg(not(feature = "approx-number-parsing"))]
     #[test]
     fn float3() {
         let mut d = String::from("0.6");
