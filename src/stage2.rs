@@ -387,6 +387,14 @@ impl<'de> Deserializer<'de> {
                 fail!(ErrorType::TrailingCharacters);
             }
             b'-' => {
+                #[cfg(feature = "approx-number-parsing")]
+                insert_res!(Node::Static(s2try!(Self::parse_number(
+                    idx,
+                    get!(input2, idx..),
+                    true
+                ))));
+
+                #[cfg(not(feature = "approx-number-parsing"))]
                 insert_res!(Node::Static(s2try!(Self::parse_number(idx, input2, true))));
 
                 if i == structural_indexes.len() {
@@ -395,6 +403,14 @@ impl<'de> Deserializer<'de> {
                 fail!(ErrorType::TrailingCharacters);
             }
             b'0'..=b'9' => {
+                #[cfg(feature = "approx-number-parsing")]
+                insert_res!(Node::Static(s2try!(Self::parse_number(
+                    idx,
+                    get!(input2, idx..),
+                    false
+                ))));
+
+                #[cfg(not(feature = "approx-number-parsing"))]
                 insert_res!(Node::Static(s2try!(Self::parse_number(idx, input2, false))));
 
                 if i == structural_indexes.len() {
@@ -444,15 +460,33 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'-' => {
+                            #[cfg(feature = "approx-number-parsing")]
+                            insert_res!(Node::Static(s2try!(Self::parse_number(
+                                idx,
+                                get!(input2, idx..),
+                                true
+                            ))));
+
+                            #[cfg(not(feature = "approx-number-parsing"))]
                             insert_res!(Node::Static(s2try!(Self::parse_number(
                                 idx, input2, true
                             ))));
+
                             object_continue!();
                         }
                         b'0'..=b'9' => {
+                            #[cfg(feature = "approx-number-parsing")]
+                            insert_res!(Node::Static(s2try!(Self::parse_number(
+                                idx,
+                                get!(input2, idx..),
+                                false
+                            ))));
+
+                            #[cfg(not(feature = "approx-number-parsing"))]
                             insert_res!(Node::Static(s2try!(Self::parse_number(
                                 idx, input2, false
                             ))));
+
                             object_continue!();
                         }
                         b'{' => {
@@ -548,15 +582,33 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'-' => {
+                            #[cfg(feature = "approx-number-parsing")]
+                            insert_res!(Node::Static(s2try!(Self::parse_number(
+                                idx,
+                                get!(input2, idx..),
+                                true
+                            ))));
+
+                            #[cfg(not(feature = "approx-number-parsing"))]
                             insert_res!(Node::Static(s2try!(Self::parse_number(
                                 idx, input2, true
                             ))));
+
                             array_continue!();
                         }
                         b'0'..=b'9' => {
+                            #[cfg(feature = "approx-number-parsing")]
+                            insert_res!(Node::Static(s2try!(Self::parse_number(
+                                idx,
+                                get!(input2, idx..),
+                                false
+                            ))));
+
+                            #[cfg(not(feature = "approx-number-parsing"))]
                             insert_res!(Node::Static(s2try!(Self::parse_number(
                                 idx, input2, false
                             ))));
+
                             array_continue!();
                         }
                         b'{' => {
