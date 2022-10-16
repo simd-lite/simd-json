@@ -169,6 +169,7 @@ impl<'de> Deserializer<'de> {
     }
 }
 
+#[cfg(not(feature = "128bit"))]
 #[cold]
 #[allow(clippy::cast_possible_wrap)]
 fn parse_large_integer(start_idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
@@ -207,6 +208,63 @@ fn parse_large_integer(start_idx: usize, buf: &[u8], negative: bool) -> Result<S
         (true, 0..=9_223_372_036_854_775_807) => Ok(StaticNode::I64(-(num as i64))),
         (false, 0..=9_223_372_036_854_775_807) => Ok(StaticNode::I64(num as i64)),
         (false, _) => Ok(StaticNode::U64(num)),
+    }
+}
+
+#[cfg(feature = "128bit")]
+#[cold]
+#[allow(clippy::cast_possible_wrap)]
+fn parse_large_integer(start_idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
+    let mut idx = start_idx;
+    if negative {
+        idx += 1;
+    }
+    let mut num: u128 = 0;
+    if get!(buf, idx) == b'0' {
+        idx += 1;
+    } else {
+        num = u128::from(get!(buf, idx) - b'0');
+        idx += 1;
+        while is_integer(get!(buf, idx)) {
+            let digit = u128::from(get!(buf, idx) - b'0');
+            {
+                let (res, overflowed) = 10_u128.overflowing_mul(num);
+                if overflowed {
+                    err!(idx, get!(buf, idx))
+                }
+                num = res;
+            }
+            {
+                let (res, overflowed) = num.overflowing_add(digit);
+                if overflowed {
+                    err!(idx, get!(buf, idx))
+                }
+                num = res;
+            }
+            idx += 1;
+        }
+    }
+    match (negative, num) {
+        (true, 170_141_183_460_469_231_731_687_303_715_884_105_728_u128) => {
+            Ok(StaticNode::I128(i128::MIN))
+        }
+        (true, 170_141_183_460_469_231_731_687_303_715_884_105_729_u128..=u128::MAX) => {
+            err!(idx, get!(buf, idx))
+        }
+        (true, 0..=170_141_183_460_469_231_731_687_303_715_884_105_727_u128) => {
+            if let Ok(i) = i64::try_from(-(num as i128)) {
+                Ok(StaticNode::I64(i))
+            } else {
+                Ok(StaticNode::I128(-(num as i128)))
+            }
+        }
+        (false, _) => {
+            if let Ok(i) = u64::try_from(num) {
+                Ok(StaticNode::U64(i))
+            } else {
+                Ok(StaticNode::U128(num))
+            }
+        }
     }
 }
 
