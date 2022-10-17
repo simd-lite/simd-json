@@ -360,6 +360,7 @@ impl<'de> Deserializer<'de> {
         clippy::too_many_lines
     )]
     pub(crate) fn parse_number(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
+        let buf = unsafe { buf.get_kinda_unchecked(idx..) };
         let mut byte_count = if negative { 1 } else { 0 };
         let mut ignore_count: u8 = 0;
         //let startdigits: *const u8 = p;

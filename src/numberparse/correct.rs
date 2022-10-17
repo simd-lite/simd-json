@@ -7,13 +7,14 @@ use super::{is_made_of_eight_digits_fast, parse_eight_digits_unrolled};
 
 use crate::charutils::is_structural_or_whitespace;
 use crate::error::Error;
+use crate::safer_unchecked::GetSaferUnchecked;
 use crate::unlikely;
 use crate::StaticNode;
 use crate::{mem, static_cast_i64, Deserializer, ErrorType, Result};
 
 macro_rules! get {
     ($buf:ident, $idx:expr) => {
-        unsafe { *$buf.get_unchecked($idx as usize) }
+        unsafe { *$buf.get_kinda_unchecked($idx as usize) }
     };
 }
 macro_rules! err {
