@@ -1,9 +1,10 @@
 mod numberconst;
 use self::numberconst::{MANTISSA_128, POW10, POW10_COMPONENTS};
-use super::{
-    is_integer, is_made_of_eight_digits_fast,
-    is_not_structural_or_whitespace_or_exponent_or_decimal, parse_eight_digits_unrolled,
-};
+use super::{is_integer, is_not_structural_or_whitespace_or_exponent_or_decimal};
+
+#[cfg(feature = "swar-number-parsing")]
+use super::{is_made_of_eight_digits_fast, parse_eight_digits_unrolled};
+
 use crate::charutils::is_structural_or_whitespace;
 use crate::error::Error;
 use crate::unlikely;
