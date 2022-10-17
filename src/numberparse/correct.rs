@@ -406,6 +406,7 @@ mod test {
                 .expect("1.23"),
             Static(F64(1.23))
         );
+        assert_eq!(to_value_from_str("0.6").expect("0.6"), Static(F64(0.6)));
     }
 
     #[test]
