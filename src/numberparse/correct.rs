@@ -36,8 +36,9 @@ impl<'de> Deserializer<'de> {
         clippy::cast_possible_truncation,
         clippy::too_many_lines
     )]
-    pub(crate) fn parse_number(start_idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
-        let mut idx = start_idx;
+    pub(crate) fn parse_number(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
+        let start_idx = idx;
+        let mut idx = idx;
         if negative {
             idx += 1;
             if !is_integer(get!(buf, idx)) {
