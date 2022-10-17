@@ -340,9 +340,8 @@ fn f64_from_parts(
         let res = f64::from_bits(mantissa);
         if res.is_infinite() {
             err!(offset, get!(slice, offset))
-        } else {
-            Ok(StaticNode::F64(res))
         }
+        Ok(StaticNode::F64(res))
     } else {
         f64_from_parts_slow(slice, offset)
     }
@@ -354,9 +353,9 @@ fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
         Ok(val) => {
             if val.is_infinite() {
                 err!(offset, get!(slice, offset))
-            } else {
-                Ok(StaticNode::F64(val))
             }
+
+            Ok(StaticNode::F64(val))
         }
         Err(_) => err!(offset, get!(slice, offset)),
     }
