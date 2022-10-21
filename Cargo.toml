@@ -12,9 +12,9 @@ documentation = "https://docs.rs/simd-json"
 rust-version = "1.59"
 
 [dependencies]
+lexical-core = { version = "0.8", features = ["format"] }
 beef = { version = "0.5", optional = true }
 halfbrown = "0.1"
-lexical-core = { version = "0.8", default_features = false, features = ["std", "correct", "format", "ryu"]}
 value-trait = { version = "0.4.0" }
 simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
 
@@ -62,7 +62,7 @@ swar-number-parsing = []
 
 # Uses a approximate float parsing algorithm that is faster
 # but does not guarantee round trips for the edges
-approx-number-parsing = [ ]
+approx-number-parsing = []
 
 # serde compatibility
 serde_impl = ["serde", "serde_json", "halfbrown/serde"]

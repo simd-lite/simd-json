@@ -1,4 +1,5 @@
 mod numberconst;
+
 use self::numberconst::{MANTISSA_128, POW10, POW10_COMPONENTS};
 use super::{is_integer, is_not_structural_or_whitespace_or_exponent_or_decimal};
 
@@ -351,7 +352,10 @@ fn f64_from_parts(
 
 #[cold]
 fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
-    match lexical_core::parse_format::<f64>(slice, lexical_core::NumberFormat::JSON) {
+    match lexical_core::parse_with_options::<f64, { lexical_core::format::JSON }>(
+        slice,
+        &lexical_core::parse_float_options::JSON,
+    ) {
         Ok(val) => {
             if val.is_infinite() {
                 err!(offset, get!(slice, offset))
