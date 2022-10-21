@@ -1,3 +1,5 @@
+#![cfg(feature = "serde")]
+
 use serde::{Deserialize, Serialize};
 
 mod field_serde {
