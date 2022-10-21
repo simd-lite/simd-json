@@ -1794,6 +1794,22 @@ mod tests_serde {
 
     #[cfg(feature = "serde_impl")]
     #[test]
+    fn int_map_key() {
+        use std::collections::BTreeMap;
+
+        let mut map = BTreeMap::new();
+        map.insert(0, "foo");
+        map.insert(1, "bar");
+        map.insert(2, "baz");
+
+        assert_eq!(
+            r#"{"0":"foo","1":"bar","2":"baz"}"#,
+            crate::to_string(&map).unwrap()
+        );
+    }
+
+    #[cfg(feature = "serde_impl")]
+    #[test]
     fn enum_test() {
         use serde::{Deserialize, Serialize};
 
