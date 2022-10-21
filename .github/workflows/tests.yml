@@ -25,6 +25,7 @@ jobs:
           - '--features 128bit'
           - '--features beef'
           - '--features beef,known-key'
+          - '--features approx-number-parsing'
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v1
