@@ -345,7 +345,7 @@ pub(crate) trait Stage1Parse<T> {
         // push in bit zero as a potential end
         // if we had an odd-numbered run at the
         // end of the previous iteration
-        *prev_iter_ends_odd_backslash = if iter_ends_odd_backslash { 0x1 } else { 0x0 };
+        *prev_iter_ends_odd_backslash = u64::from(iter_ends_odd_backslash);
         let even_carry_ends: u64 = even_carries & !bs_bits;
         let odd_carry_ends: u64 = odd_carries & !bs_bits;
         let even_start_odd_end: u64 = even_carry_ends & ODD_BITS;
