@@ -199,7 +199,7 @@ impl<'se> serde::Serializer for Serializer<'se> {
         T: Serialize,
     {
         let mut values = Object::with_capacity(1);
-        let x = stry!(to_value(&value));
+        let x = stry!(to_value(value));
         values.insert(variant.into(), x);
         Ok(Value::from(values))
     }
@@ -308,7 +308,7 @@ impl<'se> serde::ser::SerializeSeq for SerializeVec<'se> {
     where
         T: Serialize,
     {
-        self.vec.push(stry!(to_value(&value)));
+        self.vec.push(stry!(to_value(value)));
         Ok(())
     }
 
@@ -357,7 +357,7 @@ impl<'se> serde::ser::SerializeTupleVariant for SerializeTupleVariant<'se> {
     where
         T: Serialize,
     {
-        self.vec.push(stry!(to_value(&value)));
+        self.vec.push(stry!(to_value(value)));
         Ok(())
     }
 
@@ -406,7 +406,7 @@ impl<'se> serde::ser::SerializeMap for SerializeMap<'se> {
                 // Panic because this indicates a bug in the program rather than an
                 // expected failure.
                 let key = key.expect("serialize_value called before serialize_key");
-                map.insert(key, stry!(to_value(&value)));
+                map.insert(key, stry!(to_value(value)));
                 Ok(())
             }
             #[cfg(feature = "arbitrary_precision")]
@@ -661,7 +661,7 @@ impl<'se> serde::ser::SerializeStructVariant for SerializeStructVariant<'se> {
     where
         T: Serialize,
     {
-        self.map.insert(key.into(), stry!(to_value(&value)));
+        self.map.insert(key.into(), stry!(to_value(value)));
         Ok(())
     }
 
