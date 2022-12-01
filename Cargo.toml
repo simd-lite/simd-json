@@ -49,8 +49,8 @@ harness = false
 [features]
 default = ["swar-number-parsing", "serde_impl"]
 
-# Forces the `owned::Value` and `borrowed::Value` to check for duplicated keys. This comes at a
-# performance cost. By default keys will not be checked and feeding json objects with duplicated
+# Forces the `owned::Value` and `borrowed::Value` to deduplicate duplicated keys by letting consecutive keys overwrite previous ones. This comes at a
+# performance cost. By default duplicate keys will not be overwritten and feeding json objects with duplicated
 # keys to either of the `Value`s will result in undefined behavior.
 value-no-dup-keys = []
 
