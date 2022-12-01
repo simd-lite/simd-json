@@ -146,7 +146,10 @@ where
         // element so we eat this
         for _ in 0..len {
             if let Node::String(key) = unsafe { self.de.next_() } {
+                #[cfg(not(feature = "value-no-dup-keys"))]
                 res.insert_nocheck(key.into(), self.parse());
+                #[cfg(feature = "value-no-dup-keys")]
+                res.insert(key.into(), self.parse());
             } else {
                 unreachable!();
             }

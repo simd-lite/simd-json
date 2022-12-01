@@ -362,9 +362,10 @@ impl<'de> OwnedDeserializer<'de> {
 
         for _ in 0..len {
             if let Node::String(key) = unsafe { self.de.next_() } {
-                // We have to call parse short str twice since parse_short_str
-                // does not move the cursor forward
+                #[cfg(not(feature = "value-no-dup-keys"))]
                 res.insert_nocheck(key.into(), self.parse());
+                #[cfg(feature = "value-no-dup-keys")]
+                res.insert(key.into(), self.parse());
             } else {
                 unreachable!();
             }
