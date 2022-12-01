@@ -303,6 +303,7 @@ macro_rules! json_internal_owned {
         let len = json_internal_owned!(@object @count [@entries $(($value => $($key)+))*]);
         $object = $crate::value::owned::Object::with_capacity(len);
         $(
+            #[allow(clippy::let_underscore_drop)]
             let _ = $object.insert(($($key)+).into(), $value);
         )*
     };
@@ -784,6 +785,7 @@ macro_rules! json_internal_borrowed {
         let len = json_internal_borrowed!(@object @count [@entries $(($value => $($key)+))*]);
         $object = $crate::value::borrowed::Object::with_capacity(len);
         $(
+            #[allow(clippy::let_underscore_drop)]
             let _ = $object.insert(($($key)+).into(), $value);
         )*
     };

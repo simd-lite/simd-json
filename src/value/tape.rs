@@ -4,6 +4,7 @@ use value_trait::StaticNode;
 /// `Tape`
 pub struct Tape<'input>(Vec<Node<'input>>);
 
+#[allow(clippy::derive_partial_eq_without_eq)]
 /// Tape `Node`
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Node<'input> {
