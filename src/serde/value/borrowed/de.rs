@@ -976,7 +976,7 @@ mod test {
     #[test]
     fn deserialize() {
         use halfbrown::{hashmap, HashMap};
-        #[derive(serde::Deserialize, Debug, PartialEq)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         #[serde(rename_all = "lowercase")]
         pub enum Rotate {
             Left,
@@ -999,7 +999,7 @@ mod test {
             pub pos: Point,
             pub age: u64,
         }
-        #[derive(serde::Deserialize, Debug, PartialEq)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         pub struct TestStruct {
             pub key: HashMap<String, String>,
             pub vec: Vec<Vec<Option<u8>>>,

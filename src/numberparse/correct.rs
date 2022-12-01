@@ -383,27 +383,25 @@ mod test {
         to_value(val)
     }
 
+    #[allow(clippy::float_cmp)]
     #[test]
-    fn float() {
+    fn float() -> Result<(), crate::Error> {
         assert_eq!(
             to_value_from_str("0.4e5").expect("40000.0"),
             Static(F64(40000.0))
         );
         assert_eq!(
-            to_value_from_str("-12345678901234.56789012").unwrap(),
+            to_value_from_str("-12345678901234.56789012")?,
             Static(F64(-12_345_678_901_234.568))
         );
-        assert_eq!(to_value_from_str("0.4e-001").unwrap(), Static(F64(0.04)));
+        assert_eq!(to_value_from_str("0.4e-001")?, Static(F64(0.04)));
         assert_eq!(
-            to_value_from_str("0.123456789e-12").unwrap(),
+            to_value_from_str("0.123456789e-12")?,
             Static(F64(1.234_567_89e-13))
         );
+        assert_eq!(to_value_from_str("1.234567890E+34")?, 1.234_567_89e34);
         assert_eq!(
-            to_value_from_str("1.234567890E+34").unwrap(),
-            1.234_567_89e34
-        );
-        assert_eq!(
-            to_value_from_str("23456789012E66").unwrap(),
+            to_value_from_str("23456789012E66")?,
             Static(F64(2.345_678_901_2e76))
         );
         assert_eq!(
@@ -412,34 +410,37 @@ mod test {
             Static(F64(1.23))
         );
         assert_eq!(to_value_from_str("0.6").expect("0.6"), Static(F64(0.6)));
+        Ok(())
     }
 
+    #[allow(clippy::float_cmp)]
     #[test]
-    fn float_precision() {
+    fn float_precision() -> Result<(), crate::Error> {
         assert_eq!(
-            to_value_from_str("31.245270191439438").unwrap(),
+            to_value_from_str("31.245270191439438")?,
             31.245_270_191_439_438
         );
         assert_eq!(
-            to_value_from_str("-31.245270191439438").unwrap(),
+            to_value_from_str("-31.245270191439438")?,
             -31.245_270_191_439_438
         );
         assert_eq!(
-            to_value_from_str("121.48791951161945").unwrap(),
+            to_value_from_str("121.48791951161945")?,
             121.487_919_511_619_45
         );
         assert_eq!(
-            to_value_from_str("-121.48791951161945").unwrap(),
+            to_value_from_str("-121.48791951161945")?,
             -121.487_919_511_619_45
         );
         assert_eq!(
-            to_value_from_str("100.78399658203125").unwrap(),
+            to_value_from_str("100.78399658203125")?,
             100.783_996_582_031_25
         );
         assert_eq!(
-            to_value_from_str("-100.78399658203125").unwrap(),
+            to_value_from_str("-100.78399658203125")?,
             -100.783_996_582_031_25
         );
+        Ok(())
     }
 
     #[test]
@@ -500,34 +501,39 @@ mod test {
     }
 
     #[test]
-    fn zero_int() {
-        assert_eq!(to_value_from_str("0").expect("0"), Static(I64(0)));
+    fn zero_int() -> Result<(), crate::Error> {
+        assert_eq!(to_value_from_str("0")?, Static(I64(0)));
+        Ok(())
     }
 
     #[test]
-    fn zero_float() {
-        assert_eq!(to_value_from_str("0e1").expect("0e1"), Static(F64(0.0)));
-        assert_eq!(to_value_from_str("0.00e-00").unwrap(), Static(F64(0.0)));
-        assert_eq!(to_value_from_str("0e-1").expect("0e-1"), Static(F64(-0.0)));
-        assert_eq!(to_value_from_str("-0.00e-00").unwrap(), Static(F64(-0.0)));
+    fn zero_float() -> Result<(), crate::Error> {
+        assert_eq!(to_value_from_str("0e1")?, Static(F64(0.0)));
+        assert_eq!(to_value_from_str("0.00e-00")?, Static(F64(0.0)));
+        assert_eq!(to_value_from_str("0e-1")?, Static(F64(-0.0)));
+        assert_eq!(to_value_from_str("-0.00e-00")?, Static(F64(-0.0)));
+        Ok(())
     }
 
     #[test]
-    fn int() {
-        assert_eq!(to_value_from_str("1").unwrap(), Static(I64(1)));
-        assert_eq!(to_value_from_str("257").unwrap(), Static(I64(257)));
+    fn int() -> Result<(), crate::Error> {
+        assert_eq!(to_value_from_str("1")?, Static(I64(1)));
+        assert_eq!(to_value_from_str("257")?, Static(I64(257)));
+        Ok(())
     }
 
     #[test]
-    fn minus_309() {
+    fn minus_309() -> Result<(), crate::Error> {
         assert_eq!(
-            to_value_from_str("-5.96916642387374e-309").unwrap(),
+            to_value_from_str("-5.96916642387374e-309")?,
             Static(F64(-5.969_166_423_873_74e-_309))
         );
+        Ok(())
     }
     #[allow(clippy::unreadable_literal)]
     #[test]
-    fn tiny_float() {
-        assert_eq!(to_value_from_str("-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374").unwrap(), Static(F64(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374)));
+    fn tiny_float() -> Result<(), crate::Error> {
+        assert_eq!(to_value_from_str("-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374")?, Static(F64(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374)));
+        Ok(())
     }
 }

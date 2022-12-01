@@ -858,8 +858,8 @@ mod test {
         #[test]
         fn prop_serialize_deserialize(owned in arb_value()) {
             let mut string = owned.encode();
-            let mut bytes = unsafe{ string.as_bytes_mut()};
-            let decoded = to_value(&mut bytes).expect("Failed to decode");
+            let bytes = unsafe{ string.as_bytes_mut()};
+            let decoded = to_value(bytes).expect("Failed to decode");
             prop_assert_eq!(owned, decoded);
         }
         #[test]
