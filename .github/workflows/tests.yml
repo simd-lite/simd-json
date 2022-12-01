@@ -21,6 +21,7 @@ jobs:
         features:
           - '--no-default-features'
           - ''
+          - '--features value-no-dup-keys'
           - '--features known-key'
           - '--features 128bit'
           - '--features beef'
