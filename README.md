@@ -38,7 +38,7 @@ For best performance we highly suggest using [mimalloc](https://crates.io/crates
 
 That said the serde support is contained in the `serde_impl` feature which is part of the default feature set of `simd-json`, but it can be disabled.
 
-### `known-key
+### `known-key`
 
 The `known-key` feature changes the hash mechanism for the DOM representation of the underlying JSON object, from `ahash` to `fxhash`. The `ahash` hasher is faster at hashing and provides protection against DOS attacks by forcing multiple keys into a single hashing bucket. The `fxhash` hasher on the other hand allows for repeatable hashing results, which in turn allows memoizing hashes for well known keys and saving time on lookups. In workloads that are heavy at accessing some well known keys this can be a performance advantage.
 
