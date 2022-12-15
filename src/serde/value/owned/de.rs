@@ -1,13 +1,16 @@
 // A lot of this logic is a re-implementation or copy of serde_json::Value
-use super::super::shared::MapKeyDeserializer;
 use crate::value::owned::{Object, Value};
+use crate::Error;
+use crate::ErrorType;
 use crate::StaticNode;
-use crate::{cow::Cow, ErrorType};
-use crate::{stry, Error};
-use serde::de::{self, Deserialize, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
-use serde::forward_to_deserialize_any;
-use serde_ext::de::{EnumAccess, IntoDeserializer, VariantAccess};
-use std::{fmt, slice};
+use serde_ext::{
+    de::{
+        self, Deserialize, DeserializeSeed, Deserializer, EnumAccess, IntoDeserializer, MapAccess,
+        SeqAccess, VariantAccess, Visitor,
+    },
+    forward_to_deserialize_any,
+};
+use std::fmt;
 
 impl<'de> de::Deserializer<'de> for Value {
     type Error = Error;
@@ -20,18 +23,21 @@ impl<'de> de::Deserializer<'de> for Value {
         V: Visitor<'de>,
     {
         match self {
-            Self::Static(StaticNode::Null) => visitor.visit_unit(),
-            Self::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
-            Self::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
+            Value::Static(StaticNode::Null) => visitor.visit_unit(),
+            Value::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
+            Value::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
             #[cfg(feature = "128bit")]
-            Self::Static(StaticNode::I128(n)) => visitor.visit_i128(n),
-            Self::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
+            Value::Static(StaticNode::I128(n)) => visitor.visit_i128(n),
+            Value::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
             #[cfg(feature = "128bit")]
-            Self::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
-            Self::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
-            Self::String(s) => visitor.visit_string(s),
-            Self::Array(a) => visit_array(a, visitor),
-            Self::Object(o) => visit_object(o, visitor),
+            Value::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
+            Value::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
+            Value::String(s) => visitor.visit_string(s),
+            Value::Array(a) => visitor.visit_seq(Array(a.into_iter())),
+            Value::Object(o) => visitor.visit_map(ObjectAccess {
+                i: o.into_iter(),
+                v: Value::Static(StaticNode::Null),
+            }),
         }
     }
 
@@ -40,7 +46,7 @@ impl<'de> de::Deserializer<'de> for Value {
     where
         V: Visitor<'de>,
     {
-        if self == Self::Static(StaticNode::Null) {
+        if self == Value::Static(StaticNode::Null) {
             visitor.visit_unit()
         } else {
             visitor.visit_some(self)
@@ -106,8 +112,11 @@ impl<'de> de::Deserializer<'de> for Value {
     {
         match self {
             // Give the visitor access to each element of the sequence.
-            Self::Array(a) => visit_array(a, visitor),
-            Self::Object(o) => visit_object(o, visitor),
+            Value::Array(a) => visitor.visit_seq(Array(a.into_iter())),
+            Value::Object(o) => visitor.visit_map(ObjectAccess {
+                i: o.into_iter(),
+                v: Value::Static(StaticNode::Null),
+            }),
             _ => Err(crate::Deserializer::error(ErrorType::ExpectedMap)),
         }
     }
@@ -119,173 +128,100 @@ impl<'de> de::Deserializer<'de> for Value {
     }
 }
 
-fn visit_array<'de, V>(array: Vec<Value>, visitor: V) -> Result<V::Value, Error>
-where
-    V: Visitor<'de>,
-{
-    let len = array.len();
-    let mut deserializer = SeqDeserializer::new(array);
-    let seq = stry!(visitor.visit_seq(&mut deserializer));
-    let remaining = deserializer.iter.len();
-    if remaining == 0 {
-        Ok(seq)
-    } else {
-        Err(serde::de::Error::invalid_length(
-            len,
-            &"fewer elements in array",
-        ))
-    }
-}
+struct Array(std::vec::IntoIter<Value>);
 
-fn visit_object<'de, V>(object: Box<Object>, visitor: V) -> Result<V::Value, Error>
-where
-    V: Visitor<'de>,
-{
-    let len = object.len();
-    let mut deserializer = ObjectDeserializer::new(object);
-    let map = stry!(visitor.visit_map(&mut deserializer));
-    let remaining = deserializer.iter.len();
-    if remaining == 0 {
-        Ok(map)
-    } else {
-        Err(serde::de::Error::invalid_length(
-            len,
-            &"fewer elements in map",
-        ))
-    }
-}
-struct SeqDeserializer {
-    iter: std::vec::IntoIter<Value>,
-}
-
-impl SeqDeserializer {
-    fn new(vec: Vec<Value>) -> Self {
-        Self {
-            iter: vec.into_iter(),
-        }
-    }
-}
-
-impl<'de> serde::Deserializer<'de> for SeqDeserializer {
-    type Error = Error;
-
-    #[inline]
-    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        let len = self.iter.len();
-        if len == 0 {
-            visitor.visit_unit()
-        } else {
-            let ret = stry!(visitor.visit_seq(&mut self));
-            let remaining = self.iter.len();
-            if remaining == 0 {
-                Ok(ret)
-            } else {
-                Err(serde::de::Error::invalid_length(
-                    len,
-                    &"fewer elements in array",
-                ))
-            }
-        }
-    }
-
-    forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum identifier ignored_any
-    }
-}
-
-impl<'de> SeqAccess<'de> for SeqDeserializer {
+// `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
+// through elements of the sequence.
+impl<'de> SeqAccess<'de> for Array {
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: DeserializeSeed<'de>,
     {
-        match self.iter.next() {
-            Some(value) => seed.deserialize(value).map(Some),
-            None => Ok(None),
-        }
-    }
-
-    fn size_hint(&self) -> Option<usize> {
-        match self.iter.size_hint() {
-            (lower, Some(upper)) if lower == upper => Some(upper),
-            _ => None,
-        }
+        self.0
+            .next()
+            .map_or(Ok(None), |v| seed.deserialize(v).map(Some))
     }
 }
 
-struct ObjectDeserializer {
-    iter: <Object as IntoIterator>::IntoIter,
-    value: Option<Value>,
-}
+struct ArrayRef<'de>(std::slice::Iter<'de, Value>);
 
-impl ObjectDeserializer {
-    #[allow(clippy::boxed_local, clippy::needless_pass_by_value)]
-    fn new(map: Box<Object>) -> Self {
-        Self {
-            iter: map.into_iter(),
-            value: None,
-        }
-    }
-}
-
-impl<'de> MapAccess<'de> for ObjectDeserializer {
+// `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
+// through elements of the sequence.
+impl<'de> SeqAccess<'de> for ArrayRef<'de> {
     type Error = Error;
 
-    fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: DeserializeSeed<'de>,
     {
-        match self.iter.next() {
-            Some((key, value)) => {
-                self.value = Some(value);
-                let key_de = MapKeyDeserializer {
-                    key: Cow::from(key),
-                };
-                seed.deserialize(key_de).map(Some)
-            }
-            None => Ok(None),
-        }
-    }
-
-    fn next_value_seed<T>(&mut self, seed: T) -> Result<T::Value, Self::Error>
-    where
-        T: DeserializeSeed<'de>,
-    {
-        match self.value.take() {
-            Some(value) => seed.deserialize(value),
-            None => Err(serde::de::Error::custom("value is missing")),
-        }
-    }
-
-    fn size_hint(&self) -> Option<usize> {
-        match self.iter.size_hint() {
-            (lower, Some(upper)) if lower == upper => Some(upper),
-            _ => None,
-        }
+        self.0
+            .next()
+            .map_or(Ok(None), |v| seed.deserialize(v).map(Some))
     }
 }
 
-impl<'de> serde::Deserializer<'de> for ObjectDeserializer {
+struct ObjectAccess {
+    i: halfbrown::IntoIter<String, Value>,
+    v: Value,
+}
+
+// `MapAccess` is provided to the `Visitor` to give it the ability to iterate
+// through entries of the map.
+impl<'de> MapAccess<'de> for ObjectAccess {
     type Error = Error;
 
-    #[inline]
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
     where
-        V: Visitor<'de>,
+        K: DeserializeSeed<'de>,
     {
-        visitor.visit_map(self)
+        if let Some((k, v)) = self.i.next() {
+            self.v = v;
+            seed.deserialize(Value::String(k)).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
-    forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum identifier ignored_any
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        //TODO: This is ugly
+        seed.deserialize(self.v.clone())
+    }
+}
+
+struct ObjectRefAccess<'de> {
+    i: halfbrown::Iter<'de, String, Value>,
+    v: &'de Value,
+}
+
+// `MapAccess` is provided to the `Visitor` to give it the ability to iterate
+// through entries of the map.
+impl<'de> MapAccess<'de> for ObjectRefAccess<'de> {
+    type Error = Error;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+    where
+        K: DeserializeSeed<'de>,
+    {
+        if let Some((k, v)) = self.i.next() {
+            self.v = v;
+            //FIXME: perhaps we can avoid the clone with a specfic object key type
+            seed.deserialize(Value::String(k.clone())).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        //TODO: This is ugly
+        seed.deserialize(self.v.clone())
     }
 }
 
@@ -536,41 +472,6 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 }
 
-fn visit_array_ref<'de, V>(array: &'de [Value], visitor: V) -> Result<V::Value, Error>
-where
-    V: Visitor<'de>,
-{
-    let len = array.len();
-    let mut deserializer = SeqRefDeserializer::new(array);
-    let seq = stry!(visitor.visit_seq(&mut deserializer));
-    let remaining = deserializer.iter.len();
-    if remaining == 0 {
-        Ok(seq)
-    } else {
-        Err(serde::de::Error::invalid_length(
-            len,
-            &"fewer elements in array",
-        ))
-    }
-}
-
-fn visit_object_ref<'de, V>(object: &'de Object, visitor: V) -> Result<V::Value, Error>
-where
-    V: Visitor<'de>,
-{
-    let len = object.len();
-    let mut deserializer = MapRefDeserializer::new(object);
-    let map = stry!(visitor.visit_map(&mut deserializer));
-    if deserializer.iter.next().is_none() {
-        Ok(map)
-    } else {
-        Err(serde::de::Error::invalid_length(
-            len,
-            &"fewer elements in map",
-        ))
-    }
-}
-
 struct EnumDeserializer {
     variant: String,
     value: Option<Value>,
@@ -635,7 +536,7 @@ impl<'de> VariantAccess<'de> for VariantDeserializer {
                 if v.is_empty() {
                     visitor.visit_unit()
                 } else {
-                     visit_array(v, visitor)
+                    visitor.visit_seq(Array(v.into_iter()))
                 }
             }
             // FIXME
@@ -660,7 +561,10 @@ impl<'de> VariantAccess<'de> for VariantDeserializer {
         V: Visitor<'de>,
     {
         match self.value {
-            Some(Value::Object(v)) => visit_object(v, visitor),
+            Some(Value::Object(o)) => visitor.visit_map(ObjectAccess {
+                i: o.into_iter(),
+                v: Value::Static(StaticNode::Null),
+            }),
             // FIXME
             Some(_) | None => Err(crate::Deserializer::error(ErrorType::ExpectedMap))
 
@@ -696,9 +600,12 @@ impl<'de> de::Deserializer<'de> for &'de Value {
             #[cfg(feature = "128bit")]
             Value::Static(StaticNode::U128(n)) => visitor.visit_u128(*n),
             Value::Static(StaticNode::F64(n)) => visitor.visit_f64(*n),
-            Value::String(ref s) => visitor.visit_borrowed_str(s),
-            Value::Array(ref a) => visit_array_ref(a, visitor),
-            Value::Object(ref o) => visit_object_ref(o, visitor),
+            Value::String(s) => visitor.visit_borrowed_str(s),
+            Value::Array(a) => visitor.visit_seq(ArrayRef(a.iter())),
+            Value::Object(o) => visitor.visit_map(ObjectRefAccess {
+                i: o.iter(),
+                v: &Value::Static(StaticNode::Null),
+            }),
         }
     }
 
@@ -738,8 +645,11 @@ impl<'de> de::Deserializer<'de> for &'de Value {
     {
         match self {
             // Give the visitor access to each element of the sequence.
-            Value::Array(ref a) => visit_array_ref(a, visitor),
-            Value::Object(ref o) => visit_object_ref(o, visitor),
+            Value::Array(a) => visitor.visit_seq(ArrayRef(a.iter())),
+            Value::Object(o) => visitor.visit_map(ObjectRefAccess {
+                i: o.iter(),
+                v: &Value::Static(StaticNode::Null),
+            }),
             _ => Err(crate::Deserializer::error(ErrorType::ExpectedMap)),
         }
     }
@@ -842,7 +752,11 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
                 if v.is_empty() {
                     visitor.visit_unit()
                 } else {
-                     visit_array_ref(v, visitor)
+                    // This is somewhat nasty, but it's worth it since we can otherwise
+                    // avoid the clode by using into_iter instead of iter.
+                    // As a result it moves the clone to **only** here instead of in each invocation
+                    // of the Array next element
+                    visitor.visit_seq(ArrayRef(v.iter()))
                 }
             }
             // FIXME
@@ -867,12 +781,15 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Some(Value::Object(v)) => visit_object_ref(v, visitor),
+            Some(Value::Object(v)) => visitor.visit_map(ObjectRefAccess {
+                i: v.iter(),
+                v: &Value::Static(StaticNode::Null),
+            }),
             // FIXME
             Some(_) | None => Err(crate::Deserializer::error(ErrorType::ExpectedMap))
             // Some(other) => Err(serde::de::Error::invalid_type(
             //     other.unexpected(),
-            //     &"struct variant",
+            //     &"struct variqant",
             // )),
             // None => Err(serde::de::Error::invalid_type(
             //     Unexpected::UnitVariant,
@@ -881,139 +798,14 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
         }
     }
 }
-struct SeqRefDeserializer<'de> {
-    iter: slice::Iter<'de, Value>,
-}
 
-impl<'de> SeqRefDeserializer<'de> {
-    fn new(slice: &'de [Value]) -> Self {
-        SeqRefDeserializer { iter: slice.iter() }
-    }
-}
-
-impl<'de> serde::Deserializer<'de> for SeqRefDeserializer<'de> {
-    type Error = Error;
-
-    #[inline]
-    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        let len = self.iter.len();
-        if len == 0 {
-            visitor.visit_unit()
-        } else {
-            let ret = stry!(visitor.visit_seq(&mut self));
-            let remaining = self.iter.len();
-            if remaining == 0 {
-                Ok(ret)
-            } else {
-                Err(serde::de::Error::invalid_length(
-                    len,
-                    &"fewer elements in array",
-                ))
-            }
-        }
-    }
-
-    forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum identifier ignored_any
-    }
-}
-
-impl<'de> SeqAccess<'de> for SeqRefDeserializer<'de> {
-    type Error = Error;
-
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Error>
-    where
-        T: DeserializeSeed<'de>,
-    {
-        match self.iter.next() {
-            Some(value) => seed.deserialize(value).map(Some),
-            None => Ok(None),
-        }
-    }
-
-    fn size_hint(&self) -> Option<usize> {
-        match self.iter.size_hint() {
-            (lower, Some(upper)) if lower == upper => Some(upper),
-            _ => None,
-        }
-    }
-}
-
-struct MapRefDeserializer<'de> {
-    iter: <&'de Object as IntoIterator>::IntoIter,
-    value: Option<&'de Value>,
-}
-
-impl<'de> MapRefDeserializer<'de> {
-    fn new(map: &'de Object) -> Self {
-        MapRefDeserializer {
-            iter: map.into_iter(),
-            value: None,
-        }
-    }
-}
-
-impl<'de> MapAccess<'de> for MapRefDeserializer<'de> {
-    type Error = Error;
-
-    fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Error>
-    where
-        T: DeserializeSeed<'de>,
-    {
-        match self.iter.next() {
-            Some((key, value)) => {
-                self.value = Some(value);
-                let key_de = MapKeyDeserializer {
-                    key: Cow::from(&**key),
-                };
-                seed.deserialize(key_de).map(Some)
-            }
-            None => Ok(None),
-        }
-    }
-
-    fn next_value_seed<T>(&mut self, seed: T) -> Result<T::Value, Error>
-    where
-        T: DeserializeSeed<'de>,
-    {
-        match self.value.take() {
-            Some(value) => seed.deserialize(value),
-            None => Err(serde::de::Error::custom("value is missing")),
-        }
-    }
-
-    fn size_hint(&self) -> Option<usize> {
-        match self.iter.size_hint() {
-            (lower, Some(upper)) if lower == upper => Some(upper),
-            _ => None,
-        }
-    }
-}
-
-impl<'de> serde::Deserializer<'de> for MapRefDeserializer<'de> {
-    type Error = Error;
-
-    #[inline]
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        visitor.visit_map(self)
-    }
-
-    forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum identifier ignored_any
-    }
-}
 #[cfg(test)]
 mod test {
+    use serde::Deserialize;
+    use value_trait::ValueAccess;
+
+    use crate::{json, owned};
+
     #[test]
     fn option_field_absent_owned() {
         #[derive(serde::Deserialize, Debug)]
@@ -1124,5 +916,48 @@ mod test {
         let int128 = crate::OwnedValue::Static(crate::StaticNode::U128(value));
         let res: u128 = super::super::from_refvalue(&int128).expect("from_refvalue");
         assert_eq!(value, res);
+    }
+    #[test]
+    fn variant() {
+        struct NameAndConfig {
+            name: String,
+            config: Option<owned::Value>,
+        }
+        impl<'v> serde::Deserialize<'v> for NameAndConfig {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'v>,
+            {
+                #[derive(Deserialize)]
+                #[serde(untagged)]
+                enum Variants {
+                    Name(String),
+                    NameAndConfig {
+                        name: String,
+                        config: Option<owned::Value>,
+                    },
+                }
+
+                let var = Variants::deserialize(deserializer)?;
+
+                match var {
+                    Variants::Name(name) => Ok(NameAndConfig { name, config: None }),
+                    Variants::NameAndConfig { name, config } => Ok(NameAndConfig { name, config }),
+                }
+            }
+        }
+
+        let v = json!({"name": "name", "config": 42});
+        let nac = NameAndConfig::deserialize(v).expect("could structurize two element struct");
+        assert_eq!(nac.name, "name");
+        assert_eq!(nac.config.as_u8(), Some(42));
+        let v = json!({"name": "name"});
+        let nac = NameAndConfig::deserialize(v).expect("could structurize one element struct");
+        assert_eq!(nac.name, "name");
+        assert_eq!(nac.config, None);
+        let v = json!("name");
+        let nac = NameAndConfig::deserialize(v).expect("could structurize string");
+        assert_eq!(nac.name, "name");
+        assert_eq!(nac.config, None);
     }
 }
