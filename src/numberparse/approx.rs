@@ -108,7 +108,7 @@ impl<'de> Deserializer<'de> {
                 digitcount += 1;
                 fraction += u64::from(digit);
             } else {
-                return Err(Self::raw_error(
+                return Err(Self::error_c(
                     idx + digitcount,
                     d as char,
                     ErrorType::InvalidNumber,
@@ -148,7 +148,7 @@ impl<'de> Deserializer<'de> {
             }
             d = unsafe { *p.get_kinda_unchecked(digitcount) };
             if !is_integer(d) {
-                return Err(Self::raw_error(
+                return Err(Self::error_c(
                     idx + digitcount,
                     d as char,
                     ErrorType::InvalidNumber,
@@ -178,7 +178,7 @@ impl<'de> Deserializer<'de> {
             d = unsafe { *p.get_kinda_unchecked(digitcount) };
             if is_integer(d) {
                 // we refuse to parse this
-                return Err(Self::raw_error(
+                return Err(Self::error_c(
                     idx + digitcount,
                     d as char,
                     ErrorType::InvalidNumber,
@@ -191,7 +191,7 @@ impl<'de> Deserializer<'de> {
             };
             if !(-323..=308).contains(&exponent) {
                 // we refuse to parse this
-                return Err(Self::raw_error(
+                return Err(Self::error_c(
                     idx + digitcount,
                     d as char,
                     ErrorType::InvalidExponent,
@@ -202,7 +202,7 @@ impl<'de> Deserializer<'de> {
 
         d = unsafe { *p.get_kinda_unchecked(digitcount) };
         if is_structural_or_whitespace(d) == 0 {
-            Err(Self::raw_error(
+            Err(Self::error_c(
                 idx + digitcount,
                 d as char,
                 ErrorType::InvalidNumber,
@@ -248,7 +248,7 @@ impl<'de> Deserializer<'de> {
                 {
                     i = i1;
                 } else {
-                    return Err(Self::raw_error(
+                    return Err(Self::error_c(
                         idx + digitcount,
                         d as char,
                         ErrorType::Overflow,
@@ -261,7 +261,7 @@ impl<'de> Deserializer<'de> {
 
         if negative && i > 9_223_372_036_854_775_808 {
             //i64::min_value() * -1
-            return Err(Self::raw_error(
+            return Err(Self::error_c(
                 idx + digitcount,
                 d as char,
                 ErrorType::Overflow,
@@ -269,7 +269,7 @@ impl<'de> Deserializer<'de> {
         }
 
         if is_structural_or_whitespace(d) == 0 {
-            Err(Self::raw_error(
+            Err(Self::error_c(
                 idx + digitcount,
                 d as char,
                 ErrorType::InvalidNumber,
@@ -309,7 +309,7 @@ impl<'de> Deserializer<'de> {
                 {
                     i = i1;
                 } else {
-                    return Err(Self::raw_error(
+                    return Err(Self::error_c(
                         idx + digitcount,
                         d as char,
                         ErrorType::Overflow,
@@ -322,7 +322,7 @@ impl<'de> Deserializer<'de> {
 
         if negative && i > 170_141_183_460_469_231_731_687_303_715_884_105_728_u128 {
             //i64::min_value() * -1
-            return Err(Self::raw_error(
+            return Err(Self::error_c(
                 idx + digitcount,
                 d as char,
                 ErrorType::Overflow,
@@ -330,7 +330,7 @@ impl<'de> Deserializer<'de> {
         }
 
         if is_structural_or_whitespace(d) == 0 {
-            Err(Self::raw_error(
+            Err(Self::error_c(
                 idx + digitcount,
                 d as char,
                 ErrorType::InvalidNumber,
@@ -372,7 +372,7 @@ impl<'de> Deserializer<'de> {
             byte_count += 1;
             d = unsafe { *buf.get_kinda_unchecked(byte_count) };
             if is_not_structural_or_whitespace_or_exponent_or_decimal(d) {
-                return Err(Self::raw_error(
+                return Err(Self::error_c(
                     idx + byte_count,
                     d as char,
                     ErrorType::InvalidNumber,
@@ -382,7 +382,7 @@ impl<'de> Deserializer<'de> {
         } else {
             if !is_integer(d) {
                 // must start with an integer
-                return Err(Self::raw_error(
+                return Err(Self::error_c(
                     idx + byte_count,
                     d as char,
                     ErrorType::InvalidNumber,
@@ -401,7 +401,7 @@ impl<'de> Deserializer<'de> {
                 if let Some(i1) = i.checked_add(u64::from(digit)) {
                     i = i1;
                 } else {
-                    return Err(Self::raw_error(
+                    return Err(Self::error_c(
                         idx + byte_count,
                         d as char,
                         ErrorType::Overflow,
@@ -423,7 +423,7 @@ impl<'de> Deserializer<'de> {
                 byte_count += 1;
                 i = i.wrapping_mul(10).wrapping_add(u64::from(digit));
             } else {
-                return Err(Self::raw_error(
+                return Err(Self::error_c(
                     idx + byte_count,
                     d as char,
                     ErrorType::InvalidNumber,
@@ -474,7 +474,7 @@ impl<'de> Deserializer<'de> {
                 d = unsafe { *buf.get_kinda_unchecked(byte_count) };
             }
             if !is_integer(d) {
-                return Err(Self::raw_error(
+                return Err(Self::error_c(
                     idx + byte_count,
                     d as char,
                     ErrorType::InvalidNumber,
@@ -501,7 +501,7 @@ impl<'de> Deserializer<'de> {
             }
             if is_integer(d) {
                 // we refuse to parse this
-                return Err(Self::raw_error(
+                return Err(Self::error_c(
                     idx + byte_count,
                     d as char,
                     ErrorType::InvalidNumber,
@@ -543,7 +543,7 @@ impl<'de> Deserializer<'de> {
             }
         };
         if is_structural_or_whitespace(d) == 0 {
-            Err(Self::raw_error(
+            Err(Self::error_c(
                 idx + byte_count,
                 d as char,
                 ErrorType::InvalidNumber,

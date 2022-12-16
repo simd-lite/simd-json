@@ -158,10 +158,10 @@ impl<'de> Deserializer<'de> {
                     ) {
                         r
                     } else {
-                        return Err(Self::raw_error(src_i, 'u', InvalidUnicodeCodepoint));
+                        return Err(Self::error_c(src_i, 'u', InvalidUnicodeCodepoint));
                     };
                     if o == 0 {
-                        return Err(Self::raw_error(src_i, 'u', InvalidUnicodeCodepoint));
+                        return Err(Self::error_c(src_i, 'u', InvalidUnicodeCodepoint));
                     };
                     // We moved o steps forward at the destination and 6 on the source
                     src_i += s;
@@ -174,7 +174,7 @@ impl<'de> Deserializer<'de> {
                     let escape_result: u8 =
                         unsafe { *ESCAPE_MAP.get_kinda_unchecked(escape_char as usize) };
                     if escape_result == 0 {
-                        return Err(Self::raw_error(src_i, escape_char as char, InvalidEscape));
+                        return Err(Self::error_c(src_i, escape_char as char, InvalidEscape));
                     }
                     unsafe {
                         *buffer.get_kinda_unchecked_mut(dst_i + bs_dist as usize) = escape_result;

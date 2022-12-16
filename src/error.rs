@@ -1,15 +1,17 @@
 use std::fmt;
 
+use value_trait::ValueType;
+
 /// Error types encountered while parsing
 #[derive(Debug)]
 pub enum ErrorType {
+    /// A specific type was expected but another one encountered.
+    Unexpected(Option<ValueType>, Option<ValueType>),
     /// Simd-json only supports inputs of up to
     /// 4GB in size.
     InputTooLarge,
     /// The key of a map isn't a string
     BadKeyType,
-    /// The data ended early
-    EarlyEnd,
     /// Expected an array
     ExpectedArray,
     /// Expected a `,` in an array
@@ -67,11 +69,9 @@ pub enum ErrorType {
     /// Generic syntax error
     Syntax,
     /// Training characters
-    TrailingCharacters,
+    TrailingData,
     /// Unexpected character
     UnexpectedCharacter,
-    /// Unexpected end
-    UnexpectedEnd,
     /// Unterminated string
     UnterminatedString,
     /// Expected Array elements
@@ -99,7 +99,6 @@ impl PartialEq for ErrorType {
         match (self, other) {
             (Self::Io(_), Self::Io(_))
             | (Self::BadKeyType, Self::BadKeyType)
-            | (Self::EarlyEnd, Self::EarlyEnd)
             | (Self::ExpectedArray, Self::ExpectedArray)
             | (Self::ExpectedArrayComma, Self::ExpectedArrayComma)
             | (Self::ExpectedBoolean, Self::ExpectedBoolean)
@@ -127,9 +126,8 @@ impl PartialEq for ErrorType {
             | (Self::Parser, Self::Parser)
             | (Self::Eof, Self::Eof)
             | (Self::Syntax, Self::Syntax)
-            | (Self::TrailingCharacters, Self::TrailingCharacters)
+            | (Self::TrailingData, Self::TrailingData)
             | (Self::UnexpectedCharacter, Self::UnexpectedCharacter)
-            | (Self::UnexpectedEnd, Self::UnexpectedEnd)
             | (Self::UnterminatedString, Self::UnterminatedString)
             | (Self::ExpectedArrayContent, Self::ExpectedArrayContent)
             | (Self::ExpectedObjectContent, Self::ExpectedObjectContent)
@@ -152,13 +150,17 @@ pub struct Error {
 }
 
 impl Error {
-    pub(crate) fn new(index: usize, character: char, error: ErrorType) -> Self {
+    pub(crate) fn new(index: usize, character: Option<char>, error: ErrorType) -> Self {
         Self {
             index,
-            character: Some(character),
+            character,
             error,
         }
     }
+    pub(crate) fn new_c(index: usize, character: char, error: ErrorType) -> Self {
+        Self::new(index, Some(character), error)
+    }
+
     /// Create a generic error
     #[must_use = "Error creation"]
     pub fn generic(t: ErrorType) -> Self {

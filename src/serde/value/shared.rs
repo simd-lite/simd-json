@@ -29,8 +29,17 @@ macro_rules! deserialize_integer_key {
     };
 }
 
+// from: https://raw.githubusercontent.com/serde-rs/json/9295c96c8e2f3056beb23ba02a8d47f1704e5b02/src/value/de.rs
 pub(crate) struct MapKeyDeserializer<'de> {
     pub(crate) key: Cow<'de, str>,
+}
+
+impl<'de> MapKeyDeserializer<'de> {
+    pub(crate) fn borrowed(key: &'de str) -> Self {
+        Self {
+            key: Cow::from(key),
+        }
+    }
 }
 
 impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
