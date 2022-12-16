@@ -68,7 +68,7 @@ pub enum ErrorType {
     Serde(String),
     /// Generic syntax error
     Syntax,
-    /// Training characters
+    /// Trailing data
     TrailingData,
     /// Unexpected character
     UnexpectedCharacter,
