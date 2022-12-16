@@ -133,7 +133,7 @@ impl<'de> Deserializer<'de> {
         self.tape
             .get(self.idx + 1)
             .copied()
-            .ok_or_else(|| Self::error(ErrorType::UnexpectedEnd))
+            .ok_or_else(|| Self::error(ErrorType::Eof))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -873,11 +873,11 @@ mod test {
         assert_eq!(input_str, sto_string(&input).unwrap());
         assert_eq!(
             unsafe { crate::from_str::<std::collections::HashMap<u8, i8>>(&mut input_str) },
-            Err(Error::new(0, '?', ErrorType::ExpectedSigned))
+            Err(Error::new(0, None, ErrorType::ExpectedSigned))
         );
         assert_eq!(
             unsafe { crate::from_str::<std::collections::HashMap<i8, String>>(&mut input_str) },
-            Err(Error::new(0, '?', ErrorType::InvalidNumber))
+            Err(Error::new(0, None, ErrorType::InvalidNumber))
         );
         assert_eq!(
             unsafe { crate::from_str::<HashMap<Option<u8>, String>>(&mut input_str) },

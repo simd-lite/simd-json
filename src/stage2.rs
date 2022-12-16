@@ -280,7 +280,7 @@ impl<'de> Deserializer<'de> {
                 unsafe {
                     res.set_len(r_i);
                 };
-                return Err(Error::new(idx, c as char, ErrorType::InternalError));
+                return Err(Error::new_c(idx, c as char, ErrorType::InternalError));
             };
             ($t:expr) => {
                 // We need to ensure that rust doesn't
@@ -289,7 +289,7 @@ impl<'de> Deserializer<'de> {
                 unsafe {
                     res.set_len(r_i);
                 };
-                return Err(Error::new(idx, c as char, $t));
+                return Err(Error::new_c(idx, c as char, $t));
             };
         }
         // State start, we pull this outside of the
@@ -353,7 +353,7 @@ impl<'de> Deserializer<'de> {
                 if i == structural_indexes.len() {
                     success!();
                 }
-                fail!(ErrorType::TrailingCharacters);
+                fail!(ErrorType::TrailingData);
             }
             b'f' => {
                 unsafe {
@@ -365,7 +365,7 @@ impl<'de> Deserializer<'de> {
                 if i == structural_indexes.len() {
                     success!();
                 }
-                fail!(ErrorType::TrailingCharacters);
+                fail!(ErrorType::TrailingData);
             }
             b'n' => {
                 unsafe {
@@ -377,14 +377,14 @@ impl<'de> Deserializer<'de> {
                 if i == structural_indexes.len() {
                     success!();
                 }
-                fail!(ErrorType::TrailingCharacters);
+                fail!(ErrorType::TrailingData);
             }
             b'"' => {
                 insert_str!();
                 if i == structural_indexes.len() {
                     success!();
                 }
-                fail!(ErrorType::TrailingCharacters);
+                fail!(ErrorType::TrailingData);
             }
             b'-' => {
                 insert_res!(Node::Static(s2try!(Self::parse_number(idx, input2, true))));
@@ -392,7 +392,7 @@ impl<'de> Deserializer<'de> {
                 if i == structural_indexes.len() {
                     success!();
                 }
-                fail!(ErrorType::TrailingCharacters);
+                fail!(ErrorType::TrailingData);
             }
             b'0'..=b'9' => {
                 insert_res!(Node::Static(s2try!(Self::parse_number(idx, input2, false))));
@@ -400,7 +400,7 @@ impl<'de> Deserializer<'de> {
                 if i == structural_indexes.len() {
                     success!();
                 }
-                fail!(ErrorType::TrailingCharacters);
+                fail!(ErrorType::TrailingData);
             }
             _ => {
                 fail!();
@@ -628,39 +628,39 @@ mod test {
     fn parsing_errors() {
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"time".to_vec()),
-            Err(Error::new(0, 't', ErrorType::ExpectedNull))
+            Err(Error::new_c(0, 't', ErrorType::ExpectedNull))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"falsy".to_vec()),
-            Err(Error::new(0, 'f', ErrorType::ExpectedNull))
+            Err(Error::new_c(0, 'f', ErrorType::ExpectedNull))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"new".to_vec()),
-            Err(Error::new(0, 'n', ErrorType::ExpectedNull))
+            Err(Error::new_c(0, 'n', ErrorType::ExpectedNull))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"[true, time]".to_vec()),
-            Err(Error::new(7, 't', ErrorType::ExpectedBoolean))
+            Err(Error::new_c(7, 't', ErrorType::ExpectedBoolean))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"[true, falsy]".to_vec()),
-            Err(Error::new(7, 'f', ErrorType::ExpectedBoolean))
+            Err(Error::new_c(7, 'f', ErrorType::ExpectedBoolean))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"[null, new]".to_vec()),
-            Err(Error::new(7, 'n', ErrorType::ExpectedNull))
+            Err(Error::new_c(7, 'n', ErrorType::ExpectedNull))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut br#"{"1":time}"#.to_vec()),
-            Err(Error::new(5, 't', ErrorType::ExpectedBoolean))
+            Err(Error::new_c(5, 't', ErrorType::ExpectedBoolean))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut br#"{"0":falsy}"#.to_vec()),
-            Err(Error::new(5, 'f', ErrorType::ExpectedBoolean))
+            Err(Error::new_c(5, 'f', ErrorType::ExpectedBoolean))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut br#"{"0":new}"#.to_vec()),
-            Err(Error::new(5, 'n', ErrorType::ExpectedNull))
+            Err(Error::new_c(5, 'n', ErrorType::ExpectedNull))
         );
     }
 }

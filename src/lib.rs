@@ -417,11 +417,12 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn error(error: ErrorType) -> Error {
-        Self::raw_error(0, '?', error)
+        Error::new(0, None, error)
     }
 
-    fn raw_error(idx: usize, c: char, error: ErrorType) -> Error {
-        Error::new(idx, c, error)
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    fn error_c(idx: usize, c: char, error: ErrorType) -> Error {
+        Error::new(idx, Some(c), error)
     }
 
     /// Creates a serializer from a mutable slice of bytes

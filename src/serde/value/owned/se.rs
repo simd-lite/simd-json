@@ -84,7 +84,7 @@ impl serde::Serializer for Serializer {
     }
 
     #[cfg(feature = "128bit")]
-    fn serialize_i128(self, value: i128) -> Result<Value<'se>> {
+    fn serialize_i128(self, value: i128) -> Result<Value> {
         Ok(Value::Static(StaticNode::I128(value)))
     }
 
@@ -109,7 +109,7 @@ impl serde::Serializer for Serializer {
     }
 
     #[cfg(feature = "128bit")]
-    fn serialize_u128(self, value: u128) -> Result<Value<'se>> {
+    fn serialize_u128(self, value: u128) -> Result<Value> {
         Ok(Value::Static(StaticNode::U128(value)))
     }
 

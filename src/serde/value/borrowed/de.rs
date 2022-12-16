@@ -1,8 +1,11 @@
 // A lot of this logic is a re-implementation or copy of serde_json::Value
-use crate::value::borrowed::{Object, Value};
 use crate::Error;
 use crate::StaticNode;
 use crate::{cow::Cow, ErrorType};
+use crate::{
+    serde::value::shared::MapKeyDeserializer,
+    value::borrowed::{Object, Value},
+};
 use serde_ext::{
     de::{
         self, Deserialize, DeserializeSeed, Deserializer, EnumAccess, IntoDeserializer, MapAccess,
@@ -11,6 +14,7 @@ use serde_ext::{
     forward_to_deserialize_any,
 };
 use std::fmt;
+use value_trait::{ValueAccess, ValueType};
 
 impl<'de> de::Deserializer<'de> for Value<'de> {
     type Error = Error;
@@ -47,10 +51,7 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
             },
 
             Value::Array(a) => visitor.visit_seq(Array(a.into_iter())),
-            Value::Object(o) => visitor.visit_map(ObjectAccess {
-                i: o.into_iter(),
-                v: Value::Static(StaticNode::Null),
-            }),
+            Value::Object(o) => visitor.visit_map(ObjectAccess::new(o.into_iter())),
         }
     }
 
@@ -82,20 +83,21 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
                 let (variant, value) = match iter.next() {
                     Some(v) => v,
                     None => {
-                        // FIXME: better error
-                        return Err(crate::Deserializer::error(ErrorType::ExpectedString));
+                        return Err(crate::Deserializer::error(ErrorType::Eof));
                     }
                 };
                 // enums are encoded in json as maps with a single key:value pair
                 if iter.next().is_some() {
-                    // FIXME: better error
-                    return Err(crate::Deserializer::error(ErrorType::ExpectedString));
+                    return Err(crate::Deserializer::error(ErrorType::TrailingData));
                 }
                 (variant, Some(value))
             }
             Value::String(variant) => (variant, None),
-            _other => {
-                return Err(crate::Deserializer::error(ErrorType::ExpectedMap));
+            other => {
+                return Err(crate::Deserializer::error(ErrorType::Unexpected(
+                    Some(ValueType::Object),
+                    Some(other.value_type()),
+                )));
             }
         };
 
@@ -127,11 +129,11 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
         match self {
             // Give the visitor access to each element of the sequence.
             Value::Array(a) => visitor.visit_seq(Array(a.into_iter())),
-            Value::Object(o) => visitor.visit_map(ObjectAccess {
-                i: o.into_iter(),
-                v: Value::Static(StaticNode::Null),
-            }),
-            _ => Err(crate::Deserializer::error(ErrorType::ExpectedMap)),
+            Value::Object(o) => visitor.visit_map(ObjectAccess::new(o.into_iter())),
+            other => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Object),
+                Some(other.value_type()),
+            ))),
         }
     }
 
@@ -178,7 +180,13 @@ impl<'de> SeqAccess<'de> for ArrayRef<'de> {
 
 struct ObjectAccess<'de> {
     i: halfbrown::IntoIter<Cow<'de, str>, Value<'de>>,
-    v: Value<'de>,
+    v: Option<Value<'de>>,
+}
+
+impl<'de> ObjectAccess<'de> {
+    fn new(i: halfbrown::IntoIter<Cow<'de, str>, Value<'de>>) -> Self {
+        Self { i, v: None }
+    }
 }
 
 // `MapAccess` is provided to the `Visitor` to give it the ability to iterate
@@ -191,7 +199,7 @@ impl<'de> MapAccess<'de> for ObjectAccess<'de> {
         K: DeserializeSeed<'de>,
     {
         if let Some((k, v)) = self.i.next() {
-            self.v = v;
+            self.v = Some(v);
             seed.deserialize(Value::String(k)).map(Some)
         } else {
             Ok(None)
@@ -202,14 +210,21 @@ impl<'de> MapAccess<'de> for ObjectAccess<'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        //TODO: This is ugly
-        seed.deserialize(self.v.clone())
+        match self.v.take() {
+            Some(v) => seed.deserialize(v),
+            None => Err(crate::Deserializer::error(ErrorType::Eof)),
+        }
     }
 }
 
 struct ObjectRefAccess<'de> {
     i: halfbrown::Iter<'de, Cow<'de, str>, Value<'de>>,
-    v: &'de Value<'de>,
+    v: Option<&'de Value<'de>>,
+}
+impl<'de> ObjectRefAccess<'de> {
+    fn new(i: halfbrown::Iter<'de, Cow<'de, str>, Value<'de>>) -> Self {
+        Self { i, v: None }
+    }
 }
 
 // `MapAccess` is provided to the `Visitor` to give it the ability to iterate
@@ -222,9 +237,9 @@ impl<'de> MapAccess<'de> for ObjectRefAccess<'de> {
         K: DeserializeSeed<'de>,
     {
         if let Some((k, v)) = self.i.next() {
-            self.v = v;
-            //FIXME: perhaps we can avoid the clone with a specfic object key type
-            seed.deserialize(Value::String(k.clone())).map(Some)
+            self.v = Some(v);
+            let s: &str = k;
+            seed.deserialize(MapKeyDeserializer::borrowed(s)).map(Some)
         } else {
             Ok(None)
         }
@@ -234,8 +249,10 @@ impl<'de> MapAccess<'de> for ObjectRefAccess<'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        //TODO: This is ugly
-        seed.deserialize(self.v.clone())
+        match self.v.take() {
+            Some(v) => seed.deserialize(v),
+            None => Err(crate::Deserializer::error(ErrorType::Eof)),
+        }
     }
 }
 
@@ -534,11 +551,10 @@ impl<'de> VariantAccess<'de> for VariantDeserializer<'de> {
     {
         match self.value {
             Some(value) => seed.deserialize(value),
-            None => Err(crate::Deserializer::error(ErrorType::ExpectedMap))
-            // None => Err(serde::de::Error::invalid_type(
-            //     Unexpected::UnitVariant,
-            //     &"newtype variant",
-            // )),
+            None => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Object),
+                None,
+            ))),
         }
     }
 
@@ -554,16 +570,14 @@ impl<'de> VariantAccess<'de> for VariantDeserializer<'de> {
                     visitor.visit_seq(Array(v.into_iter()))
                 }
             }
-            // FIXME
-            Some(_) | None => Err(crate::Deserializer::error(ErrorType::ExpectedMap))
-            // Some(other) => Err(serde::de::Error::invalid_type(
-            //     other.unexpected(),
-            //     &"tuple variant",
-            // )),
-            // None => Err(serde::de::Error::invalid_type(
-            //     Unexpected::UnitVariant,
-            //     &"tuple variant",
-            // )),
+            Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Array),
+                Some(other.value_type()),
+            ))),
+            None => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Array),
+                None,
+            ))),
         }
     }
 
@@ -576,21 +590,15 @@ impl<'de> VariantAccess<'de> for VariantDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Some(Value::Object(v)) => visitor.visit_map(ObjectAccess {
-                i: v.into_iter(),
-                v: Value::Static(StaticNode::Null),
-            }),//visit_object(v, visitor),
-            // FIXME
-            Some(_) | None => Err(crate::Deserializer::error(ErrorType::ExpectedMap))
-
-            // Some(other) => Err(serde::de::Error::invalid_type(
-            //     other.unexpected(),
-            //     &"struct variant",
-            // )),
-            // None => Err(serde::de::Error::invalid_type(
-            //     Unexpected::UnitVariant,
-            //     &"struct variant",
-            // )),
+            Some(Value::Object(o)) => visitor.visit_map(ObjectAccess::new(o.into_iter())),
+            Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Object),
+                Some(other.value_type()),
+            ))),
+            None => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Object),
+                None,
+            ))),
         }
     }
 }
@@ -617,10 +625,7 @@ impl<'de> de::Deserializer<'de> for &'de Value<'de> {
             Value::Static(StaticNode::F64(n)) => visitor.visit_f64(*n),
             Value::String(s) => visitor.visit_borrowed_str(s),
             Value::Array(a) => visitor.visit_seq(ArrayRef(a.iter())),
-            Value::Object(o) => visitor.visit_map(ObjectRefAccess {
-                i: o.iter(),
-                v: &Value::Static(StaticNode::Null),
-            }),
+            Value::Object(o) => visitor.visit_map(ObjectRefAccess::new(o.iter())),
         }
     }
 
@@ -660,11 +665,11 @@ impl<'de> de::Deserializer<'de> for &'de Value<'de> {
         match self {
             // Give the visitor access to each element of the sequence.
             Value::Array(a) => visitor.visit_seq(ArrayRef(a.iter())),
-            Value::Object(o) => visitor.visit_map(ObjectRefAccess {
-                i: o.iter(),
-                v: &Value::Static(StaticNode::Null),
-            }),
-            _ => Err(crate::Deserializer::error(ErrorType::ExpectedMap)),
+            Value::Object(o) => visitor.visit_map(ObjectRefAccess::new(o.iter())),
+            other => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Object),
+                Some(other.value_type()),
+            ))),
         }
     }
 
@@ -684,20 +689,21 @@ impl<'de> de::Deserializer<'de> for &'de Value<'de> {
                 let (variant, value) = match iter.next() {
                     Some(v) => v,
                     None => {
-                        // FIXME: better error
-                        return Err(crate::Deserializer::error(ErrorType::ExpectedString));
+                        return Err(crate::Deserializer::error(ErrorType::Eof));
                     }
                 };
                 // enums are encoded in json as maps with a single key:value pair
                 if iter.next().is_some() {
-                    // FIXME: better error
-                    return Err(crate::Deserializer::error(ErrorType::ExpectedString));
+                    return Err(crate::Deserializer::error(ErrorType::TrailingData));
                 }
                 (variant, Some(value))
             }
             Value::String(variant) => (variant, None),
-            _other => {
-                return Err(crate::Deserializer::error(ErrorType::ExpectedMap));
+            other => {
+                return Err(crate::Deserializer::error(ErrorType::Unexpected(
+                    Some(ValueType::Object),
+                    Some(other.value_type()),
+                )));
             }
         };
 
@@ -734,8 +740,8 @@ impl<'de> EnumAccess<'de> for EnumRefDeserializer<'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        // FIXME: why do we need to clone here
-        let variant = self.variant.clone().into_deserializer();
+        let var: &str = self.variant;
+        let variant = var.into_deserializer();
         let visitor = VariantRefDeserializer { value: self.value };
         seed.deserialize(variant).map(|v| (v, visitor))
     }
@@ -760,11 +766,10 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
     {
         match self.value {
             Some(value) => seed.deserialize(value),
-            None => Err(crate::Deserializer::error(ErrorType::ExpectedMap))
-            // None => Err(serde::de::Error::invalid_type(
-            //     Unexpected::UnitVariant,
-            //     &"newtype variant",
-            // )),
+            None => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Object),
+                None,
+            ))),
         }
     }
 
@@ -780,16 +785,14 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
                     visitor.visit_seq(ArrayRef(v.iter()))
                 }
             }
-            // FIXME
-            Some(_) | None => Err(crate::Deserializer::error(ErrorType::ExpectedMap))
-            // Some(other) => Err(serde::de::Error::invalid_type(
-            //     other.unexpected(),
-            //     &"tuple variant",
-            // )),
-            // None => Err(serde::de::Error::invalid_type(
-            //     Unexpected::UnitVariant,
-            //     &"tuple variant",
-            // )),
+            Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Array),
+                Some(other.value_type()),
+            ))),
+            None => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Array),
+                None,
+            ))),
         }
     }
 
@@ -802,21 +805,15 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Some(Value::Object(v)) => visitor.visit_map(ObjectRefAccess {
-                i: v.iter(),
-                v: &Value::Static(StaticNode::Null),
-            }),
-            // FIXME
-            Some(_) | None => Err(crate::Deserializer::error(ErrorType::ExpectedMap))
-
-            // Some(other) => Err(serde::de::Error::invalid_type(
-            //     other.unexpected(),
-            //     &"struct variant",
-            // )),
-            // None => Err(serde::de::Error::invalid_type(
-            //     Unexpected::UnitVariant,
-            //     &"struct variant",
-            // )),
+            Some(Value::Object(o)) => visitor.visit_map(ObjectRefAccess::new(o.iter())),
+            Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Object),
+                Some(other.value_type()),
+            ))),
+            None => Err(crate::Deserializer::error(ErrorType::Unexpected(
+                Some(ValueType::Object),
+                None,
+            ))),
         }
     }
 }
@@ -954,6 +951,34 @@ mod test {
             {
                 #[derive(Deserialize)]
                 // This is ugly but it's needed for `serde::Deserialize` to not explode on lifetimes
+                // An error like this is otherwise produced:
+                //     error: lifetime may not live long enough
+                //     --> src/serde/value/borrowed/de.rs:960:25
+                //      |
+                //  953 |                 #[derive(Deserialize)]
+                //      |                          ----------- lifetime `'de` defined here
+                //  ...
+                //  956 |                 enum Variants<'v> {
+                //      |                               -- lifetime `'v` defined here
+                //  ...
+                //  960 |                         config: Option<borrowed::Value<'v>>,
+                //      |                         ^^^^^^ requires that `'de` must outlive `'v`
+                //      |
+                //      = help: consider adding the following bound: `'de: 'v`
+
+                //  error: lifetime may not live long enough
+                //     --> src/serde/value/borrowed/de.rs:960:25
+                //      |
+                //  953 |                 #[derive(Deserialize)]
+                //      |                          ----------- lifetime `'de` defined here
+                //  ...
+                //  956 |                 enum Variants<'v> {
+                //      |                               -- lifetime `'v` defined here
+                //  ...
+                //  960 |                         config: Option<borrowed::Value<'v>>,
+                //      |                         ^^^^^^ requires that `'v` must outlive `'de`
+                //      |
+                //      = help: consider adding the following bound: `'v: 'de`
                 #[serde(bound(deserialize = "'de: 'v, 'v: 'de"), untagged)]
                 enum Variants<'v> {
                     Name(String),
