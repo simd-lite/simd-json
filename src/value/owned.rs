@@ -273,9 +273,9 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Static(s) => s.fmt(f),
-            Self::String(s) => write!(f, "{}", s),
-            Self::Array(a) => write!(f, "{:?}", a),
-            Self::Object(o) => write!(f, "{:?}", o),
+            Self::String(s) => write!(f, "{s}"),
+            Self::Array(a) => write!(f, "{a:?}"),
+            Self::Object(o) => write!(f, "{o:?}"),
         }
     }
 }

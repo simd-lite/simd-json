@@ -144,7 +144,7 @@ impl<'de> Deserializer<'de> {
                 while get!(buf, start) == b'0' || get!(buf, start) == b'.' {
                     start += 1;
                 }
-                digit_count = digit_count.wrapping_sub((start.wrapping_sub(start_digits)) as usize);
+                digit_count = digit_count.wrapping_sub(start.wrapping_sub(start_digits));
                 if digit_count >= 19 {
                     return f64_from_parts_slow(&buf[start_idx..idx], start_idx);
                 }
