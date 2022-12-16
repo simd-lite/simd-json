@@ -197,6 +197,6 @@ mod test {
     #[test]
     fn fmt() {
         let e = Error::generic(ErrorType::InternalError);
-        assert_eq!(format!("{}", e), "InternalError at character 0");
+        assert_eq!(e.to_string(), "InternalError at character 0");
     }
 }

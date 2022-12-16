@@ -564,7 +564,7 @@ impl<'de> Deserializer<'de> {
         // expensive carryless multiply in the previous step with this work
         let mut structurals: u64 = 0;
 
-        let lenminus64: usize = if len < 64 { 0 } else { len as usize - 64 };
+        let lenminus64: usize = if len < 64 { 0 } else { len - 64 };
         let mut idx: usize = 0;
         let mut error_mask: u64 = 0; // for unescaped characters within strings (ASCII code points < 0x20)
 
@@ -618,7 +618,7 @@ impl<'de> Deserializer<'de> {
             let mut tmpbuf: [u8; SIMDINPUT_LENGTH] = [0x20; SIMDINPUT_LENGTH];
             tmpbuf
                 .as_mut_ptr()
-                .copy_from(input.as_ptr().add(idx), len as usize - idx);
+                .copy_from(input.as_ptr().add(idx), len - idx);
 
             utf8_validator.update_from_chunks(&tmpbuf);
 
@@ -1821,9 +1821,9 @@ mod tests_serde {
 
         let thing = MyEnum::First(MyStruct { field: 1 });
         let mut ser = crate::serde::to_string(&thing)?;
-        println!("Ser {:?}", ser);
+        println!("Ser {ser:?}");
         let des: MyEnum = unsafe { crate::serde::from_str(&mut ser)? };
-        println!("Des {:?}", des);
+        println!("Des {des:?}");
         assert_eq!(thing, des);
         Ok(())
     }

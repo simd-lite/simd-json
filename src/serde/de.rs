@@ -29,8 +29,8 @@ where
             Node::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
             #[cfg(feature = "128bit")]
             Node::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
-            Node::Array(len, _) => visitor.visit_seq(CommaSeparated::new(self, len as usize)),
-            Node::Object(len, _) => visitor.visit_map(CommaSeparated::new(self, len as usize)),
+            Node::Array(len, _) => visitor.visit_seq(CommaSeparated::new(self, len)),
+            Node::Object(len, _) => visitor.visit_map(CommaSeparated::new(self, len)),
         }
     }
 
@@ -236,7 +236,7 @@ where
         // Parse the opening bracket of the sequence.
         if let Ok(Node::Array(len, _)) = self.next() {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_seq(CommaSeparated::new(self, len as usize))
+            visitor.visit_seq(CommaSeparated::new(self, len))
         } else {
             Err(Deserializer::error(ErrorType::ExpectedArray))
         }
@@ -299,7 +299,7 @@ where
         // Parse the opening bracket of the sequence.
         if let Ok(Node::Object(len, _)) = self.next() {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_map(CommaSeparated::new(self, len as usize))
+            visitor.visit_map(CommaSeparated::new(self, len))
         } else {
             Err(Deserializer::error(ErrorType::ExpectedMap))
         }
@@ -317,8 +317,8 @@ where
     {
         match self.next() {
             // Give the visitor access to each element of the sequence.
-            Ok(Node::Object(len, _)) => visitor.visit_map(CommaSeparated::new(self, len as usize)),
-            Ok(Node::Array(len, _)) => visitor.visit_seq(CommaSeparated::new(self, len as usize)),
+            Ok(Node::Object(len, _)) => visitor.visit_map(CommaSeparated::new(self, len)),
+            Ok(Node::Array(len, _)) => visitor.visit_seq(CommaSeparated::new(self, len)),
             _ => Err(Deserializer::error(ErrorType::ExpectedMap)),
         }
     }
