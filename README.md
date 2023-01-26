@@ -53,7 +53,7 @@ The `value-no-dup-keys` feature flag toggles stricter behaviour for objects when
 
 ## safety
 
-`simd-json` uses **a lot** of unsafe code/
+`simd-json` uses **a lot** of unsafe code.
 
 There are a few reasons for this:
 
@@ -68,7 +68,7 @@ There are a few reasons for this:
 * Data-oriented property based testing of string-like data - to assert that sequences of legal printable characters don't panic or crash the parser (they might and often error so - they are not valid json!)
 * Destructive Property based testing - make sure that no illegal byte sequences crash the parser in any way
 * Fuzzing - fuzz based on upstream & jsonorg simd pass/fail cases
-* Miri tesating for UB
+* Miri testing for UB
 
 This doesn't ensure complete safety nor is at a bullet proof guarantee, but it does go a long way
 to asserting that the library is production quality and fit for purpose for practical industrial applications.
