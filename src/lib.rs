@@ -619,7 +619,6 @@ impl<'de> Deserializer<'de> {
             tmpbuf
                 .as_mut_ptr()
                 .copy_from(input.as_ptr().add(idx), len - idx);
-
             utf8_validator.update_from_chunks(&tmpbuf);
 
             let input = SimdInput::new(&tmpbuf);

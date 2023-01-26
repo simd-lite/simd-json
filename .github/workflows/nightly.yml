@@ -20,11 +20,14 @@ jobs:
           - '-C target-cpu=native -C target-feature=-avx2'
           - '-C target-cpu=native -C target-feature=-avx2,-pclmulqdq'
         features:
+          - '--no-default-features'
           - ''
+          - '--features value-no-dup-keys'
           - '--features known-key'
           - '--features 128bit'
           - '--features beef'
           - '--features beef,known-key'
+          - '--features approx-number-parsing'
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v1
@@ -32,6 +35,7 @@ jobs:
       with:
         toolchain: nightly
         override: true
+        components: miri
     - name: Build
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
@@ -40,6 +44,10 @@ jobs:
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
       run: cargo test ${{ matrix.features }}
+    - name: Run miri
+      env:
+        RUSTFLAGS: ${{ matrix.rustflags }}
+      run: cargo miri test ${{ matrix.features }}
     - name: Run tests (alloc)
       if: matrix.features == ''
       env:

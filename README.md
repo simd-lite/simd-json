@@ -51,9 +51,9 @@ The `known-key` feature is optional and disabled by default and should be explic
 
 The `value-no-dup-keys` feature flag toggles stricter behaviour for objects when deserializing into a `Value`. When enabled, the Value deserializer will remove duplicate keys in a JSON object and only keep the last one. If not set duplicate keys are considered undefined behaviour and Value will not make guarantees on it's behaviour.
 
-### unsafe
+## safety
 
-`simd-json` uses **a lot** of unsafe code.
+`simd-json` uses **a lot** of unsafe code/
 
 There are a few reasons for this:
 
@@ -67,7 +67,8 @@ There are a few reasons for this:
 * Structural constructive property based testing - We generate random valid JSON objects to exercise the full `simd-json` codebase stochastically. Floats are currently excluded since slighty different parsing algorithms lead to slighty different results here. In short "is simd-json correct".
 * Data-oriented property based testing of string-like data - to assert that sequences of legal printable characters don't panic or crash the parser (they might and often error so - they are not valid json!)
 * Destructive Property based testing - make sure that no illegal byte sequences crash the parser in any way
-* Fuzzing (using American Fuzzy Lop - afl) - fuzz based on upstream simd pass/fail cases
+* Fuzzing - fuzz based on upstream & jsonorg simd pass/fail cases
+* Miri tesating for UB
 
 This doesn't ensure complete safety nor is at a bullet proof guarantee, but it does go a long way
 to asserting that the library is production quality and fit for purpose for practical industrial applications.
