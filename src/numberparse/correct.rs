@@ -358,7 +358,7 @@ fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
     ) {
         Ok(val) => {
             if val.is_infinite() {
-                err!(offset, get!(slice, offset))
+                err!(offset, get!(slice, offset.saturating_sub(1)))
             }
 
             Ok(StaticNode::F64(val))

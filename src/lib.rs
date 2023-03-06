@@ -1827,6 +1827,12 @@ mod tests_serde {
         Ok(())
     }
 
+    #[test]
+    fn invalid_float() {
+        let mut s: Vec<u8> = b"[100,9e999]".to_vec();
+        assert!(to_owned_value(&mut s).is_err());
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     proptest! {
         #![proptest_config(ProptestConfig {
