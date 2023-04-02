@@ -64,9 +64,8 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 #[cfg(all(feature = "swar-number-parsing"))]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[allow(clippy::cast_ptr_alignment)]
-fn is_made_of_eight_digits_fast(chars: &[u8]) -> bool {
-    // We know what we're doing right? :P
-    let val: u64 = unsafe { *(chars.as_ptr().cast::<u64>()) };
+fn is_made_of_eight_digits_fast(chars: [u8; 8]) -> bool {
+    let val = u64::from_ne_bytes(chars);
 
     ((val & 0xF0F0_F0F0_F0F0_F0F0)
         | (((val.wrapping_add(0x0606_0606_0606_0606)) & 0xF0F0_F0F0_F0F0_F0F0) >> 4))
