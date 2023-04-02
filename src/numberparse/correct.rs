@@ -82,7 +82,10 @@ impl<'de> Deserializer<'de> {
 
             #[cfg(feature = "swar-number-parsing")]
             {
-                if is_made_of_eight_digits_fast(&buf[idx..]) {
+                let slice = &buf[idx..idx + 8];
+                // safety: we have 8 bytse
+                let chars: [u8; 8] = unsafe { buf[idx..idx + 8].try_into().unwrap_unchecked() };
+                if is_made_of_eight_digits_fast(chars) {
                     num = 100_000_000_u64
                         .wrapping_mul(num)
                         .wrapping_add(u64::from(parse_eight_digits_unrolled(&buf[idx..])));

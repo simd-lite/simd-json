@@ -437,7 +437,11 @@ impl<'de> Deserializer<'de> {
                 // FIXME
                 // can we omit this: buf.len() - byte_count >= 8
 
-                if is_made_of_eight_digits_fast(unsafe { buf.get_kinda_unchecked(byte_count..) }) {
+                if is_made_of_eight_digits_fast(unsafe {
+                    buf.get_kinda_unchecked(byte_count..byte_count + 8)
+                        .try_into()
+                        .unwrap_unchecked()
+                }) {
                     i = i.wrapping_mul(100_000_000).wrapping_add(u64::from(
                         parse_eight_digits_unrolled(unsafe {
                             buf.get_kinda_unchecked(byte_count..)
