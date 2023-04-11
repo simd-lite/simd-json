@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v1
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.59 # do clippy chekcs with the minimum supported version
+          toolchain: 1.61 # do clippy chekcs with the minimum supported version
           override: true
           components: rustfmt, clippy
       - name: Validate cargo format
