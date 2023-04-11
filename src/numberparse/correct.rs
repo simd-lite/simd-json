@@ -82,13 +82,13 @@ impl<'de> Deserializer<'de> {
 
             #[cfg(feature = "swar-number-parsing")]
             {
-                let slice = &buf[idx..idx + 8];
                 // safety: we have 8 bytes
-                let chars: [u8; 8] = unsafe { slice.try_into().unwrap_unchecked() };
+                let chars: [u8; 8] =
+                    unsafe { *(buf.get_kinda_unchecked(idx..idx + 8).as_ptr().cast()) };
                 if is_made_of_eight_digits_fast(chars) {
-                    num = 100_000_000_u64
-                        .wrapping_mul(num)
-                        .wrapping_add(u64::from(parse_eight_digits_unrolled(&buf[idx..])));
+                    num = 100_000_000_u64.wrapping_mul(num).wrapping_add(u64::from(
+                        parse_eight_digits_unrolled(unsafe { buf.get_kinda_unchecked(idx..) }),
+                    ));
                     idx += 8;
                 }
             }
@@ -149,7 +149,10 @@ impl<'de> Deserializer<'de> {
                 }
                 digit_count = digit_count.wrapping_sub(start.wrapping_sub(start_digits));
                 if digit_count >= 19 {
-                    return f64_from_parts_slow(&buf[start_idx..idx], start_idx);
+                    return f64_from_parts_slow(
+                        unsafe { buf.get_kinda_unchecked(start_idx..idx) },
+                        start_idx,
+                    );
                 }
             }
             if is_structural_or_whitespace(get!(buf, idx)) == 0 {
@@ -159,7 +162,7 @@ impl<'de> Deserializer<'de> {
                 !negative,
                 num,
                 exponent as i32,
-                &buf[start_idx..idx],
+                unsafe { buf.get_kinda_unchecked(start_idx..idx) },
                 start_idx,
             )
         } else if unlikely!(digit_count >= 18) {
