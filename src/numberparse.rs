@@ -23,7 +23,7 @@ use arch::{
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
 pub fn is_integer(c: u8) -> bool {
-    (b'0'..=b'9').contains(&c)
+    c.is_ascii_digit()
 }
 
 // We need to check that the character following a zero is valid. This is
