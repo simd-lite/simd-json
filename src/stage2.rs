@@ -28,14 +28,6 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     error == 0
 }
 
-#[cfg(feature = "safe")]
-macro_rules! get {
-    ($a:expr, $i:expr) => {
-        &$a[$i]
-    };
-}
-
-#[cfg(not(feature = "safe"))]
 macro_rules! get {
     ($a:expr, $i:expr) => {{
         unsafe { $a.get_kinda_unchecked($i) }

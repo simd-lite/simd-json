@@ -197,7 +197,7 @@ impl<'de> Deserializer<'de> {
                     ErrorType::InvalidExponent,
                 ));
             }
-            i *= POWER_OF_TEN[(323 + exponent) as usize];
+            i *= unsafe { POWER_OF_TEN.get_kinda_unchecked((323 + exponent) as usize) };
         }
 
         d = unsafe { *p.get_kinda_unchecked(digitcount) };
@@ -436,12 +436,14 @@ impl<'de> Deserializer<'de> {
             {
                 // FIXME
                 // can we omit this: buf.len() - byte_count >= 8
+                let chars: [u8; 8] = unsafe {
+                    *(buf
+                        .get_kinda_unchecked(byte_count..byte_count + 8)
+                        .as_ptr()
+                        .cast())
+                };
 
-                if is_made_of_eight_digits_fast(unsafe {
-                    buf.get_kinda_unchecked(byte_count..byte_count + 8)
-                        .try_into()
-                        .unwrap_unchecked()
-                }) {
+                if is_made_of_eight_digits_fast(chars) {
                     i = i.wrapping_mul(100_000_000).wrapping_add(u64::from(
                         parse_eight_digits_unrolled(unsafe {
                             buf.get_kinda_unchecked(byte_count..)
@@ -532,7 +534,7 @@ impl<'de> Deserializer<'de> {
                 }
 
                 let mut d1: f64 = i as f64;
-                d1 *= POWER_OF_TEN[(323 + exponent) as usize];
+                d1 *= unsafe { POWER_OF_TEN.get_kinda_unchecked((323 + exponent) as usize) };
                 StaticNode::F64(if negative { d1 * -1.0 } else { d1 })
             }
         } else {
