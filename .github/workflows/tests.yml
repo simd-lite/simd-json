@@ -29,19 +29,20 @@ jobs:
           - '--features approx-number-parsing'
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v1
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
+    - uses: actions/checkout@v3
+
+    - uses: dtolnay/rust-toolchain@stable
+
     - name: Build
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
       run: cargo build ${{ matrix.features }}
+
     - name: Run tests
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
       run: cargo test ${{ matrix.features }}
+
     - name: Run tests (alloc)
       if: matrix.features == ''
       env:

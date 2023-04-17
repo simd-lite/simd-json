@@ -30,24 +30,27 @@ jobs:
           - '--features approx-number-parsing'
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v1
-    - uses: actions-rs/toolchain@v1
+    - uses: actions/checkout@v3
+
+    - uses: dtolnay/rust-toolchain@nightly
       with:
-        toolchain: nightly
-        override: true
         components: miri
+
     - name: Build
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
       run: cargo build ${{ matrix.features }}
+
     - name: Run tests
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
       run: cargo test ${{ matrix.features }}
+
     - name: Run miri
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
       run: cargo miri test ${{ matrix.features }}
+
     - name: Run tests (alloc)
       if: matrix.features == ''
       env:
