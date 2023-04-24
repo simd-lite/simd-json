@@ -777,7 +777,9 @@ mod tests {
     use value_trait::StaticNode;
     use value_trait::Writable;
 
+    #[cfg(not(feature = "approx-number-parsing"))]
     #[test]
+    #[allow(clippy::float_cmp)]
     fn alligned_number_parse() {
         let str = "9521.824380305317";
         let mut slice = str.as_bytes().to_owned();
@@ -785,10 +787,10 @@ mod tests {
             crate::to_borrowed_value(&mut slice).expect("failed to parse");
         assert_eq!(value, 9_521.824_380_305_317);
     }
+
     #[test]
     fn test_send_sync() {
         struct TestStruct<T: Sync + Send>(T);
-
         #[allow(clippy::let_underscore_drop)] // test
         let _ = TestStruct(super::AlignedBuf::with_capacity(0));
     }
