@@ -86,9 +86,9 @@ impl<'de> Deserializer<'de> {
                 let chars: [u8; 8] =
                     unsafe { *(buf.get_kinda_unchecked(idx..idx + 8).as_ptr().cast()) };
                 if is_made_of_eight_digits_fast(chars) {
-                    num = 100_000_000_u64.wrapping_mul(num).wrapping_add(u64::from(
-                        parse_eight_digits_unrolled(unsafe { buf.get_kinda_unchecked(idx..) }),
-                    ));
+                    num = 100_000_000_u64
+                        .wrapping_mul(num)
+                        .wrapping_add(u64::from(parse_eight_digits_unrolled(chars)));
                     idx += 8;
                 }
             }
