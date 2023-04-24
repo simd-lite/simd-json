@@ -178,13 +178,13 @@ impl<'de> SeqAccess<'de> for ArrayRef<'de> {
     }
 }
 
-struct ObjectAccess<'de> {
-    i: halfbrown::IntoIter<Cow<'de, str>, Value<'de>>,
+struct ObjectAccess<'de, const N: usize = 32> {
+    i: halfbrown::IntoIter<Cow<'de, str>, Value<'de>, N>,
     v: Option<Value<'de>>,
 }
 
-impl<'de> ObjectAccess<'de> {
-    fn new(i: halfbrown::IntoIter<Cow<'de, str>, Value<'de>>) -> Self {
+impl<'de, const N: usize> ObjectAccess<'de, N> {
+    fn new(i: halfbrown::IntoIter<Cow<'de, str>, Value<'de>, N>) -> Self {
         Self { i, v: None }
     }
 }
