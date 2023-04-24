@@ -14,7 +14,7 @@ rust-version = "1.61"
 [dependencies]
 lexical-core = { version = "0.8", features = ["format"] }
 beef = { version = "0.5", optional = true }
-halfbrown = "0.1"
+halfbrown = "0.2"
 value-trait = { version = "0.5.1" }
 simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
 
