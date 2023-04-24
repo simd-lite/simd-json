@@ -778,6 +778,14 @@ mod tests {
     use value_trait::Writable;
 
     #[test]
+    fn alligned_number_parse() {
+        let str = "9521.824380305317";
+        let mut slice = str.as_bytes().to_owned();
+        let value: crate::BorrowedValue<'_> =
+            crate::to_borrowed_value(&mut slice).expect("failed to parse");
+        assert_eq!(value, 9_521.824_380_305_317);
+    }
+    #[test]
     fn test_send_sync() {
         struct TestStruct<T: Sync + Send>(T);
 
