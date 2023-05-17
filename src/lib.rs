@@ -217,6 +217,7 @@ use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
 use simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
 
 #[cfg(all(
+    not(docsrs),
     not(feature = "allow-non-simd"),
     not(any(
         target_feature = "sse4.2",
