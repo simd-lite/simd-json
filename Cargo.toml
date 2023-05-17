@@ -11,6 +11,9 @@ readme = "README.md"
 documentation = "https://docs.rs/simd-json"
 rust-version = "1.61"
 
+[package.metadata.docs.rs]
+features = ["docsrs"]
+
 [dependencies]
 lexical-core = { version = "0.8", features = ["format"] }
 beef = { version = "0.5", optional = true }
