@@ -67,7 +67,7 @@ impl SimdInput {
 impl Stage1Parse<int8x16_t> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     #[cfg(target_feature = "pmull")]
-    fn compute_quote_mask(mut quote_bits: u64) -> u64 {
+    fn compute_quote_mask(quote_bits: u64) -> u64 {
         unsafe {
             vgetq_lane_u64(
                 vreinterpretq_u64_u8(mem::transmute(vmull_p64(
