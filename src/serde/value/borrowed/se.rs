@@ -1,11 +1,11 @@
 use super::to_value;
-use crate::StaticNode;
 use crate::{
     cow::Cow,
     stry,
     value::borrowed::{Object, Value},
     Error, ErrorType, Result,
 };
+use crate::{ObjectHasher, StaticNode};
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
 };
@@ -195,9 +195,9 @@ impl<'se> serde::Serializer for Serializer<'se> {
     where
         T: Serialize,
     {
-        let mut values = Object::with_capacity(1);
+        let mut values = Object::with_capacity_and_hasher(1, ObjectHasher::default());
         let x = stry!(to_value(value));
-        values.insert(variant.into(), x);
+        values.insert_nocheck(variant.into(), x);
         Ok(Value::from(values))
     }
 
@@ -245,9 +245,9 @@ impl<'se> serde::Serializer for Serializer<'se> {
         })
     }
 
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
+    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(SerializeMap {
-            map: Object::new(),
+            map: Object::with_capacity_and_hasher(len.unwrap_or(0), ObjectHasher::default()),
             next_key: None,
         })
     }
@@ -261,11 +261,11 @@ impl<'se> serde::Serializer for Serializer<'se> {
         _name: &'static str,
         _variant_index: u32,
         variant: &'static str,
-        _len: usize,
+        len: usize,
     ) -> Result<Self::SerializeStructVariant> {
         Ok(SerializeStructVariant {
             name: variant,
-            map: Object::new(),
+            map: Object::with_capacity_and_hasher(len, ObjectHasher::default()),
         })
     }
 }
@@ -351,8 +351,8 @@ impl<'se> serde::ser::SerializeTupleVariant for SerializeTupleVariant<'se> {
     }
 
     fn end(self) -> Result<Value<'se>> {
-        let mut object = Object::with_capacity(1);
-        object.insert(self.name.into(), Value::Array(self.vec));
+        let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
+        object.insert_nocheck(self.name.into(), Value::Array(self.vec));
 
         Ok(Value::Object(Box::new(object)))
     }
@@ -596,10 +596,8 @@ impl<'se> serde::ser::SerializeStructVariant for SerializeStructVariant<'se> {
     }
 
     fn end(self) -> Result<Value<'se>> {
-        let mut object = Object::with_capacity(1);
-
-        object.insert(self.name.into(), self.map.into());
-
+        let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
+        object.insert_nocheck(self.name.into(), self.map.into());
         Ok(Value::Object(Box::new(object)))
     }
 }
@@ -607,8 +605,7 @@ impl<'se> serde::ser::SerializeStructVariant for SerializeStructVariant<'se> {
 #[cfg(test)]
 mod test {
     use super::Value;
-    use crate::serde::from_slice;
-    use halfbrown::HashMap;
+    use crate::{borrowed::Object, serde::from_slice, ObjectHasher};
     use serde::{Deserialize, Serialize};
     use serde_json;
     use value_trait::StaticNode;
@@ -671,12 +668,13 @@ mod test {
 
     #[test]
     fn map() {
-        let mut m = HashMap::new();
+        let mut m = Object::with_capacity_and_hasher(2, ObjectHasher::default());
         m.insert("a".into(), Value::from(42));
         m.insert("b".into(), Value::from(23));
         let v = Value::Object(Box::new(m));
-        let s = serde_json::to_string(&v).expect("Failed to serialize");
-        assert_eq!(s, r#"{"a":42,"b":23}"#);
+        let mut s = serde_json::to_vec(&v).expect("Failed to serialize");
+        let v2: Value = from_slice(&mut s).expect("failed to deserialize");
+        assert_eq!(v, v2);
     }
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
@@ -708,19 +706,13 @@ mod test {
     #[test]
     fn from_slice_to_object() {
         let o = Obj::default();
-        let vec = serde_json::to_vec(&o).expect("to_vec");
+        let mut vec = serde_json::to_vec(&o).expect("to_vec");
         let vec2 = crate::serde::to_vec(&o).expect("to_vec");
         assert_eq!(vec, vec2);
-        let mut vec1 = vec.clone();
-        let mut vec2 = vec.clone();
 
         println!("{}", serde_json::to_string_pretty(&o).expect("json"));
-        let de: Obj = from_slice(&mut vec1).expect("from_slice");
+        let de: Obj = from_slice(&mut vec).expect("from_slice");
         assert_eq!(o, de);
-        let val = crate::to_borrowed_value(&mut vec2).expect("to_borrowed_value");
-
-        let vec3 = serde_json::to_vec(&val).expect("to_vec");
-        assert_eq!(vec, vec3);
     }
 
     #[cfg(not(target_arch = "wasm32"))]

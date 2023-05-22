@@ -2,7 +2,7 @@ use super::to_value;
 use crate::{
     stry,
     value::owned::{Object, Value},
-    Error, ErrorType, Result, StaticNode,
+    Error, ErrorType, ObjectHasher, Result, StaticNode,
 };
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
@@ -178,8 +178,8 @@ impl serde::Serializer for Serializer {
     where
         T: Serialize,
     {
-        let mut values = Object::with_capacity(1);
-        values.insert(variant.into(), stry!(to_value(value)));
+        let mut values = Object::with_capacity_and_hasher(1, ObjectHasher::default());
+        values.insert_nocheck(variant.into(), stry!(to_value(value)));
         Ok(Value::from(values))
     }
 
@@ -227,9 +227,9 @@ impl serde::Serializer for Serializer {
         })
     }
 
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
+    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(SerializeMap {
-            map: Object::new(),
+            map: Object::with_capacity_and_hasher(len.unwrap_or(0), ObjectHasher::default()),
             next_key: None,
         })
     }
@@ -243,11 +243,11 @@ impl serde::Serializer for Serializer {
         _name: &'static str,
         _variant_index: u32,
         variant: &'static str,
-        _len: usize,
+        len: usize,
     ) -> Result<Self::SerializeStructVariant> {
         Ok(SerializeStructVariant {
             name: variant.to_owned(),
-            map: Object::new(),
+            map: Object::with_capacity_and_hasher(len, ObjectHasher::default()),
         })
     }
 }
@@ -333,10 +333,8 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     }
 
     fn end(self) -> Result<Value> {
-        let mut object = Object::with_capacity(1);
-
-        object.insert(self.name, Value::Array(self.vec));
-
+        let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
+        object.insert_nocheck(self.name, Value::Array(self.vec));
         Ok(Value::from(object))
     }
 }
@@ -574,10 +572,8 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     }
 
     fn end(self) -> Result<Value> {
-        let mut object = Object::with_capacity(1);
-
-        object.insert(self.name, Value::from(self.map));
-
+        let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
+        object.insert_nocheck(self.name, Value::from(self.map));
         Ok(Value::from(object))
     }
 }
@@ -658,19 +654,13 @@ mod test {
     #[test]
     fn from_slice_to_object() {
         let o = Obj::default();
-        let vec = serde_json::to_vec(&o).expect("to_vec");
+        let mut vec = serde_json::to_vec(&o).expect("to_vec");
         let vec2 = crate::serde::to_vec(&o).expect("to_vec");
         assert_eq!(vec, vec2);
-        let mut vec1 = vec.clone();
-        let mut vec2 = vec.clone();
 
         println!("{}", serde_json::to_string_pretty(&o).expect("json"));
-        let de: Obj = from_slice(&mut vec1).expect("from_slice");
+        let de: Obj = from_slice(&mut vec).expect("from_slice");
         assert_eq!(o, de);
-        let val = crate::to_owned_value(&mut vec2).expect("to_owned_value");
-
-        let vec3 = serde_json::to_vec(&val).expect("to_vec");
-        assert_eq!(vec, vec3);
     }
 
     #[cfg(not(target_arch = "wasm32"))]

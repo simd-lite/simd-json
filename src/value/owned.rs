@@ -23,6 +23,7 @@ mod cmp;
 mod from;
 mod serialize;
 
+use super::ObjectHasher;
 use crate::prelude::*;
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::{AlignedBuf, Deserializer, Node, Result, StaticNode};
@@ -32,7 +33,7 @@ use std::ops::{Index, IndexMut};
 use value_trait::{ValueAccess, ValueInto};
 
 /// Representation of a JSON object
-pub type Object = HashMap<String, Value>;
+pub type Object = HashMap<String, Value, ObjectHasher>;
 
 /// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
@@ -100,7 +101,10 @@ impl<'input> Builder<'input> for Value {
     #[inline]
     #[must_use]
     fn object_with_capacity(capacity: usize) -> Self {
-        Self::Object(Box::new(Object::with_capacity(capacity)))
+        Self::Object(Box::new(Object::with_capacity_and_hasher(
+            capacity,
+            ObjectHasher::default(),
+        )))
     }
 }
 
@@ -115,7 +119,7 @@ impl Mutable for Value {
     }
     #[inline]
     #[must_use]
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<Self::Key, Self>> {
+    fn as_object_mut(&mut self) -> Option<&mut Object> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -135,7 +139,7 @@ impl ValueAccess for Value {
     type Target = Value;
     type Key = String;
     type Array = Vec<Self>;
-    type Object = HashMap<Self::Key, Self>;
+    type Object = Object;
 
     #[inline]
     #[must_use]
@@ -235,7 +239,7 @@ impl ValueAccess for Value {
 
     #[inline]
     #[must_use]
-    fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
+    fn as_object(&self) -> Option<&Object> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -358,7 +362,7 @@ impl<'de> OwnedDeserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_map(&mut self, len: usize) -> Value {
-        let mut res = Object::with_capacity(len);
+        let mut res = Object::with_capacity_and_hasher(len, ObjectHasher::default());
 
         for _ in 0..len {
             if let Node::String(key) = unsafe { self.de.next_() } {
@@ -788,7 +792,7 @@ mod test {
 
     #[test]
     fn conversions_object() {
-        let v = Value::from(Object::new());
+        let v = Value::from(Object::with_capacity_and_hasher(0, ObjectHasher::default()));
         assert!(v.is_object());
         assert_eq!(v.value_type(), ValueType::Object);
         let v = Value::from("no object");
