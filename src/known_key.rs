@@ -5,6 +5,28 @@ use halfbrown::RawEntryMut;
 use std::fmt;
 use std::hash::{BuildHasher, Hash, Hasher};
 
+use ahash::{AHasher, RandomState};
+use once_cell::sync::OnceCell;
+static NOT_RANDOM: OnceCell<RandomState> = OnceCell::new();
+
+/// `AHash` `BuildHasher` thast uses a startup initialized random state for known keys
+#[derive(Clone)]
+pub struct NotSoRandomState(RandomState);
+
+impl Default for NotSoRandomState {
+    fn default() -> Self {
+        Self(NOT_RANDOM.get_or_init(RandomState::new).clone())
+    }
+}
+
+impl BuildHasher for NotSoRandomState {
+    type Hasher = AHasher;
+    #[inline]
+    fn build_hasher(&self) -> AHasher {
+        self.0.build_hasher()
+    }
+}
+
 /// Well known key that can be looked up in a `Value` faster.
 /// It achieves this by memorizing the hash.
 #[derive(Debug, Clone, PartialEq)]
@@ -24,7 +46,7 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::NotAnObject(t) => write!(f, "Expected object but got {:?}", t),
+            Self::NotAnObject(t) => write!(f, "Expected object but got {t:?}"),
         }
     }
 }
@@ -36,7 +58,7 @@ where
 {
     fn from(key: S) -> Self {
         let key = Cow::from(key);
-        let hash_builder = halfbrown::DefaultHashBuilder::default();
+        let hash_builder = NotSoRandomState::default();
         let mut hasher = hash_builder.build_hasher();
         key.hash(&mut hasher);
         Self {
@@ -82,7 +104,7 @@ impl<'key> KnownKey<'key> {
         target.as_object().and_then(|m| self.map_lookup(m))
     }
 
-    /// Looks up this key in a `HashMap<<Cow<'value, str>, Value<'value>>` the inner representation of an object `Value`, returns None if the
+    /// Looks up this key in a `Object<Cow<'value>` the inner representation of an object `Value`, returns None if the
     /// key wasn't present.
     ///
     /// ```rust
@@ -100,7 +122,7 @@ impl<'key> KnownKey<'key> {
     #[must_use]
     pub fn map_lookup<'target, 'value>(
         &self,
-        map: &'target halfbrown::HashMap<Cow<'value, str>, Value<'value>>,
+        map: &'target super::borrowed::Object<'value>,
     ) -> Option<&'target Value<'value>>
     where
         'key: 'value,
@@ -142,7 +164,7 @@ impl<'key> KnownKey<'key> {
         target.as_object_mut().and_then(|m| self.map_lookup_mut(m))
     }
 
-    /// Looks up this key in a `HashMap<Cow<'value, str>, Value<'value>>`, the inner representation of an object value.
+    /// Looks up this key in a `Object<'value>`, the inner representation of an object value.
     /// returns None if the key wasn't present.
     ///
     /// ```rust
@@ -166,7 +188,7 @@ impl<'key> KnownKey<'key> {
     #[inline]
     pub fn map_lookup_mut<'target, 'value>(
         &self,
-        map: &'target mut halfbrown::HashMap<Cow<'value, str>, Value<'value>>,
+        map: &'target mut super::borrowed::Object<'value>,
     ) -> Option<&'target mut Value<'value>>
     where
         'key: 'value,
@@ -228,7 +250,7 @@ impl<'key> KnownKey<'key> {
         }
     }
 
-    /// Looks up this key in a `HashMap<Cow<'value, str>, Value<'value>>`, the inner representation of an object `Value`.
+    /// Looks up this key in a `Object<'value>`, the inner representation of an object `Value`.
     /// Inserts `with` when the key when wasn't present.
     ///
     /// ```rust
@@ -261,7 +283,7 @@ impl<'key> KnownKey<'key> {
     #[inline]
     pub fn map_lookup_or_insert_mut<'target, 'value, F>(
         &self,
-        map: &'target mut halfbrown::HashMap<Cow<'value, str>, Value<'value>>,
+        map: &'target mut super::borrowed::Object<'value>,
         with: F,
     ) -> &'target mut Value<'value>
     where
@@ -348,7 +370,7 @@ impl<'key> KnownKey<'key> {
     #[inline]
     pub fn map_insert<'target, 'value>(
         &self,
-        map: &'target mut halfbrown::HashMap<Cow<'value, str>, Value<'value>>,
+        map: &'target mut super::borrowed::Object<'value>,
         value: Value<'value>,
     ) -> Option<Value<'value>>
     where
@@ -377,7 +399,7 @@ mod tests {
     fn known_key() {
         use crate::cow::Cow;
         let mut v = Value::object();
-        v.insert("key", 1).unwrap();
+        v.try_insert("key", 1);
         let key1 = KnownKey::from(Cow::from("key"));
         let key2 = KnownKey::from(Cow::from("cake"));
 
@@ -393,15 +415,21 @@ mod tests {
     fn known_key_insert() {
         use crate::cow::Cow;
         let mut v = Value::object();
-        v.insert("key", 1).unwrap();
+        let _: Option<_> = v.try_insert("key", 1);
         let key1 = KnownKey::from(Cow::from("key"));
         let key2 = KnownKey::from(Cow::from("cake"));
 
         let mut v1 = Value::null();
         assert!(key1.insert(&mut v1, 2.into()).is_err());
         assert!(key2.insert(&mut v1, 2.into()).is_err());
-        assert_eq!(key1.insert(&mut v, 2.into()).unwrap(), Some(1.into()));
-        assert_eq!(key2.insert(&mut v, 3.into()).unwrap(), None);
+        assert_eq!(
+            key1.insert(&mut v, 2.into()).expect("failed to insert"),
+            Some(1.into())
+        );
+        assert_eq!(
+            key2.insert(&mut v, 3.into()).expect("failed to insert"),
+            None
+        );
         assert_eq!(v["key"], 2);
         assert_eq!(v["cake"], 3);
     }
@@ -410,7 +438,7 @@ mod tests {
     fn lookup_or_insert_mut() {
         use crate::cow::Cow;
         let mut v = Value::object();
-        v.insert("key", 1).unwrap();
+        let _: Option<_> = v.try_insert("key", 1);
         let key1 = KnownKey::from(Cow::from("key"));
         let key2 = KnownKey::from(Cow::from("cake"));
 
@@ -419,11 +447,15 @@ mod tests {
         assert!(key2.lookup_or_insert_mut(&mut v1, || 2.into()).is_err());
 
         {
-            let r1 = key1.lookup_or_insert_mut(&mut v, || 2.into()).unwrap();
+            let r1 = key1
+                .lookup_or_insert_mut(&mut v, || 2.into())
+                .expect("failed to insert");
             assert_eq!(r1.as_u8(), Some(1));
         }
         {
-            let r2 = key2.lookup_or_insert_mut(&mut v, || 3.into()).unwrap();
+            let r2 = key2
+                .lookup_or_insert_mut(&mut v, || 3.into())
+                .expect("failed to insert");
             assert_eq!(r2.as_u8(), Some(3));
         }
     }
@@ -431,7 +463,7 @@ mod tests {
     fn known_key_map() {
         use crate::cow::Cow;
         let mut v = Value::object_with_capacity(128);
-        v.insert("key", 1).unwrap();
+        v.insert("key", 1).expect("failed to insert");
         let key1 = KnownKey::from(Cow::from("key"));
         let key2 = KnownKey::from(Cow::from("cake"));
 
@@ -445,7 +477,7 @@ mod tests {
     fn known_key_insert_map() {
         use crate::cow::Cow;
         let mut v = Value::object_with_capacity(128);
-        v.insert("key", 1).unwrap();
+        v.insert("key", 1).expect("failed to insert");
         let key1 = KnownKey::from(Cow::from("key"));
         let key2 = KnownKey::from(Cow::from("cake"));
 
@@ -453,8 +485,14 @@ mod tests {
 
         assert!(key1.insert(&mut v1, 2.into()).is_err());
         assert!(key2.insert(&mut v1, 2.into()).is_err());
-        assert_eq!(key1.insert(&mut v, 2.into()).unwrap(), Some(1.into()));
-        assert_eq!(key2.insert(&mut v, 3.into()).unwrap(), None);
+        assert_eq!(
+            key1.insert(&mut v, 2.into()).expect("failed to insert"),
+            Some(1.into())
+        );
+        assert_eq!(
+            key2.insert(&mut v, 3.into()).expect("failed to insert"),
+            None
+        );
         assert_eq!(v["key"], 2);
         assert_eq!(v["cake"], 3);
     }

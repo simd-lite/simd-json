@@ -1,5 +1,6 @@
 // A lot of this logic is a re-implementation or copy of serde_json::Value
 use crate::Error;
+use crate::ObjectHasher;
 use crate::StaticNode;
 use crate::{cow::Cow, ErrorType};
 use crate::{
@@ -473,7 +474,6 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
      */
     /****************** nexted stuff ******************/
-
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
@@ -481,7 +481,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         let size = map.size_hint().unwrap_or_default();
 
-        let mut m = Object::with_capacity(size);
+        let mut m = Object::with_capacity_and_hasher(size, ObjectHasher::default());
         while let Some(k) = map.next_key::<&str>()? {
             let v = map.next_value()?;
             m.insert(k.into(), v);

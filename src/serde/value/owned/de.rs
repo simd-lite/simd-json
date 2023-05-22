@@ -1,11 +1,11 @@
 // A lot of this logic is a re-implementation or copy of serde_json::Value
-use crate::Error;
 use crate::ErrorType;
 use crate::StaticNode;
 use crate::{
     serde::value::shared::MapKeyDeserializer,
     value::owned::{Object, Value},
 };
+use crate::{Error, ObjectHasher};
 use serde_ext::{
     de::{
         self, Deserialize, DeserializeSeed, Deserializer, EnumAccess, IntoDeserializer, MapAccess,
@@ -468,7 +468,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         let size = map.size_hint().unwrap_or_default();
 
-        let mut m = Object::with_capacity(size);
+        let mut m = Object::with_capacity_and_hasher(size, ObjectHasher::default());
         while let Some(k) = map.next_key()? {
             let v = map.next_value()?;
             m.insert(k, v);

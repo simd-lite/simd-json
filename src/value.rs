@@ -72,6 +72,13 @@ use std::marker::PhantomData;
 use tape::Node;
 pub use value_trait::*;
 
+/// Hasher used for objects
+#[cfg(feature = "known-key")]
+pub type ObjectHasher = crate::known_key::NotSoRandomState;
+/// Hasher used for objects
+#[cfg(not(feature = "known-key"))]
+pub type ObjectHasher = halfbrown::DefaultHashBuilder;
+
 /// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
@@ -82,7 +89,7 @@ pub use value_trait::*;
 /// Will return `Err` if `s` is invalid JSON.
 pub fn deserialize<'de, Value, Key>(s: &'de mut [u8]) -> Result<Value>
 where
-    Value: Builder<'de> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Value: Builder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     match Deserializer::from_slice(s) {
@@ -93,7 +100,7 @@ where
 
 struct ValueDeserializer<'de, Value, Key>
 where
-    Value: Builder<'de> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Value: Builder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     de: Deserializer<'de>,
@@ -102,7 +109,11 @@ where
 
 impl<'de, Value, Key> ValueDeserializer<'de, Value, Key>
 where
-    Value: Builder<'de> + From<&'de str> + From<Vec<Value>> + From<HashMap<Key, Value>> + 'de,
+    Value: Builder<'de>
+        + From<&'de str>
+        + From<Vec<Value>>
+        + From<HashMap<Key, Value, ObjectHasher>>
+        + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     pub fn from_deserializer(de: Deserializer<'de>) -> Self {
@@ -140,7 +151,8 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_map(&mut self, len: usize) -> Value {
-        let mut res: HashMap<Key, Value> = HashMap::with_capacity(len);
+        let mut res: HashMap<Key, Value, ObjectHasher> =
+            HashMap::with_capacity_and_hasher(len, ObjectHasher::default());
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this

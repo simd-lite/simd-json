@@ -649,6 +649,7 @@ where
 
 #[cfg(test)]
 mod test {
+    use crate::from_slice;
     #[cfg(not(target_arch = "wasm32"))]
     use crate::{OwnedValue as Value, StaticNode};
     #[cfg(not(target_arch = "wasm32"))]
@@ -748,17 +749,8 @@ mod test {
     #[test]
     fn prettyfy() {
         let v = crate::json!({"key1":{}, "key2":[], "key3":[1,{"key4":null}]});
-        let expected = r#"{
-  "key1": {},
-  "key2": [],
-  "key3": [
-    1,
-    {
-      "key4": null
-    }
-  ]
-}"#;
-        let res = crate::to_string_pretty(&v).expect("encoding failed");
-        assert_eq!(expected, res);
+        let mut res = crate::to_vec_pretty(&v).expect("encoding failed");
+        let v2: Value = from_slice(&mut res).expect("generated bad json");
+        assert_eq!(v, v2);
     }
 }

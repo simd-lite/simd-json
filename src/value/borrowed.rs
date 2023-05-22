@@ -24,6 +24,7 @@ mod cmp;
 mod from;
 mod serialize;
 
+use super::ObjectHasher;
 use crate::cow::Cow;
 use crate::prelude::*;
 use crate::safer_unchecked::GetSaferUnchecked;
@@ -34,7 +35,7 @@ use std::ops::{Index, IndexMut};
 use value_trait::{ValueAccess, ValueInto};
 
 /// Representation of a JSON object
-pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>>;
+pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>, ObjectHasher>;
 
 /// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
@@ -161,7 +162,10 @@ impl<'value> Builder<'value> for Value<'value> {
     #[inline]
     #[must_use]
     fn object_with_capacity(capacity: usize) -> Self {
-        Self::Object(Box::new(Object::with_capacity(capacity)))
+        Self::Object(Box::new(Object::with_capacity_and_hasher(
+            capacity,
+            ObjectHasher::default(),
+        )))
     }
 }
 
@@ -176,7 +180,7 @@ impl<'value> Mutable for Value<'value> {
     }
     #[inline]
     #[must_use]
-    fn as_object_mut(&mut self) -> Option<&mut HashMap<<Self as ValueAccess>::Key, Self>> {
+    fn as_object_mut(&mut self) -> Option<&mut Object<'value>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -196,7 +200,7 @@ impl<'value> ValueAccess for Value<'value> {
     type Target = Self;
     type Key = Cow<'value, str>;
     type Array = Vec<Self>;
-    type Object = HashMap<Self::Key, Self>;
+    type Object = Object<'value>;
 
     #[inline]
     #[must_use]
@@ -297,7 +301,7 @@ impl<'value> ValueAccess for Value<'value> {
 
     #[inline]
     #[must_use]
-    fn as_object(&self) -> Option<&HashMap<Self::Key, Self>> {
+    fn as_object(&self) -> Option<&Object<'value>> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -419,7 +423,7 @@ impl<'de> BorrowDeserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     fn parse_map(&mut self, len: usize) -> Value<'de> {
-        let mut res = Object::with_capacity(len);
+        let mut res = Object::with_capacity_and_hasher(len, ObjectHasher::default());
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
@@ -852,7 +856,7 @@ mod test {
 
     #[test]
     fn conversions_object() {
-        let v = Value::from(Object::new());
+        let v = Value::from(Object::with_capacity_and_hasher(1, ObjectHasher::default()));
         assert!(v.is_object());
         assert_eq!(v.value_type(), ValueType::Object);
         let v = Value::from("no object");

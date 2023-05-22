@@ -301,10 +301,10 @@ macro_rules! json_internal_owned {
     // Done. Insert all entries from the stack
     (@object $object:ident [@entries $(($value:expr => $($key:tt)+))*] () () ()) => {
         let len = json_internal_owned!(@object @count [@entries $(($value => $($key)+))*]);
-        $object = $crate::value::owned::Object::with_capacity(len);
+        $object = $crate::value::owned::Object::with_capacity_and_hasher(len, $crate::value::ObjectHasher::default());
         $(
             #[allow(clippy::let_underscore_drop)]
-            let _ = $object.insert(($($key)+).into(), $value);
+            let _: Option<_> = $object.insert(($($key)+).into(), $value);
         )*
     };
 
@@ -783,11 +783,13 @@ macro_rules! json_internal_borrowed {
     // Done. Insert all entries from the stack
     (@object $object:ident [@entries $(($value:expr => $($key:tt)+))*] () () ()) => {
         let len = json_internal_borrowed!(@object @count [@entries $(($value => $($key)+))*]);
-        $object = $crate::value::borrowed::Object::with_capacity(len);
+
+        $object = $crate::value::borrowed::Object::with_capacity_and_hasher(len, $crate::value::ObjectHasher::default());
         $(
             #[allow(clippy::let_underscore_drop)]
-            let _ = $object.insert(($($key)+).into(), $value);
+            let _:Option<_> = $object.insert(($($key)+).into(), $value);
         )*
+
     };
 
     // Insert the current entry (followed by trailing comma) into the stack.
@@ -1285,6 +1287,20 @@ macro_rules! stry {
 mod test {
     use crate::prelude::*;
     use crate::{json, json_typed, BorrowedValue, OwnedValue};
+
+    #[cfg(feature = "serde_impl")]
+    fn owned_test_map() -> OwnedValue {
+        let mut h = crate::owned::Object::with_hasher(crate::ObjectHasher::default());
+        h.insert("test".into(), 1.into());
+        OwnedValue::from(h)
+    }
+    #[cfg(feature = "serde_impl")]
+    fn borrowed_test_map() -> BorrowedValue<'static> {
+        let mut h = crate::borrowed::Object::with_hasher(crate::ObjectHasher::default());
+        h.insert("test".into(), 1.into());
+        BorrowedValue::from(h)
+    }
+
     #[test]
     fn array() {
         let v: OwnedValue = json!(vec![1]);
@@ -1299,10 +1315,11 @@ mod test {
     #[test]
     fn obj() {
         use halfbrown::hashmap;
+        let o = owned_test_map();
         let v: OwnedValue = json!(hashmap! {"test" => 1});
-        assert_eq!(OwnedValue::from(hashmap! {"test".into() => 1.into()}), v);
+        assert_eq!(o, v);
         let v: OwnedValue = json!({"test": 1});
-        assert_eq!(OwnedValue::from(hashmap! {"test".into() => 1.into()}), v);
+        assert_eq!(o, v);
         let v: OwnedValue = json!({});
         assert_eq!(OwnedValue::object(), v);
     }
@@ -1326,15 +1343,15 @@ mod test {
         let v: BorrowedValue = json_typed!(borrowed, []);
         assert_eq!(BorrowedValue::array(), v);
     }
-
     #[cfg(feature = "serde_impl")]
     #[test]
     fn obj_typed_owned() {
         use halfbrown::hashmap;
         let v: OwnedValue = json_typed!(owned, hashmap! {"test" => 1});
-        assert_eq!(OwnedValue::from(hashmap! {"test".into() => 1.into()}), v);
+        let o = owned_test_map();
+        assert_eq!(o, v);
         let v: OwnedValue = json_typed!(owned, {"test": 1});
-        assert_eq!(OwnedValue::from(hashmap! {"test".into() => 1.into()}), v);
+        assert_eq!(o, v);
         let v: OwnedValue = json_typed!(owned, {});
         assert_eq!(OwnedValue::object(), v);
     }
@@ -1344,9 +1361,10 @@ mod test {
     fn obj_typed_borrowed() {
         use halfbrown::hashmap;
         let v: BorrowedValue = json_typed!(borrowed, hashmap! {"test" => 1});
-        assert_eq!(BorrowedValue::from(hashmap! {"test".into() => 1.into()}), v);
+        let o = borrowed_test_map();
+        assert_eq!(o, v);
         let v: BorrowedValue = json_typed!(borrowed, {"test": 1});
-        assert_eq!(BorrowedValue::from(hashmap! {"test".into() => 1.into()}), v);
+        assert_eq!(o, v);
         let v: BorrowedValue = json_typed!(borrowed, {});
         assert_eq!(BorrowedValue::object(), v);
     }
