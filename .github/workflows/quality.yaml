@@ -15,6 +15,16 @@ jobs:
           - "-C target-cpu=native"
           - "-C target-cpu=native -C target-feature=-avx2"
           - "-C target-cpu=native -C target-feature=-avx2,-pclmulqdq"
+        features:
+          - '--no-default-features'
+          - ''
+          - '--features value-no-dup-keys'
+          - '--features known-key'
+          - '--features 128bit'
+          - '--features beef'
+          - '--features beef,known-key'
+          - '--features beef,known-key,128bit'
+          - '--features approx-number-parsing'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -27,53 +37,6 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Run clippy manually without annotations
-        run: cargo clippy --all
-  coverage:
-    strategy:
-      matrix:
-        rustflags:
-          - ""
-          - "-C target-feature=-avx2"
-          - "-C target-feature=-avx2,-pclmulqdq"
-        features:
-          - ",known-key,128bit,beef"
-          - ",known-key,beef"
-          - ",128bit,beef"
-          - ",beef"
-          - ",known-key,128bit"
-          - ",known-key"
-          - ",128bit"
-          - ""
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config cmake zlib1g-dev
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
-
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-
-      - name: Run codecov
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-          PROPTEST_CASES: 512
-        run: cargo llvm-cov --lcov --output-path lcov.txt --features no-inline${{ matrix.features }}
-
-      - name: Generate matrix name
-        run: |
-              flags="${{ matrix.rustflags }}${{ matrix.features }}"
-              flags="${flags/-C target-feature=/}"
-              flags="${flags//[- ]/}"
-              echo "$flags"
-              echo "flags=$flags" >> $GITHUB_ENV
-
-      - uses: codecov/codecov-action@v3
-        with:
-          files: ./lcov.txt # optional
-          flags: ${{ env.flags }} # optional
-          fail_ci_if_error: true # optional (default = false)
-          verbose: true # optional (default = false)
+        run: cargo clippy --all ${{ matrix.features }}
