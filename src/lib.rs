@@ -5,18 +5,15 @@
     clippy::all,
     clippy::unwrap_used,
     clippy::unnecessary_unwrap,
-    clippy::pedantic
+    clippy::pedantic,
+    missing_docs
 )]
 // We might want to revisit inline_always
 #![allow(
     clippy::module_name_repetitions,
     clippy::inline_always,
-    clippy::trait_duplication_in_bounds,
-    clippy::type_repetition_in_bounds,
-    renamed_and_removed_lints,
-    clippy::let_underscore_drop, // For backwards compat
+    renamed_and_removed_lints
 )]
-#![deny(missing_docs)]
 
 //! simd-json is a rust port of the simdjson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better

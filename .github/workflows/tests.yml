@@ -26,25 +26,47 @@ jobs:
           - '--features 128bit'
           - '--features beef'
           - '--features beef,known-key'
+          - '--features beef,known-key,128bit'
           - '--features approx-number-parsing'
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
 
     - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: llvm-tools-preview
 
-    - name: Build
-      env:
-        RUSTFLAGS: ${{ matrix.rustflags }}
-      run: cargo build ${{ matrix.features }}
-
-    - name: Run tests
-      env:
-        RUSTFLAGS: ${{ matrix.rustflags }}
-      run: cargo test ${{ matrix.features }}
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@cargo-llvm-cov
 
     - name: Run tests (alloc)
       if: matrix.features == ''
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
       run: cargo test --features alloc
+
+    - name: Run tests
+      env:
+        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+      run: cargo llvm-cov --lcov --output-path lcov.txt --features no-inline ${{ matrix.features }}
+
+    - name: Generate matrix name
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+            flags="${{ matrix.rustflags }}${{ matrix.features }}"
+            flags="${flags/-C target-feature=/}"
+            flags="${flags//[- ]/}"
+            echo "$flags"
+            echo "flags=$flags" >> $GITHUB_ENV
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest'
+      uses: Wandalen/wretry.action@master
+      with:
+        action: codecov/codecov-action@v3
+        attempt_limit: 6
+        attempt_delay: 10000
+        with: |
+          files: ./lcov.txt
+          flags: unittests
+          verbose: true
