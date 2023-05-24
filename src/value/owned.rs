@@ -34,6 +34,12 @@ use value_trait::{ValueAccess, ValueInto};
 
 /// Representation of a JSON object
 pub type Object = HashMap<String, Value, ObjectHasher>;
+#[cfg(feature = "known-key")]
+impl crate::value::ObjectInit for Object {
+    fn new() -> Self {
+        Self::default()
+    }
+}
 
 /// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.

@@ -79,6 +79,15 @@ pub type ObjectHasher = crate::known_key::NotSoRandomState;
 #[cfg(not(feature = "known-key"))]
 pub type ObjectHasher = halfbrown::DefaultHashBuilder;
 
+/// Provides `new` function for objects if the `ObjectHasher` is not `DefaultHashBuilder`
+/// this is a workaround for the rust type system not allowing us to implement `new` for a `HashMap`
+/// with a generic `Hasher` without forcing us to specify the hasher no every type.
+#[cfg(feature = "known-key")]
+pub trait ObjectInit {
+    /// Creates a new object
+    fn new() -> Self;
+}
+
 /// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
