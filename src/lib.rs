@@ -1,5 +1,6 @@
 #![deny(warnings)]
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(unused_extern_crates)]
 #![deny(
     clippy::all,

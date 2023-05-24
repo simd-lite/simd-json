@@ -12,7 +12,8 @@ documentation = "https://docs.rs/simd-json"
 rust-version = "1.61"
 
 [package.metadata.docs.rs]
-features = ["docsrs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 lexical-core = { version = "0.8", features = ["format"] }
