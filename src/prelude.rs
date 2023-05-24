@@ -1,4 +1,3 @@
-#[cfg(feature = "known-key")]
 pub use crate::value::ObjectInit;
 /// Prelude to include needed traits
 pub use value_trait::{

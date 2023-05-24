@@ -36,8 +36,8 @@ use value_trait::{ValueAccess, ValueInto};
 
 /// Representation of a JSON object
 pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>, ObjectHasher>;
-#[cfg(feature = "known-key")]
 impl<'value> crate::value::ObjectInit for Object<'value> {
+    #[cfg(feature = "known-key")]
     fn new() -> Self {
         Self::default()
     }

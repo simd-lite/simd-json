@@ -82,8 +82,8 @@ pub type ObjectHasher = halfbrown::DefaultHashBuilder;
 /// Provides `new` function for objects if the `ObjectHasher` is not `DefaultHashBuilder`
 /// this is a workaround for the rust type system not allowing us to implement `new` for a `HashMap`
 /// with a generic `Hasher` without forcing us to specify the hasher no every type.
-#[cfg(feature = "known-key")]
 pub trait ObjectInit {
+    #[cfg(feature = "known-key")]
     /// Creates a new object
     fn new() -> Self;
 }
