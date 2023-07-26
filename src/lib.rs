@@ -489,8 +489,8 @@ impl<'de> Deserializer<'de> {
 
             // ensure we have a 0 to terminate the buffer
             std::ptr::write(input_buffer.as_mut_ptr().add(len), 0);
-
-            input_buffer.set_len(input_buffer.capacity());
+            // safety: we just initialized all bytes up until `len`
+            input_buffer.set_len(len);
         };
 
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
