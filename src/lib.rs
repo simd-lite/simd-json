@@ -490,7 +490,7 @@ impl<'de> Deserializer<'de> {
             // ensure we have a 0 to terminate the buffer
             std::ptr::write(input_buffer.as_mut_ptr().add(len), 0);
 
-            // initialize all remaingin bytes
+            // initialize all remaining bytes
             if len < input_buffer.capacity() {
                 for i in len..input_buffer.capacity() {
                     std::ptr::write(input_buffer.as_mut_ptr().add(i), 0);
