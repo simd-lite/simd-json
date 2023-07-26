@@ -248,7 +248,7 @@ mod known_key;
 pub use known_key::{Error as KnownKeyError, KnownKey};
 
 pub use crate::tape::{Node, Tape};
-use std::alloc::{alloc, handle_alloc_error, Layout};
+use std::alloc::{alloc_zeroed, handle_alloc_error, Layout};
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
@@ -489,8 +489,8 @@ impl<'de> Deserializer<'de> {
 
             // ensure we have a 0 to terminate the buffer
             std::ptr::write(input_buffer.as_mut_ptr().add(len), 0);
-            // safety: we just initialized all bytes up until `len`
-            input_buffer.set_len(len);
+
+            input_buffer.set_len(input_buffer.capacity());
         };
 
         let s1_result: std::result::Result<Vec<u32>, ErrorType> =
@@ -710,7 +710,7 @@ impl AlignedBuf {
         if mem::size_of::<usize>() < 8 && capacity > isize::MAX as usize {
             Self::capacity_overflow()
         }
-        let inner = match unsafe { NonNull::new(alloc(layout)) } {
+        let inner = match unsafe { NonNull::new(alloc_zeroed(layout)) } {
             Some(ptr) => ptr,
             None => handle_alloc_error(layout),
         };
