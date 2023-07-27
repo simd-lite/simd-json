@@ -487,14 +487,10 @@ impl<'de> Deserializer<'de> {
         unsafe {
             std::ptr::copy_nonoverlapping(input.as_ptr(), input_buffer.as_mut_ptr(), len);
 
-            // ensure we have a 0 to terminate the buffer
-            std::ptr::write(input_buffer.as_mut_ptr().add(len), 0);
-
             // initialize all remaining bytes
-            if len < input_buffer.capacity() {
-                for i in len..input_buffer.capacity() {
-                    std::ptr::write(input_buffer.as_mut_ptr().add(i), 0);
-                }
+            // this also ensures we have a 0 to terminate the buffer
+            for i in len..input_buffer.capacity() {
+                std::ptr::write(input_buffer.as_mut_ptr().add(i), 0);
             }
 
             // safety: all bytes are initialized
