@@ -5,6 +5,8 @@ use std::result::Result;
 use std::str;
 use value_trait::generator::BaseGenerator;
 
+use super::key_must_be_a_string;
+
 macro_rules! iomap {
     ($e:expr) => {
         ($e).map_err(|err| Error::generic(ErrorType::Io(err)))
@@ -238,6 +240,229 @@ where
     }
 }
 
+struct MapKeySerializer<'serializer, W: Write + 'serializer> {
+    s: &'serializer mut PrettySerializer<W>,
+}
+
+impl<'serializer, W> ser::Serializer for MapKeySerializer<'serializer, W>
+where
+    W: Write,
+{
+    type Ok = ();
+    type Error = Error;
+
+    #[inline]
+    fn serialize_str(self, value: &str) -> Result<(), Self::Error> {
+        self.s.serialize_str(value)
+    }
+
+    #[inline]
+    fn serialize_unit_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        variant: &'static str,
+    ) -> Result<(), Self::Error> {
+        self.s.serialize_str(variant)
+    }
+
+    #[inline]
+    fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + serde_ext::Serialize,
+    {
+        value.serialize(self)
+    }
+
+    type SerializeSeq = ser::Impossible<(), Error>;
+    type SerializeTuple = ser::Impossible<(), Error>;
+    type SerializeTupleStruct = ser::Impossible<(), Error>;
+    type SerializeTupleVariant = ser::Impossible<(), Error>;
+    type SerializeMap = ser::Impossible<(), Error>;
+    type SerializeStruct = ser::Impossible<(), Error>;
+    type SerializeStructVariant = ser::Impossible<(), Error>;
+
+    fn serialize_bool(self, _value: bool) -> Result<(), Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
+        iomap!(self
+            .s
+            .write_char(b'"')
+            .and_then(|_| self.s.write_int(v))
+            .and_then(|_| self.s.write_char(b'"')))
+    }
+
+    fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
+        iomap!(self
+            .s
+            .write_char(b'"')
+            .and_then(|_| self.s.write_int(v))
+            .and_then(|_| self.s.write_char(b'"')))
+    }
+
+    fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
+        iomap!(self
+            .s
+            .write_char(b'"')
+            .and_then(|_| self.s.write_int(v))
+            .and_then(|_| self.s.write_char(b'"')))
+    }
+
+    fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
+        iomap!(self
+            .s
+            .write_char(b'"')
+            .and_then(|_| self.s.write_int(v))
+            .and_then(|_| self.s.write_char(b'"')))
+    }
+
+    fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
+        iomap!(self
+            .s
+            .write_char(b'"')
+            .and_then(|_| self.s.write_int(v))
+            .and_then(|_| self.s.write_char(b'"')))
+    }
+
+    fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
+        iomap!(self
+            .s
+            .write_char(b'"')
+            .and_then(|_| self.s.write_int(v))
+            .and_then(|_| self.s.write_char(b'"')))
+    }
+
+    fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
+        iomap!(self
+            .s
+            .write_char(b'"')
+            .and_then(|_| self.s.write_int(v))
+            .and_then(|_| self.s.write_char(b'"')))
+    }
+
+    fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
+        iomap!(self
+            .s
+            .write_char(b'"')
+            .and_then(|_| self.s.write_int(v))
+            .and_then(|_| self.s.write_char(b'"')))
+    }
+
+    fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
+        iomap!(self
+            .s
+            .write_char(b'"')
+            .and_then(|_| self.s.write_int(v))
+            .and_then(|_| self.s.write_char(b'"')))
+    }
+
+    fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
+        iomap!(self
+            .s
+            .write_char(b'"')
+            .and_then(|_| self.s.write_int(v))
+            .and_then(|_| self.s.write_char(b'"')))
+    }
+
+    fn serialize_f32(self, _v: f32) -> Result<Self::Ok, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_f64(self, _v: f64) -> Result<Self::Ok, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
+        self.s.serialize_str(&v.to_string())
+    }
+
+    fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: serde_ext::Serialize,
+    {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_newtype_variant<T: ?Sized>(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _value: &T,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        T: serde_ext::Serialize,
+    {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleStruct, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStruct, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStructVariant, Self::Error> {
+        Err(key_must_be_a_string())
+    }
+}
+
 struct SerializeMap<'serializer, W: Write + 'serializer> {
     s: &'serializer mut PrettySerializer<W>,
     first: bool,
@@ -263,11 +488,11 @@ where
         if *first {
             *first = false;
             iomap!(s.new_line())
-                .and_then(|_| key.serialize(&mut **s))
+                .and_then(|_| key.serialize(MapKeySerializer { s: &mut **s }))
                 .and_then(|_| iomap!(s.write(b": ")))
         } else {
             iomap!(s.write(b",").and_then(|_| s.new_line()))
-                .and_then(|_| key.serialize(&mut **s))
+                .and_then(|_| key.serialize(MapKeySerializer { s: &mut **s }))
                 .and_then(|_| iomap!(s.write(b": ")))
         }
     }
@@ -654,6 +879,43 @@ mod test {
     use crate::{OwnedValue as Value, StaticNode};
     #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
+    #[test]
+    fn pretty_print_serde() {
+        #[derive(Clone, Debug, PartialEq, serde::Serialize)]
+        enum Segment {
+            Id { mid: usize },
+        }
+
+        assert_eq!(
+            "{\n  \"Id\": {\n    \"mid\": 0\n  }\n}",
+            crate::to_string_pretty(&Segment::Id { mid: 0 }).expect("to_string_pretty")
+        );
+    }
+
+    #[test]
+    fn numerical_map_serde() {
+        use std::collections::HashMap;
+
+        #[derive(Clone, Debug, PartialEq, serde::Serialize)]
+        struct Foo {
+            pub bar: HashMap<i32, i32>,
+        }
+
+        let mut foo = Foo {
+            bar: HashMap::new(),
+        };
+
+        foo.bar.insert(1337, 1337);
+
+        assert_eq!(
+            r#"{
+  "bar": {
+    "1337": 1337
+  }
+}"#,
+            crate::to_string_pretty(&foo).expect("to_string_pretty")
+        );
+    }
 
     #[cfg(not(feature = "128bit"))]
     #[cfg(not(target_arch = "wasm32"))]

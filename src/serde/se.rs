@@ -824,19 +824,6 @@ mod test {
     use proptest::prelude::*;
 
     #[test]
-    fn pretty_print_serde() {
-        #[derive(Clone, Debug, PartialEq, serde::Serialize)]
-        enum Segment {
-            Id { mid: usize },
-        }
-
-        assert_eq!(
-            "{\n  \"Id\": {\n    \"mid\": 0\n  }\n}",
-            crate::to_string_pretty(&Segment::Id { mid: 0 }).expect("to_string_pretty")
-        );
-    }
-
-    #[test]
     fn print_serde() {
         #[derive(Clone, Debug, PartialEq, serde::Serialize)]
         enum Segment {

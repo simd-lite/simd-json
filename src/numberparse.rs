@@ -61,7 +61,7 @@ fn is_not_structural_or_whitespace_or_exponent_or_decimal(c: u8) -> bool {
 // at a glance, it looks better than Mula's
 // http://0x80.pl/articles/swar-digits-validate.html
 
-#[cfg(all(feature = "swar-number-parsing"))]
+#[cfg(feature = "swar-number-parsing")]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[allow(clippy::cast_ptr_alignment)]
 fn is_made_of_eight_digits_fast(chars: [u8; 8]) -> bool {
