@@ -119,7 +119,7 @@ where
     pub fn from_deserializer(de: Deserializer<'de>) -> Self {
         Self {
             de,
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 
