@@ -184,7 +184,10 @@ impl<'de> Deserializer<'de> {
         macro_rules! insert_str {
             () => {
                 insert_res!(Node::String(s2try!(Self::parse_str_(
-                    input, &input2, buffer, idx
+                    input.as_mut_ptr(),
+                    &input2,
+                    buffer,
+                    idx
                 ))));
             };
         }
@@ -589,6 +592,8 @@ impl<'de> Deserializer<'de> {
 
 #[cfg(test)]
 mod test {
+    use crate::avx2::stage1::SIMDJSON_PADDING;
+
     use super::*;
 
     #[test]
@@ -654,5 +659,20 @@ mod test {
             crate::serde::from_slice::<bool>(&mut br#"{"0":new}"#.to_vec()),
             Err(Error::new_c(5, 'n', ErrorType::ExpectedNull))
         );
+    }
+
+    #[test]
+    fn parse_string() -> Result<()> {
+        let mut input = Vec::from(&br#""{\"arg\":\"test\"}""#[..]);
+        let mut input2 = input.clone();
+        input2.append(vec![0; SIMDJSON_PADDING * 2].as_mut());
+        let mut buffer = vec![0; 1024];
+
+        let s = Deserializer::parse_str_(input.as_mut_ptr(), &input2, buffer.as_mut_slice(), 0)?;
+        dbg!(s);
+        dbg!(&input[..20]);
+        dbg!(&input2[..20]);
+        assert_eq!(r#"{"arg":"test"}"#, s);
+        Ok(())
     }
 }
