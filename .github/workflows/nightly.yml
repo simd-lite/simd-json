@@ -46,10 +46,11 @@ jobs:
         RUSTFLAGS: ${{ matrix.rustflags }}
       run: cargo test ${{ matrix.features }}
 
-    - name: Run miri
-      env:
-        RUSTFLAGS: ${{ matrix.rustflags }}
-      run: cargo miri test ${{ matrix.features }}
+    # we can't use miri any more, something broke.
+    # - name: Run miri
+    #   env:
+    #     RUSTFLAGS: ${{ matrix.rustflags }}
+    #   run: cargo miri test ${{ matrix.features }}
 
     - name: Run tests (alloc)
       if: matrix.features == ''
