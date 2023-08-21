@@ -592,7 +592,7 @@ impl<'de> Deserializer<'de> {
 
 #[cfg(test)]
 mod test {
-    use crate::avx2::stage1::SIMDJSON_PADDING;
+    use crate::SIMDJSON_PADDING;
 
     use super::*;
 
