@@ -20,7 +20,6 @@ pub use crate::Result;
 impl<'de> Deserializer<'de> {
     #[allow(
         clippy::if_not_else,
-        mutable_transmutes,
         clippy::transmute_ptr_to_ptr,
         clippy::too_many_lines,
         clippy::cast_ptr_alignment,
@@ -30,13 +29,12 @@ impl<'de> Deserializer<'de> {
     )]
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     pub(crate) fn parse_str_<'invoke>(
-        input: &'de [u8],
+        input: *mut u8,
         data: &'invoke [u8],
         buffer: &'invoke mut [u8],
         mut idx: usize,
     ) -> Result<&'de str> {
         use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
-        let input: &mut [u8] = unsafe { std::mem::transmute(input) };
         // Add 1 to skip the initial "
         idx += 1;
         //let mut read: usize = 0;
@@ -78,8 +76,11 @@ impl<'de> Deserializer<'de> {
 
                 len += quote_dist as usize;
                 unsafe {
-                    let v = input.get_kinda_unchecked(idx..idx + len) as *const [u8] as *const str;
-                    return Ok(&*v);
+                    let v = std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+                        input.add(idx),
+                        len,
+                    ));
+                    return Ok(v);
                 }
 
                 // we compare the pointers since we care if they are 'at the same spot'
@@ -143,11 +144,13 @@ impl<'de> Deserializer<'de> {
                 dst_i += quote_dist as usize;
                 unsafe {
                     input
-                        .get_kinda_unchecked_mut(idx + len..idx + len + dst_i)
-                        .clone_from_slice(buffer.get_kinda_unchecked(..dst_i));
-                    let v = input.get_kinda_unchecked(idx..idx + len + dst_i) as *const [u8]
-                        as *const str;
-                    return Ok(&*v);
+                        .add(idx + len)
+                        .copy_from_nonoverlapping(buffer.as_ptr(), dst_i);
+                    let v = std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+                        input.add(idx),
+                        len + dst_i,
+                    ));
+                    return Ok(v);
                 }
 
                 // we compare the pointers since we care if they are 'at the same spot'
