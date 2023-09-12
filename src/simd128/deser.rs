@@ -26,7 +26,6 @@ impl<'de> Deserializer<'de> {
         mut idx: usize,
     ) -> Result<&'de str> {
         use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
-        let input: &mut [u8] = unsafe { std::mem::transmute(input) };
         // Add 1 to skip the initial "
         idx += 1;
 
