@@ -42,7 +42,7 @@ jobs:
     - name: Run tests (alloc)
       if: matrix.features == ''
       env:
-        RUSTFLAGS: ${{ matrix.rustflags }}
+        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
       run: cargo test --features alloc
 
     - name: Run tests

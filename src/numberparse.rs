@@ -109,7 +109,10 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-#[cfg(any(target_feature = "neon", target_feature = "simd128"))]
+#[cfg(all(
+    any(target_feature = "neon", target_feature = "simd128"),
+    feature = "swar-number-parsing"
+))]
 #[allow(clippy::cast_ptr_alignment)]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
     let val = unsafe { (chars.as_ptr() as *const u64).read_unaligned() }; //    memcpy(&val, chars, sizeof(u64));
