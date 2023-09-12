@@ -1677,6 +1677,14 @@ mod tests_serde {
     }
 
     #[test]
+    fn invalid_float_array() {
+        let mut data =
+            b"[11111111111111111111111111111E1,-111111111111111111111E111111111".to_vec();
+
+        assert!(to_owned_value(&mut data).is_err());
+    }
+
+    #[test]
     fn crazy_string() {
         // there is unicode in here!
         let d = "\"𐀀𐀀  𐀀𐀀0 𐀀A\\u00000A0 A \\u000b\"";
