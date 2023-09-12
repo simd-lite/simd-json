@@ -15,9 +15,9 @@ jobs:
           - windows-latest
           - macOS-latest
         rustflags:
-          - '-C target-cpu=native'
-          - '-C target-cpu=native -C target-feature=-avx2'
-          - '-C target-cpu=native -C target-feature=-avx2,-pclmulqdq'
+          - ''
+          - '-C target-feature=-avx2'
+          - '-C target-feature=-avx2,-pclmulqdq'
         features:
           - '--no-default-features'
           - ''
@@ -70,3 +70,27 @@ jobs:
           files: ./lcov.txt
           flags: unittests
           verbose: true
+  wasm:
+    strategy:
+      matrix:
+        features:
+          - '--no-default-features'
+          - ''
+          - '--features value-no-dup-keys'
+          - '--features known-key'
+          - '--features 128bit'
+          - '--features beef'
+          - '--features beef,known-key'
+          - '--features beef,known-key,128bit'
+          - '--features approx-number-parsing'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: llvm-tools-preview
+        targets: wasm32-unknown-unknown
+
+    - name: Compile
+      run: cargo build --target wasm32-unknown-unknown --features no-inline ${{ matrix.features }}
