@@ -79,11 +79,9 @@ jobs:
           - '--no-default-features'
           - ''
           - '--features value-no-dup-keys'
-          - '--features known-key'
           - '--features 128bit'
           - '--features beef'
-          - '--features beef,known-key'
-          - '--features beef,known-key,128bit'
+          - '--features beef,128bit'
           - '--features approx-number-parsing'
     runs-on: ubuntu-latest
     steps:
