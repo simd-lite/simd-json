@@ -42,7 +42,7 @@ getopts = "0.2"
 criterion = { version = "0.5" }
 core_affinity = { version = "0.8" }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 proptest = "1.0"
 
 [lib]
