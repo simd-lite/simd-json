@@ -1,37 +1,29 @@
 use std::arch::wasm32::*;
-use std::mem;
 
 use crate::Stage1Parse;
 
-pub const SIMDJSON_PADDING: usize = mem::size_of::<v128>() * 2;
-pub const SIMDINPUT_LENGTH: usize = 64;
-
 #[derive(Debug)]
-pub(crate) struct SimdInput {
+pub(crate) struct SimdInput128 {
     v0: v128,
     v1: v128,
     v2: v128,
     v3: v128,
 }
 
-impl SimdInput {
+impl Stage1Parse<v128> for SimdInput128 {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_ptr_alignment)]
-    pub(crate) fn new(ptr: &[u8]) -> Self {
-        unsafe {
-            Self {
-                v0: v128_load(ptr.as_ptr().cast::<v128>()),
-                v1: v128_load(ptr.as_ptr().add(16).cast::<v128>()),
-                v2: v128_load(ptr.as_ptr().add(32).cast::<v128>()),
-                v3: v128_load(ptr.as_ptr().add(48).cast::<v128>()),
-            }
+    unsafe fn new(ptr: &[u8]) -> Self {
+        Self {
+            v0: v128_load(ptr.as_ptr().cast::<v128>()),
+            v1: v128_load(ptr.as_ptr().add(16).cast::<v128>()),
+            v2: v128_load(ptr.as_ptr().add(32).cast::<v128>()),
+            v3: v128_load(ptr.as_ptr().add(48).cast::<v128>()),
         }
     }
-}
 
-impl Stage1Parse<v128> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn compute_quote_mask(mut quote_bits: u64) -> u64 {
+    unsafe fn compute_quote_mask(mut quote_bits: u64) -> u64 {
         #[allow(clippy::cast_sign_loss)]
         let b = -1_i64 as u64;
         let mut prod = 0;
@@ -46,7 +38,7 @@ impl Stage1Parse<v128> for SimdInput {
 
     /// a straightforward comparison of a mask against input
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn cmp_mask_against_input(&self, m: u8) -> u64 {
+    unsafe fn cmp_mask_against_input(&self, m: u8) -> u64 {
         let mask = u8x16_splat(m);
         let cmp_res_0 = u8x16_eq(self.v0, mask);
         let res_0 = u8x16_bitmask(cmp_res_0) as u64;
@@ -61,7 +53,7 @@ impl Stage1Parse<v128> for SimdInput {
 
     // find all values less than or equal than the content of maxval (using unsigned arithmetic)
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn unsigned_lteq_against_input(&self, maxval: v128) -> u64 {
+    unsafe fn unsigned_lteq_against_input(&self, maxval: v128) -> u64 {
         let cmp_res_0 = u8x16_le(self.v0, maxval);
         let res_0 = u8x16_bitmask(cmp_res_0) as u64;
         let cmp_res_1 = u8x16_le(self.v1, maxval);
@@ -75,7 +67,7 @@ impl Stage1Parse<v128> for SimdInput {
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     #[allow(clippy::cast_sign_loss)]
-    fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64) {
+    unsafe fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64) {
         // do a 'shufti' to detect structural JSON characters
         // they are
         // * `{` 0x7b
@@ -164,7 +156,7 @@ impl Stage1Parse<v128> for SimdInput {
     // needs to be large enough to handle this
     //TODO: usize was u32 here does this matter?
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
+    unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
         let idx_minus_64 = idx.wrapping_sub(64);
@@ -200,12 +192,12 @@ impl Stage1Parse<v128> for SimdInput {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn fill_s8(n: i8) -> v128 {
+    unsafe fn fill_s8(n: i8) -> v128 {
         i8x16_splat(n)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn zero() -> v128 {
+    unsafe fn zero() -> v128 {
         i8x16_splat(0)
     }
 }

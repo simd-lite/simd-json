@@ -1,7 +1,7 @@
 use crate::{static_cast_i32, Stage1Parse};
 use std::arch::aarch64::{
     int32x4_t, int8x16_t, uint8x16_t, vaddq_s32, vandq_u8, vceqq_u8, vcleq_u8, vdupq_n_s8,
-    vgetq_lane_u64, vld1q_u8, vmovq_n_u8, vmull_p64, vpaddq_u8, vqtbl1q_u8, vreinterpretq_u64_u8,
+    vgetq_lane_u64, vld1q_u8, vmovq_n_u8, vpaddq_u8, vqtbl1q_u8, vreinterpretq_u64_u8,
     vreinterpretq_u8_s8, vshrq_n_u8, vtstq_u8,
 };
 use std::mem;
@@ -38,35 +38,31 @@ pub unsafe fn neon_movemask_bulk(
 
 // /NEON-SPECIFIC
 
-pub const SIMDJSON_PADDING: usize = mem::size_of::<uint8x16_t>() * 4;
-pub const SIMDINPUT_LENGTH: usize = 64;
+//pub const SIMDJSON_PADDING: usize = mem::size_of::<uint8x16_t>() * 4;
+//pub const SIMDINPUT_LENGTH: usize = 64;
 
 #[derive(Debug)]
-pub(crate) struct SimdInput {
+pub(crate) struct SimdInputNEON {
     v0: uint8x16_t,
     v1: uint8x16_t,
     v2: uint8x16_t,
     v3: uint8x16_t,
 }
 
-impl SimdInput {
+impl Stage1Parse<int8x16_t> for SimdInputNEON {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_ptr_alignment)]
-    pub(crate) fn new(ptr: &[u8]) -> Self {
-        unsafe {
-            Self {
-                v0: vld1q_u8(ptr.as_ptr().cast::<u8>()),
-                v1: vld1q_u8(ptr.as_ptr().add(16).cast::<u8>()),
-                v2: vld1q_u8(ptr.as_ptr().add(32).cast::<u8>()),
-                v3: vld1q_u8(ptr.as_ptr().add(48).cast::<u8>()),
-            }
+    unsafe fn new(ptr: &[u8]) -> Self {
+        Self {
+            v0: vld1q_u8(ptr.as_ptr().cast::<u8>()),
+            v1: vld1q_u8(ptr.as_ptr().add(16).cast::<u8>()),
+            v2: vld1q_u8(ptr.as_ptr().add(32).cast::<u8>()),
+            v3: vld1q_u8(ptr.as_ptr().add(48).cast::<u8>()),
         }
     }
-}
 
-impl Stage1Parse<int8x16_t> for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn compute_quote_mask(mut quote_bits: u64) -> u64 {
+    unsafe fn compute_quote_mask(mut quote_bits: u64) -> u64 {
         quote_bits ^= quote_bits << 1;
         quote_bits ^= quote_bits << 2;
         quote_bits ^= quote_bits << 4;
@@ -78,99 +74,93 @@ impl Stage1Parse<int8x16_t> for SimdInput {
 
     /// a straightforward comparison of a mask against input
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn cmp_mask_against_input(&self, m: u8) -> u64 {
-        unsafe {
-            let mask: uint8x16_t = vmovq_n_u8(m);
-            let cmp_res_0: uint8x16_t = vceqq_u8(self.v0, mask);
-            let cmp_res_1: uint8x16_t = vceqq_u8(self.v1, mask);
-            let cmp_res_2: uint8x16_t = vceqq_u8(self.v2, mask);
-            let cmp_res_3: uint8x16_t = vceqq_u8(self.v3, mask);
+    unsafe fn cmp_mask_against_input(&self, m: u8) -> u64 {
+        let mask: uint8x16_t = vmovq_n_u8(m);
+        let cmp_res_0: uint8x16_t = vceqq_u8(self.v0, mask);
+        let cmp_res_1: uint8x16_t = vceqq_u8(self.v1, mask);
+        let cmp_res_2: uint8x16_t = vceqq_u8(self.v2, mask);
+        let cmp_res_3: uint8x16_t = vceqq_u8(self.v3, mask);
 
-            neon_movemask_bulk(cmp_res_0, cmp_res_1, cmp_res_2, cmp_res_3)
-        }
+        neon_movemask_bulk(cmp_res_0, cmp_res_1, cmp_res_2, cmp_res_3)
     }
 
     // find all values less than or equal than the content of maxval (using unsigned arithmetic)
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn unsigned_lteq_against_input(&self, maxval: int8x16_t) -> u64 {
-        unsafe {
-            let maxval = vreinterpretq_u8_s8(maxval);
-            let cmp_res_0: uint8x16_t = vcleq_u8(self.v0, maxval);
-            let cmp_res_1: uint8x16_t = vcleq_u8(self.v1, maxval);
-            let cmp_res_2: uint8x16_t = vcleq_u8(self.v2, maxval);
-            let cmp_res_3: uint8x16_t = vcleq_u8(self.v3, maxval);
-            neon_movemask_bulk(cmp_res_0, cmp_res_1, cmp_res_2, cmp_res_3)
-        }
+    unsafe fn unsigned_lteq_against_input(&self, maxval: int8x16_t) -> u64 {
+        let maxval = vreinterpretq_u8_s8(maxval);
+        let cmp_res_0: uint8x16_t = vcleq_u8(self.v0, maxval);
+        let cmp_res_1: uint8x16_t = vcleq_u8(self.v1, maxval);
+        let cmp_res_2: uint8x16_t = vcleq_u8(self.v2, maxval);
+        let cmp_res_3: uint8x16_t = vcleq_u8(self.v3, maxval);
+        neon_movemask_bulk(cmp_res_0, cmp_res_1, cmp_res_2, cmp_res_3)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
     #[allow(clippy::cast_sign_loss)]
-    fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64) {
-        unsafe {
-            // do a 'shufti' to detect structural JSON characters
-            // they are
-            // * `{` 0x7b
-            // * `}` 0x7d
-            // * `:` 0x3a
-            // * `[` 0x5b
-            // * `]` 0x5d
-            // * `,` 0x2c
-            // these go into the first 3 buckets of the comparison (1/2/4)
+    unsafe fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64) {
+        // do a 'shufti' to detect structural JSON characters
+        // they are
+        // * `{` 0x7b
+        // * `}` 0x7d
+        // * `:` 0x3a
+        // * `[` 0x5b
+        // * `]` 0x5d
+        // * `,` 0x2c
+        // these go into the first 3 buckets of the comparison (1/2/4)
 
-            // we are also interested in the four whitespace characters:
-            // * space 0x20
-            // * linefeed 0x0a
-            // * horizontal tab 0x09
-            // * carriage return 0x0d
-            // these go into the next 2 buckets of the comparison (8/16)
+        // we are also interested in the four whitespace characters:
+        // * space 0x20
+        // * linefeed 0x0a
+        // * horizontal tab 0x09
+        // * carriage return 0x0d
+        // these go into the next 2 buckets of the comparison (8/16)
 
-            // TODO: const?
-            let low_nibble_mask: uint8x16_t =
-                std::mem::transmute([16u8, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]);
-            // TODO: const?
-            let high_nibble_mask: uint8x16_t =
-                std::mem::transmute([8u8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]);
+        // TODO: const?
+        let low_nibble_mask: uint8x16_t =
+            std::mem::transmute([16u8, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]);
+        // TODO: const?
+        let high_nibble_mask: uint8x16_t =
+            std::mem::transmute([8u8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]);
 
-            let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);
-            let whitespace_shufti_mask: uint8x16_t = vmovq_n_u8(0x18);
-            let low_nib_and_mask: uint8x16_t = vmovq_n_u8(0xf);
+        let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);
+        let whitespace_shufti_mask: uint8x16_t = vmovq_n_u8(0x18);
+        let low_nib_and_mask: uint8x16_t = vmovq_n_u8(0xf);
 
-            let nib_0_lo: uint8x16_t = vandq_u8(self.v0, low_nib_and_mask);
-            let nib_0_hi: uint8x16_t = vshrq_n_u8(self.v0, 4);
-            let shuf_0_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_0_lo);
-            let shuf_0_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_0_hi);
-            let v_0: uint8x16_t = vandq_u8(shuf_0_lo, shuf_0_hi);
+        let nib_0_lo: uint8x16_t = vandq_u8(self.v0, low_nib_and_mask);
+        let nib_0_hi: uint8x16_t = vshrq_n_u8(self.v0, 4);
+        let shuf_0_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_0_lo);
+        let shuf_0_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_0_hi);
+        let v_0: uint8x16_t = vandq_u8(shuf_0_lo, shuf_0_hi);
 
-            let nib_1_lo: uint8x16_t = vandq_u8(self.v1, low_nib_and_mask);
-            let nib_1_hi: uint8x16_t = vshrq_n_u8(self.v1, 4);
-            let shuf_1_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_1_lo);
-            let shuf_1_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_1_hi);
-            let v_1: uint8x16_t = vandq_u8(shuf_1_lo, shuf_1_hi);
+        let nib_1_lo: uint8x16_t = vandq_u8(self.v1, low_nib_and_mask);
+        let nib_1_hi: uint8x16_t = vshrq_n_u8(self.v1, 4);
+        let shuf_1_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_1_lo);
+        let shuf_1_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_1_hi);
+        let v_1: uint8x16_t = vandq_u8(shuf_1_lo, shuf_1_hi);
 
-            let nib_2_lo: uint8x16_t = vandq_u8(self.v2, low_nib_and_mask);
-            let nib_2_hi: uint8x16_t = vshrq_n_u8(self.v2, 4);
-            let shuf_2_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_2_lo);
-            let shuf_2_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_2_hi);
-            let v_2: uint8x16_t = vandq_u8(shuf_2_lo, shuf_2_hi);
+        let nib_2_lo: uint8x16_t = vandq_u8(self.v2, low_nib_and_mask);
+        let nib_2_hi: uint8x16_t = vshrq_n_u8(self.v2, 4);
+        let shuf_2_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_2_lo);
+        let shuf_2_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_2_hi);
+        let v_2: uint8x16_t = vandq_u8(shuf_2_lo, shuf_2_hi);
 
-            let nib_3_lo: uint8x16_t = vandq_u8(self.v3, low_nib_and_mask);
-            let nib_3_hi: uint8x16_t = vshrq_n_u8(self.v3, 4);
-            let shuf_3_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_3_lo);
-            let shuf_3_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_3_hi);
-            let v_3: uint8x16_t = vandq_u8(shuf_3_lo, shuf_3_hi);
+        let nib_3_lo: uint8x16_t = vandq_u8(self.v3, low_nib_and_mask);
+        let nib_3_hi: uint8x16_t = vshrq_n_u8(self.v3, 4);
+        let shuf_3_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_3_lo);
+        let shuf_3_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_3_hi);
+        let v_3: uint8x16_t = vandq_u8(shuf_3_lo, shuf_3_hi);
 
-            let tmp_0: uint8x16_t = vtstq_u8(v_0, structural_shufti_mask);
-            let tmp_1: uint8x16_t = vtstq_u8(v_1, structural_shufti_mask);
-            let tmp_2: uint8x16_t = vtstq_u8(v_2, structural_shufti_mask);
-            let tmp_3: uint8x16_t = vtstq_u8(v_3, structural_shufti_mask);
-            *structurals = neon_movemask_bulk(tmp_0, tmp_1, tmp_2, tmp_3);
+        let tmp_0: uint8x16_t = vtstq_u8(v_0, structural_shufti_mask);
+        let tmp_1: uint8x16_t = vtstq_u8(v_1, structural_shufti_mask);
+        let tmp_2: uint8x16_t = vtstq_u8(v_2, structural_shufti_mask);
+        let tmp_3: uint8x16_t = vtstq_u8(v_3, structural_shufti_mask);
+        *structurals = neon_movemask_bulk(tmp_0, tmp_1, tmp_2, tmp_3);
 
-            let tmp_ws_v0: uint8x16_t = vtstq_u8(v_0, whitespace_shufti_mask);
-            let tmp_ws_v1: uint8x16_t = vtstq_u8(v_1, whitespace_shufti_mask);
-            let tmp_ws_v2: uint8x16_t = vtstq_u8(v_2, whitespace_shufti_mask);
-            let tmp_ws_v3: uint8x16_t = vtstq_u8(v_3, whitespace_shufti_mask);
-            *whitespace = neon_movemask_bulk(tmp_ws_v0, tmp_ws_v1, tmp_ws_v2, tmp_ws_v3);
-        }
+        let tmp_ws_v0: uint8x16_t = vtstq_u8(v_0, whitespace_shufti_mask);
+        let tmp_ws_v1: uint8x16_t = vtstq_u8(v_1, whitespace_shufti_mask);
+        let tmp_ws_v2: uint8x16_t = vtstq_u8(v_2, whitespace_shufti_mask);
+        let tmp_ws_v3: uint8x16_t = vtstq_u8(v_3, whitespace_shufti_mask);
+        *whitespace = neon_movemask_bulk(tmp_ws_v0, tmp_ws_v1, tmp_ws_v2, tmp_ws_v3);
     }
 
     // flatten out values in 'bits' assuming that they are are to have values of idx
@@ -185,7 +175,7 @@ impl Stage1Parse<int8x16_t> for SimdInput {
         clippy::cast_ptr_alignment,
         clippy::uninit_vec
     )]
-    fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
+    unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
         let idx_minus_64 = idx.wrapping_sub(64);
@@ -228,12 +218,12 @@ impl Stage1Parse<int8x16_t> for SimdInput {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn fill_s8(n: i8) -> int8x16_t {
-        unsafe { vdupq_n_s8(n) }
+    unsafe fn fill_s8(n: i8) -> int8x16_t {
+        vdupq_n_s8(n)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    fn zero() -> int8x16_t {
-        unsafe { vdupq_n_s8(0) }
+    unsafe fn zero() -> int8x16_t {
+        vdupq_n_s8(0)
     }
 }

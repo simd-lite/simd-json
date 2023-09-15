@@ -39,7 +39,6 @@ getopts = { version = "0.2", optional = true }
 jemallocator = { version = "0.5", optional = true }
 perfcnt = { version = "0.8", optional = true }
 
-
 [dev-dependencies]
 float-cmp = "0.9"
 getopts = "0.2"
@@ -111,7 +110,11 @@ docsrs = []
 name = "perf"
 
 [profile.bench]
-lto = "thin"
+codegen-units = 1
+lto = true
+opt-level = 3
 
 [profile.release]
-lto = "thin"
+codegen-units = 1
+lto = true
+opt-level = 3
