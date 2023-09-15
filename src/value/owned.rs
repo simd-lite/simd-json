@@ -962,7 +962,7 @@ mod test {
         let v: Value = Value::from_iter(vec![("a", 1)]);
         assert_eq!(
             v,
-            vec![("a", 1)]
+            [("a", 1)]
                 .iter()
                 .copied()
                 .collect::<std::collections::HashMap<&str, i32>>()

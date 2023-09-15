@@ -12,6 +12,7 @@
 #![allow(
     clippy::module_name_repetitions,
     clippy::inline_always,
+    clippy::arc_with_non_send_sync,
     renamed_and_removed_lints
 )]
 
@@ -149,84 +150,38 @@ use safer_unchecked::GetSaferUnchecked;
 /// Reexport of Cow
 pub mod cow;
 
-#[cfg(target_feature = "avx2")]
+/// The maximum padding size required by and SIMD implementation
+pub const SIMDJSON_PADDING: usize = 32; // take upper limit mem::size_of::<__m256i>()
+/// It's 64 for all (Is this correct?)
+pub const SIMDINPUT_LENGTH: usize = 64;
+
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 mod avx2;
-#[cfg(target_feature = "avx2")]
-pub use crate::avx2::deser::*;
-#[cfg(target_feature = "avx2")]
-pub(crate) use crate::avx2::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
-#[cfg(target_feature = "avx2")]
-use simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+pub(crate) use crate::avx2::stage1::SimdInputAVX;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp as ChunkedUtf8ValidatorImpAVX2;
 
-#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 mod sse42;
-#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
-pub use crate::sse42::deser::*;
-#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
-pub(crate) use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
-#[cfg(all(target_feature = "sse4.2", not(target_feature = "avx2")))]
-use simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+pub(crate) use crate::sse42::stage1::SimdInputSSE;
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp as ChunkedUtf8ValidatorImpSSE42;
 
-#[cfg(target_feature = "neon")]
+#[cfg(target_arch = "aarch64")]
 mod neon;
-#[cfg(target_feature = "neon")]
-pub use crate::neon::deser::*;
-#[cfg(target_feature = "neon")]
-pub(crate) use crate::neon::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
-#[cfg(target_feature = "neon")]
-use simdutf8::basic::imp::aarch64::neon::ChunkedUtf8ValidatorImp;
+#[cfg(target_arch = "aarch64")]
+pub(crate) use crate::neon::stage1::SimdInputNEON;
+#[cfg(target_arch = "aarch64")]
+use simdutf8::basic::imp::aarch64::neon::ChunkedUtf8ValidatorImp as ChunkedUtf8ValidatorImpNEON;
 
 #[cfg(target_feature = "simd128")]
 mod simd128;
 #[cfg(target_feature = "simd128")]
-pub use crate::simd128::deser::*;
+pub(crate) use crate::simd128::stage1::SimdInput128;
 #[cfg(target_feature = "simd128")]
-pub(crate) use crate::simd128::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
-#[cfg(target_feature = "simd128")]
-use simdutf8::basic::imp::wasm32::simd128::ChunkedUtf8ValidatorImp;
-
-// We import this as generics
-#[cfg(not(any(
-    target_feature = "sse4.2",
-    target_feature = "avx2",
-    target_feature = "neon",
-    target_feature = "simd128"
-)))]
-mod sse42;
-#[cfg(not(any(
-    target_feature = "sse4.2",
-    target_feature = "avx2",
-    target_feature = "neon",
-    target_feature = "simd128"
-)))]
-pub use crate::sse42::deser::*;
-#[cfg(not(any(
-    target_feature = "sse4.2",
-    target_feature = "avx2",
-    target_feature = "neon",
-    target_feature = "simd128"
-)))]
-pub(crate) use crate::sse42::stage1::{SimdInput, SIMDINPUT_LENGTH, SIMDJSON_PADDING};
-#[cfg(not(any(
-    target_feature = "sse4.2",
-    target_feature = "avx2",
-    target_feature = "neon",
-    target_feature = "simd128"
-)))]
-use simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
-
-#[cfg(all(
-    not(docsrs),
-    not(feature = "allow-non-simd"),
-    not(any(
-        target_feature = "sse4.2",
-        target_feature = "avx2",
-        target_feature = "neon",
-        target_feature = "simd128"
-    ))
-))]
-const _: () =
-    compile_error!("Please compile with a simd compatible cpu setting, read the simdjson README.");
+use simdutf8::basic::imp::wasm32::simd128::ChunkedUtf8ValidatorImp as ChunkedUtf8ValidatorImpSIMD128;
 
 mod stage2;
 /// simd-json JSON-DOM value
@@ -263,15 +218,17 @@ pub fn to_tape(s: &mut [u8]) -> Result<Vec<Node>> {
 }
 
 pub(crate) trait Stage1Parse<T> {
-    fn compute_quote_mask(quote_bits: u64) -> u64;
+    unsafe fn new(ptr: &[u8]) -> Self;
 
-    fn cmp_mask_against_input(&self, m: u8) -> u64;
+    unsafe fn compute_quote_mask(quote_bits: u64) -> u64;
 
-    fn unsigned_lteq_against_input(&self, maxval: T) -> u64;
+    unsafe fn cmp_mask_against_input(&self, m: u8) -> u64;
 
-    fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64);
+    unsafe fn unsigned_lteq_against_input(&self, maxval: T) -> u64;
 
-    fn flatten_bits(base: &mut Vec<u32>, idx: u32, bits: u64);
+    unsafe fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64);
+
+    unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, bits: u64);
 
     // return both the quote mask (which is a half-open mask that covers the first
     // quote in an unescaped quote pair and everything in the quote pair) and the
@@ -328,7 +285,7 @@ pub(crate) trait Stage1Parse<T> {
         const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
         const ODD_BITS: u64 = !EVEN_BITS;
 
-        let bs_bits: u64 = self.cmp_mask_against_input(b'\\');
+        let bs_bits: u64 = unsafe { self.cmp_mask_against_input(b'\\') };
         let start_edges: u64 = bs_bits & !(bs_bits << 1);
         // flip lowest if we have an odd-length run at the end of the prior
         // iteration
@@ -397,8 +354,8 @@ pub(crate) trait Stage1Parse<T> {
         structurals
     }
 
-    fn fill_s8(n: i8) -> T;
-    fn zero() -> T;
+    unsafe fn fill_s8(n: i8) -> T;
+    unsafe fn zero() -> T;
 }
 
 /// Deserializer struct to deserialize a JSON
@@ -410,6 +367,61 @@ pub struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
+    #[inline]
+    #[cfg(not(any(feature = "avx2", feature = "sse42")))]
+    pub(crate) fn parse_str_<'invoke>(
+        input: *mut u8,
+        data: &'invoke [u8],
+        buffer: &'invoke mut [u8],
+        idx: usize,
+    ) -> Result<&'de str> {
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        {
+            let cell = std::cell::OnceCell::new();
+            let avx_support: &bool = cell.get_or_init(|| std::is_x86_feature_detected!("avx2"));
+            if *avx_support {
+                return unsafe { crate::avx2::deser::parse_str_avx(input, data, buffer, idx) };
+            }
+            let cell = std::cell::OnceCell::new();
+            let sse_support: &bool = cell.get_or_init(|| std::is_x86_feature_detected!("sse4.2"));
+            if *sse_support {
+                return unsafe { crate::sse42::deser::parse_str_sse(input, data, buffer, idx) };
+            }
+            panic!("Please run on a simd compatible cpu, read the simdjson README.");
+        }
+        #[cfg(target_arch = "aarch64")]
+        {
+            return crate::neon::deser::parse_str_neon(input, data, buffer, idx);
+        }
+        #[cfg(target_feature = "simd128")]
+        {
+            return crate::simd128::deser::parse_str_simd128(input, data, buffer, idx);
+        }
+    }
+
+    /// To allow inlining
+    #[inline]
+    #[cfg(feature = "avx2")]
+    pub(crate) fn parse_str_<'invoke>(
+        input: *mut u8,
+        data: &'invoke [u8],
+        buffer: &'invoke mut [u8],
+        idx: usize,
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
+        unsafe { crate::avx2::deser::parse_str_avx(input, data, buffer, idx) }
+    }
+
+    #[inline]
+    #[cfg(feature = "sse4.2")]
+    pub(crate) fn parse_str_<'invoke>(
+        input: *mut u8,
+        data: &'invoke [u8],
+        buffer: &'invoke mut [u8],
+        idx: usize,
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
+        unsafe { crate::sse42::deser::parse_str_sse(input, data, buffer, idx) }
+    }
+
     /// Extracts the tape from the Deserializer
     #[must_use]
     pub fn into_tape(self) -> Vec<Node<'de>> {
@@ -532,9 +544,71 @@ impl<'de> Deserializer<'de> {
         *self.tape.get_kinda_unchecked(self.idx)
     }
 
-    //#[inline(never)]
+    #[inline]
     #[allow(clippy::cast_possible_truncation)]
+    #[cfg(not(any(feature = "avx2", feature = "sse42")))]
     pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+        {
+            let cell = std::cell::OnceCell::new();
+            let avx_support: &bool = cell.get_or_init(|| std::is_x86_feature_detected!("avx2"));
+            if *avx_support {
+                return Self::find_structural_bits_avx(input);
+            }
+            let cell = std::cell::OnceCell::new();
+            let sse_support: &bool = cell.get_or_init(|| std::is_x86_feature_detected!("sse4.2"));
+            if *sse_support {
+                return Self::find_structural_bits_sse(input);
+            }
+            panic!("Please run on a simd compatible cpu, read the simdjson README.");
+        }
+        #[cfg(target_arch = "aarch64")]
+        {
+            return Self::_find_structural_bits::<_, SimdInputNEON, ChunkedUtf8ValidatorImpNEON>(
+                input,
+            );
+        }
+
+        #[cfg(target_feature = "simd128")]
+        {
+            return Self::_find_structural_bits::<_, SimdInput128, ChunkedUtf8ValidatorImpSIMD128>(
+                input,
+            );
+        }
+    }
+
+    #[inline]
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[target_feature(enable = "avx2")]
+    pub(crate) unsafe fn find_structural_bits_avx(
+        input: &[u8],
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
+        Self::_find_structural_bits::<_, SimdInputAVX, ChunkedUtf8ValidatorImpAVX2>(input)
+    }
+
+    #[inline]
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[target_feature(enable = "sse4.2")]
+    pub(crate) unsafe fn find_structural_bits_sse(
+        input: &[u8],
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
+        Self::_find_structural_bits::<_, SimdInputSSE, ChunkedUtf8ValidatorImpSSE42>(input)
+    }
+
+    #[allow(clippy::cast_possible_truncation)]
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[cfg(feature = "avx2")]
+    pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
+        Self::_find_structural_bits::<_, SimdInputAVX, ChunkedUtf8ValidatorImpAVX2>(input)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[allow(clippy::cast_possible_truncation)]
+    pub(crate) unsafe fn _find_structural_bits<K, S: Stage1Parse<K>, C: ChunkedUtf8Validator>(
         input: &[u8],
     ) -> std::result::Result<Vec<u32>, ErrorType> {
         let len = input.len();
@@ -543,7 +617,7 @@ impl<'de> Deserializer<'de> {
         let mut structural_indexes = Vec::with_capacity(len / 6);
         structural_indexes.push(0); // push extra root element
 
-        let mut utf8_validator = ChunkedUtf8ValidatorImp::new();
+        let mut utf8_validator = C::new();
 
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
@@ -582,7 +656,7 @@ impl<'de> Deserializer<'de> {
             let chunk = input.get_kinda_unchecked(idx..idx + 64);
             utf8_validator.update_from_chunks(chunk);
 
-            let input = SimdInput::new(chunk);
+            let input = S::new(chunk);
             // detect odd sequences of backslashes
             let odd_ends: u64 =
                 input.find_odd_backslash_sequences(&mut prev_iter_ends_odd_backslash);
@@ -600,13 +674,13 @@ impl<'de> Deserializer<'de> {
             // take the previous iterations structural bits, not our current iteration,
             // and flatten
             #[allow(clippy::cast_possible_truncation)]
-            SimdInput::flatten_bits(&mut structural_indexes, idx as u32, structurals);
+            S::flatten_bits(&mut structural_indexes, idx as u32, structurals);
 
             let mut whitespace: u64 = 0;
             input.find_whitespace_and_structurals(&mut whitespace, &mut structurals);
 
             // fixup structurals to reflect quotes and add pseudo-structural characters
-            structurals = SimdInput::finalize_structurals(
+            structurals = S::finalize_structurals(
                 structurals,
                 whitespace,
                 quote_mask,
@@ -626,7 +700,7 @@ impl<'de> Deserializer<'de> {
                 .copy_from(input.as_ptr().add(idx), len - idx);
             utf8_validator.update_from_chunks(&tmpbuf);
 
-            let input = SimdInput::new(&tmpbuf);
+            let input = S::new(&tmpbuf);
 
             // detect odd sequences of backslashes
             let odd_ends: u64 =
@@ -644,13 +718,13 @@ impl<'de> Deserializer<'de> {
 
             // take the previous iterations structural bits, not our current iteration,
             // and flatten
-            SimdInput::flatten_bits(&mut structural_indexes, idx as u32, structurals);
+            S::flatten_bits(&mut structural_indexes, idx as u32, structurals);
 
             let mut whitespace: u64 = 0;
             input.find_whitespace_and_structurals(&mut whitespace, &mut structurals);
 
             // fixup structurals to reflect quotes and add pseudo-structural characters
-            structurals = SimdInput::finalize_structurals(
+            structurals = S::finalize_structurals(
                 structurals,
                 whitespace,
                 quote_mask,
@@ -664,7 +738,7 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
         // finally, flatten out the remaining structurals from the last iteration
-        SimdInput::flatten_bits(&mut structural_indexes, idx as u32, structurals);
+        S::flatten_bits(&mut structural_indexes, idx as u32, structurals);
 
         // a valid JSON file cannot have zero structural indexes - we should have
         // found something (note that we compare to 1 as we always add the root!)

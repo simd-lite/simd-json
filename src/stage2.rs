@@ -95,6 +95,7 @@ enum StackState {
 }
 
 impl<'de> Deserializer<'de> {
+    #[inline]
     #[allow(
         clippy::cognitive_complexity,
         clippy::too_many_lines,
