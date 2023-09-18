@@ -177,18 +177,16 @@ impl Stage1Parse<__m256i> for SimdInputAVX {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
         let idx_minus_64 = idx.wrapping_sub(64);
-        let idx_64_v = unsafe {
-            _mm256_set_epi32(
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-            )
-        };
+        let idx_64_v = _mm256_set_epi32(
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+        );
 
         // We're doing some trickery here.
         // We reserve 64 extra entries, because we've at most 64 bit to set
@@ -196,38 +194,34 @@ impl Stage1Parse<__m256i> for SimdInputAVX {
         // We later indiscriminatory writre over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        unsafe {
-            base.set_len(l + cnt);
-        }
+        base.set_len(l + cnt);
 
         while bits != 0 {
-            unsafe {
-                let v0 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v1 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v2 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v3 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v4 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v5 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v6 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v7 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
+            let v0 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v1 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v2 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v3 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v4 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v5 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v6 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v7 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
 
-                let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
-                let v: __m256i = _mm256_add_epi32(idx_64_v, v);
-                _mm256_storeu_si256(
-                    base.as_mut_ptr()
-                        .add(l)
-                        .cast::<std::arch::x86_64::__m256i>(),
-                    v,
-                );
-            }
+            let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
+            let v: __m256i = _mm256_add_epi32(idx_64_v, v);
+            _mm256_storeu_si256(
+                base.as_mut_ptr()
+                    .add(l)
+                    .cast::<std::arch::x86_64::__m256i>(),
+                v,
+            );
             l += 8;
         }
     }

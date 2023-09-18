@@ -33,9 +33,6 @@ macro_rules! high_nibble_mask {
     };
 }
 
-//pub const SIMDJSON_PADDING: usize = mem::size_of::<__m128i>() * 2;
-//pub const SIMDINPUT_LENGTH: usize = 64;
-
 #[derive(Debug)]
 pub(crate) struct SimdInputSSE {
     v0: __m128i,
@@ -93,18 +90,16 @@ impl Stage1Parse<__m128i> for SimdInputSSE {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
     unsafe fn cmp_mask_against_input(&self, m: u8) -> u64 {
-        unsafe {
-            let mask: __m128i = _mm_set1_epi8(m as i8);
-            let cmp_res_0: __m128i = _mm_cmpeq_epi8(self.v0, mask);
-            let res_0: u64 = u64::from(static_cast_u32!(_mm_movemask_epi8(cmp_res_0)));
-            let cmp_res_1: __m128i = _mm_cmpeq_epi8(self.v1, mask);
-            let res_1: u64 = _mm_movemask_epi8(cmp_res_1) as u64;
-            let cmp_res_2: __m128i = _mm_cmpeq_epi8(self.v2, mask);
-            let res_2: u64 = _mm_movemask_epi8(cmp_res_2) as u64;
-            let cmp_res_3: __m128i = _mm_cmpeq_epi8(self.v3, mask);
-            let res_3: u64 = _mm_movemask_epi8(cmp_res_3) as u64;
-            res_0 | (res_1 << 16) | (res_2 << 32) | (res_3 << 48)
-        }
+        let mask: __m128i = _mm_set1_epi8(m as i8);
+        let cmp_res_0: __m128i = _mm_cmpeq_epi8(self.v0, mask);
+        let res_0: u64 = u64::from(static_cast_u32!(_mm_movemask_epi8(cmp_res_0)));
+        let cmp_res_1: __m128i = _mm_cmpeq_epi8(self.v1, mask);
+        let res_1: u64 = _mm_movemask_epi8(cmp_res_1) as u64;
+        let cmp_res_2: __m128i = _mm_cmpeq_epi8(self.v2, mask);
+        let res_2: u64 = _mm_movemask_epi8(cmp_res_2) as u64;
+        let cmp_res_3: __m128i = _mm_cmpeq_epi8(self.v3, mask);
+        let res_3: u64 = _mm_movemask_epi8(cmp_res_3) as u64;
+        res_0 | (res_1 << 16) | (res_2 << 32) | (res_3 << 48)
     }
 
     // find all values less than or equal than the content of maxval (using unsigned arithmetic)
@@ -246,14 +241,12 @@ impl Stage1Parse<__m128i> for SimdInputSSE {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
         let idx_minus_64 = idx.wrapping_sub(64);
-        let idx_64_v = unsafe {
-            _mm_set_epi32(
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-            )
-        };
+        let idx_64_v = _mm_set_epi32(
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+        );
 
         // We're doing some trickery here.
         // We reserve 64 extra entries, because we've at most 64 bit to set
@@ -261,25 +254,21 @@ impl Stage1Parse<__m128i> for SimdInputSSE {
         // We later indiscriminatory writre over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        unsafe {
-            base.set_len(l + cnt);
-        }
+        base.set_len(l + cnt);
 
         while bits != 0 {
-            unsafe {
-                let v0 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v1 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v2 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v3 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
+            let v0 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v1 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v2 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v3 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
 
-                let v: __m128i = _mm_set_epi32(v3, v2, v1, v0);
-                let v: __m128i = _mm_add_epi32(idx_64_v, v);
-                _mm_storeu_si128(base.as_mut_ptr().add(l).cast::<arch::__m128i>(), v);
-            }
+            let v: __m128i = _mm_set_epi32(v3, v2, v1, v0);
+            let v: __m128i = _mm_add_epi32(idx_64_v, v);
+            _mm_storeu_si128(base.as_mut_ptr().add(l).cast::<arch::__m128i>(), v);
             l += 4;
         }
     }

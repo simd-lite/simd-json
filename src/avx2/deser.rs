@@ -43,24 +43,21 @@ pub(crate) unsafe fn parse_str_avx<'invoke, 'de>(
     // This is safe since we check sub's length in the range access above and only
     // create sub sliced form sub to `sub.len()`.
 
-    let src: &[u8] = unsafe { data.get_kinda_unchecked(idx..) };
+    let src: &[u8] = data.get_kinda_unchecked(idx..);
     let mut src_i: usize = 0;
     let mut len = src_i;
     loop {
-        let v: __m256i = unsafe {
-            _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<std::arch::x86_64::__m256i>())
-        };
+        let v: __m256i =
+            _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<std::arch::x86_64::__m256i>());
 
         // store to dest unconditionally - we can overwrite the bits we don't like
         // later
-        let bs_bits: u32 = unsafe {
-            static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
-                v,
-                _mm256_set1_epi8(b'\\' as i8)
-            )))
-        };
-        let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
-        let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
+        let bs_bits: u32 = static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
+            v,
+            _mm256_set1_epi8(b'\\' as i8)
+        )));
+        let quote_mask = _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8));
+        let quote_bits = static_cast_u32!(_mm256_movemask_epi8(quote_mask));
         if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
             // we encountered quotes first. Move dst to point to quotes and exit
             // find out where the quote is...
@@ -75,11 +72,8 @@ pub(crate) unsafe fn parse_str_avx<'invoke, 'de>(
             // we advance the point, accounting for the fact that we have a NULl termination
 
             len += quote_dist as usize;
-            unsafe {
-                let v =
-                    std::str::from_utf8_unchecked(std::slice::from_raw_parts(input.add(idx), len));
-                return Ok(v);
-            }
+            let v = std::str::from_utf8_unchecked(std::slice::from_raw_parts(input.add(idx), len));
+            return Ok(v);
 
             // we compare the pointers since we care if they are 'at the same spot'
             // not if they are the same value
@@ -102,30 +96,25 @@ pub(crate) unsafe fn parse_str_avx<'invoke, 'de>(
 
     // To be more conform with upstream
     loop {
-        let v: __m256i = unsafe {
-            _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<std::arch::x86_64::__m256i>())
-        };
+        let v: __m256i =
+            _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<std::arch::x86_64::__m256i>());
 
-        unsafe {
-            _mm256_storeu_si256(
-                buffer
-                    .as_mut_ptr()
-                    .add(dst_i)
-                    .cast::<std::arch::x86_64::__m256i>(),
-                v,
-            );
-        };
+        _mm256_storeu_si256(
+            buffer
+                .as_mut_ptr()
+                .add(dst_i)
+                .cast::<std::arch::x86_64::__m256i>(),
+            v,
+        );
 
         // store to dest unconditionally - we can overwrite the bits we don't like
         // later
-        let bs_bits: u32 = unsafe {
-            static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
-                v,
-                _mm256_set1_epi8(b'\\' as i8)
-            )))
-        };
-        let quote_mask = unsafe { _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8)) };
-        let quote_bits = unsafe { static_cast_u32!(_mm256_movemask_epi8(quote_mask)) };
+        let bs_bits: u32 = static_cast_u32!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(
+            v,
+            _mm256_set1_epi8(b'\\' as i8)
+        )));
+        let quote_mask = _mm256_cmpeq_epi8(v, _mm256_set1_epi8(b'"' as i8));
+        let quote_bits = static_cast_u32!(_mm256_movemask_epi8(quote_mask));
         if (bs_bits.wrapping_sub(1) & quote_bits) != 0 {
             // we encountered quotes first. Move dst to point to quotes and exit
             // find out where the quote is...
@@ -140,16 +129,14 @@ pub(crate) unsafe fn parse_str_avx<'invoke, 'de>(
             // we advance the point, accounting for the fact that we have a NULl termination
 
             dst_i += quote_dist as usize;
-            unsafe {
-                input
-                    .add(idx + len)
-                    .copy_from_nonoverlapping(buffer.as_ptr(), dst_i);
-                let v = std::str::from_utf8_unchecked(std::slice::from_raw_parts(
-                    input.add(idx),
-                    len + dst_i,
-                ));
-                return Ok(v);
-            }
+            input
+                .add(idx + len)
+                .copy_from_nonoverlapping(buffer.as_ptr(), dst_i);
+            let v = std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+                input.add(idx),
+                len + dst_i,
+            ));
+            return Ok(v);
 
             // we compare the pointers since we care if they are 'at the same spot'
             // not if they are the same value
@@ -157,18 +144,18 @@ pub(crate) unsafe fn parse_str_avx<'invoke, 'de>(
         if (quote_bits.wrapping_sub(1) & bs_bits) != 0 {
             // find out where the backspace is
             let bs_dist: u32 = bs_bits.trailing_zeros();
-            let escape_char: u8 = unsafe { *src.get_kinda_unchecked(src_i + bs_dist as usize + 1) };
+            let escape_char: u8 = *src.get_kinda_unchecked(src_i + bs_dist as usize + 1);
             // we encountered backslash first. Handle backslash
             if escape_char == b'u' {
                 // move src/dst up to the start; they will be further adjusted
                 // within the unicode codepoint handling code.
                 src_i += bs_dist as usize;
                 dst_i += bs_dist as usize;
-                let (o, s) =
-                    handle_unicode_codepoint(unsafe { src.get_kinda_unchecked(src_i..) }, unsafe {
-                        buffer.get_kinda_unchecked_mut(dst_i..)
-                    })
-                    .map_err(|_| Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint))?;
+                let (o, s) = handle_unicode_codepoint(
+                    src.get_kinda_unchecked(src_i..),
+                    buffer.get_kinda_unchecked_mut(dst_i..),
+                )
+                .map_err(|_| Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint))?;
 
                 if o == 0 {
                     return Err(Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint));
@@ -181,8 +168,7 @@ pub(crate) unsafe fn parse_str_avx<'invoke, 'de>(
                 // write bs_dist+1 characters to output
                 // note this may reach beyond the part of the buffer we've actually
                 // seen. I think this is ok
-                let escape_result: u8 =
-                    unsafe { *ESCAPE_MAP.get_kinda_unchecked(escape_char as usize) };
+                let escape_result: u8 = *ESCAPE_MAP.get_kinda_unchecked(escape_char as usize);
                 if escape_result == 0 {
                     return Err(Deserializer::error_c(
                         src_i,
@@ -190,9 +176,7 @@ pub(crate) unsafe fn parse_str_avx<'invoke, 'de>(
                         InvalidEscape,
                     ));
                 }
-                unsafe {
-                    *buffer.get_kinda_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
-                }
+                *buffer.get_kinda_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
                 src_i += bs_dist as usize + 2;
                 dst_i += bs_dist as usize + 1;
             }

@@ -179,14 +179,12 @@ impl Stage1Parse<int8x16_t> for SimdInputNEON {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
         let idx_minus_64 = idx.wrapping_sub(64);
-        let idx_64_v = unsafe {
-            mem::transmute::<_, int32x4_t>([
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-                static_cast_i32!(idx_minus_64),
-            ])
-        };
+        let idx_64_v = mem::transmute::<_, int32x4_t>([
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+            static_cast_i32!(idx_minus_64),
+        ]);
 
         // We're doing some trickery here.
         // We reserve 64 extra entries, because we've at most 64 bit to set
@@ -194,25 +192,21 @@ impl Stage1Parse<int8x16_t> for SimdInputNEON {
         // We later indiscriminatory writre over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        unsafe {
-            base.set_len(l + cnt);
-        }
+        base.set_len(l + cnt);
 
         while bits != 0 {
-            unsafe {
-                let v0 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v1 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v2 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
-                let v3 = bits.trailing_zeros() as i32;
-                bits &= bits.wrapping_sub(1);
+            let v0 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v1 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v2 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
+            let v3 = bits.trailing_zeros() as i32;
+            bits &= bits.wrapping_sub(1);
 
-                let v: int32x4_t = mem::transmute([v0, v1, v2, v3]);
-                let v: int32x4_t = vaddq_s32(idx_64_v, v);
-                std::ptr::write(base.as_mut_ptr().add(l).cast::<int32x4_t>(), v);
-            }
+            let v: int32x4_t = mem::transmute([v0, v1, v2, v3]);
+            let v: int32x4_t = vaddq_s32(idx_64_v, v);
+            std::ptr::write(base.as_mut_ptr().add(l).cast::<int32x4_t>(), v);
             l += 4;
         }
     }
