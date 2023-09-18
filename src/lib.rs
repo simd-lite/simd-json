@@ -845,8 +845,6 @@ impl DerefMut for AlignedBuf {
 #[cfg(test)]
 mod tests {
 
-    #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
-    #[cfg(not(target_arch = "wasm32"))]
     use super::to_borrowed_value;
     use super::{owned::Value, to_owned_value, Deserializer};
     use crate::tape::Node;
