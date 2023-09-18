@@ -11,9 +11,6 @@ readme = "README.md"
 documentation = "https://docs.rs/simd-json"
 rust-version = "1.61"
 
-[package.metadata.docs.rs]
-features = ["docsrs"]
-
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 
