@@ -168,9 +168,7 @@ impl Stage1Parse<v128> for SimdInput128 {
         // We later indiscriminatory writre over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        unsafe {
-            base.set_len(l + cnt);
-        }
+        base.set_len(l + cnt);
 
         while bits != 0 {
             let v0 = bits.trailing_zeros() as u32;
@@ -184,9 +182,7 @@ impl Stage1Parse<v128> for SimdInput128 {
 
             let v = u32x4(v0, v1, v2, v3);
             let v = u32x4_add(idx_64_v, v);
-            unsafe {
-                v128_store(base.as_mut_ptr().add(l).cast::<v128>(), v);
-            }
+            v128_store(base.as_mut_ptr().add(l).cast::<v128>(), v);
             l += 4;
         }
     }
