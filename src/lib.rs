@@ -387,7 +387,7 @@ impl<'de> Deserializer<'de> {
             if *sse_support {
                 return unsafe { crate::sse42::deser::parse_str_sse(input, data, buffer, idx) };
             }
-            panic!("Please run on a simd compatible cpu, read the simdjson README.");
+            Err(Self::error(ErrorType::SimdUnsupported))
         }
         #[cfg(target_arch = "aarch64")]
         {
