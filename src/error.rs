@@ -82,6 +82,8 @@ pub enum ErrorType {
     ExpectedObjectKey,
     /// Overflow of a limited buffer
     Overflow,
+    /// No SIMD support detected during runtime
+    SimdUnsupported,
     /// IO error
     Io(std::io::Error),
 }
