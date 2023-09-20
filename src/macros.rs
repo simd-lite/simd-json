@@ -538,10 +538,11 @@ macro_rules! json_internal_owned {
 
     // Done. Insert all entries from the stack
     (@object $object:ident [@entries $(($value:expr => $($key:tt)+))*] () () ()) => {
-        let len = json_internal_owned!(@object @count [@entries $(($value:expr => $($key:tt)+))*]);
-        $object = $crate::value::owned::Object::with_capacity(len);
+        let len = json_internal_owned!(@object @count [@entries $(($value => $($key)+))*]);
+        $object = $crate::value::owned::Object::with_capacity_and_hasher(len, $crate::value::ObjectHasher::default());
         $(
-            let _ = $object.insert(($($key)+).into(), $value);
+            #[allow(clippy::let_underscore_drop)]
+            let _: Option<_> = $object.insert(($($key)+).into(), $value);
         )*
     };
 
@@ -1022,11 +1023,14 @@ macro_rules! json_internal_borrowed {
 
     // Done. Insert all entries from the stack
     (@object $object:ident [@entries $(($value:expr => $($key:tt)+))*] () () ()) => {
-        let len = json_internal_borrowed!(@object @count [@entries $(($value:expr => $($key:tt)+))*]);
-        $object = $crate::value::borrowed::Object::with_capacity(len);
+        let len = json_internal_borrowed!(@object @count [@entries $(($value => $($key)+))*]);
+
+        $object = $crate::value::borrowed::Object::with_capacity_and_hasher(len, $crate::value::ObjectHasher::default());
         $(
-            let _ = $object.insert(($($key)+).into(), $value);
+            #[allow(clippy::let_underscore_drop)]
+            let _:Option<_> = $object.insert(($($key)+).into(), $value);
         )*
+
     };
 
     // Insert the current entry (followed by trailing comma) into the stack.
