@@ -79,7 +79,7 @@ impl<'de> Deserializer<'de> {
         clippy::too_many_lines
     )]
     fn parse_float(idx: usize, p: &[u8], negative: bool) -> Result<StaticNode> {
-        let mut digitcount = if negative { 1 } else { 0 };
+        let mut digitcount = usize::from(negative);
         let mut i: f64;
         let mut digit: u8;
         let mut d;
@@ -224,7 +224,7 @@ impl<'de> Deserializer<'de> {
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
     fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
-        let mut digitcount = if negative { 1 } else { 0 };
+        let mut digitcount = usize::from(negative);
         let mut i: u64;
         let mut d = unsafe { *buf.get_kinda_unchecked(digitcount) };
         let mut digit: u8;
@@ -285,7 +285,7 @@ impl<'de> Deserializer<'de> {
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
     fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
-        let mut digitcount = if negative { 1 } else { 0 };
+        let mut digitcount = usize::from(negative);
         let mut i: u128;
         let mut d = unsafe { *buf.get_kinda_unchecked(digitcount) };
         let mut digit: u8;
@@ -361,7 +361,7 @@ impl<'de> Deserializer<'de> {
     )]
     pub(crate) fn parse_number(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
         let buf = unsafe { buf.get_kinda_unchecked(idx..) };
-        let mut byte_count = if negative { 1 } else { 0 };
+        let mut byte_count = usize::from(negative);
         let mut ignore_count: u8 = 0;
         //let startdigits: *const u8 = p;
         let mut i: u64;
