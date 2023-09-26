@@ -55,6 +55,8 @@ harness = false
 [features]
 default = ["swar-number-parsing", "serde_impl"]
 
+arraybackend = ["halfbrown/arraybackend"]
+
 # Forces the `owned::Value` and `borrowed::Value` to deduplicate duplicated keys by letting consecutive keys overwrite previous ones. This comes at a
 # performance cost. By default duplicate keys will not be overwritten and feeding json objects with duplicated
 # keys to either of the `Value`s will result in undefined behavior.

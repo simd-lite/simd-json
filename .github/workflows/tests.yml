@@ -25,6 +25,8 @@ jobs:
           - '--features known-key'
           - '--features 128bit'
           - '--features beef'
+          - '--features arraybackend'
+          - '--features arraybackend,known-key'
           - '--features beef,known-key'
           - '--features beef,known-key,128bit'
           - '--features approx-number-parsing'
