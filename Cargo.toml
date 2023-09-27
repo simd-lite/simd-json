@@ -80,9 +80,6 @@ approx-number-parsing = []
 # serde compatibility
 serde_impl = ["serde", "serde_json", "halfbrown/serde"]
 
-# Allow fallback to non simd CPUs
-allow-non-simd = []
-
 # for testing allocations
 alloc = ["alloc_counter"]
 
