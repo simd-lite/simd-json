@@ -339,8 +339,8 @@ impl<'de> OwnedDeserializer<'de> {
         match unsafe { self.de.next_() } {
             Node::Static(s) => Value::Static(s),
             Node::String(s) => Value::from(s),
-            Node::Array(len, _) => self.parse_array(len),
-            Node::Object(len, _) => self.parse_map(len),
+            Node::Array { len, end: _ } => self.parse_array(len),
+            Node::Object { len, end: _ } => self.parse_map(len),
         }
     }
 
