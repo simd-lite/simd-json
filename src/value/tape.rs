@@ -13,11 +13,21 @@ pub enum Node<'input> {
     /// An `Object` with the given `size` starts here.
     /// the following values are keys and values, alternating
     /// however values can be nested and have a length themselves.
-    Object(usize, usize),
+    Object {
+        /// The number of keys in the object
+        len: usize,
+        /// The end index of the object in the `Vec<Node>` array
+        end: usize,
+    },
     /// An array with a given size starts here. The next `size`
     /// elements belong to it - values can be nested and have a
     /// `size` of their own.
-    Array(usize, usize),
+    Array {
+        /// The number of elements in the array
+        len: usize,
+        /// The end index of the array in the `Vec<Node>` array
+        end: usize,
+    },
     /// A static value that is interned into the tape, it can
     /// be directly taken and isn't nested.
     Static(StaticNode),
