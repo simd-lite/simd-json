@@ -178,6 +178,23 @@ impl<'value> Mutable for Value<'value> {
             _ => None,
         }
     }
+    /// Get mutable access to a map.
+    ///
+    /// ```rust
+    /// use simd_json::*;
+    ///
+    /// let mut object: BorrowedValue = json!({
+    ///   "answer": 23,
+    ///   "key": 7
+    /// }).into();
+    /// assert_eq!(object["answer"], 23);
+    ///
+    /// if let Some(inner) = object.as_object_mut() {
+    ///   inner.insert("value".into(), BorrowedValue::from(json!({"nested": 42})));
+    /// }
+    /// assert_eq!(object["value"], json!({"nested": 42}));
+    ///
+    /// ```
     #[inline]
     #[must_use]
     fn as_object_mut(&mut self) -> Option<&mut Object<'value>> {
@@ -400,8 +417,8 @@ impl<'de> BorrowDeserializer<'de> {
         match unsafe { self.0.next_() } {
             Node::Static(s) => Value::Static(s),
             Node::String(s) => Value::from(s),
-            Node::Array { len, end: _ } => self.parse_array(len),
-            Node::Object { len, end: _ } => self.parse_map(len),
+            Node::Array { len, count: _ } => self.parse_array(len),
+            Node::Object { len, count: _ } => self.parse_map(len),
         }
     }
 

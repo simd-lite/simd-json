@@ -299,7 +299,7 @@ impl<'de> Deserializer<'de> {
                 }
 
                 last_start = r_i;
-                insert_res!(Node::Object { len: 0, end: 0 });
+                insert_res!(Node::Object { len: 0, count: 0 });
 
                 depth += 1;
                 cnt = 1;
@@ -326,7 +326,7 @@ impl<'de> Deserializer<'de> {
                 }
 
                 last_start = r_i;
-                insert_res!(Node::Array { len: 0, end: 0 });
+                insert_res!(Node::Array { len: 0, count: 0 });
 
                 depth += 1;
                 cnt = 1;
@@ -459,7 +459,7 @@ impl<'de> Deserializer<'de> {
                                 s.add(depth).write((StackState::Object, last_start, cnt));
                             }
                             last_start = r_i;
-                            insert_res!(Node::Object { len: 0, end: 0 });
+                            insert_res!(Node::Object { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -470,7 +470,7 @@ impl<'de> Deserializer<'de> {
                                 s.add(depth).write((StackState::Object, last_start, cnt));
                             }
                             last_start = r_i;
-                            insert_res!(Node::Array { len: 0, end: 0 });
+                            insert_res!(Node::Array { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
                             array_begin!();
@@ -490,14 +490,14 @@ impl<'de> Deserializer<'de> {
                         match *res.as_mut_ptr().add(last_start) {
                             Node::Array {
                                 ref mut len,
-                                ref mut end,
+                                count: ref mut end,
                             }
                             | Node::Object {
                                 ref mut len,
-                                ref mut end,
+                                count: ref mut end,
                             } => {
                                 *len = cnt;
-                                *end = r_i;
+                                *end = r_i - last_start - 1;
                             }
                             _ => unreachable!(),
                         };
@@ -571,7 +571,7 @@ impl<'de> Deserializer<'de> {
                                 s.add(depth).write((StackState::Array, last_start, cnt));
                             }
                             last_start = r_i;
-                            insert_res!(Node::Object { len: 0, end: 0 });
+                            insert_res!(Node::Object { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -582,7 +582,7 @@ impl<'de> Deserializer<'de> {
                                 s.add(depth).write((StackState::Array, last_start, cnt));
                             }
                             last_start = r_i;
-                            insert_res!(Node::Array { len: 0, end: 0 });
+                            insert_res!(Node::Array { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
                             array_begin!();
