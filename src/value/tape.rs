@@ -16,8 +16,8 @@ pub enum Node<'input> {
     Object {
         /// The number of keys in the object
         len: usize,
-        /// The end index of the object in the `Vec<Node>` array
-        end: usize,
+        /// The total number of nodes in the object, including subelements.
+        count: usize,
     },
     /// An array with a given size starts here. The next `size`
     /// elements belong to it - values can be nested and have a
@@ -25,8 +25,8 @@ pub enum Node<'input> {
     Array {
         /// The number of elements in the array
         len: usize,
-        /// The end index of the array in the `Vec<Node>` array
-        end: usize,
+        /// The total number of nodes in the array, including subelements.
+        count: usize,
     },
     /// A static value that is interned into the tape, it can
     /// be directly taken and isn't nested.

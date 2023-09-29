@@ -875,7 +875,7 @@ mod tests {
         let mut d = String::from("[]");
         let d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(d).expect("");
-        assert_eq!(simd.tape[1], Node::Array { len: 0, end: 2 });
+        assert_eq!(simd.tape[1], Node::Array { len: 0, count: 0 });
     }
 
     #[test]
@@ -883,7 +883,7 @@ mod tests {
         let mut d = String::from("[1]");
         let d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(d).expect("");
-        assert_eq!(simd.tape[1], Node::Array { len: 1, end: 3 });
+        assert_eq!(simd.tape[1], Node::Array { len: 1, count: 1 });
     }
 
     #[test]
@@ -891,7 +891,7 @@ mod tests {
         let mut d = String::from("[1,2]");
         let d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(d).expect("");
-        assert_eq!(simd.tape[1], Node::Array { len: 2, end: 4 });
+        assert_eq!(simd.tape[1], Node::Array { len: 2, count: 2 });
     }
 
     #[test]
@@ -899,8 +899,8 @@ mod tests {
         let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
         let d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(d).expect("");
-        assert_eq!(simd.tape[1], Node::Array { len: 3, end: 6 });
-        assert_eq!(simd.tape[3], Node::Array { len: 1, end: 5 });
+        assert_eq!(simd.tape[1], Node::Array { len: 3, count: 4 });
+        assert_eq!(simd.tape[3], Node::Array { len: 1, count: 1 });
     }
 
     #[test]
@@ -908,8 +908,26 @@ mod tests {
         let mut d = String::from("[[],null,null]");
         let d = unsafe { d.as_bytes_mut() };
         let simd = Deserializer::from_slice(d).expect("");
-        assert_eq!(simd.tape[1], Node::Array { len: 3, end: 5 });
-        assert_eq!(simd.tape[2], Node::Array { len: 0, end: 3 });
+        assert_eq!(simd.tape[1], Node::Array { len: 3, count: 3 });
+        assert_eq!(simd.tape[2], Node::Array { len: 0, count: 0 });
+    }
+
+    #[test]
+    fn test_tape_object_simple() {
+        let mut d = String::from(r#" { "hello": 1 , "b": 1 }"#);
+        let d = unsafe { d.as_bytes_mut() };
+        let simd = Deserializer::from_slice(d).expect("");
+        assert_eq!(
+            simd.tape,
+            [
+                Node::Static(StaticNode::Null),
+                Node::Object { len: 2, count: 4 },
+                Node::String(r#"hello"#), // <-- This is already escaped
+                Node::Static(StaticNode::I64(1)),
+                Node::String("b"),
+                Node::Static(StaticNode::I64(1)),
+            ]
+        );
     }
 
     #[test]
@@ -921,11 +939,11 @@ mod tests {
             simd.tape,
             [
                 Node::Static(StaticNode::Null),
-                Node::Object { len: 2, end: 9 },
+                Node::Object { len: 2, count: 7 },
                 Node::String(r#"hell"o"#), // <-- This is already escaped
                 Node::Static(StaticNode::I64(1)),
                 Node::String("b"),
-                Node::Array { len: 3, end: 9 },
+                Node::Array { len: 3, count: 3 },
                 Node::Static(StaticNode::I64(1)),
                 Node::Static(StaticNode::I64(2)),
                 Node::Static(StaticNode::I64(3))
