@@ -64,8 +64,10 @@ pub fn to_value_with_buffers<'value>(
     s: &'value mut [u8],
     input_buffer: &mut AlignedBuf,
     string_buffer: &mut [u8],
+    structural_indices: &mut Vec<u32>,
 ) -> Result<Value<'value>> {
-    match Deserializer::from_slice_with_buffers(s, input_buffer, string_buffer) {
+    match Deserializer::from_slice_with_buffers(s, input_buffer, string_buffer, structural_indices)
+    {
         Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
     }
