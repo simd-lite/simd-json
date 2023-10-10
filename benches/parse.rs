@@ -29,8 +29,15 @@ fn to_borrowed_value_with_buffers(
     data: &mut [u8],
     input_buffer: &mut AlignedBuf,
     string_buffer: &mut [u8],
+    structural_indices: &mut Vec<u32>,
 ) {
-    simd_json::to_borrowed_value_with_buffers(data, input_buffer, string_buffer).unwrap();
+    simd_json::to_borrowed_value_with_buffers(
+        data,
+        input_buffer,
+        string_buffer,
+        structural_indices,
+    )
+    .unwrap();
 }
 
 fn to_owned_value(data: &mut [u8]) {
@@ -82,6 +89,7 @@ macro_rules! bench_file {
                 string_buffer.set_len(len + SIMDJSON_PADDING);
             };
             let mut buffer = AlignedBuf::with_capacity(len + SIMDJSON_PADDING * 2);
+            let mut structural_indices = Vec::new();
             group.bench_with_input(
                 "simd_json::to_borrowed_value_with_buffers",
                 &vec,
@@ -93,6 +101,7 @@ macro_rules! bench_file {
                                 &mut bytes,
                                 &mut buffer,
                                 &mut string_buffer,
+                                &mut structural_indices,
                             )
                         },
                         BatchSize::SmallInput,

@@ -1,0 +1,1 @@
+{"timestamp":1440670491,"severity_text":"INFO","body":"PacketResponder: BP-108841162-10.10.34.11-1440074360971:blk_1073836024_95200, type=HAS_DOWNSTREAM_IN_PIPELINE terminating","resource":{"$facet:service":"datanode/03"},"attributes":{"class":"org.apache.hadoop.hdfs.server.datanode.DataNode"}}
