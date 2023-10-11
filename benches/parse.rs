@@ -11,8 +11,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 use serde_json;
 
 use criterion::{criterion_group, BatchSize, Criterion, Throughput};
-use simd_json::AlignedBuf;
-use simd_json::SIMDJSON_PADDING;
+use simd_json::Buffers;
 
 use std::fs::File;
 use std::io::Read;
@@ -25,19 +24,8 @@ fn to_borrowed_value(data: &mut [u8]) {
     simd_json::to_borrowed_value(data).unwrap();
 }
 
-fn to_borrowed_value_with_buffers(
-    data: &mut [u8],
-    input_buffer: &mut AlignedBuf,
-    string_buffer: &mut [u8],
-    structural_indices: &mut Vec<u32>,
-) {
-    simd_json::to_borrowed_value_with_buffers(
-        data,
-        input_buffer,
-        string_buffer,
-        structural_indices,
-    )
-    .unwrap();
+fn to_borrowed_value_with_buffers(data: &mut [u8], buffers: &mut Buffers) {
+    simd_json::to_borrowed_value_with_buffers(data, buffers).unwrap();
 }
 
 fn to_owned_value(data: &mut [u8]) {
@@ -83,27 +71,14 @@ macro_rules! bench_file {
                 )
             });
 
-            let len = vec.len();
-            let mut string_buffer: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
-            unsafe {
-                string_buffer.set_len(len + SIMDJSON_PADDING);
-            };
-            let mut buffer = AlignedBuf::with_capacity(len + SIMDJSON_PADDING * 2);
-            let mut structural_indices = Vec::new();
+            let mut buffers = Buffers::default();
             group.bench_with_input(
                 "simd_json::to_borrowed_value_with_buffers",
                 &vec,
                 |b, data| {
                     b.iter_batched(
                         || data.clone(),
-                        |mut bytes| {
-                            to_borrowed_value_with_buffers(
-                                &mut bytes,
-                                &mut buffer,
-                                &mut string_buffer,
-                                &mut structural_indices,
-                            )
-                        },
+                        |mut bytes| to_borrowed_value_with_buffers(&mut bytes, &mut buffers),
                         BatchSize::SmallInput,
                     )
                 },

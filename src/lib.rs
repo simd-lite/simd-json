@@ -148,7 +148,7 @@ use safer_unchecked::GetSaferUnchecked;
 /// Reexport of Cow
 pub mod cow;
 
-/// The maximum padding size required by and SIMD implementation
+/// The maximum padding size required by any SIMD implementation
 pub const SIMDJSON_PADDING: usize = 32; // take upper limit mem::size_of::<__m256i>()
 /// It's 64 for all (Is this correct?)
 pub const SIMDINPUT_LENGTH: usize = 64;
@@ -206,6 +206,33 @@ use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
 use simdutf8::basic::imp::ChunkedUtf8Validator;
+
+/// A struct to hold the buffers for the parser.
+pub struct Buffers {
+    string_buffer: Vec<u8>,
+    structural_indexes: Vec<u32>,
+    input_buffer: AlignedBuf,
+}
+
+impl Default for Buffers {
+    #[inline]
+    fn default() -> Self {
+        Self::new(128)
+    }
+}
+impl Buffers {
+    /// Create new buffer for input length.
+    /// If this is too small a new buffer will be allocated, if needed during parsing.
+    #[inline]
+    #[must_use]
+    pub fn new(input_len: usize) -> Self {
+        Self {
+            string_buffer: Vec::with_capacity(input_len + SIMDJSON_PADDING),
+            structural_indexes: Vec::default(),
+            input_buffer: AlignedBuf::with_capacity(input_len + SIMDJSON_PADDING * 2),
+        }
+    }
+}
 
 /// Creates a tape from the input for later consumption
 /// # Errors
@@ -441,56 +468,34 @@ impl<'de> Deserializer<'de> {
     /// # Errors
     ///
     /// Will return `Err` if `s` is invalid JSON.
-    #[allow(clippy::uninit_vec)]
     pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
         let len = input.len();
 
-        let mut string_buffer: Vec<u8> = Vec::with_capacity(len + SIMDJSON_PADDING);
+        let mut buffer = Buffers::new(len);
+
+        Self::from_slice_with_buffers(input, &mut buffer)
+    }
+
+    /// Creates a serializer from a mutable slice of bytes using a temporary
+    /// buffer for strings for them to be copied in and out if needed
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if `s` is invalid JSON.
+    #[allow(clippy::uninit_vec)]
+    pub fn from_slice_with_buffers(input: &'de mut [u8], buffer: &mut Buffers) -> Result<Self> {
+        let len = input.len();
+
+        buffer.string_buffer.clear();
+        buffer.string_buffer.reserve(len + SIMDJSON_PADDING);
         unsafe {
-            string_buffer.set_len(len + SIMDJSON_PADDING);
+            buffer.string_buffer.set_len(len + SIMDJSON_PADDING);
         };
-
-        Self::from_slice_with_buffer(input, &mut string_buffer)
-    }
-
-    /// Creates a serializer from a mutable slice of bytes using a temporary
-    /// buffer for strings for them to be copied in and out if needed
-    ///
-    /// # Errors
-    ///
-    /// Will return `Err` if `s` is invalid JSON.
-    pub fn from_slice_with_buffer(input: &'de mut [u8], string_buffer: &mut [u8]) -> Result<Self> {
-        // We have to pick an initial size of the structural indexes.
-        // 6 is a heuristic that seems to work well for the benchmark
-        // data and limit re-allocation frequency.
-
-        let len = input.len();
-
-        // let buf_start: usize = input.as_ptr() as *const () as usize;
-        // let needs_relocation = (buf_start + input.len()) % page_size::get() < SIMDJSON_PADDING;
-        let mut buffer = AlignedBuf::with_capacity(len + SIMDJSON_PADDING * 2);
-        let mut structural_indexes = Vec::new();
-
-        Self::from_slice_with_buffers(input, &mut buffer, string_buffer, &mut structural_indexes)
-    }
-
-    /// Creates a serializer from a mutable slice of bytes using a temporary
-    /// buffer for strings for them to be copied in and out if needed
-    ///
-    /// # Errors
-    ///
-    /// Will return `Err` if `s` is invalid JSON.
-    pub fn from_slice_with_buffers(
-        input: &'de mut [u8],
-        input_buffer: &mut AlignedBuf,
-        string_buffer: &mut [u8],
-        structural_indexes: &mut Vec<u32>,
-    ) -> Result<Self> {
-        let len = input.len();
 
         if len > std::u32::MAX as usize {
             return Err(Self::error(ErrorType::InputTooLarge));
         }
+        let input_buffer = &mut buffer.input_buffer;
 
         if input_buffer.capacity() < len + SIMDJSON_PADDING * 2 {
             *input_buffer = AlignedBuf::with_capacity(len + SIMDJSON_PADDING * 2);
@@ -509,10 +514,17 @@ impl<'de> Deserializer<'de> {
             input_buffer.set_len(input_buffer.capacity());
         };
 
-        unsafe { Self::find_structural_bits(input, structural_indexes).map_err(Error::generic)? };
+        unsafe {
+            Self::find_structural_bits(input, &mut buffer.structural_indexes)
+                .map_err(Error::generic)?;
+        };
 
-        let tape: Vec<Node> =
-            Self::build_tape(input, input_buffer, string_buffer, structural_indexes)?;
+        let tape: Vec<Node> = Self::build_tape(
+            input,
+            input_buffer,
+            &mut buffer.string_buffer,
+            &buffer.structural_indexes,
+        )?;
 
         Ok(Self { tape, idx: 0 })
     }
@@ -772,7 +784,7 @@ impl<'de> Deserializer<'de> {
 }
 
 /// SIMD aligned buffer
-pub struct AlignedBuf {
+struct AlignedBuf {
     layout: Layout,
     capacity: usize,
     len: usize,
