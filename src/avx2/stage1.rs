@@ -35,23 +35,22 @@ macro_rules! high_nibble_mask {
     };
 }
 
-//pub const SIMDJSON_PADDING: usize = mem::size_of::<__m256i>();
-//pub const SIMDINPUT_LENGTH: usize = 64;
-
 #[derive(Debug)]
 pub(crate) struct SimdInputAVX {
     v0: __m256i,
     v1: __m256i,
 }
 
-impl Stage1Parse<__m256i> for SimdInputAVX {
+impl Stage1Parse for SimdInputAVX {
+    type Utf8Validator = simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp;
+    type SimdRepresentation = __m256i;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_ptr_alignment)]
     #[target_feature(enable = "avx2")]
     unsafe fn new(ptr: &[u8]) -> Self {
         Self {
-            v0: _mm256_loadu_si256(ptr.as_ptr().cast::<std::arch::x86_64::__m256i>()),
-            v1: _mm256_loadu_si256(ptr.as_ptr().add(32).cast::<std::arch::x86_64::__m256i>()),
+            v0: _mm256_loadu_si256(ptr.as_ptr().cast::<__m256i>()),
+            v1: _mm256_loadu_si256(ptr.as_ptr().add(32).cast::<__m256i>()),
         }
     }
 
@@ -142,8 +141,13 @@ impl Stage1Parse<__m256i> for SimdInputAVX {
             _mm256_set1_epi8(0),
         );
 
+        // We depend on this static_cast_u32 as `_mm256_movemask_epi8` returns a i32
+        // and rusts conversion of i32 to u64 and u32 to u64 isn't equivalent
+        // in the case if i32 a negative flag (highest  bit set to 1)
+        // carries over to the entire upper half in the u64 to be set to 1 as well
+
         let structural_res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_lo)));
-        let structural_res_1: u64 = _mm256_movemask_epi8(tmp_hi) as u64;
+        let structural_res_1: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_hi)));
         *structurals = !(structural_res_0 | (structural_res_1 << 32));
 
         let tmp_ws_lo: __m256i = _mm256_cmpeq_epi8(
@@ -156,7 +160,7 @@ impl Stage1Parse<__m256i> for SimdInputAVX {
         );
 
         let ws_res_0: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_ws_lo)));
-        let ws_res_1: u64 = _mm256_movemask_epi8(tmp_ws_hi) as u64;
+        let ws_res_1: u64 = u64::from(static_cast_u32!(_mm256_movemask_epi8(tmp_ws_hi)));
         *whitespace = !(ws_res_0 | (ws_res_1 << 32));
     }
 

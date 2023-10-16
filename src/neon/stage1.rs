@@ -49,7 +49,9 @@ pub(crate) struct SimdInputNEON {
     v3: uint8x16_t,
 }
 
-impl Stage1Parse<int8x16_t> for SimdInputNEON {
+impl Stage1Parse for SimdInputNEON {
+    type Utf8Validator = simdutf8::basic::imp::aarch64::neon::ChunkedUtf8ValidatorImp;
+    type SimdRepresentation = int8x16_t;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_ptr_alignment)]
     unsafe fn new(ptr: &[u8]) -> Self {
@@ -115,11 +117,10 @@ impl Stage1Parse<int8x16_t> for SimdInputNEON {
         // * carriage return 0x0d
         // these go into the next 2 buckets of the comparison (8/16)
 
-        // TODO: const?
-        let low_nibble_mask: uint8x16_t =
+        const low_nibble_mask: uint8x16_t =
             std::mem::transmute([16u8, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]);
-        // TODO: const?
-        let high_nibble_mask: uint8x16_t =
+
+        const high_nibble_mask: uint8x16_t =
             std::mem::transmute([8u8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]);
 
         let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);

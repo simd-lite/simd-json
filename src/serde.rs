@@ -664,7 +664,7 @@ mod test {
             y: u64,
         }
 
-        let mut json = br#"[1,2]"#.to_vec();
+        let mut json = b"[1,2]".to_vec();
 
         let p: Point = serde_json::from_slice(&json).unwrap();
         assert_eq!(p.x, 1);

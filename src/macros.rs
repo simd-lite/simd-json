@@ -1238,7 +1238,7 @@ macro_rules! static_cast_i8 {
 #[macro_export]
 macro_rules! static_cast_i32 {
     ($v:expr) => {
-        mem::transmute::<_, i32>($v)
+        std::mem::transmute::<_, i32>($v)
     };
 }
 
@@ -1246,7 +1246,7 @@ macro_rules! static_cast_i32 {
 #[macro_export]
 macro_rules! static_cast_u32 {
     ($v:expr) => {
-        mem::transmute::<_, u32>($v)
+        std::mem::transmute::<_, u32>($v)
     };
 }
 

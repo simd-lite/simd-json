@@ -9,8 +9,6 @@ use std::arch::x86_64::{
     _mm256_storeu_si256,
 };
 
-use std::mem;
-
 pub use crate::error::{Error, ErrorType};
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::stringparse::{handle_unicode_codepoint, ESCAPE_MAP};
@@ -20,15 +18,12 @@ pub use crate::Result;
 #[target_feature(enable = "avx2")]
 #[allow(
     clippy::if_not_else,
-    clippy::transmute_ptr_to_ptr,
-    clippy::too_many_lines,
-    clippy::cast_ptr_alignment,
     clippy::cast_possible_wrap,
     clippy::if_not_else,
     clippy::too_many_lines
 )]
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub(crate) unsafe fn parse_str_avx<'invoke, 'de>(
+pub(crate) unsafe fn parse_str<'invoke, 'de>(
     input: *mut u8,
     data: &'invoke [u8],
     buffer: &'invoke mut [u8],
@@ -47,6 +42,8 @@ pub(crate) unsafe fn parse_str_avx<'invoke, 'de>(
     let mut src_i: usize = 0;
     let mut len = src_i;
     loop {
+        // _mm256_loadu_si256 does not require alignment
+        #[allow(clippy::cast_ptr_alignment)]
         let v: __m256i =
             _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<std::arch::x86_64::__m256i>());
 
@@ -96,9 +93,13 @@ pub(crate) unsafe fn parse_str_avx<'invoke, 'de>(
 
     // To be more conform with upstream
     loop {
+        // _mm256_loadu_si256 does not require alignment
+        #[allow(clippy::cast_ptr_alignment)]
         let v: __m256i =
             _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<std::arch::x86_64::__m256i>());
 
+        // _mm256_storeu_si256 does not require alignment
+        #[allow(clippy::cast_ptr_alignment)]
         _mm256_storeu_si256(
             buffer
                 .as_mut_ptr()

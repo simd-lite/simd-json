@@ -376,7 +376,7 @@ impl<'de> OwnedDeserializer<'de> {
 
 #[cfg(test)]
 mod test {
-    #![allow(clippy::cognitive_complexity)]
+    #![allow(clippy::cognitive_complexity, clippy::ignored_unit_patterns)]
     use super::*;
 
     #[test]

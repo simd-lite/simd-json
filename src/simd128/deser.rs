@@ -13,13 +13,12 @@ use crate::{
 #[target_feature(enable = "simd128")]
 #[allow(
     clippy::if_not_else,
-    clippy::transmute_ptr_to_ptr,
     clippy::cast_ptr_alignment,
     clippy::cast_possible_wrap,
     clippy::too_many_lines
 )]
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub(crate) fn parse_str_simd128<'invoke, 'de>(
+pub(crate) fn parse_str<'invoke, 'de>(
     input: *mut u8,
     data: &'invoke [u8],
     buffer: &'invoke mut [u8],

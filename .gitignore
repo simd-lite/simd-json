@@ -7,3 +7,4 @@ proptest-regressions
 .current
 .cargo
 .vscode
+rust-toolchain
