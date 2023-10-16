@@ -43,7 +43,7 @@ pub enum ErrorType {
     /// Expected an unsigned number
     ExpectedUnsigned,
     /// Internal error
-    InternalError,
+    InternalError(InternalError),
     /// Invalid escape sequence
     InvalidEscape,
     /// Invalid exponent in a floating point number
@@ -88,6 +88,12 @@ pub enum ErrorType {
     Io(std::io::Error),
 }
 
+#[derive(Debug, PartialEq)]
+pub enum InternalError {
+    InvalidStrucutralIndexes,
+    TapeError,
+}
+
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Self::generic(ErrorType::Io(e))
@@ -116,7 +122,6 @@ impl PartialEq for ErrorType {
             | (Self::ExpectedSigned, Self::ExpectedSigned)
             | (Self::ExpectedString, Self::ExpectedString)
             | (Self::ExpectedUnsigned, Self::ExpectedUnsigned)
-            | (Self::InternalError, Self::InternalError)
             | (Self::InvalidEscape, Self::InvalidEscape)
             | (Self::InvalidExponent, Self::InvalidExponent)
             | (Self::InvalidNumber, Self::InvalidNumber)
@@ -136,6 +141,7 @@ impl PartialEq for ErrorType {
             | (Self::ExpectedObjectKey, Self::ExpectedObjectKey)
             | (Self::Overflow, Self::Overflow) => true,
             (Self::Serde(s1), Self::Serde(s2)) => s1 == s2,
+            (Self::InternalError(e1), Self::InternalError(e2)) => e1 == e2,
             _ => false,
         }
     }
@@ -195,10 +201,15 @@ impl From<Error> for std::io::Error {
 
 #[cfg(test)]
 mod test {
-    use super::{Error, ErrorType};
+    use super::{Error, ErrorType, InternalError};
     #[test]
     fn fmt() {
-        let e = Error::generic(ErrorType::InternalError);
-        assert_eq!(e.to_string(), "InternalError at character 0");
+        let e = Error::generic(ErrorType::InternalError(
+            InternalError::InvalidStrucutralIndexes,
+        ));
+        assert_eq!(
+            e.to_string(),
+            "InternalError(InvalidStrucutralIndexes) at character 0"
+        );
     }
 }

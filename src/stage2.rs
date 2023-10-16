@@ -2,7 +2,7 @@
 use crate::charutils::is_not_structural_or_whitespace;
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::value::tape::Node;
-use crate::{Deserializer, Error, ErrorType, Result};
+use crate::{Deserializer, Error, ErrorType, InternalError, Result};
 use value_trait::StaticNode;
 
 #[cfg_attr(not(feature = "no-inline"), inline(always))]
@@ -276,7 +276,12 @@ impl<'de> Deserializer<'de> {
                 unsafe {
                     res.set_len(r_i);
                 };
-                return Err(Error::new_c(idx, c as char, ErrorType::InternalError));
+                dbg!();
+                return Err(Error::new_c(
+                    idx,
+                    c as char,
+                    ErrorType::InternalError(InternalError::TapeError),
+                ));
             };
             ($t:expr) => {
                 // We need to ensure that rust doesn't
@@ -675,7 +680,14 @@ mod test {
         input2.append(vec![0; SIMDJSON_PADDING * 2].as_mut());
         let mut buffer = vec![0; 1024];
 
-        let s = Deserializer::parse_str_(input.as_mut_ptr(), &input2, buffer.as_mut_slice(), 0)?;
+        let s = unsafe {
+            dbg!(Deserializer::parse_str_(
+                input.as_mut_ptr(),
+                &input2,
+                buffer.as_mut_slice(),
+                0
+            ))?
+        };
         dbg!(s);
         dbg!(&input[..20]);
         dbg!(&input2[..20]);

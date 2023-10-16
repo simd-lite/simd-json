@@ -19,8 +19,6 @@ use arch::{
     _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128,
 };
 
-use std::mem;
-
 macro_rules! low_nibble_mask {
     () => {
         _mm_setr_epi8(16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0)
@@ -41,7 +39,9 @@ pub(crate) struct SimdInputSSE {
     v3: __m128i,
 }
 
-impl Stage1Parse<__m128i> for SimdInputSSE {
+impl Stage1Parse for SimdInputSSE {
+    type Utf8Validator = simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
+    type SimdRepresentation = __m128i;
     #[target_feature(enable = "sse4.2")]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_ptr_alignment)]

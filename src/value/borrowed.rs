@@ -100,7 +100,7 @@ impl<'value> Value<'value> {
             // https://docs.rs/beef/0.4.4/src/beef/generic.rs.html#379-391
             Self::String(s) => unsafe {
                 std::mem::transmute::<Value<'value>, Value<'static>>(Self::String(Cow::from(
-                    s.to_string(),
+                    s.into_owned(),
                 )))
             },
             // For an array we turn every value into a static
@@ -459,6 +459,7 @@ impl<'de> BorrowDeserializer<'de> {
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::ignored_unit_patterns)]
     #![allow(clippy::cognitive_complexity)]
     use super::*;
 

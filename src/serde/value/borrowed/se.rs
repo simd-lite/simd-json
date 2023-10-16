@@ -604,6 +604,7 @@ impl<'se> serde::ser::SerializeStructVariant for SerializeStructVariant<'se> {
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::ignored_unit_patterns)]
     use super::Value;
     use crate::{borrowed::Object, serde::from_slice, ObjectHasher};
     use serde::{Deserialize, Serialize};

@@ -262,11 +262,11 @@ mod test {
     }
     #[test]
     fn string() {
-        assert_str(r#"this is a test"#, r#""this is a test""#);
+        assert_str("this is a test", r#""this is a test""#);
         assert_str(r#"this is a test ""#, r#""this is a test \"""#);
         assert_str(r#"this is a test """#, r#""this is a test \"\"""#);
         assert_str(
-            r#"this is a test a long test that should span the 32 byte boundary"#,
+            "this is a test a long test that should span the 32 byte boundary",
             r#""this is a test a long test that should span the 32 byte boundary""#,
         );
         assert_str(

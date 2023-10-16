@@ -10,7 +10,10 @@ pub(crate) struct SimdInput128 {
     v3: v128,
 }
 
-impl Stage1Parse<v128> for SimdInput128 {
+impl Stage1Parse for SimdInput128 {
+    type Utf8Validator = simdutf8::basic::imp::wasm32::simd128::ChunkedUtf8ValidatorImp;
+    type SimdRepresentation = v128;
+
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_ptr_alignment)]
     unsafe fn new(ptr: &[u8]) -> Self {

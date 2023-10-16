@@ -41,7 +41,7 @@ mod test {
     use crate::prelude::*;
 
     #[test]
-    #[should_panic]
+    #[should_panic = "Not supported"]
     #[allow(unused_variables, clippy::no_effect)]
     fn object_index() {
         let v = StaticNode::Null;
@@ -49,14 +49,14 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "Not supported"]
     fn mut_object_index() {
         let mut v = StaticNode::Null;
         v["test"] = ();
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "Not supported"]
     #[allow(unused_variables, clippy::no_effect)]
     fn array_index() {
         let v = StaticNode::Null;
@@ -64,7 +64,7 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic = "Not supported"]
     fn mut_array_index() {
         let mut v = StaticNode::Null;
         v[0] = ();

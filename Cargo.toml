@@ -19,7 +19,10 @@ lexical-core = { version = "0.8", features = ["format"] }
 beef = { version = "0.5", optional = true }
 halfbrown = "0.2"
 value-trait = { version = "0.6.1" }
-simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
+simdutf8 = { version = "0.1.4", features = [
+    "public_imp",
+    "aarch64_neon",
+], path = "../simdutf8" }
 
 # ahash known key
 once_cell = { version = "1.17", optional = true }
@@ -101,6 +104,9 @@ perf = ["perfcnt", "getopts", "colored", "serde_json"]
 
 # for documentation
 docsrs = []
+
+# portable simd support (as of rust 1.73 nightly only)
+portable = ["simdutf8/portable"]
 
 [[example]]
 name = "perf"

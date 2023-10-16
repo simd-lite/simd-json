@@ -580,17 +580,10 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
 
 #[cfg(test)]
 mod test {
+    #![allow(clippy::ignored_unit_patterns)]
     use crate::serde::from_slice;
     #[cfg(not(target_arch = "wasm32"))]
     use crate::serde::{from_str, to_string};
-    /*
-    use crate::{
-        owned::to_value, owned::Object, owned::Value, to_borrowed_value, to_owned_value,
-        Deserializer,
-    };
-    use halfbrown::HashMap;
-    use proptest::prelude::*;
-    */
     use serde::{Deserialize, Serialize};
     use serde_json;
 

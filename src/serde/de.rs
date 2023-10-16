@@ -335,7 +335,7 @@ where
     {
         // Parse the opening bracket of the sequence.
         match self.next() {
-            Ok(Node::Object { len, count: _ }) if len == 1 => {
+            Ok(Node::Object { len: 1, .. }) => {
                 // Give the visitor access to each element of the sequence.
                 // let value = ri!(visitor.visit_enum(VariantAccess::new(self)));
                 visitor.visit_enum(VariantAccess::new(self))

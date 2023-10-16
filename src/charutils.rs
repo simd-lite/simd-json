@@ -87,29 +87,30 @@ pub fn codepoint_to_utf8(cp: u32, c: &mut [u8]) -> usize {
     unsafe {
         if cp <= 0x7F {
             *c.get_kinda_unchecked_mut(0) = cp as u8;
-            return 1; // ascii
-        }
-        if cp <= 0x7FF {
+            1 // ascii
+        } else if cp <= 0x7FF {
             *c.get_kinda_unchecked_mut(0) = ((cp >> 6) + 192) as u8;
             *c.get_kinda_unchecked_mut(1) = ((cp & 63) + 128) as u8;
-            return 2; // universal plane
-                      //  Surrogates are treated elsewhere...
-                      //} //else if (0xd800 <= cp && cp <= 0xdfff) {
-                      //  return 0; // surrogates // could put assert here
+            2
+            // universal plane
+            //  Surrogates are treated elsewhere...
+            //} //else if (0xd800 <= cp && cp <= 0xdfff) {
+            //  return 0; // surrogates // could put assert here
         } else if cp <= 0xFFFF {
             *c.get_kinda_unchecked_mut(0) = ((cp >> 12) + 224) as u8;
             *c.get_kinda_unchecked_mut(1) = (((cp >> 6) & 63) + 128) as u8;
             *c.get_kinda_unchecked_mut(2) = ((cp & 63) + 128) as u8;
-            return 3;
+            3
         } else if cp <= 0x0010_FFFF {
             // if you know you have a valid code point, this is not needed
             *c.get_kinda_unchecked_mut(0) = ((cp >> 18) + 240) as u8;
             *c.get_kinda_unchecked_mut(1) = (((cp >> 12) & 63) + 128) as u8;
             *c.get_kinda_unchecked_mut(2) = (((cp >> 6) & 63) + 128) as u8;
             *c.get_kinda_unchecked_mut(3) = ((cp & 63) + 128) as u8;
-            return 4;
+            4
+        } else {
+            // will return 0 when the code point was too large.
+            0
         }
     }
-    // will return 0 when the code point was too large.
-    0
 }
