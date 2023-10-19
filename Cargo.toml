@@ -56,7 +56,7 @@ name = "parse"
 harness = false
 
 [features]
-default = ["swar-number-parsing", "serde_impl"]
+default = ["swar-number-parsing", "serde_impl", "runtime-detection"]
 
 arraybackend = ["halfbrown/arraybackend"]
 
@@ -107,6 +107,10 @@ docsrs = []
 
 # portable simd support (as of rust 1.73 nightly only)
 portable = ["simdutf8/portable"]
+
+
+# use runtime detection of the CPU features where possible instead of enforcing an instruction set
+runtime-detection = []
 
 [[example]]
 name = "perf"

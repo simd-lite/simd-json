@@ -120,13 +120,6 @@
 //! let v: Value = simd_json::serde::from_slice(&mut d).unwrap();
 //! ```
 
-/// rust native implementation
-mod native;
-
-#[cfg(feature = "portable")]
-/// rust native implementation
-mod portable;
-
 #[cfg(feature = "serde_impl")]
 extern crate serde as serde_ext;
 
@@ -154,6 +147,8 @@ mod stringparse;
 
 use safer_unchecked::GetSaferUnchecked;
 
+mod impls;
+
 /// Reexport of Cow
 pub mod cow;
 
@@ -161,26 +156,6 @@ pub mod cow;
 pub const SIMDJSON_PADDING: usize = 32; // take upper limit mem::size_of::<__m256i>()
 /// It's 64 for all (Is this correct?)
 pub const SIMDINPUT_LENGTH: usize = 64;
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-mod avx2;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-pub(crate) use crate::avx2::stage1::SimdInputAVX;
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-mod sse42;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-pub(crate) use crate::sse42::stage1::SimdInputSSE;
-
-#[cfg(target_arch = "aarch64")]
-mod neon;
-#[cfg(target_arch = "aarch64")]
-pub(crate) use crate::neon::stage1::SimdInputNEON;
-
-#[cfg(target_feature = "simd128")]
-mod simd128;
-#[cfg(target_feature = "simd128")]
-pub(crate) use crate::simd128::stage1::SimdInput128;
 
 mod stage2;
 /// simd-json JSON-DOM value
@@ -395,97 +370,175 @@ pub struct Deserializer<'de> {
     idx: usize,
 }
 
+// architecture dependant parse_str
+
 impl<'de> Deserializer<'de> {
     #[inline]
-    #[cfg(all(
-        any(target_arch = "x86_64", target_arch = "x86"),
-        not(feature = "avx2"),
-        not(feature = "sse42"),
-    ))]
+    #[cfg(not(any(
+        target_feature = "avx2",
+        target_feature = "sse4.2",
+        target_feature = "simd128",
+        target_arch = "aarch64",
+    )))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
         buffer: &'invoke mut [u8],
         idx: usize,
     ) -> Result<&'de str> {
-        if std::is_x86_feature_detected!("avx2") {
-            crate::avx2::deser::parse_str(input, data, buffer, idx)
-        } else if std::is_x86_feature_detected!("sse4.2") {
-            crate::sse42::deser::parse_str(input, data, buffer, idx)
-        } else {
-            #[cfg(feature = "portable")]
-            let r = crate::portable::deser::parse_str(input, data, buffer, idx);
-            #[cfg(not(feature = "portable"))]
-            let r = crate::native::deser::parse_str(input, data, buffer, idx);
-
-            r
+        #[cfg(all(
+            feature = "runtime-detection",
+            any(target_arch = "x86_64", target_arch = "x86"),
+        ))]
+        {
+            if std::is_x86_feature_detected!("avx2") {
+                return impls::avx2::deser::parse_str(input, data, buffer, idx);
+            } else if std::is_x86_feature_detected!("sse4.2") {
+                return impls::sse42::deser::parse_str(input, data, buffer, idx);
+            }
         }
-    }
 
-    /// To allow inlining
-    #[inline]
-    #[cfg(target_arch = "aarch64")]
-    pub(crate) fn parse_str_<'invoke>(
-        input: *mut u8,
-        data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
-        idx: usize,
-    ) -> std::result::Result<Vec<u32>, ErrorType> {
-        unsafe { crate::neon::deser::parse_str(input, data, buffer, idx) }
-    }
-    /// To allow inlining
-    #[inline]
-    #[cfg(target_feature = "simd128")]
-    pub(crate) fn parse_str_<'invoke>(
-        input: *mut u8,
-        data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
-        idx: usize,
-    ) -> std::result::Result<Vec<u32>, ErrorType> {
-        unsafe { crate::simd128::deser::parse_str(input, data, buffer, idx) }
-    }
-
-    #[cfg(all(
-        not(target_feature = "simd128"),
-        not(target_arch = "aarch64"),
-        not(target_arch = "x86_64"),
-        not(target_arch = "x86")
-    ))]
-    pub(crate) fn parse_str_<'invoke>(
-        input: *mut u8,
-        data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
-        idx: usize,
-    ) -> std::result::Result<Vec<u32>, ErrorType> {
         #[cfg(feature = "portable")]
-        let r = crate::portable::deser::parse_str(input, data, buffer, idx);
+        let r = impls::portable::deser::parse_str(input, data, buffer, idx);
         #[cfg(not(feature = "portable"))]
-        let r = crate::native::deser::parse_str(input, data, buffer, idx);
+        let r = impls::native::deser::parse_str(input, data, buffer, idx);
+
         r
     }
 
     #[inline]
-    #[cfg(feature = "avx2")]
-    pub(crate) fn parse_str_<'invoke>(
+    #[cfg(feature = "sse4.2")]
+    pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
         buffer: &'invoke mut [u8],
         idx: usize,
     ) -> std::result::Result<Vec<u32>, ErrorType> {
-        unsafe { crate::avx2::deser::parse_str(input, data, buffer, idx) }
+        impls::sse42::deser::parse_str(input, data, buffer, idx)
     }
 
     #[inline]
-    #[cfg(feature = "sse4.2")]
-    pub(crate) fn parse_str_<'invoke>(
+    #[cfg(target_arch = "aarch64")]
+    pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
         buffer: &'invoke mut [u8],
         idx: usize,
     ) -> std::result::Result<Vec<u32>, ErrorType> {
-        unsafe { crate::sse42::deser::parse_str(input, data, buffer, idx) }
+        impls::neon::deser::parse_str(input, data, buffer, idx)
+    }
+    #[inline]
+    #[cfg(target_feature = "simd128")]
+    pub(crate) unsafe fn parse_str_<'invoke>(
+        input: *mut u8,
+        data: &'invoke [u8],
+        buffer: &'invoke mut [u8],
+        idx: usize,
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
+        impls::simd128::deser::parse_str(input, data, buffer, idx)
     }
 
+    #[inline]
+    #[cfg(feature = "avx2")]
+    pub(crate) unsafe fn parse_str_<'invoke>(
+        input: *mut u8,
+        data: &'invoke [u8],
+        buffer: &'invoke mut [u8],
+        idx: usize,
+    ) -> std::result::Result<Vec<u32>, ErrorType> {
+        impls::avx2::deser::parse_str(input, data, buffer, idx)
+    }
+}
+
+/// architecture dependant `find_structural_bits`
+impl<'de> Deserializer<'de> {
+    // This version is the runtime detection version, it is only enabled if the `runtime-detection`
+    // feature is enabled and we are not on neon or wasm platforms
+    //
+    // We do allow non x86 platforms for this as well as it provides a fallback with std::simd and
+    // rust native implementations
+    #[inline]
+    #[cfg(not(any(
+        target_feature = "avx2",
+        target_feature = "sse4.2",
+        target_feature = "simd128",
+        target_arch = "aarch64",
+    )))]
+    pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+        structural_indexes: &mut Vec<u32>,
+    ) -> std::result::Result<(), ErrorType> {
+        #[cfg(all(
+            feature = "runtime-detection",
+            any(target_arch = "x86_64", target_arch = "x86"),
+        ))]
+        {
+            if std::is_x86_feature_detected!("avx2") {
+                return Self::_find_structural_bits::<impls::avx2::SimdInput>(
+                    input,
+                    structural_indexes,
+                );
+            } else if std::is_x86_feature_detected!("sse4.2") {
+                return Self::_find_structural_bits::<impls::sse42::SimdInput>(
+                    input,
+                    structural_indexes,
+                );
+            }
+        }
+
+        // This is a horrible hack to allow ChunkedUtf8ValidatorImpNative to not do anything
+        #[cfg(not(feature = "portable"))]
+        let r = {
+            match core::str::from_utf8(input) {
+                Ok(_) => (),
+                Err(_) => return Err(ErrorType::InvalidUtf8),
+            };
+            #[cfg(not(feature = "portable"))]
+            Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
+        };
+        #[cfg(feature = "portable")]
+        let r =
+            Self::_find_structural_bits::<impls::portable::SimdInput>(input, structural_indexes);
+        r
+    }
+
+    #[inline]
+    #[cfg(target_feature = "avx2")]
+    pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+        structural_indexes: &mut Vec<u32>,
+    ) -> std::result::Result<(), ErrorType> {
+        Self::_find_structural_bits::<impls::avx2::SimdInput>(input, structural_indexes)
+    }
+
+    #[inline]
+    #[cfg(target_feature = "sse4.2")]
+    pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+        structural_indexes: &mut Vec<u32>,
+    ) -> std::result::Result<(), ErrorType> {
+        Self::_find_structural_bits::<impls::sse42::SimdInput>(input, structural_indexes)
+    }
+
+    #[inline]
+    #[cfg(target_arch = "aarch64")]
+    pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+        structural_indexes: &mut Vec<u32>,
+    ) -> std::result::Result<(), ErrorType> {
+        Self::_find_structural_bits::<impls::neon::SimdInput>(input, structural_indexes)
+    }
+
+    #[inline]
+    #[cfg(target_feature = "simd128")]
+    pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+        structural_indexes: &mut Vec<u32>,
+    ) -> std::result::Result<(), ErrorType> {
+        Self::_find_structural_bits::<impls::simd128::SimdInput>(input, structural_indexes)
+    }
+}
+impl<'de> Deserializer<'de> {
     /// Extracts the tape from the Deserializer
     #[must_use]
     pub fn into_tape(self) -> Vec<Node<'de>> {
@@ -585,119 +638,6 @@ impl<'de> Deserializer<'de> {
     pub unsafe fn next_(&mut self) -> Node<'de> {
         self.idx += 1;
         *self.tape.get_kinda_unchecked(self.idx)
-    }
-
-    #[inline]
-    #[allow(clippy::cast_possible_truncation)]
-    #[cfg(not(any(feature = "avx2", feature = "sse42")))]
-    pub(crate) unsafe fn find_structural_bits(
-        input: &[u8],
-        structural_indexes: &mut Vec<u32>,
-    ) -> std::result::Result<(), ErrorType> {
-        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-        {
-            if std::is_x86_feature_detected!("avx2") {
-                Self::find_structural_bits_avx(input, structural_indexes)
-            } else if std::is_x86_feature_detected!("sse4.2") {
-                Self::find_structural_bits_sse(input, structural_indexes)
-            } else {
-                // This is a horrible hack to allow ChunkedUtf8ValidatorImpNative to not do anything
-                #[cfg(not(feature = "portable"))]
-                match core::str::from_utf8(input) {
-                    Ok(_) => (),
-                    Err(_) => return Err(ErrorType::InvalidUtf8),
-                };
-                #[cfg(not(feature = "portable"))]
-                let r = Self::find_structural_bits_native(input, structural_indexes);
-                #[cfg(feature = "portable")]
-                let r = Self::find_structural_bits_portable(input, structural_indexes);
-                r
-            }
-        }
-        #[cfg(target_arch = "aarch64")]
-        {
-            return Self::_find_structural_bits::<SimdInputNEON>(input, structural_indexes);
-        }
-
-        #[cfg(target_feature = "simd128")]
-        {
-            return Self::_find_structural_bits::<SimdInput128>(input, structural_indexes);
-        }
-        // If we're on a non supported platform fall back to the native ones
-        #[cfg(all(
-            not(target_feature = "simd128"),
-            not(target_arch = "aarch64"),
-            not(target_arch = "x86_64"),
-            not(target_arch = "x86")
-        ))]
-        {
-            // This is a horrible hack to allow ChunkedUtf8ValidatorImpNative to not do anything
-            #[cfg(not(feature = "portable"))]
-            match core::str::from_utf8(input) {
-                Ok(_) => (),
-                Err(_) => return Err(ErrorType::InvalidUtf8),
-            };
-            #[cfg(not(feature = "portable"))]
-            let r = Self::find_structural_bits_native(input, structural_indexes);
-            #[cfg(feature = "portable")]
-            let r = Self::find_structural_bits_portable(input, structural_indexes);
-            r
-        }
-    }
-
-    #[inline]
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    #[target_feature(enable = "avx2")]
-    pub(crate) unsafe fn find_structural_bits_avx(
-        input: &[u8],
-        structural_indexes: &mut Vec<u32>,
-    ) -> std::result::Result<(), ErrorType> {
-        Self::_find_structural_bits::<SimdInputAVX>(input, structural_indexes)
-    }
-
-    #[inline]
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    #[target_feature(enable = "sse4.2")]
-    pub(crate) unsafe fn find_structural_bits_sse(
-        input: &[u8],
-        structural_indexes: &mut Vec<u32>,
-    ) -> std::result::Result<(), ErrorType> {
-        Self::_find_structural_bits::<SimdInputSSE>(input, structural_indexes)
-    }
-
-    #[inline]
-    // #[cfg(not(feature = "portable"))]
-    pub(crate) unsafe fn find_structural_bits_native(
-        input: &[u8],
-        structural_indexes: &mut Vec<u32>,
-    ) -> std::result::Result<(), ErrorType> {
-        use native::stage1::NativeInput;
-
-        Self::_find_structural_bits::<NativeInput>(input, structural_indexes)
-    }
-
-    #[inline]
-    #[cfg(feature = "portable")]
-    pub(crate) unsafe fn find_structural_bits_portable(
-        input: &[u8],
-        structural_indexes: &mut Vec<u32>,
-    ) -> std::result::Result<(), ErrorType> {
-        use portable::stage1::SimdInputPortable;
-
-        Self::_find_structural_bits::<SimdInputPortable>(input, structural_indexes)
-    }
-
-    #[allow(clippy::cast_possible_truncation)]
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    #[cfg(feature = "avx2")]
-    pub(crate) unsafe fn find_structural_bits(
-        input: &[u8],
-        structural_indexes: &mut Vec<u32>,
-    ) -> std::result::Result<(), ErrorType> {
-        Self::_find_structural_bits::<_, SimdInputAVX, ChunkedUtf8ValidatorImpAVX2>(
-            input,
-            structural_indexes,
-        )
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline(always))]

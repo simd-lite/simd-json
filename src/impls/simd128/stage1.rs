@@ -3,14 +3,14 @@ use std::arch::wasm32::*;
 use crate::Stage1Parse;
 
 #[derive(Debug)]
-pub(crate) struct SimdInput128 {
+pub(crate) struct SimdInput {
     v0: v128,
     v1: v128,
     v2: v128,
     v3: v128,
 }
 
-impl Stage1Parse for SimdInput128 {
+impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::wasm32::simd128::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = v128;
 

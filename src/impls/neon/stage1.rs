@@ -42,14 +42,14 @@ pub unsafe fn neon_movemask_bulk(
 //pub const SIMDINPUT_LENGTH: usize = 64;
 
 #[derive(Debug)]
-pub(crate) struct SimdInputNEON {
+pub(crate) struct SimdInput {
     v0: uint8x16_t,
     v1: uint8x16_t,
     v2: uint8x16_t,
     v3: uint8x16_t,
 }
 
-impl Stage1Parse for SimdInputNEON {
+impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::aarch64::neon::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = int8x16_t;
     #[cfg_attr(not(feature = "no-inline"), inline)]

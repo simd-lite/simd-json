@@ -1,4 +1,4 @@
-use crate::{native::stage1::NativeInput, Deserializer, Stage1Parse, SIMDJSON_PADDING};
+use crate::{impls, Deserializer, Stage1Parse, SIMDJSON_PADDING};
 
 fn test_find_structural_bits<S: Stage1Parse>(input_str: &str, expected: &[u32]) {
     let mut input = input_str.as_bytes().to_vec();
@@ -42,20 +42,20 @@ fn find_structural_bits_test_cases<S: Stage1Parse>() {
 
 #[test]
 fn find_structural_bits_native() {
-    find_structural_bits_test_cases::<NativeInput>();
+    find_structural_bits_test_cases::<impls::native::SimdInput>();
 }
 
 #[cfg(feature = "portable")]
 #[test]
 fn find_structural_bits_portable() {
-    find_structural_bits_test_cases::<crate::portable::stage1::SimdInputPortable>();
+    find_structural_bits_test_cases::<impls::portable::SimdInput>();
 }
 
 #[cfg(target_feature = "avx2")]
 #[test]
 fn find_structural_bits_avx() {
     if std::is_x86_feature_detected!("avx2") {
-        find_structural_bits_test_cases::<crate::avx2::stage1::SimdInputAVX>();
+        find_structural_bits_test_cases::<impls::avx2::SimdInput>();
     }
 }
 
@@ -63,18 +63,18 @@ fn find_structural_bits_avx() {
 #[test]
 fn find_structural_bits_sse() {
     if std::is_x86_feature_detected!("sse4.2") {
-        find_structural_bits_test_cases::<crate::sse42::stage1::SimdInputSSE>();
+        find_structural_bits_test_cases::<impls::sse42::SimdInput>();
     }
 }
 
 #[cfg(target_arch = "aarch64")]
 #[test]
 fn find_structural_bits_aarch64() {
-    find_structural_bits_test_cases::<crate::neon::stage1::SimdInputNEON>();
+    find_structural_bits_test_cases::<impls::neon::SimdInput>();
 }
 
 #[cfg(target_feature = "simd128")]
 #[test]
 fn find_structural_bits_simd128() {
-    find_structural_bits_test_cases::<crate::simd128::stage1::SimdInput128>();
+    find_structural_bits_test_cases::<impls::simd128::SimdInput>();
 }
