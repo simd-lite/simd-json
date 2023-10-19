@@ -287,18 +287,18 @@ fn u8x16_bitmask(a: v128) -> u16 {
 // }
 
 #[derive(Debug)]
-pub(crate) struct NativeInput {
+pub(crate) struct SimdInput {
     v0: v128,
     v1: v128,
     v2: v128,
     v3: v128,
 }
 
-impl Stage1Parse for NativeInput {
+impl Stage1Parse for SimdInput {
     type Utf8Validator = super::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = v128;
     unsafe fn new(ptr: &[u8]) -> Self {
-        NativeInput {
+        SimdInput {
             v0: *(ptr.as_ptr().cast::<v128>()),
             v1: *(ptr.as_ptr().add(16).cast::<v128>()),
             v2: *(ptr.as_ptr().add(32).cast::<v128>()),

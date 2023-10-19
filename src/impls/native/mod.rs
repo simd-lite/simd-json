@@ -1,7 +1,9 @@
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
-pub mod deser;
-pub mod stage1;
+pub(crate) mod deser;
+mod stage1;
+
+pub(crate) use stage1::SimdInput;
 
 /// This is a hack, since there is no native implementation of the chunked validator we pre-validate the entire
 /// input string in the case of a fallback and then always let the chunked validator return true.

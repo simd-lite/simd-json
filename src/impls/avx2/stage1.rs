@@ -36,12 +36,12 @@ macro_rules! high_nibble_mask {
 }
 
 #[derive(Debug)]
-pub(crate) struct SimdInputAVX {
+pub(crate) struct SimdInput {
     v0: __m256i,
     v1: __m256i,
 }
 
-impl Stage1Parse for SimdInputAVX {
+impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = __m256i;
     #[cfg_attr(not(feature = "no-inline"), inline)]

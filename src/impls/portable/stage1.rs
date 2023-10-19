@@ -1,35 +1,12 @@
-use std::{
-    ops::Shr,
-    simd::{prelude::*, ToBitMask},
-};
-
-macro_rules! low_nibble_mask {
-    () => {
-        [
-            16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1,
-            2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0,
-            0, 8, 12, 1, 2, 9, 0, 0,
-        ]
-    };
-}
-
-macro_rules! high_nibble_mask {
-    () => {
-        [
-            8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3,
-            2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1,
-            0, 0, 0, 3, 2, 1, 0, 0,
-        ]
-    };
-}
+use std::simd::{prelude::*, ToBitMask};
 
 use crate::{static_cast_i32, Stage1Parse};
 #[derive(Debug)]
-pub(crate) struct SimdInputPortable {
+pub(crate) struct SimdInput {
     v: u8x64,
 }
 
-impl Stage1Parse for SimdInputPortable {
+impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::portable::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = u8x64;
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -87,8 +64,16 @@ impl Stage1Parse for SimdInputPortable {
         // * carriage return 0x0d
         // these go into the next 2 buckets of the comparison (8/16)
 
-        const LOW_NIBBLE_MASK: u8x64 = u8x64::from_array(low_nibble_mask!());
-        const HIGH_NIBBLE_MASK: u8x64 = u8x64::from_array(high_nibble_mask!());
+        const LOW_NIBBLE_MASK: u8x64 = u8x64::from_array([
+            16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1,
+            2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0,
+            0, 8, 12, 1, 2, 9, 0, 0,
+        ]);
+        const HIGH_NIBBLE_MASK: u8x64 = u8x64::from_array([
+            8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3,
+            2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1,
+            0, 0, 0, 3, 2, 1, 0, 0,
+        ]);
 
         let structural_shufti_mask: u8x64 = u8x64::splat(0b0000_0111); // 0x07
         let whitespace_shufti_mask: u8x64 = u8x64::splat(0b0001_1000); // 0x18
@@ -96,7 +81,7 @@ impl Stage1Parse for SimdInputPortable {
         // FIXME: do we need this dance?
 
         let v32 = i32x16::from_array(std::mem::transmute(*self.v.as_array()));
-        let v_shifted = v32.shr(i32x16::splat(4));
+        let v_shifted = v32 >> i32x16::splat(4);
         let v_shifted = u8x64::from_array(std::mem::transmute(v_shifted));
 
         // We have to adjust the index here the reason being that while the avx instruction

@@ -114,9 +114,7 @@ mod test {
         input2.append(vec![0; SIMDJSON_PADDING * 2].as_mut());
         let mut buffer = vec![0; 1024];
 
-        let r = unsafe {
-            Deserializer::parse_str_(input.as_mut_ptr(), &input2, buffer.as_mut_slice(), 0)?
-        };
+        let r = unsafe { super::parse_str(input.as_mut_ptr(), &input2, buffer.as_mut_slice(), 0)? };
         dbg!(r);
         Ok(String::from(r))
     }

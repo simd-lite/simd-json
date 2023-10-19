@@ -32,14 +32,14 @@ macro_rules! high_nibble_mask {
 }
 
 #[derive(Debug)]
-pub(crate) struct SimdInputSSE {
+pub(crate) struct SimdInput {
     v0: __m128i,
     v1: __m128i,
     v2: __m128i,
     v3: __m128i,
 }
 
-impl Stage1Parse for SimdInputSSE {
+impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::x86::sse42::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = __m128i;
     #[target_feature(enable = "sse4.2")]
