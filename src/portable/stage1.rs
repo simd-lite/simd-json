@@ -7,7 +7,8 @@ macro_rules! low_nibble_mask {
     () => {
         [
             16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1,
-            2, 9, 0, 0,
+            2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0,
+            0, 8, 12, 1, 2, 9, 0, 0,
         ]
     };
 }
@@ -16,7 +17,8 @@ macro_rules! high_nibble_mask {
     () => {
         [
             8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3,
-            2, 1, 0, 0,
+            2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0, 8, 0, 18, 4, 0, 1, 0, 1,
+            0, 0, 0, 3, 2, 1, 0, 0,
         ]
     };
 }
@@ -24,19 +26,17 @@ macro_rules! high_nibble_mask {
 use crate::{static_cast_i32, Stage1Parse};
 #[derive(Debug)]
 pub(crate) struct SimdInputPortable {
-    v0: u8x32,
-    v1: u8x32,
+    v: u8x64,
 }
 
 impl Stage1Parse for SimdInputPortable {
     type Utf8Validator = simdutf8::basic::imp::portable::ChunkedUtf8ValidatorImp;
-    type SimdRepresentation = u8x32;
+    type SimdRepresentation = u8x64;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_ptr_alignment)]
     unsafe fn new(ptr: &[u8]) -> Self {
         Self {
-            v0: u8x32::from_array(*ptr.as_ptr().cast::<[u8; 32]>()),
-            v1: u8x32::from_array(*ptr.as_ptr().add(32).cast::<[u8; 32]>()),
+            v: u8x64::from_array(*ptr.as_ptr().cast::<[u8; 64]>()),
         }
     }
 
@@ -56,21 +56,15 @@ impl Stage1Parse for SimdInputPortable {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
     unsafe fn cmp_mask_against_input(&self, m: u8) -> u64 {
-        let mask = u8x32::splat(m);
-        let cmp_res_0 = self.v0.simd_eq(mask);
-        let res_0 = u64::from(cmp_res_0.to_bitmask());
-        let cmp_res_1 = self.v1.simd_eq(mask);
-        let res_1 = u64::from(cmp_res_1.to_bitmask());
-        res_0 | (res_1 << 32)
+        let mask = u8x64::splat(m);
+        self.v.simd_eq(mask).to_bitmask()
     }
 
     // find all values less than or equal than the content of maxval (using unsigned arithmetic)
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    unsafe fn unsigned_lteq_against_input(&self, maxval: u8x32) -> u64 {
-        let res_0: u64 = u64::from(self.v0.simd_le(maxval).to_bitmask());
-        let res_1: u64 = u64::from(self.v1.simd_le(maxval).to_bitmask());
-        res_0 | (res_1 << 32)
+    unsafe fn unsigned_lteq_against_input(&self, maxval: u8x64) -> u64 {
+        self.v.simd_le(maxval).to_bitmask()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -93,56 +87,35 @@ impl Stage1Parse for SimdInputPortable {
         // * carriage return 0x0d
         // these go into the next 2 buckets of the comparison (8/16)
 
-        const LOW_NIBBLE_MASK: u8x32 = u8x32::from_array(low_nibble_mask!());
-        const HIGH_NIBBLE_MASK: u8x32 = u8x32::from_array(high_nibble_mask!());
+        const LOW_NIBBLE_MASK: u8x64 = u8x64::from_array(low_nibble_mask!());
+        const HIGH_NIBBLE_MASK: u8x64 = u8x64::from_array(high_nibble_mask!());
 
-        let structural_shufti_mask: u8x32 = u8x32::splat(0b0000_0111); // 0x07
-        let whitespace_shufti_mask: u8x32 = u8x32::splat(0b0001_1000); // 0x18
+        let structural_shufti_mask: u8x64 = u8x64::splat(0b0000_0111); // 0x07
+        let whitespace_shufti_mask: u8x64 = u8x64::splat(0b0001_1000); // 0x18
 
         // FIXME: do we need this dance?
 
-        let v0_32 = i32x8::from_array(std::mem::transmute(*self.v0.as_array()));
-        let v0_shifted: Simd<i32, 8> = v0_32.shr(i32x8::splat(4));
-        let v0_shifted = u8x32::from_array(std::mem::transmute(v0_shifted));
+        let v32 = i32x16::from_array(std::mem::transmute(*self.v.as_array()));
+        let v_shifted = v32.shr(i32x16::splat(4));
+        let v_shifted = u8x64::from_array(std::mem::transmute(v_shifted));
 
         // We have to adjust the index here the reason being that while the avx instruction
         // only uses the lower 4 bits for index and the 8th bit for overflow (set to 0)
         // std::simd::swizzle uses all bits 5-8 for overflow, so we need to mask out
         // bit 6, 5 and 7 to get the correct behaviour
-        let v0_idx_low = self.v0 & u8x32::splat(0b1000_1111);
-        let v0_swizzle_low = LOW_NIBBLE_MASK.swizzle_dyn(v0_idx_low);
-        let v0_idx_high = v0_shifted & u8x32::splat(0b0000_1111);
-        let v0_swizzle_high = HIGH_NIBBLE_MASK.swizzle_dyn(v0_idx_high);
-        let v_lo = v0_swizzle_low & v0_swizzle_high;
+        let v_idx_low = self.v & u8x64::splat(0b1000_1111);
+        let v_swizzle_low = LOW_NIBBLE_MASK.swizzle_dyn(v_idx_low);
+        let v_idx_high = v_shifted & u8x64::splat(0b0000_1111);
+        let v_swizzle_high = HIGH_NIBBLE_MASK.swizzle_dyn(v_idx_high);
+        let v = v_swizzle_low & v_swizzle_high;
 
-        let v1_32 = i32x8::from_array(std::mem::transmute(*self.v1.as_array()));
-        let v1_shifted: Simd<i32, 8> = v1_32.shr(i32x8::splat(4));
-        let v1_shifted = u8x32::from_array(std::mem::transmute(v1_shifted));
+        let tmp: Mask<i8, 64> = (v & structural_shufti_mask).simd_eq(u8x64::splat(0));
 
-        // We have to adjust the index here the reason being that while the avx instruction
-        // only uses the lower 4 bits for index and the 8th bit for overflow (set to 0)
-        // std::simd::swizzle uses all bits 5-8 for overflow, so we need to mask out
-        // bit 6, 5 and 7 to get the correct behaviour
-        let v1_idx_low = self.v1 & u8x32::splat(0b1000_1111);
-        let v1_swizzle_low = LOW_NIBBLE_MASK.swizzle_dyn(v1_idx_low);
-        let v1_idx_high = v1_shifted & u8x32::splat(0b0000_1111);
-        let v1_swizzle_high = HIGH_NIBBLE_MASK.swizzle_dyn(v1_idx_high);
-        let v_hi = v1_swizzle_low & v1_swizzle_high;
+        *structurals = !tmp.to_bitmask();
 
-        let tmp_lo = (v_lo & structural_shufti_mask).simd_eq(u8x32::splat(0));
-        let tmp_hi = (v_hi & structural_shufti_mask).simd_eq(u8x32::splat(0));
+        let tmp_ws = (v & whitespace_shufti_mask).simd_eq(u8x64::splat(0));
 
-        let structural_res_0 = u64::from(tmp_lo.to_bitmask());
-        let structural_res_1 = u64::from(tmp_hi.to_bitmask());
-        *structurals = !(structural_res_0 | (structural_res_1 << 32));
-
-        let tmp_ws_lo = (v_lo & whitespace_shufti_mask).simd_eq(u8x32::splat(0));
-        let tmp_ws_hi = (v_hi & whitespace_shufti_mask).simd_eq(u8x32::splat(0));
-
-        let ws_res_0 = u64::from(tmp_ws_lo.to_bitmask());
-        let ws_res_1 = u64::from(tmp_ws_hi.to_bitmask());
-
-        *whitespace = !(ws_res_0 | (ws_res_1 << 32));
+        *whitespace = !(tmp_ws.to_bitmask());
     }
 
     // flatten out values in 'bits' assuming that they are are to have values of idx
@@ -211,12 +184,12 @@ impl Stage1Parse for SimdInputPortable {
 
     #[allow(clippy::cast_sign_loss)]
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn fill_s8(n: i8) -> u8x32 {
-        u8x32::splat(n as u8)
+    unsafe fn fill_s8(n: i8) -> u8x64 {
+        u8x64::splat(n as u8)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn zero() -> u8x32 {
-        u8x32::splat(0)
+    unsafe fn zero() -> u8x64 {
+        u8x64::splat(0)
     }
 }
