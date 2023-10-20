@@ -8,13 +8,23 @@ mod int {
     use perfcnt::linux::{HardwareEventType, PerfCounterBuilderLinux};
     use perfcnt::{AbstractPerfCounter, PerfCounter};
     use serde::{Deserialize, Serialize};
+    use simd_json::{Deserializer, Implementation};
     use std::io::BufReader;
 
     #[derive(Default, Serialize, Deserialize)]
     struct Stats {
+        algo: String,
         best: Stat,
         total: Stat,
         iters: u64,
+    }
+    impl Stats {
+        fn new(algo: Implementation) -> Self {
+            Stats {
+                algo: algo.to_string(),
+                ..Default::default()
+            }
+        }
     }
 
     #[derive(Default, Serialize, Deserialize)]
@@ -96,7 +106,7 @@ mod int {
             let branch_instructions = self.total.branch_instructions / self.iters;
 
             println!(
-                "{:20} {:10} {:10} {:10} {:10} {:10} {:10.3} {:10.3}",
+                "{:20} {:10} {:10} {:10} {:10} {:10} {:10.3} {:10.3} {:21}",
                 name,
                 cycles,
                 instructions,
@@ -104,7 +114,8 @@ mod int {
                 cache_misses,
                 cache_references,
                 ((self.best.cycles as f64) / bytes as f64),
-                ((cycles as f64) / bytes as f64)
+                ((cycles as f64) / bytes as f64),
+                self.algo
             );
         }
         pub fn print_diff(&self, baseline: &Stats, name: &str, bytes: usize) {
@@ -135,7 +146,7 @@ mod int {
             }
 
             println!(
-                "{:20} {:>10} {:>10} {:>10} {:>10} {:>10} {:10} {:10}",
+                "{:20} {:>10} {:>10} {:>10} {:>10} {:>10} {:10} {:10} {:21}",
                 format!("{}(+/-)", name),
                 d((1.0 - cycles_b as f64 / cycles as f64) * 100.0),
                 d((1.0 - instructions_b as f64 / instructions as f64) * 100.0),
@@ -144,6 +155,7 @@ mod int {
                 d((1.0 - cache_references_b as f64 / cache_references as f64) * 100.0),
                 d((1.0 - best_cycles_per_byte_b as f64 / best_cycles_per_byte as f64) * 100.0),
                 d((1.0 - cycles_per_byte_b as f64 / cycles_per_byte as f64) * 100.0),
+                baseline.algo
             );
         }
     }
@@ -166,7 +178,7 @@ mod int {
         for mut bytes in &mut data_entries[..WARMUP as usize] {
             simd_json::to_borrowed_value(&mut bytes).unwrap();
         }
-        let mut stats = Stats::default();
+        let mut stats = Stats::new(Deserializer::algorithm());
         for mut bytes in &mut data_entries[WARMUP as usize..] {
             // Set up counters
             let pc = stats.start();
@@ -219,8 +231,8 @@ fn main() {
     let matches = opts.parse(&args[1..]).unwrap();
 
     println!(
-        "{:^20} {:^10} {:^21} {:^21} {:^21}",
-        " ", "", "Instructions", "Cache.", "Cycle/byte"
+        "{:^20} {:^10} {:^21} {:^21} {:^21} {:21}",
+        " ", "", "Instructions", "Cache.", "Cycle/byte", "Algorithm"
     );
     println!(
         "{:^20} {:^10} {:^10} {:^10} {:^10} {:^10} {:^10} {:^10}",
