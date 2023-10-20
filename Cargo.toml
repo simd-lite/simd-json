@@ -15,15 +15,12 @@ rust-version = "1.61"
 getrandom = { version = "0.2", features = ["js"] }
 
 [dependencies]
+simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
+
 lexical-core = { version = "0.8", features = ["format"] }
 beef = { version = "0.5", optional = true }
 halfbrown = "0.2"
 value-trait = { version = "0.6.1" }
-simdutf8 = { version = "0.1.4", features = [
-    "public_imp",
-    "aarch64_neon",
-], path = "../simdutf8" }
-
 # ahash known key
 once_cell = { version = "1.17", optional = true }
 ahash = { version = "0.8", optional = true }
@@ -106,7 +103,7 @@ perf = ["perfcnt", "getopts", "colored", "serde_json"]
 docsrs = []
 
 # portable simd support (as of rust 1.73 nightly only)
-portable = ["simdutf8/portable"]
+# portable = ["simdutf8/portable"]
 
 
 # use runtime detection of the CPU features where possible instead of enforcing an instruction set
