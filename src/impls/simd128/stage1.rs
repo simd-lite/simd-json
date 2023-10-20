@@ -173,7 +173,7 @@ impl Stage1Parse for SimdInput {
         // We later indiscriminatory writre over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        let fial_len = l + cnt;
+        let final_len = l + cnt;
 
         while bits != 0 {
             let v0 = bits.trailing_zeros();
