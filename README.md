@@ -27,6 +27,12 @@ To be able to take advantage of `simd-json` your system needs to be SIMD capable
 `simd-json` supports AVX2, SSE4.2 and NEON and simd128 (wasm) natively, it also includes a unoptimized fallback implementation using native rust for other platforms, however this is a last resport measure and nothing we'd recommend relying on.
 
 
+### Performance characteristics
+
+- CPU native cpu compilation results in the best performance.
+- CPU detection for AVX and SSE4.2 is the second fastes (on x86_* only).
+- portable std::simd is the next fasted implementaiton when compiled with a native cpu target.
+- std::simd or the rust native implementation is the least performant.
 
 ### allocator
 
@@ -35,6 +41,8 @@ For best performance we highly suggest using [mimalloc](https://crates.io/crates
 ### `runtime-detection`
 
 This feature allowa selecting the optimal algorithn based on availalbe features during runeimte, it has no effect on non x86 or x86_64 platforms. When neither `AVX2` nor `SSE4.2` is spported it will fallback to a native rust implementaiton.
+
+note that a application compiled with `runtime-detection` will not run as fast as an applicaiton compiled for a specific CPU, the reason being is that rust can't optimize as far to the instruction set when it uses the generic instruction set, also non simd parts of the code won't be optimized for the given instruction set either.
 
 ### `portable`
 
