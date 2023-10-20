@@ -5,8 +5,7 @@ use crate::value::tape::Node;
 use crate::{Deserializer, Error, ErrorType, InternalError, Result};
 use value_trait::StaticNode;
 
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
-#[allow(clippy::cast_ptr_alignment)]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     debug_assert!(loc.len() >= 8, "loc too short for a u64 read");
 
@@ -18,8 +17,6 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
         const TV: u64 = 0x00_00_00_00_65_75_72_74;
         const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
 
-        // TODO: does this has the same effect as:
-        //   std::memcpy(&locval, loc, sizeof(uint64_t));
         let locval: u64 = loc.as_ptr().cast::<u64>().read_unaligned();
 
         error = (locval & MASK4) ^ TV;
@@ -34,50 +31,48 @@ macro_rules! get {
     }};
 }
 
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
-#[allow(clippy::cast_ptr_alignment, unused_unsafe)]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn is_valid_false_atom(loc: &[u8]) -> bool {
+    const FV: u64 = 0x00_00_00_65_73_6c_61_66;
+    const MASK5: u64 = 0x00_00_00_ff_ff_ff_ff_ff;
+
     debug_assert!(loc.len() >= 8, "loc too short for a u64 read");
 
     // TODO: this is ugly and probably copies data every time
     let mut error: u64;
-    unsafe {
-        //let fv: u64 = *(b"false   ".as_ptr() as *const u64);
-        // this is the same:
+    //let fv: u64 = *(b"false   ".as_ptr() as *const u64);
+    // this is the same:
 
-        const FV: u64 = 0x00_00_00_65_73_6c_61_66;
-        const MASK5: u64 = 0x00_00_00_ff_ff_ff_ff_ff;
+    let locval: u64 = unsafe { loc.as_ptr().cast::<u64>().read_unaligned() };
 
-        let locval: u64 = loc.as_ptr().cast::<u64>().read_unaligned();
+    // FIXME the original code looks like this:
+    // error = ((locval & mask5) ^ fv) as u32;
+    // but that fails on falsy as the u32 conversion
+    // will mask the error on the y so we re-write it
+    // it would be interesting what the consequences are
+    error = (locval & MASK5) ^ FV;
+    error |= u64::from(is_not_structural_or_whitespace(*get!(loc, 5)));
 
-        // FIXME the original code looks like this:
-        // error = ((locval & mask5) ^ fv) as u32;
-        // but that fails on falsy as the u32 conversion
-        // will mask the error on the y so we re-write it
-        // it would be interesting what the consequences are
-        error = (locval & MASK5) ^ FV;
-        error |= u64::from(is_not_structural_or_whitespace(*get!(loc, 5)));
-    }
     error == 0
 }
 
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
-#[allow(clippy::cast_ptr_alignment, unused_unsafe)]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn is_valid_null_atom(loc: &[u8]) -> bool {
+    //let nv: u64 = *(b"null   ".as_ptr() as *const u64);
+    // this is the same:
+    const NV: u64 = 0x00_00_00_00_6c_6c_75_6e;
+    const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
+
     debug_assert!(loc.len() >= 8, "loc too short for a u64 read");
 
     // TODO is this expensive?
     let mut error: u64;
-    unsafe {
-        //let nv: u64 = *(b"null   ".as_ptr() as *const u64);
-        // this is the same:
-        const NV: u64 = 0x00_00_00_00_6c_6c_75_6e;
-        const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
-        let locval: u64 = loc.as_ptr().cast::<u64>().read_unaligned();
 
-        error = (locval & MASK4) ^ NV;
-        error |= u64::from(is_not_structural_or_whitespace(*get!(loc, 4)));
-    }
+    let locval: u64 = unsafe { loc.as_ptr().cast::<u64>().read_unaligned() };
+
+    error = (locval & MASK4) ^ NV;
+    error |= u64::from(is_not_structural_or_whitespace(*get!(loc, 4)));
+
     error == 0
 }
 
@@ -96,12 +91,7 @@ enum StackState {
 
 impl<'de> Deserializer<'de> {
     #[inline]
-    #[allow(
-        clippy::cognitive_complexity,
-        clippy::too_many_lines,
-        unused_unsafe,
-        clippy::uninit_vec
-    )]
+    #[allow(clippy::cognitive_complexity, clippy::too_many_lines, unused_unsafe)]
     pub(crate) fn build_tape(
         input: &'de mut [u8],
         input2: &[u8],

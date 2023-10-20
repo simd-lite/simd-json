@@ -22,12 +22,12 @@ const STRUCTURAL_OR_WHITESPACE: [u32; 256] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn is_not_structural_or_whitespace(c: u8) -> u32 {
     unsafe { *STRUCTURAL_OR_WHITESPACE_NEGATED.get_kinda_unchecked(c as usize) }
 }
 
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn is_structural_or_whitespace(c: u8) -> u32 {
     unsafe { *STRUCTURAL_OR_WHITESPACE.get_kinda_unchecked(c as usize) }
 }

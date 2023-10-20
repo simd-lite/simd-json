@@ -9,13 +9,7 @@
     clippy::pedantic,
     missing_docs
 )]
-// We might want to revisit inline_always
-#![allow(
-    clippy::module_name_repetitions,
-    clippy::inline_always,
-    clippy::arc_with_non_send_sync,
-    renamed_and_removed_lints
-)]
+#![allow(clippy::module_name_repetitions, renamed_and_removed_lints)]
 
 //! simd-json is a rust port of the simdjson c++ library. It follows
 //! most of the design closely with a few exceptions to make it better
@@ -245,8 +239,7 @@ pub(crate) trait Stage1Parse {
     // Note that we don't do any error checking to see if we have backslash
     // sequences outside quotes; these
     // backslash sequences (of any length) will be detected elsewhere.
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    #[allow(overflowing_literals, clippy::cast_sign_loss)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn find_quote_mask_and_bits(
         &self,
         odd_ends: u64,
@@ -284,7 +277,7 @@ pub(crate) trait Stage1Parse {
     // indicate whether we end an iteration on an odd-length sequence of
     // backslashes, which modifies our subsequent search for odd-length
     // sequences of backslashes in an obvious way.
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn find_odd_backslash_sequences(&self, prev_iter_ends_odd_backslash: &mut u64) -> u64 {
         const EVEN_BITS: u64 = 0x5555_5555_5555_5555;
         const ODD_BITS: u64 = !EVEN_BITS;
@@ -322,7 +315,7 @@ pub(crate) trait Stage1Parse {
     // iteration ended on a whitespace or a structural character (which means that
     // the next iteration
     // will have a pseudo-structural character at its start)
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn finalize_structurals(
         mut structurals: u64,
         whitespace: u64,
@@ -388,14 +381,25 @@ impl<'de> From<*mut u8> for SillyWrapper<'de> {
     }
 }
 
-// The runtime detection code is inspired from simdutf8's implementation
+#[cfg(all(
+    feature = "runtime-detection",
+    any(target_arch = "x86_64", target_arch = "x86"),
+))] // The runtime detection code is inspired from simdutf8's implementation
 type FnRaw = *mut ();
+#[cfg(all(
+    feature = "runtime-detection",
+    any(target_arch = "x86_64", target_arch = "x86"),
+))]
 type ParseStrFn = for<'invoke, 'de> unsafe fn(
     SillyWrapper<'de>,
     &'invoke [u8],
     &'invoke mut [u8],
     usize,
 ) -> std::result::Result<&'de str, error::Error>;
+#[cfg(all(
+    feature = "runtime-detection",
+    any(target_arch = "x86_64", target_arch = "x86"),
+))]
 type FindStructuralBitsFn = unsafe fn(
     input: &[u8],
     structural_indexes: &mut Vec<u32>,
@@ -403,7 +407,60 @@ type FindStructuralBitsFn = unsafe fn(
 
 impl<'de> Deserializer<'de> {
     #[inline]
+    #[cfg(all(
+        feature = "runtime-detection",
+        any(target_arch = "x86_64", target_arch = "x86"),
+    ))]
+    pub(crate) unsafe fn parse_str_<'invoke>(
+        input: *mut u8,
+        data: &'invoke [u8],
+        buffer: &'invoke mut [u8],
+        idx: usize,
+    ) -> Result<&'de str>
+    where
+        'de: 'invoke,
+    {
+        use std::sync::atomic::{AtomicPtr, Ordering};
+
+        static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
+
+        #[inline]
+        fn get_fastest_available_implementation() -> ParseStrFn {
+            if std::is_x86_feature_detected!("avx2") {
+                impls::avx2::parse_str
+            } else if std::is_x86_feature_detected!("sse4.2") {
+                impls::sse42::parse_str
+            } else {
+                #[cfg(feature = "portable")]
+                let r = impls::portable::parse_str;
+                #[cfg(not(feature = "portable"))]
+                let r = impls::native::parse_str;
+                r
+            }
+        }
+
+        #[inline]
+        unsafe fn get_fastest<'invoke, 'de>(
+            input: SillyWrapper<'de>,
+            data: &'invoke [u8],
+            buffer: &'invoke mut [u8],
+            idx: usize,
+        ) -> core::result::Result<&'de str, error::Error>
+        where
+            'de: 'invoke,
+        {
+            let fun = get_fastest_available_implementation();
+            FN.store(fun as FnRaw, Ordering::Relaxed);
+            (fun)(input, data, buffer, idx)
+        }
+
+        let input: SillyWrapper<'de> = SillyWrapper::from(input);
+        let fun = FN.load(Ordering::Relaxed);
+        mem::transmute::<FnRaw, ParseStrFn>(fun)(input, data, buffer, idx)
+    }
+    #[inline]
     #[cfg(not(any(
+        feature = "runtime-detection",
         target_feature = "avx2",
         target_feature = "sse4.2",
         target_feature = "simd128",
@@ -419,71 +476,40 @@ impl<'de> Deserializer<'de> {
         'de: 'invoke,
     {
         let input: SillyWrapper<'de> = SillyWrapper::from(input);
-        #[cfg(all(
-            feature = "runtime-detection",
-            any(target_arch = "x86_64", target_arch = "x86"),
-        ))]
-        {
-            use std::sync::atomic::{AtomicPtr, Ordering};
 
-            static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
-
-            #[inline]
-            fn get_fastest_available_implementation() -> ParseStrFn {
-                if std::is_x86_feature_detected!("avx2") {
-                    impls::avx2::deser::parse_str
-                } else if std::is_x86_feature_detected!("sse4.2") {
-                    impls::sse42::deser::parse_str
-                } else {
-                    #[cfg(feature = "portable")]
-                    let r = impls::portable::deser::parse_str;
-                    #[cfg(not(feature = "portable"))]
-                    let r = impls::native::deser::parse_str;
-                    r
-                }
-            }
-
-            #[inline]
-            unsafe fn get_fastest<'invoke, 'de>(
-                input: SillyWrapper<'de>,
-                data: &'invoke [u8],
-                buffer: &'invoke mut [u8],
-                idx: usize,
-            ) -> core::result::Result<&'de str, error::Error>
-            where
-                'de: 'invoke,
-            {
-                let fun = get_fastest_available_implementation();
-                FN.store(fun as FnRaw, Ordering::Relaxed);
-                (fun)(input, data, buffer, idx)
-            }
-
-            let fun = FN.load(Ordering::Relaxed);
-            mem::transmute::<FnRaw, ParseStrFn>(fun)(input, data, buffer, idx)
-        }
-        #[cfg(not(all(
-            feature = "runtime-detection",
-            any(target_arch = "x86_64", target_arch = "x86"),
-        )))]
-        {
-            #[cfg(feature = "portable")]
-            let r = impls::portable::deser::parse_str(input, data, buffer, idx);
-            #[cfg(not(feature = "portable"))]
-            let r = impls::native::deser::parse_str(input, data, buffer, idx);
-
-            r
-        }
+        #[cfg(feature = "portable")]
+        let r = impls::portable::parse_str(input, data, buffer, idx);
+        #[cfg(not(feature = "portable"))]
+        let r = impls::native::parse_str(input, data, buffer, idx);
+        r
     }
 
     #[inline]
-    #[cfg(feature = "sse4.2")]
+    #[cfg(all(target_feature = "avx2", not(feature = "runtime-detection")))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
         buffer: &'invoke mut [u8],
         idx: usize,
-    ) -> std::result::Result<Vec<u32>, ErrorType> {
-        impls::sse42::deser::parse_str(input, data, buffer, idx)
+    ) -> Result<&'de str> {
+        let input: SillyWrapper<'de> = SillyWrapper::from(input);
+        impls::avx2::parse_str(input, data, buffer, idx)
+    }
+
+    #[inline]
+    #[cfg(all(
+        target_feature = "sse4.2",
+        not(feature = "runtime-detection"),
+        not(target_feature = "avx2")
+    ))]
+    pub(crate) unsafe fn parse_str_<'invoke>(
+        input: *mut u8,
+        data: &'invoke [u8],
+        buffer: &'invoke mut [u8],
+        idx: usize,
+    ) -> Result<&'de str> {
+        let input: SillyWrapper<'de> = SillyWrapper::from(input);
+        impls::sse42::parse_str(input, data, buffer, idx)
     }
 
     #[inline]
@@ -493,8 +519,8 @@ impl<'de> Deserializer<'de> {
         data: &'invoke [u8],
         buffer: &'invoke mut [u8],
         idx: usize,
-    ) -> std::result::Result<Vec<u32>, ErrorType> {
-        impls::neon::deser::parse_str(input, data, buffer, idx)
+    ) -> Result<&'de str> {
+        impls::neon::parse_str(input, data, buffer, idx)
     }
     #[inline]
     #[cfg(target_feature = "simd128")]
@@ -503,31 +529,59 @@ impl<'de> Deserializer<'de> {
         data: &'invoke [u8],
         buffer: &'invoke mut [u8],
         idx: usize,
-    ) -> std::result::Result<Vec<u32>, ErrorType> {
-        impls::simd128::deser::parse_str(input, data, buffer, idx)
-    }
-
-    #[inline]
-    #[cfg(feature = "avx2")]
-    pub(crate) unsafe fn parse_str_<'invoke>(
-        input: *mut u8,
-        data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
-        idx: usize,
-    ) -> std::result::Result<Vec<u32>, ErrorType> {
-        impls::avx2::deser::parse_str(input, data, buffer, idx)
+    ) -> Result<&'de str> {
+        let input: SillyWrapper<'de> = SillyWrapper::from(input);
+        impls::simd128::parse_str(input, data, buffer, idx)
     }
 }
 
 /// architecture dependant `find_structural_bits`
 impl<'de> Deserializer<'de> {
-    // This version is the runtime detection version, it is only enabled if the `runtime-detection`
-    // feature is enabled and we are not on neon or wasm platforms
-    //
-    // We do allow non x86 platforms for this as well as it provides a fallback with std::simd and
-    // rust native implementations
+    #[inline]
+    #[cfg(all(
+        feature = "runtime-detection",
+        any(target_arch = "x86_64", target_arch = "x86"),
+    ))]
+    pub(crate) unsafe fn find_structural_bits(
+        input: &[u8],
+        structural_indexes: &mut Vec<u32>,
+    ) -> std::result::Result<(), ErrorType> {
+        use std::sync::atomic::{AtomicPtr, Ordering};
+
+        static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
+
+        #[inline]
+        fn get_fastest_available_implementation() -> FindStructuralBitsFn {
+            if std::is_x86_feature_detected!("avx2") {
+                Deserializer::_find_structural_bits::<impls::avx2::SimdInput>
+            } else if std::is_x86_feature_detected!("sse4.2") {
+                Deserializer::_find_structural_bits::<impls::sse42::SimdInput>
+            } else {
+                #[cfg(feature = "portable")]
+                let r = Deserializer::_find_structural_bits::<impls::portable::SimdInput>;
+                #[cfg(not(feature = "portable"))]
+                let r = Deserializer::_find_structural_bits::<impls::native::SimdInput>;
+                r
+            }
+        }
+
+        #[inline]
+        unsafe fn get_fastest(
+            input: &[u8],
+            structural_indexes: &mut Vec<u32>,
+        ) -> core::result::Result<(), error::ErrorType> {
+            let fun = get_fastest_available_implementation();
+            FN.store(fun as FnRaw, Ordering::Relaxed);
+            (fun)(input, structural_indexes)
+        }
+
+        let fun = FN.load(Ordering::Relaxed);
+        mem::transmute::<FnRaw, FindStructuralBitsFn>(fun)(input, structural_indexes)
+    }
+
     #[inline]
     #[cfg(not(any(
+        feature = "runtime-detection",
         target_feature = "avx2",
         target_feature = "sse4.2",
         target_feature = "simd128",
@@ -537,71 +591,25 @@ impl<'de> Deserializer<'de> {
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
-        #[cfg(all(
-            feature = "runtime-detection",
-            any(target_arch = "x86_64", target_arch = "x86"),
-        ))]
-        {
-            use std::sync::atomic::{AtomicPtr, Ordering};
-
-            static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
-
-            #[inline]
-            fn get_fastest_available_implementation() -> FindStructuralBitsFn {
-                if std::is_x86_feature_detected!("avx2") {
-                    Deserializer::_find_structural_bits::<impls::avx2::SimdInput>
-                } else if std::is_x86_feature_detected!("sse4.2") {
-                    Deserializer::_find_structural_bits::<impls::sse42::SimdInput>
-                } else {
-                    #[cfg(feature = "portable")]
-                    let r = Deserializer::_find_structural_bits::<impls::portable::SimdInput>;
-                    #[cfg(not(feature = "portable"))]
-                    let r = Deserializer::_find_structural_bits::<impls::native::SimdInput>;
-                    r
-                }
-            }
-
-            #[inline]
-            unsafe fn get_fastest(
-                input: &[u8],
-                structural_indexes: &mut Vec<u32>,
-            ) -> core::result::Result<(), error::ErrorType> {
-                let fun = get_fastest_available_implementation();
-                FN.store(fun as FnRaw, Ordering::Relaxed);
-                (fun)(input, structural_indexes)
-            }
-
-            let fun = FN.load(Ordering::Relaxed);
-            mem::transmute::<FnRaw, FindStructuralBitsFn>(fun)(input, structural_indexes)
-        }
-
-        #[cfg(not(all(
-            feature = "runtime-detection",
-            any(target_arch = "x86_64", target_arch = "x86"),
-        )))]
-        {
-            #[cfg(not(feature = "portable"))]
-            let r = {
-                // This is a nasty hack, we don't have a chunked implementation for native rust
-                // so we validate UTF8 ahead of time
-                match core::str::from_utf8(input) {
-                    Ok(_) => (),
-                    Err(_) => return Err(ErrorType::InvalidUtf8),
-                };
-                #[cfg(not(feature = "portable"))]
-                Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
+        #[cfg(not(feature = "portable"))]
+        let r = {
+            // This is a nasty hack, we don't have a chunked implementation for native rust
+            // so we validate UTF8 ahead of time
+            match core::str::from_utf8(input) {
+                Ok(_) => (),
+                Err(_) => return Err(ErrorType::InvalidUtf8),
             };
-            #[cfg(feature = "portable")]
-            let r = Self::_find_structural_bits::<impls::portable::SimdInput>(
-                input,
-                structural_indexes,
-            );
-            r
-        }
+            #[cfg(not(feature = "portable"))]
+            Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
+        };
+        #[cfg(feature = "portable")]
+        let r =
+            Self::_find_structural_bits::<impls::portable::SimdInput>(input, structural_indexes);
+        r
     }
 
     #[inline]
-    #[cfg(target_feature = "avx2")]
+    #[cfg(all(target_feature = "avx2", not(feature = "runtime-detection")))]
     pub(crate) unsafe fn find_structural_bits(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
@@ -610,7 +618,11 @@ impl<'de> Deserializer<'de> {
     }
 
     #[inline]
-    #[cfg(target_feature = "sse4.2")]
+    #[cfg(all(
+        target_feature = "sse4.2",
+        not(feature = "runtime-detection"),
+        not(target_feature = "avx2")
+    ))]
     pub(crate) unsafe fn find_structural_bits(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
@@ -643,12 +655,12 @@ impl<'de> Deserializer<'de> {
         self.tape
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn error(error: ErrorType) -> Error {
         Error::new(0, None, error)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn error_c(idx: usize, c: char, error: ErrorType) -> Error {
         Error::new(idx, Some(c), error)
     }
@@ -720,7 +732,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg(feature = "serde_impl")]
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn skip(&mut self) {
         self.idx += 1;
     }
@@ -732,13 +744,13 @@ impl<'de> Deserializer<'de> {
     ///
     /// This function is not safe to use, it is meant for internal use
     /// where it's know the tape isn't finished.
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub unsafe fn next_(&mut self) -> Node<'de> {
         self.idx += 1;
         *self.tape.get_kinda_unchecked(self.idx)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_truncation)]
     pub(crate) unsafe fn _find_structural_bits<S: Stage1Parse>(
         input: &[u8],
@@ -807,7 +819,6 @@ impl<'de> Deserializer<'de> {
 
             // take the previous iterations structural bits, not our current iteration,
             // and flatten
-            #[allow(clippy::cast_possible_truncation)]
             S::flatten_bits(structural_indexes, idx as u32, structurals);
 
             let mut whitespace: u64 = 0;

@@ -1,6 +1,8 @@
-use std::arch::wasm32::*;
-
 use crate::Stage1Parse;
+use std::arch::wasm32::{
+    i8x16_splat, u32x4, u32x4_add, u32x4_splat, u8x16, u8x16_bitmask, u8x16_eq, u8x16_le,
+    u8x16_shr, u8x16_splat, u8x16_swizzle, v128, v128_and, v128_load, v128_store,
+};
 
 #[derive(Debug)]
 pub(crate) struct SimdInput {
@@ -25,7 +27,7 @@ impl Stage1Parse for SimdInput {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn compute_quote_mask(mut quote_bits: u64) -> u64 {
         #[allow(clippy::cast_sign_loss)]
         let b = -1_i64 as u64;
@@ -40,35 +42,35 @@ impl Stage1Parse for SimdInput {
     }
 
     /// a straightforward comparison of a mask against input
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn cmp_mask_against_input(&self, m: u8) -> u64 {
         let mask = u8x16_splat(m);
         let cmp_res_0 = u8x16_eq(self.v0, mask);
-        let res_0 = u8x16_bitmask(cmp_res_0) as u64;
+        let res_0 = u64::from(u8x16_bitmask(cmp_res_0));
         let cmp_res_1 = u8x16_eq(self.v1, mask);
-        let res_1 = u8x16_bitmask(cmp_res_1) as u64;
+        let res_1 = u64::from(u8x16_bitmask(cmp_res_1));
         let cmp_res_2 = u8x16_eq(self.v2, mask);
-        let res_2 = u8x16_bitmask(cmp_res_2) as u64;
+        let res_2 = u64::from(u8x16_bitmask(cmp_res_2));
         let cmp_res_3 = u8x16_eq(self.v3, mask);
-        let res_3 = u8x16_bitmask(cmp_res_3) as u64;
+        let res_3 = u64::from(u8x16_bitmask(cmp_res_3));
         res_0 | (res_1 << 16) | (res_2 << 32) | (res_3 << 48)
     }
 
     // find all values less than or equal than the content of maxval (using unsigned arithmetic)
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn unsigned_lteq_against_input(&self, maxval: v128) -> u64 {
         let cmp_res_0 = u8x16_le(self.v0, maxval);
-        let res_0 = u8x16_bitmask(cmp_res_0) as u64;
+        let res_0 = u64::from(u8x16_bitmask(cmp_res_0));
         let cmp_res_1 = u8x16_le(self.v1, maxval);
-        let res_1 = u8x16_bitmask(cmp_res_1) as u64;
+        let res_1 = u64::from(u8x16_bitmask(cmp_res_1));
         let cmp_res_2 = u8x16_le(self.v2, maxval);
-        let res_2 = u8x16_bitmask(cmp_res_2) as u64;
+        let res_2 = u64::from(u8x16_bitmask(cmp_res_2));
         let cmp_res_3 = u8x16_le(self.v3, maxval);
-        let res_3 = u8x16_bitmask(cmp_res_3) as u64;
+        let res_3 = u64::from(u8x16_bitmask(cmp_res_3));
         res_0 | (res_1 << 16) | (res_2 << 32) | (res_3 << 48)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     unsafe fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64) {
         // do a 'shufti' to detect structural JSON characters
@@ -129,10 +131,10 @@ impl Stage1Parse for SimdInput {
         let tmp_v2 = u8x16_eq(v128_and(v_v2, structural_shufti_mask), zero_mask);
         let tmp_v3 = u8x16_eq(v128_and(v_v3, structural_shufti_mask), zero_mask);
 
-        let structural_res_0 = u8x16_bitmask(tmp_v0) as u64;
-        let structural_res_1 = u8x16_bitmask(tmp_v1) as u64;
-        let structural_res_2 = u8x16_bitmask(tmp_v2) as u64;
-        let structural_res_3 = u8x16_bitmask(tmp_v3) as u64;
+        let structural_res_0 = u64::from(u8x16_bitmask(tmp_v0));
+        let structural_res_1 = u64::from(u8x16_bitmask(tmp_v1));
+        let structural_res_2 = u64::from(u8x16_bitmask(tmp_v2));
+        let structural_res_3 = u64::from(u8x16_bitmask(tmp_v3));
 
         *structurals = !(structural_res_0
             | (structural_res_1 << 16)
@@ -144,10 +146,10 @@ impl Stage1Parse for SimdInput {
         let tmp_ws_v2 = u8x16_eq(v128_and(v_v2, whitespace_shufti_mask), zero_mask);
         let tmp_ws_v3 = u8x16_eq(v128_and(v_v3, whitespace_shufti_mask), zero_mask);
 
-        let ws_res_0 = u8x16_bitmask(tmp_ws_v0) as u64;
-        let ws_res_1 = u8x16_bitmask(tmp_ws_v1) as u64;
-        let ws_res_2 = u8x16_bitmask(tmp_ws_v2) as u64;
-        let ws_res_3 = u8x16_bitmask(tmp_ws_v3) as u64;
+        let ws_res_0 = u64::from(u8x16_bitmask(tmp_ws_v0));
+        let ws_res_1 = u64::from(u8x16_bitmask(tmp_ws_v1));
+        let ws_res_2 = u64::from(u8x16_bitmask(tmp_ws_v2));
+        let ws_res_3 = u64::from(u8x16_bitmask(tmp_ws_v3));
 
         *whitespace = !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48));
     }
@@ -158,7 +160,7 @@ impl Stage1Parse for SimdInput {
     // will potentially store extra values beyond end of valid bits, so base_ptr
     // needs to be large enough to handle this
     //TODO: usize was u32 here does this matter?
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
@@ -171,31 +173,35 @@ impl Stage1Parse for SimdInput {
         // We later indiscriminatory writre over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        base.set_len(l + cnt);
+        let fial_len = l + cnt;
 
         while bits != 0 {
-            let v0 = bits.trailing_zeros() as u32;
+            let v0 = bits.trailing_zeros();
             bits &= bits.wrapping_sub(1);
-            let v1 = bits.trailing_zeros() as u32;
+            let v1 = bits.trailing_zeros();
             bits &= bits.wrapping_sub(1);
-            let v2 = bits.trailing_zeros() as u32;
+            let v2 = bits.trailing_zeros();
             bits &= bits.wrapping_sub(1);
-            let v3 = bits.trailing_zeros() as u32;
+            let v3 = bits.trailing_zeros();
             bits &= bits.wrapping_sub(1);
 
             let v = u32x4(v0, v1, v2, v3);
             let v = u32x4_add(idx_64_v, v);
+            // v128_store requires no allignment
+            #[allow(clippy::cast_ptr_alignment)]
             v128_store(base.as_mut_ptr().add(l).cast::<v128>(), v);
             l += 4;
         }
+        // We have written all the data
+        base.set_len(final_len);
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn fill_s8(n: i8) -> v128 {
         i8x16_splat(n)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn zero() -> v128 {
         i8x16_splat(0)
     }

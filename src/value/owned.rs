@@ -24,7 +24,6 @@ mod from;
 mod serialize;
 
 use super::ObjectHasher;
-use crate::safer_unchecked::GetSaferUnchecked;
 use crate::{prelude::*, Buffers};
 use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
@@ -330,7 +329,7 @@ impl<'de> OwnedDeserializer<'de> {
     pub fn from_deserializer(de: Deserializer<'de>) -> Self {
         Self { de }
     }
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn parse(&mut self) -> Value {
         match unsafe { self.de.next_() } {
             Node::Static(s) => Value::Static(s),
@@ -340,23 +339,23 @@ impl<'de> OwnedDeserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    #[allow(clippy::uninit_vec)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn parse_array(&mut self, len: usize) -> Value {
         // Rust doesn't optimize the normal loop away here
         // so we write our own avoiding the length
         // checks during push
-        let mut res = Vec::with_capacity(len);
+        let mut res: Vec<Value> = Vec::with_capacity(len);
+        let res_ptr = res.as_mut_ptr();
         unsafe {
-            res.set_len(len);
             for i in 0..len {
-                std::ptr::write(res.get_kinda_unchecked_mut(i), self.parse());
+                res_ptr.add(i).write(self.parse());
             }
+            res.set_len(len);
         }
         Value::Array(res)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn parse_map(&mut self, len: usize) -> Value {
         let mut res = Object::with_capacity_and_hasher(len, ObjectHasher::default());
 

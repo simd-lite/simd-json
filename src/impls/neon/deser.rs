@@ -10,7 +10,7 @@ use std::arch::aarch64::{
     vreinterpretq_u32_u8,
 };
 
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
     unsafe {
         let quote_mask = vmovq_n_u8(b'"');
@@ -39,13 +39,8 @@ fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
     }
 }
 
-#[allow(
-    clippy::if_not_else,
-    clippy::if_not_else,
-    clippy::cast_ptr_alignment,
-    clippy::too_many_lines
-)]
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[allow(clippy::if_not_else, clippy::too_many_lines)]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn parse_str<'invoke, 'de>(
     input: *mut u8,
     data: &'invoke [u8],

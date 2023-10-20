@@ -54,7 +54,7 @@ impl std::error::Error for SerdeConversionError {}
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
 where
     T: Deserialize<'a>,
@@ -75,7 +75,7 @@ where
 /// This function mutates the string passed into it, it's a convinience wrapper around `from_slice`,
 /// holding the same guarantees as `str::as_bytes_mut` in that after the call &str might include
 /// invalid utf8 bytes.
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub unsafe fn from_str<'a, T>(s: &'a mut str) -> Result<T>
 where
     T: Deserialize<'a>,
@@ -91,7 +91,7 @@ where
 ///
 /// Will return `Err` if an IO error is encountered while reading
 /// rdr or if the readers content is invalid JSON.
-#[cfg_attr(not(feature = "no-inline"), inline(always))]
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn from_reader<R, T>(mut rdr: R) -> Result<T>
 where
     R: io::Read,
@@ -119,7 +119,7 @@ impl serde_ext::ser::Error for Error {
 
 // Functions purely used by serde
 impl<'de> Deserializer<'de> {
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next(&mut self) -> Result<Node<'de>> {
         self.idx += 1;
         self.tape
@@ -128,7 +128,7 @@ impl<'de> Deserializer<'de> {
             .ok_or_else(|| Self::error(ErrorType::Syntax))
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn peek(&self) -> Result<Node> {
         self.tape
             .get(self.idx + 1)
@@ -136,7 +136,7 @@ impl<'de> Deserializer<'de> {
             .ok_or_else(|| Self::error(ErrorType::Eof))
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u8(&mut self) -> Result<u8> {
         match unsafe { self.next_() } {
@@ -147,7 +147,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u16(&mut self) -> Result<u16> {
         match unsafe { self.next_() } {
@@ -158,7 +158,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u32(&mut self) -> Result<u32> {
         match unsafe { self.next_() } {
@@ -169,7 +169,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u64(&mut self) -> Result<u64> {
         match unsafe { self.next_() } {
@@ -180,7 +180,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u128(&mut self) -> Result<u128> {
         match unsafe { self.next_() } {
@@ -191,7 +191,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_i8(&mut self) -> Result<i8> {
         match unsafe { self.next_() } {
@@ -202,7 +202,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_i16(&mut self) -> Result<i16> {
         match unsafe { self.next_() } {
@@ -213,7 +213,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_i32(&mut self) -> Result<i32> {
         match unsafe { self.next_() } {
@@ -224,7 +224,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_i64(&mut self) -> Result<i64> {
         match unsafe { self.next_() } {
@@ -235,7 +235,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_i128(&mut self) -> Result<i128> {
         match unsafe { self.next_() } {
@@ -246,7 +246,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {
         match unsafe { self.next_() } {

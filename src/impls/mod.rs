@@ -1,4 +1,8 @@
-#[cfg(any(test, not(feature = "portable")))]
+#[cfg(all(
+    any(test, not(feature = "portable")),
+    not(target_arch = "aarch64"),
+    not(target_feature = "simd128")
+))]
 /// rust native implementation
 pub(crate) mod native;
 

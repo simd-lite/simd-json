@@ -14,7 +14,7 @@ pub trait GetSaferUnchecked<T> {
 }
 
 impl<T> GetSaferUnchecked<T> for [T] {
-    #[inline(always)]
+    #[inline]
     unsafe fn get_kinda_unchecked<I>(&self, index: I) -> &<I as SliceIndex<[T]>>::Output
     where
         I: SliceIndex<[T]>,
@@ -26,7 +26,7 @@ impl<T> GetSaferUnchecked<T> for [T] {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn get_kinda_unchecked_mut<I>(&mut self, index: I) -> &mut <I as SliceIndex<[T]>>::Output
     where
         I: SliceIndex<[T]>,

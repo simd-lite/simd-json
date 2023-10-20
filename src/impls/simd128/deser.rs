@@ -1,30 +1,27 @@
 use std::arch::wasm32::{u8x16_bitmask, u8x16_eq, u8x16_splat, v128, v128_load, v128_store};
 
-pub use crate::{
-    error::{Error, ErrorType},
-    Result,
-};
 use crate::{
+    error::ErrorType,
     safer_unchecked::GetSaferUnchecked,
     stringparse::{handle_unicode_codepoint, ESCAPE_MAP},
-    Deserializer,
+    Deserializer, Result, SillyWrapper,
 };
 
 #[target_feature(enable = "simd128")]
 #[allow(
     clippy::if_not_else,
-    clippy::cast_ptr_alignment,
     clippy::cast_possible_wrap,
     clippy::too_many_lines
 )]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn parse_str<'invoke, 'de>(
-    input: *mut u8,
+    input: SillyWrapper<'de>,
     data: &'invoke [u8],
     buffer: &'invoke mut [u8],
     mut idx: usize,
 ) -> Result<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
+    let input = input.input;
     // Add 1 to skip the initial "
     idx += 1;
 
@@ -36,7 +33,11 @@ pub(crate) fn parse_str<'invoke, 'de>(
     let mut src_i = 0;
     let mut len = src_i;
     loop {
-        let v = unsafe { v128_load(src.as_ptr().add(src_i).cast::<v128>()) };
+        let v = unsafe {
+            // v128_load requires no allignment
+            #[allow(clippy::cast_ptr_alignment)]
+            v128_load(src.as_ptr().add(src_i).cast::<v128>())
+        };
 
         let bs_bits = u8x16_bitmask(u8x16_eq(v, u8x16_splat(b'\\')));
         let quote_bits = u8x16_bitmask(u8x16_eq(v, u8x16_splat(b'"')));
@@ -81,9 +82,15 @@ pub(crate) fn parse_str<'invoke, 'de>(
 
     // To be more conform with upstream
     loop {
-        let v = unsafe { v128_load(src.as_ptr().add(src_i).cast::<v128>()) };
+        let v = unsafe {
+            // v128_load requires no allignment
+            #[allow(clippy::cast_ptr_alignment)]
+            v128_load(src.as_ptr().add(src_i).cast::<v128>())
+        };
 
         unsafe {
+            // v128_store requires no allignment
+            #[allow(clippy::cast_ptr_alignment)]
             v128_store(buffer.as_mut_ptr().add(dst_i).cast::<v128>(), v);
         };
 

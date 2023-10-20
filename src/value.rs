@@ -64,7 +64,6 @@ pub use self::owned::{
     to_value as to_owned_value, to_value_with_buffers as to_owned_value_with_buffers,
     Value as OwnedValue,
 };
-use crate::safer_unchecked::GetSaferUnchecked;
 use crate::{Deserializer, Result};
 use halfbrown::HashMap;
 use std::hash::Hash;
@@ -123,7 +122,7 @@ where
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn parse(&mut self) -> Value {
         match unsafe { self.de.next_() } {
             Node::Static(s) => Value::from(s),
@@ -133,23 +132,23 @@ where
         }
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    #[allow(clippy::uninit_vec)]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn parse_array(&mut self, len: usize) -> Value {
         // Rust doesn't optimize the normal loop away here
         // so we write our own avoiding the length
         // checks during push
-        let mut res = Vec::with_capacity(len);
+        let mut res: Vec<Value> = Vec::with_capacity(len);
+        let res_ptr = res.as_mut_ptr();
         unsafe {
-            res.set_len(len);
             for i in 0..len {
-                std::ptr::write(res.get_kinda_unchecked_mut(i), self.parse());
+                res_ptr.add(i).write(self.parse());
             }
+            res.set_len(len);
         }
         Value::from(res)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn parse_map(&mut self, len: usize) -> Value {
         let mut res: HashMap<Key, Value, ObjectHasher> =
             HashMap::with_capacity_and_hasher(len, ObjectHasher::default());

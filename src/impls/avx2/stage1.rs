@@ -15,8 +15,6 @@ use std::arch::x86_64::{
     _mm_clmulepi64_si128, _mm_cvtsi128_si64, _mm_set1_epi8, _mm_set_epi64x,
 };
 
-use std::mem;
-
 macro_rules! low_nibble_mask {
     () => {
         _mm256_setr_epi8(
@@ -45,6 +43,7 @@ impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = __m256i;
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    // _mm256_loadu_si256 does not need allignment
     #[allow(clippy::cast_ptr_alignment)]
     #[target_feature(enable = "avx2")]
     unsafe fn new(ptr: &[u8]) -> Self {
@@ -171,11 +170,7 @@ impl Stage1Parse for SimdInput {
     // needs to be large enough to handle this
     //TODO: usize was u32 here does this matter?
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(
-        clippy::cast_possible_wrap,
-        clippy::cast_ptr_alignment,
-        clippy::uninit_vec
-    )]
+    #[allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
     #[target_feature(enable = "avx2")]
     unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         let cnt: usize = bits.count_ones() as usize;
@@ -198,7 +193,7 @@ impl Stage1Parse for SimdInput {
         // We later indiscriminatory writre over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        base.set_len(l + cnt);
+        let final_len = l + cnt;
 
         while bits != 0 {
             let v0 = bits.trailing_zeros() as i32;
@@ -228,6 +223,8 @@ impl Stage1Parse for SimdInput {
             );
             l += 8;
         }
+        // We have written all the data
+        base.set_len(final_len);
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
