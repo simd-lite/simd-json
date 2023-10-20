@@ -10,7 +10,6 @@ impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::portable::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = u8x64;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(clippy::cast_ptr_alignment)]
     unsafe fn new(ptr: &[u8]) -> Self {
         Self {
             v: u8x64::from_array(*ptr.as_ptr().cast::<[u8; 64]>()),
@@ -18,7 +17,6 @@ impl Stage1Parse for SimdInput {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(clippy::cast_sign_loss)]
     unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
         let mut quote_mask: u64 = quote_bits ^ (quote_bits << 1);
         quote_mask = quote_mask ^ (quote_mask << 2);
@@ -31,7 +29,6 @@ impl Stage1Parse for SimdInput {
 
     /// a straightforward comparison of a mask against input
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
     unsafe fn cmp_mask_against_input(&self, m: u8) -> u64 {
         let mask = u8x64::splat(m);
         self.v.simd_eq(mask).to_bitmask()
@@ -39,13 +36,11 @@ impl Stage1Parse for SimdInput {
 
     // find all values less than or equal than the content of maxval (using unsigned arithmetic)
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(clippy::cast_sign_loss)]
     unsafe fn unsigned_lteq_against_input(&self, maxval: u8x64) -> u64 {
         self.v.simd_le(maxval).to_bitmask()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(clippy::cast_sign_loss, clippy::cast_lossless)]
     unsafe fn find_whitespace_and_structurals(&self, whitespace: &mut u64, structurals: &mut u64) {
         // do a 'shufti' to detect structural JSON characters
         // they are
@@ -110,11 +105,7 @@ impl Stage1Parse for SimdInput {
     // needs to be large enough to handle this
     //TODO: usize was u32 here does this matter?
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(
-        clippy::cast_possible_wrap,
-        clippy::cast_ptr_alignment,
-        clippy::uninit_vec
-    )]
+    #[allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
     unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
@@ -136,7 +127,7 @@ impl Stage1Parse for SimdInput {
         // We later indiscriminatory writre over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        base.set_len(l + cnt);
+        let final_len = l + cnt;
 
         while bits != 0 {
             let v0 = bits.trailing_zeros() as i32;
@@ -165,11 +156,13 @@ impl Stage1Parse for SimdInput {
             //
             l += 8;
         }
+        // We have written all the data
+        base.set_len(final_len);
     }
 
-    #[allow(clippy::cast_sign_loss)]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn fill_s8(n: i8) -> u8x64 {
+        #[allow(clippy::cast_sign_loss)]
         u8x64::splat(n as u8)
     }
 

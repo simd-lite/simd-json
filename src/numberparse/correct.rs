@@ -11,7 +11,7 @@ use crate::error::Error;
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::unlikely;
 use crate::StaticNode;
-use crate::{mem, static_cast_i64, Deserializer, ErrorType, Result};
+use crate::{static_cast_i64, Deserializer, ErrorType, Result};
 
 macro_rules! get {
     ($buf:ident, $idx:expr) => {

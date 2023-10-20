@@ -232,11 +232,7 @@ impl Stage1Parse for SimdInput {
     //TODO: usize was u32 here does this matter?
     #[target_feature(enable = "sse4.2")]
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(
-        clippy::cast_possible_wrap,
-        clippy::cast_ptr_alignment,
-        clippy::uninit_vec
-    )]
+    #[allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
     unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
@@ -254,7 +250,7 @@ impl Stage1Parse for SimdInput {
         // We later indiscriminatory writre over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        base.set_len(l + cnt);
+        let final_len = l + cnt;
 
         while bits != 0 {
             let v0 = bits.trailing_zeros() as i32;
@@ -271,6 +267,8 @@ impl Stage1Parse for SimdInput {
             _mm_storeu_si128(base.as_mut_ptr().add(l).cast::<arch::__m128i>(), v);
             l += 4;
         }
+        // We have written all the data
+        base.set_len(final_len);
     }
 
     #[target_feature(enable = "sse4.2")]

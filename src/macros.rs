@@ -1195,7 +1195,7 @@ macro_rules! json_unexpected {
 #[macro_export]
 macro_rules! likely {
     ($e:expr) => {
-        std::intrinsics::likely($e)
+        ::std::intrinsics::likely($e)
     };
 }
 
@@ -1204,7 +1204,7 @@ macro_rules! likely {
 #[macro_export]
 macro_rules! unlikely {
     ($e:expr) => {{
-        std::intrinsics::unlikely($e)
+        ::std::intrinsics::unlikely($e)
     }};
 }
 
@@ -1230,7 +1230,7 @@ macro_rules! unlikely {
 #[macro_export]
 macro_rules! static_cast_i8 {
     ($v:expr) => {
-        mem::transmute::<_, i8>($v)
+        ::std::transmute::<_, i8>($v)
     };
 }
 
@@ -1246,7 +1246,7 @@ macro_rules! static_cast_i32 {
 #[macro_export]
 macro_rules! static_cast_u32 {
     ($v:expr) => {
-        std::mem::transmute::<_, u32>($v)
+        ::std::mem::transmute::<_, u32>($v)
     };
 }
 
@@ -1254,7 +1254,7 @@ macro_rules! static_cast_u32 {
 #[macro_export]
 macro_rules! static_cast_i64 {
     ($v:expr) => {
-        mem::transmute::<_, i64>($v)
+        ::std::mem::transmute::<_, i64>($v)
     };
 }
 
@@ -1262,7 +1262,7 @@ macro_rules! static_cast_i64 {
 #[macro_export]
 macro_rules! static_cast_i128 {
     ($v:expr) => {
-        mem::transmute::<_, i128>($v)
+        ::std::mem::transmute::<_, i128>($v)
     };
 }
 
@@ -1270,7 +1270,7 @@ macro_rules! static_cast_i128 {
 #[macro_export]
 macro_rules! static_cast_u64 {
     ($v:expr) => {
-        mem::transmute::<_, u64>($v)
+        ::std::mem::transmute::<_, u64>($v)
     };
 }
 

@@ -1,8 +1,10 @@
+#![allow(unused_imports, dead_code)]
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
-pub(crate) mod deser;
+mod deser;
 mod stage1;
 
+pub(crate) use deser::parse_str;
 pub(crate) use stage1::SimdInput;
 
 /// This is a hack, since there is no native implementation of the chunked validator we pre-validate the entire

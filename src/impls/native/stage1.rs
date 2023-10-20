@@ -2,14 +2,13 @@
 
 use crate::{static_cast_i32, Stage1Parse};
 
-#[allow(non_camel_case_types)]
-type v128 = [u8; 16];
+type V128 = [u8; 16];
 
-fn u8x16_splat(n: u8) -> v128 {
+fn u8x16_splat(n: u8) -> V128 {
     [n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n]
 }
 
-fn v128_and(a: v128, b: v128) -> v128 {
+fn v128_and(a: V128, b: V128) -> V128 {
     [
         a[0] & b[0],
         a[1] & b[1],
@@ -30,7 +29,7 @@ fn v128_and(a: v128, b: v128) -> v128 {
     ]
 }
 
-fn u8x16_shr(a: v128, n: i32) -> v128 {
+fn u8x16_shr(a: V128, n: i32) -> V128 {
     [
         a[0] >> n,
         a[1] >> n,
@@ -51,7 +50,7 @@ fn u8x16_shr(a: v128, n: i32) -> v128 {
     ]
 }
 
-fn u8x16_swizzle(a: v128, s: v128) -> [u8; 16] {
+fn u8x16_swizzle(a: V128, s: V128) -> [u8; 16] {
     [
         if s[0] > 0x0f {
             0
@@ -197,7 +196,7 @@ fn bool_to_u8(b: bool) -> u8 {
         0x00
     }
 }
-fn u8x16_le(a: v128, b: v128) -> v128 {
+fn u8x16_le(a: V128, b: V128) -> V128 {
     [
         bool_to_u8(a[0] <= b[0]),
         bool_to_u8(a[1] <= b[1]),
@@ -218,7 +217,7 @@ fn u8x16_le(a: v128, b: v128) -> v128 {
     ]
 }
 
-fn u8x16_eq(a: v128, b: v128) -> v128 {
+fn u8x16_eq(a: V128, b: V128) -> V128 {
     [
         bool_to_u8(a[0] == b[0]),
         bool_to_u8(a[1] == b[1]),
@@ -239,7 +238,7 @@ fn u8x16_eq(a: v128, b: v128) -> v128 {
     ]
 }
 
-fn u8x16_bitmask(a: v128) -> u16 {
+fn u8x16_bitmask(a: V128) -> u16 {
     (a[0] & 0b1000_0000 != 0) as u16
         | (((a[1] & 0b1000_0000 != 0) as u16) << 1)
         | (((a[2] & 0b1000_0000 != 0) as u16) << 2)
@@ -261,7 +260,7 @@ fn u8x16_bitmask(a: v128) -> u16 {
 //     unsafe { mem::transmute(a) }
 // }
 
-// #[cfg_attr(not(feature = "no-inline"), inline(always))]
+// #[cfg_attr(not(feature = "no-inline"), inline)]
 // pub unsafe fn neon_movemask_bulk(
 //     p0: uint8x16_t,
 //     p1: uint8x16_t,
@@ -288,21 +287,21 @@ fn u8x16_bitmask(a: v128) -> u16 {
 
 #[derive(Debug)]
 pub(crate) struct SimdInput {
-    v0: v128,
-    v1: v128,
-    v2: v128,
-    v3: v128,
+    v0: V128,
+    v1: V128,
+    v2: V128,
+    v3: V128,
 }
 
 impl Stage1Parse for SimdInput {
     type Utf8Validator = super::ChunkedUtf8ValidatorImp;
-    type SimdRepresentation = v128;
+    type SimdRepresentation = V128;
     unsafe fn new(ptr: &[u8]) -> Self {
         SimdInput {
-            v0: *(ptr.as_ptr().cast::<v128>()),
-            v1: *(ptr.as_ptr().add(16).cast::<v128>()),
-            v2: *(ptr.as_ptr().add(32).cast::<v128>()),
-            v3: *(ptr.as_ptr().add(48).cast::<v128>()),
+            v0: *(ptr.as_ptr().cast::<V128>()),
+            v1: *(ptr.as_ptr().add(16).cast::<V128>()),
+            v2: *(ptr.as_ptr().add(32).cast::<V128>()),
+            v3: *(ptr.as_ptr().add(48).cast::<V128>()),
         }
     }
 
@@ -331,7 +330,7 @@ impl Stage1Parse for SimdInput {
         res_0 | (res_1 << 16) | (res_2 << 32) | (res_3 << 48)
     }
 
-    unsafe fn unsigned_lteq_against_input(&self, maxval: v128) -> u64 {
+    unsafe fn unsigned_lteq_against_input(&self, maxval: V128) -> u64 {
         let cmp_res_0 = u8x16_le(self.v0, maxval);
         let res_0 = u8x16_bitmask(cmp_res_0) as u64;
         let cmp_res_1 = u8x16_le(self.v1, maxval);
@@ -360,8 +359,8 @@ impl Stage1Parse for SimdInput {
         // * horizontal tab 0x09
         // * carriage return 0x0d
         // these go into the next 2 buckets of the comparison (8/16)
-        const LOW_NIBBLE_MASK: v128 = [16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0];
-        const HIGH_NIBBLE_MASK: v128 = [8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0];
+        const LOW_NIBBLE_MASK: V128 = [16, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0];
+        const HIGH_NIBBLE_MASK: V128 = [8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0];
 
         let structural_shufti_mask = u8x16_splat(0x7);
         let whitespace_shufti_mask = u8x16_splat(0x18);
@@ -425,12 +424,8 @@ impl Stage1Parse for SimdInput {
         *whitespace = !(ws_res_0 | (ws_res_1 << 16) | (ws_res_2 << 32) | (ws_res_3 << 48));
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline(always))]
-    #[allow(
-        clippy::cast_possible_wrap,
-        clippy::cast_ptr_alignment,
-        clippy::uninit_vec
-    )]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_possible_wrap, clippy::cast_ptr_alignment)]
     unsafe fn flatten_bits(base: &mut Vec<u32>, idx: u32, mut bits: u64) {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
@@ -448,7 +443,7 @@ impl Stage1Parse for SimdInput {
         // We later indiscriminatory writre over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
-        base.set_len(l + cnt);
+        let final_len = l + cnt;
 
         while bits != 0 {
             let v0 = bits.trailing_zeros() as i32;
@@ -469,13 +464,15 @@ impl Stage1Parse for SimdInput {
             std::ptr::write(base.as_mut_ptr().add(l).cast::<[i32; 4]>(), v);
             l += 4;
         }
+        // We have written all the data
+        base.set_len(final_len);
     }
 
-    unsafe fn fill_s8(n: i8) -> v128 {
+    unsafe fn fill_s8(n: i8) -> V128 {
         u8x16_splat(n as u8)
     }
 
-    unsafe fn zero() -> v128 {
+    unsafe fn zero() -> V128 {
         u8x16_splat(0)
     }
 }

@@ -20,7 +20,6 @@ use crate::{
 #[allow(
     clippy::if_not_else,
     clippy::cast_possible_wrap,
-    clippy::if_not_else,
     clippy::too_many_lines
 )]
 #[cfg_attr(not(feature = "no-inline"), inline)]

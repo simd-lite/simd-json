@@ -52,7 +52,7 @@ impl Writable for Value {
 trait Generator: BaseGenerator {
     type T: Write;
 
-    #[inline(always)]
+    #[inline]
     fn write_object(&mut self, object: &Object) -> io::Result<()> {
         if object.is_empty() {
             self.write(b"{}")
@@ -86,7 +86,7 @@ trait Generator: BaseGenerator {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn write_json(&mut self, json: &Value) -> io::Result<()> {
         match *json {
             Value::Static(StaticNode::Null) => self.write(b"null"),
@@ -139,7 +139,7 @@ trait Generator: BaseGenerator {
 trait FastGenerator: BaseGenerator {
     type T: Write;
 
-    #[inline(always)]
+    #[inline]
     fn write_object(&mut self, object: &Object) -> io::Result<()> {
         if object.is_empty() {
             self.write(b"{}")
@@ -168,7 +168,7 @@ trait FastGenerator: BaseGenerator {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn write_json(&mut self, json: &Value) -> io::Result<()> {
         match *json {
             Value::Static(StaticNode::Null) => self.write(b"null"),

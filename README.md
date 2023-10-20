@@ -24,13 +24,25 @@
 
 To be able to take advantage of `simd-json` your system needs to be SIMD capable. On `x86` it will select the best SIMD featureset (`avx2`, or `sse4.2`) during runtime. If `simd-json` is compiled with SIMD support, it will disable runtime detection.
 
-`simd-json` supports AVX2, SSE4.2 and NEON.
+`simd-json` supports AVX2, SSE4.2 and NEON and simd128 (wasm) natively, it also includes a unoptimized fallback implementation using native rust for other platforms, however this is a last resport measure and nothing we'd recommend relying on.
+
+
 
 ### allocator
 
 For best performance we highly suggest using [mimalloc](https://crates.io/crates/mimalloc) or [jemalloc](https://crates.io/crates/jemalloc) instead of the system allocator used by default. Another recent allocator that works well ( but we have yet to test in production a setting ) is [snmalloc](https://github.com/microsoft/snmalloc).
 
-## `serde`
+### `runtime-detection`
+
+This feature allowa selecting the optimal algorithn based on availalbe features during runeimte, it has no effect on non x86 or x86_64 platforms. When neither `AVX2` nor `SSE4.2` is spported it will fallback to a native rust implementaiton.
+
+### `portable`
+
+**Currently disabled**
+
+An implementation of the algorithm using `std::simd` and up to 512 byte wide registers, currently disabled due to dependencies and highly experimental.
+
+### `serde_impl`
 
 `simd-json` is compatible with serde and `serde-json`. The Value types provided implement serializers and deserializers. In addition to that `simd-json` implements the `Deserializer` trait for the parser so it can deserialize anything that implements the serde `Deserialize` trait. Note, that serde provides both a `Deserializer` and a `Deserialize` trait.
 
