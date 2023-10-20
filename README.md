@@ -24,25 +24,25 @@
 
 To be able to take advantage of `simd-json` your system needs to be SIMD capable. On `x86` it will select the best SIMD featureset (`avx2`, or `sse4.2`) during runtime. If `simd-json` is compiled with SIMD support, it will disable runtime detection.
 
-`simd-json` supports AVX2, SSE4.2 and NEON and simd128 (wasm) natively, it also includes a unoptimized fallback implementation using native rust for other platforms, however this is a last resport measure and nothing we'd recommend relying on.
+`simd-json` supports AVX2, SSE4.2 and NEON and simd128 (wasm) natively, it also includes an unoptimized fallback implementation using native rust for other platforms, however, this is a last resort measure and nothing we'd recommend relying on.
 
 
 ### Performance characteristics
 
 - CPU native cpu compilation results in the best performance.
 - CPU detection for AVX and SSE4.2 is the second fastes (on x86_* only).
-- portable std::simd is the next fasted implementaiton when compiled with a native cpu target.
+- portable std::simd is the next fasted implementation when compiled with a native cpu target.
 - std::simd or the rust native implementation is the least performant.
 
 ### allocator
 
-For best performance we highly suggest using [mimalloc](https://crates.io/crates/mimalloc) or [jemalloc](https://crates.io/crates/jemalloc) instead of the system allocator used by default. Another recent allocator that works well ( but we have yet to test in production a setting ) is [snmalloc](https://github.com/microsoft/snmalloc).
+For best performance, we highly suggest using [mimalloc](https://crates.io/crates/mimalloc) or [jemalloc](https://crates.io/crates/jemalloc) instead of the system allocator used by default. Another recent allocator that works well ( but we have yet to test in production a setting ) is [snmalloc](https://github.com/microsoft/snmalloc).
 
 ### `runtime-detection`
 
-This feature allowa selecting the optimal algorithn based on availalbe features during runeimte, it has no effect on non x86 or x86_64 platforms. When neither `AVX2` nor `SSE4.2` is spported it will fallback to a native rust implementaiton.
+This feature allows selecting the optimal algorithm based on available features during runtime, it has no effect on non x86 or x86_64 platforms. When neither `AVX2` nor `SSE4.2` is supported it will fallback to a native rust implementation.
 
-note that a application compiled with `runtime-detection` will not run as fast as an applicaiton compiled for a specific CPU, the reason being is that rust can't optimize as far to the instruction set when it uses the generic instruction set, also non simd parts of the code won't be optimized for the given instruction set either.
+note that an application compiled with `runtime-detection` will not run as fast as an application compiled for a specific CPU, the reason being is that rust can't optimize as far to the instruction set when it uses the generic instruction set, also non simd parts of the code won't be optimized for the given instruction set either.
 
 ### `portable`
 
