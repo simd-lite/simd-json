@@ -3,16 +3,17 @@ use std::simd::{u8x32, SimdPartialEq, ToBitMask};
 use crate::{
     safer_unchecked::GetSaferUnchecked,
     stringparse::{handle_unicode_codepoint, ESCAPE_MAP},
-    Deserializer, ErrorType, Result,
+    Deserializer, ErrorType, Result, SillyWrapper,
 };
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) unsafe fn parse_str<'invoke, 'de>(
-    input: *mut u8,
+    input: SillyWrapper<'de>,
     data: &'invoke [u8],
     buffer: &'invoke mut [u8],
     mut idx: usize,
 ) -> Result<&'de str> {
+    let input = input.input;
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
 
     const SLASH: u8x32 = u8x32::from_array([b'\\'; 32]);

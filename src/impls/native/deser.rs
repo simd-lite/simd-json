@@ -1,18 +1,19 @@
 use crate::{
     safer_unchecked::GetSaferUnchecked,
     stringparse::{get_unicode_codepoint, ESCAPE_MAP},
-    Deserializer, ErrorType, Result,
+    Deserializer, ErrorType, Result, SillyWrapper,
 };
 
 #[allow(clippy::cast_possible_truncation)]
 pub(crate) unsafe fn parse_str<'invoke, 'de>(
-    input: *mut u8,
+    input: SillyWrapper<'de>,
     data: &'invoke [u8],
     _buffer: &'invoke mut [u8],
     idx: usize,
 ) -> Result<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
 
+    let input = input.input;
     // skip leading `"`
     let src: &[u8] = data.get_kinda_unchecked(idx + 1..);
     let input = input.add(idx + 1);
@@ -114,7 +115,9 @@ mod test {
         input2.append(vec![0; SIMDJSON_PADDING * 2].as_mut());
         let mut buffer = vec![0; 1024];
 
-        let r = unsafe { super::parse_str(input.as_mut_ptr(), &input2, buffer.as_mut_slice(), 0)? };
+        let r = unsafe {
+            super::parse_str(input.as_mut_ptr().into(), &input2, buffer.as_mut_slice(), 0)?
+        };
         dbg!(r);
         Ok(String::from(r))
     }
