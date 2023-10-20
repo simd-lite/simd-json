@@ -9,11 +9,12 @@ use std::arch::x86_64::{
     _mm256_storeu_si256,
 };
 
-pub use crate::error::{Error, ErrorType};
-use crate::safer_unchecked::GetSaferUnchecked;
-use crate::stringparse::{handle_unicode_codepoint, ESCAPE_MAP};
-use crate::Deserializer;
-pub use crate::Result;
+use crate::{
+    error::ErrorType,
+    safer_unchecked::GetSaferUnchecked,
+    stringparse::{handle_unicode_codepoint, ESCAPE_MAP},
+    Deserializer, Result, SillyWrapper,
+};
 
 #[target_feature(enable = "avx2")]
 #[allow(
@@ -24,12 +25,14 @@ pub use crate::Result;
 )]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) unsafe fn parse_str<'invoke, 'de>(
-    input: *mut u8,
+    input: SillyWrapper<'de>,
     data: &'invoke [u8],
     buffer: &'invoke mut [u8],
     mut idx: usize,
 ) -> Result<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
+
+    let input = input.input;
     // Add 1 to skip the initial "
     idx += 1;
     //let mut read: usize = 0;

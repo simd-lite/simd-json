@@ -4,26 +4,27 @@ use std::arch::x86 as arch;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64 as arch;
 
+use crate::{
+    error::ErrorType,
+    safer_unchecked::GetSaferUnchecked,
+    stringparse::{handle_unicode_codepoint, ESCAPE_MAP},
+    Deserializer, Result, SillyWrapper,
+};
 use arch::{
     __m128i, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_movemask_epi8, _mm_set1_epi8, _mm_storeu_si128,
 };
-
-pub use crate::error::{Error, ErrorType};
-use crate::safer_unchecked::GetSaferUnchecked;
-use crate::stringparse::{handle_unicode_codepoint, ESCAPE_MAP};
-use crate::Deserializer;
-pub use crate::Result;
 
 #[target_feature(enable = "sse4.2")]
 #[allow(clippy::if_not_else, clippy::cast_possible_wrap)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) unsafe fn parse_str<'invoke, 'de>(
-    input: *mut u8,
+    input: SillyWrapper<'de>,
     data: &'invoke [u8],
     buffer: &'invoke mut [u8],
     mut idx: usize,
 ) -> Result<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
+    let input = input.input;
     // Add 1 to skip the initial "
     idx += 1;
 
