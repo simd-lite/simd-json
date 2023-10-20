@@ -405,6 +405,105 @@ type FindStructuralBitsFn = unsafe fn(
     structural_indexes: &mut Vec<u32>,
 ) -> std::result::Result<(), ErrorType>;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Supported implementations
+pub enum Implementation {
+    /// Rust native implementation
+    Native,
+    /// Rust native implementation with using std::simd
+    StdSimd,
+    /// SSE4.2 implementation
+    SSE42,
+    /// AVX2 implementation
+    AVX2,
+    /// ARM NEON implementation
+    NEON,
+    /// WEBASM SIMD128 implementation
+    SIMD128,
+}
+
+impl std::fmt::Display for Implementation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Implementation::Native => write!(f, "Rust Native"),
+            Implementation::StdSimd => write!(f, "std::simd"),
+            Implementation::SSE42 => write!(f, "SSE42"),
+            Implementation::AVX2 => write!(f, "AVX2"),
+            Implementation::NEON => write!(f, "NEON"),
+            Implementation::SIMD128 => write!(f, "SIMD128"),
+        }
+    }
+}
+
+impl<'de> Deserializer<'de> {
+    /// returns the algorithm / architecture used by the deserializer
+    #[cfg(all(
+        feature = "runtime-detection",
+        any(target_arch = "x86_64", target_arch = "x86"),
+    ))]
+    #[must_use]
+    pub fn algorithm() -> Implementation {
+        if std::is_x86_feature_detected!("avx2") {
+            Implementation::AVX2
+        } else if std::is_x86_feature_detected!("sse4.2") {
+            Implementation::SSE42
+        } else {
+            #[cfg(feature = "portable")]
+            let r = Implementation::StdSimd;
+            #[cfg(not(feature = "portable"))]
+            let r = Implementation::Native;
+            r
+        }
+    }
+    #[cfg(not(any(
+        feature = "runtime-detection",
+        target_feature = "avx2",
+        target_feature = "sse4.2",
+        target_feature = "simd128",
+        target_arch = "aarch64",
+    )))]
+    /// returns the algorithm / architecture used by the deserializer
+    #[must_use]
+    pub fn algorithm() -> Implementation {
+        #[cfg(feature = "portable")]
+        let r = Implementation::StdSimd;
+        #[cfg(not(feature = "portable"))]
+        let r = Implementation::Native;
+        r
+    }
+
+    #[cfg(all(target_feature = "avx2", not(feature = "runtime-detection")))]
+    /// returns the algorithm / architecture used by the deserializer
+    #[must_use]
+    pub fn algorithm() -> Implementation {
+        Implementation::AVX2
+    }
+
+    #[cfg(all(
+        target_feature = "sse4.2",
+        not(feature = "runtime-detection"),
+        not(target_feature = "avx2")
+    ))]
+    /// returns the algorithm / architecture used by the deserializer
+    #[must_use]
+    pub fn algorithm() -> Implementation {
+        Implementation::SSE42
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    /// returns the algorithm / architecture used by the deserializer
+    #[must_use]
+    pub fn algorithm() -> Implementation {
+        Implementation::NEON
+    }
+    #[cfg(target_feature = "simd128")]
+    /// returns the algorithm / architecture used by the deserializer
+    #[must_use]
+    pub fn algorithm() -> Implementation {
+        Implementation::SIMD128
+    }
+}
+
 impl<'de> Deserializer<'de> {
     #[inline]
     #[cfg(all(
