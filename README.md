@@ -82,7 +82,7 @@ There are a few reasons for this:
 `simd-json` goes through extra scrutiny for unsafe code. These steps are:
 
 * Unit tests - to test 'the obvious' cases, edge cases, and regression cases
-* Structural constructive property based testing - We generate random valid JSON objects to exercise the full `simd-json` codebase stochastically. Floats are currently excluded since slighty different parsing algorithms lead to slighty different results here. In short "is simd-json correct".
+* Structural constructive property based testing - We generate random valid JSON objects to exercise the full `simd-json` codebase stochastically. Floats are currently excluded since slightly different parsing algorithms lead to slightly different results here. In short "is simd-json correct".
 * Data-oriented property based testing of string-like data - to assert that sequences of legal printable characters don't panic or crash the parser (they might and often error so - they are not valid json!)
 * Destructive Property based testing - make sure that no illegal byte sequences crash the parser in any way
 * Fuzzing - fuzz based on upstream & jsonorg simd pass/fail cases
