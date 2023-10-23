@@ -4,7 +4,7 @@ use value_trait::{
     generator::{
         BaseGenerator, DumpGenerator, PrettyGenerator, PrettyWriterGenerator, WriterGenerator,
     },
-    StaticNode, ValueType, Writable,
+    StaticNode, ValueAccess, ValueType, Writable,
 };
 
 use crate::Node;
@@ -13,10 +13,16 @@ use super::{Array, Object, Value};
 
 // ValueTrait for
 impl<'tape, 'input> Value<'tape, 'input> {
+    fn as_static(&self) -> Option<StaticNode> {
+        match self.0.first()? {
+            Node::Static(s) => Some(*s),
+            _ => None,
+        }
+    }
     /// FIXME: docs
     #[must_use]
     pub fn is_null(&self) -> bool {
-        self.0.first() == Some(&Node::Static(StaticNode::Null))
+        self.as_static() == Some(StaticNode::Null)
     }
 
     /// FIXME: docs
@@ -222,7 +228,11 @@ impl<'tape, 'input> Value<'tape, 'input> {
             Node::Static(StaticNode::Null) => ValueType::Null,
             Node::Static(StaticNode::Bool(_)) => ValueType::Bool,
             Node::Static(StaticNode::I64(_)) => ValueType::I64,
+            #[cfg(feature = "128bit")]
+            Node::Static(StaticNode::I128(_)) => ValueType::I128,
             Node::Static(StaticNode::U64(_)) => ValueType::U64,
+            #[cfg(feature = "128bit")]
+            Node::Static(StaticNode::U128(_)) => ValueType::U128,
             Node::Static(StaticNode::F64(_)) => ValueType::F64,
             Node::String(_) => ValueType::String,
             Node::Array { .. } => ValueType::Array,
@@ -233,45 +243,25 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// FIXME: docs
     #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
-        if let Some(Node::Static(StaticNode::Bool(v))) = self.0.first() {
-            Some(*v)
-        } else {
-            None
-        }
+        self.as_static()?.as_bool()
     }
 
     /// FIXME: docs
     #[must_use]
     pub fn as_i64(&self) -> Option<i64> {
-        if let Some(Node::Static(StaticNode::I64(v))) = self.0.first() {
-            Some(*v)
-        } else if let Some(Node::Static(StaticNode::U64(v))) = self.0.first() {
-            i64::try_from(*v).ok()
-        } else {
-            None
-        }
+        self.as_static()?.as_i64()
     }
 
     /// FIXME: docs
     #[must_use]
     pub fn as_u64(&self) -> Option<u64> {
-        if let Some(Node::Static(StaticNode::U64(v))) = self.0.first() {
-            Some(*v)
-        } else if let Some(Node::Static(StaticNode::I64(v))) = self.0.first() {
-            u64::try_from(*v).ok()
-        } else {
-            None
-        }
+        self.as_static()?.as_u64()
     }
 
     /// FIXME: docs
     #[must_use]
     pub fn as_f64(&self) -> Option<f64> {
-        if let Some(Node::Static(StaticNode::F64(v))) = self.0.first() {
-            Some(*v)
-        } else {
-            None
-        }
+        self.as_static()?.as_f64()
     }
 
     /// FIXME: docs
@@ -322,7 +312,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// FIXME: docs
     #[must_use]
     pub fn as_i128(&self) -> Option<i128> {
-        self.as_i64().and_then(|u| u.try_into().ok())
+        self.as_static()?.as_i128()
     }
 
     /// FIXME: docs
@@ -396,7 +386,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// FIXME: docs
     #[must_use]
     pub fn as_u128(&self) -> Option<u128> {
-        self.as_u64().and_then(|u| u.try_into().ok())
+        self.as_static()?.as_u128()
     }
 
     /// FIXME: docs
@@ -495,15 +485,8 @@ impl<'tape, 'input> Value<'tape, 'input> {
 
     /// FIXME: docs
     #[must_use]
-    #[allow(clippy::cast_precision_loss)]
     pub fn cast_f64(&self) -> Option<f64> {
-        if let Some(f) = self.as_f64() {
-            Some(f)
-        } else if let Some(u) = self.as_u128() {
-            Some(u as f64)
-        } else {
-            self.as_i128().map(|i| i as f64)
-        }
+        self.as_static()?.cast_f64()
     }
 
     /// FIXME: docs
@@ -524,14 +507,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
     pub fn as_f32(&self) -> Option<f32> {
-        self.as_f64().and_then(|u| {
-            if u <= f64::from(std::f32::MAX) && u >= f64::from(std::f32::MIN) {
-                // Since we check above
-                Some(u as f32)
-            } else {
-                None
-            }
-        })
+        self.as_static()?.as_f32()
     }
 
     /// FIXME: docs
