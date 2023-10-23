@@ -17,7 +17,6 @@ macro_rules! test {
             let f = String::from(concat!("data/", stringify!($file), ".json"));
             File::open(f).unwrap().read_to_end(&mut v1).unwrap();
             let (count, _v) = count_alloc(|| to_tape(&mut v1));
-            dbg!(&count);
             assert!(count.0 <= $alloc);
             assert!(count.1 <= $realloc);
             assert!(count.2 <= $drop);

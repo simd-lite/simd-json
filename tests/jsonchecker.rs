@@ -9,11 +9,9 @@ macro_rules! pass {
             File::open(f).unwrap().read_to_end(&mut v1).unwrap();
             let mut v2 = v1.clone();
             let v1 = simd_json::to_borrowed_value(&mut v1);
-            dbg!(&v1);
             assert!(v1.is_ok());
             let v1 = v1.unwrap();
             let v2 = simd_json::to_owned_value(&mut v2);
-            dbg!(&v2);
             assert!(v2.is_ok());
             let v2 = v2.unwrap();
             let v1o: simd_json::OwnedValue = v1.clone().into();
@@ -31,10 +29,8 @@ macro_rules! fail {
             File::open(f).unwrap().read_to_end(&mut v1).unwrap();
             let mut v2 = v1.clone();
             let v1 = simd_json::to_borrowed_value(&mut v1);
-            dbg!(&v1);
             assert!(v1.is_err());
             let v2 = simd_json::to_owned_value(&mut v2);
-            dbg!(&v2);
             assert!(v2.is_err());
         }
     };

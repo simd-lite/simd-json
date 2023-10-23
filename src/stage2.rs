@@ -670,16 +670,8 @@ mod test {
         let mut buffer = vec![0; 1024];
 
         let s = unsafe {
-            dbg!(Deserializer::parse_str_(
-                input.as_mut_ptr(),
-                &input2,
-                buffer.as_mut_slice(),
-                0
-            ))?
+            Deserializer::parse_str_(input.as_mut_ptr(), &input2, buffer.as_mut_slice(), 0)?
         };
-        dbg!(s);
-        dbg!(&input[..20]);
-        dbg!(&input2[..20]);
         assert_eq!(r#"{"arg":"test"}"#, s);
         Ok(())
     }
