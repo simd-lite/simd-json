@@ -118,7 +118,6 @@ mod test {
         let r = unsafe {
             super::parse_str(input.as_mut_ptr().into(), &input2, buffer.as_mut_slice(), 0)?
         };
-        dbg!(r);
         Ok(String::from(r))
     }
     use super::*;

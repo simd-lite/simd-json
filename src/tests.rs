@@ -119,7 +119,6 @@ fn string_array() {
     let mut d = String::from(STR);
     let d = unsafe { d.as_bytes_mut() };
     let simd = Deserializer::from_slice(d).expect("");
-    dbg!(&simd.tape);
     // assert_eq!(simd.tape[1], Node::Array(1, 3));
     assert_eq!(simd.tape[1], Node::String("{\"arg\":\"test\"}"));
 }

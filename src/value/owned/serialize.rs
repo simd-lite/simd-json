@@ -210,22 +210,22 @@ trait FastGenerator: BaseGenerator {
     }
 }
 
-impl FastGenerator for DumpGenerator<Value> {
+impl FastGenerator for DumpGenerator {
     type T = Vec<u8>;
 }
 
-impl Generator for PrettyGenerator<Value> {
+impl Generator for PrettyGenerator {
     type T = Vec<u8>;
 }
 
-impl<'writer, W> FastGenerator for WriterGenerator<'writer, W, Value>
+impl<'writer, W> FastGenerator for WriterGenerator<'writer, W>
 where
     W: Write,
 {
     type T = W;
 }
 
-impl<'writer, W> Generator for PrettyWriterGenerator<'writer, W, Value>
+impl<'writer, W> Generator for PrettyWriterGenerator<'writer, W>
 where
     W: Write,
 {
