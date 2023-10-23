@@ -84,6 +84,15 @@ pub enum Value {
     Object(Box<Object>),
 }
 
+impl Value {
+    fn as_static(&self) -> Option<StaticNode> {
+        match self {
+            Value::Static(s) => Some(*s),
+            _ => None,
+        }
+    }
+}
+
 impl<'input> Builder<'input> for Value {
     #[inline]
     #[must_use]
@@ -152,68 +161,43 @@ impl ValueAccess for Value {
     #[inline]
     #[must_use]
     fn as_bool(&self) -> Option<bool> {
-        match self {
-            Self::Static(StaticNode::Bool(b)) => Some(*b),
-            _ => None,
-        }
+        self.as_static()?.as_bool()
     }
 
     #[inline]
     #[must_use]
     fn as_i64(&self) -> Option<i64> {
-        match self {
-            Self::Static(s) => s.as_i64(),
-            _ => None,
-        }
+        self.as_static()?.as_i64()
     }
 
     #[inline]
     #[must_use]
     fn as_i128(&self) -> Option<i128> {
-        match self {
-            Self::Static(s) => s.as_i128(),
-            _ => None,
-        }
+        self.as_static()?.as_i128()
     }
 
     #[inline]
     #[must_use]
-    #[allow(clippy::cast_sign_loss)]
     fn as_u64(&self) -> Option<u64> {
-        match self {
-            Self::Static(s) => s.as_u64(),
-            _ => None,
-        }
+        self.as_static()?.as_u64()
     }
 
-    #[cfg(feature = "128bit")]
     #[inline]
     #[must_use]
-    #[allow(clippy::cast_sign_loss)]
     fn as_u128(&self) -> Option<u128> {
-        match self {
-            Self::Static(s) => s.as_u128(),
-            _ => None,
-        }
+        self.as_static()?.as_u128()
     }
 
     #[inline]
     #[must_use]
     fn as_f64(&self) -> Option<f64> {
-        match self {
-            Self::Static(s) => s.as_f64(),
-            _ => None,
-        }
+        self.as_static()?.as_f64()
     }
 
     #[inline]
     #[must_use]
-    #[allow(clippy::cast_precision_loss)]
     fn cast_f64(&self) -> Option<f64> {
-        match self {
-            Self::Static(s) => s.cast_f64(),
-            _ => None,
-        }
+        self.as_static()?.cast_f64()
     }
 
     #[inline]
@@ -905,7 +889,6 @@ mod test {
         }
 
         #[test]
-        #[allow(clippy::cast_possible_truncation)]
         fn prop_usize_cmp(f in proptest::num::usize::ANY) {
             let v: Value = f.into();
             prop_assert_eq!(v, f);
