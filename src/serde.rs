@@ -11,7 +11,7 @@ mod se;
 mod value;
 pub use self::se::*;
 pub use self::value::*;
-use crate::{stry, Deserializer, Error, ErrorType, Result};
+use crate::{stry, Buffers, Deserializer, Error, ErrorType, Result};
 use crate::{BorrowedValue, OwnedValue};
 use crate::{Node, StaticNode};
 use serde::de::DeserializeOwned;
@@ -62,9 +62,29 @@ where
     let mut deserializer = stry!(Deserializer::from_slice(s));
     T::deserialize(&mut deserializer)
 }
-/// parses a str  using a serde deserializer.
+
+/// parses a byte slice using a serde deserializer.
+/// note that the slice will be rewritten in the process.
+///
+/// Passes in reusable buffers to reduce allocations
+///
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
+#[cfg_attr(not(feature = "no-inline"), inline)]
+pub fn from_slice_with_buffers<'a, T>(s: &'a mut [u8], buffers: &mut Buffers) -> Result<T>
+where
+    T: Deserialize<'a>,
+{
+    let mut deserializer = stry!(Deserializer::from_slice_with_buffers(s, buffers));
+    T::deserialize(&mut deserializer)
+}
+
+/// parses a str using a serde deserializer.
 /// note that the slice will be rewritten in the process and
 /// might not remain a valid utf8 string in its entirety.
+///
+/// It is adviced to use `from_slice` instead.
 ///
 /// # Errors
 ///
@@ -81,6 +101,36 @@ where
     T: Deserialize<'a>,
 {
     let mut deserializer = stry!(Deserializer::from_slice(s.as_bytes_mut()));
+
+    T::deserialize(&mut deserializer)
+}
+
+/// parses a str using a serde deserializer.
+/// note that the slice will be rewritten in the process and
+/// might not remain a valid utf8 string in its entirety.
+///
+/// It is adviced to use `from_slice_with_buffers` instead.
+///
+/// Passes in reusable buffers to reduce allocations.
+///
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
+///
+/// # Safety
+///
+/// This function mutates the string passed into it, it's a convinience wrapper around `from_slice`,
+/// holding the same guarantees as `str::as_bytes_mut` in that after the call &str might include
+/// invalid utf8 bytes.
+#[cfg_attr(not(feature = "no-inline"), inline)]
+pub unsafe fn from_str_with_buffers<'a, T>(s: &'a mut str, buffers: &mut Buffers) -> Result<T>
+where
+    T: Deserialize<'a>,
+{
+    let mut deserializer = stry!(Deserializer::from_slice_with_buffers(
+        s.as_bytes_mut(),
+        buffers
+    ));
 
     T::deserialize(&mut deserializer)
 }
@@ -102,6 +152,28 @@ where
         return Err(Error::generic(ErrorType::Io(e)));
     };
     let mut deserializer = stry!(Deserializer::from_slice(&mut data));
+    T::deserialize(&mut deserializer)
+}
+
+/// parses a Reader using a serde deserializer.
+///
+/// Passes in reusable buffers to reduce allocations.
+///
+/// # Errors
+///
+/// Will return `Err` if an IO error is encountered while reading
+/// rdr or if the readers content is invalid JSON.
+#[cfg_attr(not(feature = "no-inline"), inline)]
+pub fn from_reader_with_buffers<R, T>(mut rdr: R, buffers: &mut Buffers) -> Result<T>
+where
+    R: io::Read,
+    T: DeserializeOwned,
+{
+    let mut data = Vec::new();
+    if let Err(e) = rdr.read_to_end(&mut data) {
+        return Err(Error::generic(ErrorType::Io(e)));
+    };
+    let mut deserializer = stry!(Deserializer::from_slice_with_buffers(&mut data, buffers));
     T::deserialize(&mut deserializer)
 }
 

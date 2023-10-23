@@ -64,7 +64,7 @@ pub use self::owned::{
     to_value as to_owned_value, to_value_with_buffers as to_owned_value_with_buffers,
     Value as OwnedValue,
 };
-use crate::{Deserializer, Result};
+use crate::{Buffers, Deserializer, Result};
 use halfbrown::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -92,6 +92,30 @@ where
     Key: Hash + Eq + From<&'de str>,
 {
     match Deserializer::from_slice(s) {
+        Ok(de) => Ok(ValueDeserializer::from_deserializer(de).parse()),
+        Err(e) => Err(e),
+    }
+}
+
+/// Parses a slice of bytes into a Value dom. This function will
+/// rewrite the slice to de-escape strings.
+/// As we reference parts of the input slice the resulting dom
+/// has the same lifetime as the slice it was created from.
+///
+/// Passes in reusable buffers to reduce allocations.
+///
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
+pub fn deserialize_with_buffers<'de, Value, Key>(
+    s: &'de mut [u8],
+    buffers: &mut Buffers,
+) -> Result<Value>
+where
+    Value: Builder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
+    Key: Hash + Eq + From<&'de str>,
+{
+    match Deserializer::from_slice_with_buffers(s, buffers) {
         Ok(de) => Ok(ValueDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
     }

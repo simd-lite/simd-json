@@ -212,6 +212,17 @@ pub fn to_tape(s: &mut [u8]) -> Result<Vec<Node>> {
     Deserializer::from_slice(s).map(Deserializer::into_tape)
 }
 
+/// Creates a tape from the input for later consumption
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
+pub fn to_tape_with_buffers<'de>(
+    s: &'de mut [u8],
+    buffers: &mut Buffers,
+) -> Result<Vec<Node<'de>>> {
+    Deserializer::from_slice_with_buffers(s, buffers).map(Deserializer::into_tape)
+}
+
 pub(crate) trait Stage1Parse {
     type Utf8Validator: ChunkedUtf8Validator;
     type SimdRepresentation;
