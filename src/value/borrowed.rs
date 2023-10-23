@@ -56,7 +56,9 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
 /// As we reference parts of the input slice the resulting dom
 /// has the same lifetime as the slice it was created from.
 ///
-/// # Errors
+/// Passes in reusable buffers to reduce allocations.
+///
+///  # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
 pub fn to_value_with_buffers<'value>(

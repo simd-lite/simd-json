@@ -56,6 +56,8 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
 /// owned memory wherever required thus returning a value without
 /// a lifetime.
 ///
+/// Passes in reusable buffers to reduce allocations.
+///
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
