@@ -63,7 +63,7 @@ where
     T::deserialize(&mut deserializer)
 }
 
-/// parses a byte slice using a serde deserializer.
+/// Parses a byte slice using a serde deserializer.
 /// note that the slice will be rewritten in the process.
 ///
 /// Passes in reusable buffers to reduce allocations
@@ -80,11 +80,11 @@ where
     T::deserialize(&mut deserializer)
 }
 
-/// parses a str using a serde deserializer.
+/// Parses a str using a serde deserializer.
 /// note that the slice will be rewritten in the process and
 /// might not remain a valid utf8 string in its entirety.
 ///
-/// It is adviced to use `from_slice` instead.
+/// It is recommended to use `from_slice` instead.
 ///
 /// # Errors
 ///
@@ -105,11 +105,11 @@ where
     T::deserialize(&mut deserializer)
 }
 
-/// parses a str using a serde deserializer.
+/// Parses a str using a serde deserializer.
 /// note that the slice will be rewritten in the process and
 /// might not remain a valid utf8 string in its entirety.
 ///
-/// It is adviced to use `from_slice_with_buffers` instead.
+/// It is recommended to use `from_slice_with_buffers` instead.
 ///
 /// Passes in reusable buffers to reduce allocations.
 ///
@@ -155,7 +155,7 @@ where
     T::deserialize(&mut deserializer)
 }
 
-/// parses a Reader using a serde deserializer.
+/// Parses a Reader using a serde deserializer.
 ///
 /// Passes in reusable buffers to reduce allocations.
 ///

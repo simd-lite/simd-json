@@ -20,7 +20,7 @@ impl<'input> Tape<'input> {
     }
 }
 
-/// Wrapper around the tape that allows interacting with it via a `Value`-like API.
+/// Wrapper around the tape that allows interaction via a `Value`-like API.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct Value<'tape, 'input>(&'tape [Node<'input>]);
