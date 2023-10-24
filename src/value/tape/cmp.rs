@@ -164,21 +164,21 @@ impl<'tape, 'input> PartialEq<f64> for Value<'tape, 'input> {
     }
 }
 
-// impl<'tape, 'input, K, T, S> PartialEq<std::collections::HashMap<K, T, S>> for Value<'tape, 'input>
-// where
-//     K: AsRef<str> + std::hash::Hash + Eq,
-//     Value<'tape, 'input>: PartialEq<T>,
-//     S: std::hash::BuildHasher,
-// {
-//     #[inline]
-//     #[must_use]
-//     fn eq(&self, other: &std::collections::HashMap<K, T, S>) -> bool {
-//         self.as_object().map_or(false, |object| {
-//             object.len() == other.len()
-//                 && other.iter().all(|(key, value)| {
-//                     let key: &str = key.as_ref();
-//                     object.get(&key).map_or(false, |v| v == *value)
-//                 })
-//         })
-//     }
-// }
+impl<'tape, 'input, K, T, S> PartialEq<std::collections::HashMap<K, T, S>> for Value<'tape, 'input>
+where
+    K: AsRef<str> + std::hash::Hash + Eq,
+    Value<'tape, 'input>: PartialEq<T>,
+    S: std::hash::BuildHasher,
+{
+    #[inline]
+    #[must_use]
+    fn eq(&self, other: &std::collections::HashMap<K, T, S>) -> bool {
+        self.as_object().map_or(false, |object| {
+            object.len() == other.len()
+                && other.iter().all(|(key, value)| {
+                    let key: &str = key.as_ref();
+                    object.get(key).map_or(false, |v| v == *value)
+                })
+        })
+    }
+}
