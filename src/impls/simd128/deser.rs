@@ -34,7 +34,7 @@ pub(crate) fn parse_str<'invoke, 'de>(
     let mut len = src_i;
     loop {
         let v = unsafe {
-            // v128_load requires no allignment
+            // v128_load requires no alignment
             #[allow(clippy::cast_ptr_alignment)]
             v128_load(src.as_ptr().add(src_i).cast::<v128>())
         };
@@ -83,13 +83,13 @@ pub(crate) fn parse_str<'invoke, 'de>(
     // To be more conform with upstream
     loop {
         let v = unsafe {
-            // v128_load requires no allignment
+            // v128_load requires no alignment
             #[allow(clippy::cast_ptr_alignment)]
             v128_load(src.as_ptr().add(src_i).cast::<v128>())
         };
 
         unsafe {
-            // v128_store requires no allignment
+            // v128_store requires no alignment
             #[allow(clippy::cast_ptr_alignment)]
             v128_store(buffer.as_mut_ptr().add(dst_i).cast::<v128>(), v);
         };

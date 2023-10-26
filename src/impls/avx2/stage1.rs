@@ -43,7 +43,7 @@ impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = __m256i;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    // _mm256_loadu_si256 does not need allignment
+    // _mm256_loadu_si256 does not need alignment
     #[allow(clippy::cast_ptr_alignment)]
     #[target_feature(enable = "avx2")]
     unsafe fn new(ptr: &[u8]) -> Self {
@@ -189,8 +189,8 @@ impl Stage1Parse for SimdInput {
 
         // We're doing some trickery here.
         // We reserve 64 extra entries, because we've at most 64 bit to set
-        // then we trunctate the base to the next base (that we calcuate above)
-        // We later indiscriminatory writre over the len we set but that's OK
+        // then we truncate the base to the next base (that we calculated above)
+        // We later indiscriminatory write over the len we set but that's OK
         // since we ensure we reserve the needed space
         base.reserve(64);
         let final_len = l + cnt;

@@ -337,7 +337,7 @@ pub(crate) trait Stage1Parse {
         // following it.
 
         // a qualified predecessor is something that can happen 1 position before an
-        // psuedo-structural character
+        // pseudo-structural character
         let pseudo_pred: u64 = structurals | whitespace;
 
         let shifted_pseudo_pred: u64 = (pseudo_pred << 1) | *prev_iter_ends_pseudo_pred;
