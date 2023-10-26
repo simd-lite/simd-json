@@ -34,6 +34,10 @@ pub enum ErrorType {
     ExpectedMapEnd,
     /// Expected a null
     ExpectedNull,
+    /// Expected a true
+    ExpectedTrue,
+    /// Expected a false
+    ExpectedFalse,
     /// Expected a number
     ExpectedNumber,
     /// Expected a signed number
@@ -110,6 +114,8 @@ impl PartialEq for ErrorType {
             | (Self::ExpectedArray, Self::ExpectedArray)
             | (Self::ExpectedArrayComma, Self::ExpectedArrayComma)
             | (Self::ExpectedBoolean, Self::ExpectedBoolean)
+            | (Self::ExpectedTrue, Self::ExpectedTrue)
+            | (Self::ExpectedFalse, Self::ExpectedFalse)
             | (Self::ExpectedEnum, Self::ExpectedEnum)
             | (Self::ExpectedFloat, Self::ExpectedFloat)
             | (Self::ExpectedInteger, Self::ExpectedInteger)

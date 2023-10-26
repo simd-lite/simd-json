@@ -6,6 +6,7 @@
 use crate::{
     deserialize,
     owned::{to_value, Object, Value},
+    prelude::*,
     serde::from_slice,
     to_borrowed_value, to_owned_value, OwnedValue,
 };
@@ -13,8 +14,6 @@ use halfbrown::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 use serde::Deserialize;
-
-use value_trait::{Builder, Mutable, StaticNode};
 
 #[test]
 fn empty() {

@@ -88,7 +88,7 @@ pub type ObjectHasher = halfbrown::DefaultHashBuilder;
 /// Will return `Err` if `s` is invalid JSON.
 pub fn deserialize<'de, Value, Key>(s: &'de mut [u8]) -> Result<Value>
 where
-    Value: Builder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
+    Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     match Deserializer::from_slice(s) {
@@ -112,7 +112,7 @@ pub fn deserialize_with_buffers<'de, Value, Key>(
     buffers: &mut Buffers,
 ) -> Result<Value>
 where
-    Value: Builder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
+    Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     match Deserializer::from_slice_with_buffers(s, buffers) {
@@ -123,7 +123,7 @@ where
 
 struct ValueDeserializer<'de, Value, Key>
 where
-    Value: Builder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
+    Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     de: Deserializer<'de>,
@@ -132,7 +132,7 @@ where
 
 impl<'de, Value, Key> ValueDeserializer<'de, Value, Key>
 where
-    Value: Builder<'de>
+    Value: ValueBuilder<'de>
         + From<&'de str>
         + From<Vec<Value>>
         + From<HashMap<Key, Value, ObjectHasher>>

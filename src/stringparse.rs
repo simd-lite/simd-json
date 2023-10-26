@@ -7,7 +7,7 @@ use crate::safer_unchecked::GetSaferUnchecked;
 /// begin copypasta
 /// These chars yield themselves: " \ /
 /// b -> backspace, f -> formfeed, n -> newline, r -> cr, t -> horizontal tab
-/// u not handled in this table as it's complex
+/// u not handled in this table as it's Container
 pub(crate) const ESCAPE_MAP: [u8; 256] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 0x0.
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

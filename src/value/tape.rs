@@ -16,14 +16,16 @@ impl<'input> Tape<'input> {
     #[must_use]
     pub fn as_value(&self) -> Value<'_, 'input> {
         // Skip initial zero
-        Value(&self.0[1..])
+        Value(&self.0)
     }
 }
 
 /// Wrapper around the tape that allows interaction via a `Value`-like API.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
-pub struct Value<'tape, 'input>(&'tape [Node<'input>]);
+pub struct Value<'tape, 'input>(&'tape [Node<'input>])
+where
+    'input: 'tape;
 
 #[allow(clippy::derive_partial_eq_without_eq)]
 /// Tape `Node`
@@ -122,18 +124,6 @@ mod test {
     fn mut_array_index() {
         let mut v = StaticNode::Null;
         v[0] = ();
-    }
-
-    #[test]
-    fn conversion_obj() {
-        let v = StaticNode::Null;
-        assert!(!v.is_object());
-    }
-
-    #[test]
-    fn conversion_arr() {
-        let v = StaticNode::Null;
-        assert!(!v.is_array());
     }
 
     #[test]

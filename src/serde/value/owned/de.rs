@@ -2,6 +2,7 @@
 use crate::ErrorType;
 use crate::StaticNode;
 use crate::{
+    prelude::*,
     serde::value::shared::MapKeyDeserializer,
     value::owned::{Object, Value},
 };
@@ -14,7 +15,6 @@ use serde_ext::{
     forward_to_deserialize_any,
 };
 use std::fmt;
-use value_trait::{ValueAccess, ValueType};
 
 impl<'de> de::Deserializer<'de> for Value {
     type Error = Error;
@@ -611,7 +611,7 @@ impl<'de> de::Deserializer<'de> for &'de Value {
             Value::Static(StaticNode::U128(n)) => visitor.visit_u128(*n),
             Value::Static(StaticNode::F64(n)) => visitor.visit_f64(*n),
             Value::String(s) => visitor.visit_borrowed_str(s),
-            Value::Array(a) => visitor.visit_seq(ArrayRef(a.iter())),
+            Value::Array(a) => visitor.visit_seq(ArrayRef(a.as_slice().iter())),
             Value::Object(o) => visitor.visit_map(ObjectRefAccess::new(o.iter())),
         }
     }
@@ -652,7 +652,7 @@ impl<'de> de::Deserializer<'de> for &'de Value {
     {
         match self {
             // Give the visitor access to each element of the sequence.
-            Value::Array(a) => visitor.visit_seq(ArrayRef(a.iter())),
+            Value::Array(a) => visitor.visit_seq(ArrayRef(a.as_slice().iter())),
             Value::Object(o) => visitor.visit_map(ObjectRefAccess::new(o.iter())),
             other => Err(crate::Deserializer::error(ErrorType::Unexpected(
                 Some(ValueType::Object),
@@ -759,7 +759,7 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
                 if v.is_empty() {
                     visitor.visit_unit()
                 } else {
-                    visitor.visit_seq(ArrayRef(v.iter()))
+                    visitor.visit_seq(ArrayRef(v.as_slice().iter()))
                 }
             }
             Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
@@ -797,10 +797,8 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
 
 #[cfg(test)]
 mod test {
+    use crate::{json, owned, prelude::*};
     use serde::Deserialize;
-    use value_trait::ValueAccess;
-
-    use crate::{json, owned};
 
     #[test]
     fn option_field_absent_owned() {

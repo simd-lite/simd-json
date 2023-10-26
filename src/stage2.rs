@@ -170,8 +170,6 @@ impl<'de> Deserializer<'de> {
             }};
         }
 
-        insert_res!(Node::Static(StaticNode::Null));
-
         macro_rules! insert_str {
             () => {
                 insert_res!(Node::String(s2try!(Self::parse_str_(
@@ -336,7 +334,7 @@ impl<'de> Deserializer<'de> {
             b't' => {
                 unsafe {
                     if !is_valid_true_atom(get!(input2, idx..)) {
-                        fail!(ErrorType::ExpectedNull); // TODO: better error
+                        fail!(ErrorType::ExpectedTrue);
                     }
                 };
                 insert_res!(Node::Static(StaticNode::Bool(true)));
@@ -348,7 +346,7 @@ impl<'de> Deserializer<'de> {
             b'f' => {
                 unsafe {
                     if !is_valid_false_atom(get!(input2, idx..)) {
-                        fail!(ErrorType::ExpectedNull); // TODO: better error
+                        fail!(ErrorType::ExpectedFalse);
                     }
                 };
                 insert_res!(Node::Static(StaticNode::Bool(false)));
@@ -360,7 +358,7 @@ impl<'de> Deserializer<'de> {
             b'n' => {
                 unsafe {
                     if !is_valid_null_atom(get!(input2, idx..)) {
-                        fail!(ErrorType::ExpectedNull); // TODO: better error
+                        fail!(ErrorType::ExpectedNull);
                     }
                 };
                 insert_res!(Node::Static(StaticNode::Null));
@@ -415,21 +413,21 @@ impl<'de> Deserializer<'de> {
                         b't' => {
                             insert_res!(Node::Static(StaticNode::Bool(true)));
                             if !is_valid_true_atom(get!(input2, idx..)) {
-                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
+                                fail!(ErrorType::ExpectedTrue);
                             }
                             object_continue!();
                         }
                         b'f' => {
                             insert_res!(Node::Static(StaticNode::Bool(false)));
                             if !is_valid_false_atom(get!(input2, idx..)) {
-                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
+                                fail!(ErrorType::ExpectedFalse);
                             }
                             object_continue!();
                         }
                         b'n' => {
                             insert_res!(Node::Static(StaticNode::Null));
                             if !is_valid_null_atom(get!(input2, idx..)) {
-                                fail!(ErrorType::ExpectedNull); // TODO: better error
+                                fail!(ErrorType::ExpectedNull);
                             }
                             object_continue!();
                         }
@@ -527,21 +525,21 @@ impl<'de> Deserializer<'de> {
                         b't' => {
                             insert_res!(Node::Static(StaticNode::Bool(true)));
                             if !is_valid_true_atom(get!(input2, idx..)) {
-                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
+                                fail!(ErrorType::ExpectedTrue);
                             }
                             array_continue!();
                         }
                         b'f' => {
                             insert_res!(Node::Static(StaticNode::Bool(false)));
                             if !is_valid_false_atom(get!(input2, idx..)) {
-                                fail!(ErrorType::ExpectedBoolean); // TODO: better error
+                                fail!(ErrorType::ExpectedFalse);
                             }
                             array_continue!();
                         }
                         b'n' => {
                             insert_res!(Node::Static(StaticNode::Null));
                             if !is_valid_null_atom(get!(input2, idx..)) {
-                                fail!(ErrorType::ExpectedNull); // TODO: better error
+                                fail!(ErrorType::ExpectedNull);
                             }
                             array_continue!();
                         }
@@ -626,11 +624,11 @@ mod test {
     fn parsing_errors() {
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"time".to_vec()),
-            Err(Error::new_c(0, 't', ErrorType::ExpectedNull))
+            Err(Error::new_c(0, 't', ErrorType::ExpectedTrue))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"falsy".to_vec()),
-            Err(Error::new_c(0, 'f', ErrorType::ExpectedNull))
+            Err(Error::new_c(0, 'f', ErrorType::ExpectedFalse))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"new".to_vec()),
@@ -638,11 +636,11 @@ mod test {
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"[true, time]".to_vec()),
-            Err(Error::new_c(7, 't', ErrorType::ExpectedBoolean))
+            Err(Error::new_c(7, 't', ErrorType::ExpectedTrue))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"[true, falsy]".to_vec()),
-            Err(Error::new_c(7, 'f', ErrorType::ExpectedBoolean))
+            Err(Error::new_c(7, 'f', ErrorType::ExpectedFalse))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut b"[null, new]".to_vec()),
@@ -650,11 +648,11 @@ mod test {
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut br#"{"1":time}"#.to_vec()),
-            Err(Error::new_c(5, 't', ErrorType::ExpectedBoolean))
+            Err(Error::new_c(5, 't', ErrorType::ExpectedTrue))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut br#"{"0":falsy}"#.to_vec()),
-            Err(Error::new_c(5, 'f', ErrorType::ExpectedBoolean))
+            Err(Error::new_c(5, 'f', ErrorType::ExpectedFalse))
         );
         assert_eq!(
             crate::serde::from_slice::<bool>(&mut br#"{"0":new}"#.to_vec()),

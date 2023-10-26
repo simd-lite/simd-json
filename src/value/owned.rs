@@ -29,7 +29,6 @@ use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
-use value_trait::{ValueAccess, ValueInto};
 
 /// Representation of a JSON object
 pub type Object = HashMap<String, Value, ObjectHasher>;
@@ -93,7 +92,7 @@ impl Value {
     }
 }
 
-impl<'input> Builder<'input> for Value {
+impl<'input> ValueBuilder<'input> for Value {
     #[inline]
     #[must_use]
     fn null() -> Self {
@@ -114,7 +113,9 @@ impl<'input> Builder<'input> for Value {
     }
 }
 
-impl Mutable for Value {
+impl ValueAsMutContainer for Value {
+    type Array = Vec<Self>;
+    type Object = Object;
     #[inline]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
@@ -133,20 +134,7 @@ impl Mutable for Value {
     }
 }
 
-impl ValueTrait for Value {
-    #[inline]
-    #[must_use]
-    fn is_null(&self) -> bool {
-        matches!(self, Self::Static(StaticNode::Null))
-    }
-}
-
-impl ValueAccess for Value {
-    type Target = Value;
-    type Key = String;
-    type Array = Vec<Self>;
-    type Object = Object;
-
+impl TypedValue for Value {
     #[inline]
     #[must_use]
     fn value_type(&self) -> ValueType {
@@ -157,7 +145,13 @@ impl ValueAccess for Value {
             Self::Object(_) => ValueType::Object,
         }
     }
-
+}
+impl ValueAsScalar for Value {
+    #[inline]
+    #[must_use]
+    fn as_null(&self) -> Option<()> {
+        self.as_static()?.as_null()
+    }
     #[inline]
     #[must_use]
     fn as_bool(&self) -> Option<bool> {
@@ -208,7 +202,10 @@ impl ValueAccess for Value {
             _ => None,
         }
     }
-
+}
+impl ValueAsContainer for Value {
+    type Array = Vec<Self>;
+    type Object = Object;
     #[inline]
     #[must_use]
     fn as_array(&self) -> Option<&Vec<Self>> {
@@ -228,24 +225,28 @@ impl ValueAccess for Value {
     }
 }
 
-impl ValueInto for Value {
+impl ValueIntoString for Value {
     type String = String;
 
-    fn into_string(self) -> Option<<Value as ValueInto>::String> {
+    fn into_string(self) -> Option<<Value as ValueIntoString>::String> {
         match self {
             Self::String(s) => Some(s),
             _ => None,
         }
     }
+}
+impl ValueIntoContainer for Value {
+    type Array = Vec<Self>;
+    type Object = Object;
 
-    fn into_array(self) -> Option<<Value as ValueAccess>::Array> {
+    fn into_array(self) -> Option<<Value as ValueIntoContainer>::Array> {
         match self {
             Self::Array(a) => Some(a),
             _ => None,
         }
     }
 
-    fn into_object(self) -> Option<<Value as ValueAccess>::Object> {
+    fn into_object(self) -> Option<<Value as ValueIntoContainer>::Object> {
         match self {
             Self::Object(a) => Some(*a),
             _ => None,
