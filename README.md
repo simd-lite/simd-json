@@ -22,7 +22,7 @@
 
 ### CPU target
 
-To be able to take advantage of `simd-json` your system needs to be SIMD capable. On `x86` it will select the best SIMD featureset (`avx2`, or `sse4.2`) during runtime. If `simd-json` is compiled with SIMD support, it will disable runtime detection.
+To be able to take advantage of `simd-json` your system needs to be SIMD capable. On `x86` it will select the best SIMD feature set (`avx2`, or `sse4.2`) during runtime. If `simd-json` is compiled with SIMD support, it will disable runtime detection.
 
 `simd-json` supports AVX2, SSE4.2 and NEON and simd128 (wasm) natively, it also includes an unoptimized fallback implementation using native rust for other platforms, however, this is a last resort measure and nothing we'd recommend relying on.
 
@@ -67,7 +67,7 @@ The `known-key` feature is optional and disabled by default and should be explic
 
 **This flag has no effect on simd-json itself but purely affects the `Value` structs.**
 
-The `value-no-dup-keys` feature flag toggles stricter behaviour for objects when deserializing into a `Value`. When enabled, the Value deserializer will remove duplicate keys in a JSON object and only keep the last one. If not set duplicate keys are considered undefined behaviour and Value will not make guarantees on it's behaviour.
+The `value-no-dup-keys` feature flag toggles stricter behavior for objects when deserializing into a `Value`. When enabled, the Value deserializer will remove duplicate keys in a JSON object and only keep the last one. If not set duplicate keys are considered undefined behavior and Value will not make guarantees on it's behavior.
 
 ## safety
 
@@ -76,20 +76,20 @@ The `value-no-dup-keys` feature flag toggles stricter behaviour for objects when
 There are a few reasons for this:
 
 * SIMD intrinsics are inherently unsafe. These uses of unsafe are inescapable in a library such as `simd-json`.
-* We work around some performance bottlenecks imposed by safe rust. These are avoidable, but at a cost to performance. This is a more considered path in `simd-json`.
+* We work around some performance bottlenecks imposed by safe rust. These are avoidable, but at a performance cost. This is a more considered path in `simd-json`.
 
 
 `simd-json` goes through extra scrutiny for unsafe code. These steps are:
 
 * Unit tests - to test 'the obvious' cases, edge cases, and regression cases
 * Structural constructive property based testing - We generate random valid JSON objects to exercise the full `simd-json` codebase stochastically. Floats are currently excluded since slightly different parsing algorithms lead to slightly different results here. In short "is simd-json correct".
-* Data-oriented property based testing of string-like data - to assert that sequences of legal printable characters don't panic or crash the parser (they might and often error so - they are not valid json!)
+* Data-oriented property-based testing of string-like data - to assert that sequences of legal printable characters don't panic or crash the parser (they might and often error so - they are not valid JSON!)
 * Destructive Property based testing - make sure that no illegal byte sequences crash the parser in any way
 * Fuzzing - fuzz based on upstream & jsonorg simd pass/fail cases
 * Miri testing for UB
 
-This doesn't ensure complete safety nor is at a bullet proof guarantee, but it does go a long way
-to asserting that the library is production quality and fit for purpose for practical industrial applications.
+This doesn't ensure complete safety nor is at a bulletproof guarantee, but it does go a long way
+to assert that the library is production quality and fit for purpose for practical industrial applications.
 
 ## Other interesting things
 
