@@ -72,7 +72,7 @@ where
 ///
 /// # Safety
 ///
-/// This function mutates the string passed into it, it's a convinience wrapper around `from_slice`,
+/// This function mutates the string passed into it, it's a convenience wrapper around `from_slice`,
 /// holding the same guarantees as `str::as_bytes_mut` in that after the call &str might include
 /// invalid utf8 bytes.
 #[cfg_attr(not(feature = "no-inline"), inline)]

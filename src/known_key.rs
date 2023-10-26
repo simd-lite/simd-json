@@ -9,7 +9,7 @@ use ahash::{AHasher, RandomState};
 use once_cell::sync::OnceCell;
 static NOT_RANDOM: OnceCell<RandomState> = OnceCell::new();
 
-/// `AHash` `BuildHasher` thast uses a startup initialized random state for known keys
+/// `AHash` `BuildHasher` that uses a startup initialized random state for known keys
 #[derive(Clone)]
 pub struct NotSoRandomState(RandomState);
 
