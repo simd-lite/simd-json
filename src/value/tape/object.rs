@@ -1,3 +1,5 @@
+use std::{borrow::Borrow, hash::Hash};
+
 use super::Value;
 use crate::Node;
 
@@ -14,7 +16,11 @@ impl<'tape, 'input> Object<'tape, 'input> {
     /// FIXME: docs
 
     #[must_use]
-    pub fn get(&self, k: &str) -> Option<Value<'tape, 'input>> {
+    pub fn get<Q>(&self, k: &Q) -> Option<Value<'tape, 'input>>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         let Node::Object { mut len, .. } = self.0.first()? else {
             return None;
         };
@@ -24,6 +30,7 @@ impl<'tape, 'input> Object<'tape, 'input> {
             idx += 1;
             len -= 1;
             let count = self.0.get(idx)?.count();
+            let s: &Q = s.borrow();
             if s == k {
                 return Some(Value(&self.0[idx..idx + count]));
             }
@@ -101,6 +108,8 @@ impl<'tape, 'input> Iterator for ObjectValues<'tape, 'input> {
 
 #[cfg(test)]
 mod test {
+    use value_trait::base::ValueAsScalar;
+
     use crate::to_tape;
 
     #[test]
@@ -118,7 +127,7 @@ mod test {
     }
 
     #[test]
-    fn get_complex() -> crate::Result<()> {
+    fn get_container() -> crate::Result<()> {
         let mut input =
             br#"{"snot": 1, "badger":[2, 2.5], "cake":{"frosting": 3}, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;
@@ -190,7 +199,7 @@ mod test {
         Ok(())
     }
     #[test]
-    fn iter_complex() -> crate::Result<()> {
+    fn iter_container() -> crate::Result<()> {
         let mut input =
             br#"{"snot": 1, "badger":[2, 2.5], "cake":{"frosting": 3}, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;
@@ -213,7 +222,7 @@ mod test {
         Ok(())
     }
     #[test]
-    fn keys_complex() -> crate::Result<()> {
+    fn keys_container() -> crate::Result<()> {
         let mut input =
             br#"{"snot": 1, "badger":[2, 2.5], "cake":{"frosting": 3}, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;
@@ -229,7 +238,7 @@ mod test {
     }
 
     #[test]
-    fn values_complex() -> crate::Result<()> {
+    fn values_container() -> crate::Result<()> {
         let mut input =
             br#"{"snot": 1, "badger":[2, 2.5], "cake":{"frosting": 3}, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;

@@ -10,9 +10,9 @@ use super::{owned::Value, to_owned_value, Deserializer};
 use crate::tape::Node;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
+use value_trait::prelude::Writable;
 #[cfg(not(target_arch = "wasm32"))]
 use value_trait::StaticNode;
-use value_trait::Writable;
 
 #[cfg(not(feature = "approx-number-parsing"))]
 #[test]
@@ -37,7 +37,7 @@ fn count1() {
     let mut d = String::from("[]");
     let d = unsafe { d.as_bytes_mut() };
     let simd = Deserializer::from_slice(d).expect("");
-    assert_eq!(simd.tape[1], Node::Array { len: 0, count: 0 });
+    assert_eq!(simd.tape[0], Node::Array { len: 0, count: 0 });
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn count2() {
     let mut d = String::from("[1]");
     let d = unsafe { d.as_bytes_mut() };
     let simd = Deserializer::from_slice(d).expect("");
-    assert_eq!(simd.tape[1], Node::Array { len: 1, count: 1 });
+    assert_eq!(simd.tape[0], Node::Array { len: 1, count: 1 });
 }
 
 #[test]
@@ -53,7 +53,7 @@ fn count3() {
     let mut d = String::from("[1,2]");
     let d = unsafe { d.as_bytes_mut() };
     let simd = Deserializer::from_slice(d).expect("");
-    assert_eq!(simd.tape[1], Node::Array { len: 2, count: 2 });
+    assert_eq!(simd.tape[0], Node::Array { len: 2, count: 2 });
 }
 
 #[test]
@@ -61,8 +61,8 @@ fn count4() {
     let mut d = String::from(" [ 1 , [ 3 ] , 2 ]");
     let d = unsafe { d.as_bytes_mut() };
     let simd = Deserializer::from_slice(d).expect("");
-    assert_eq!(simd.tape[1], Node::Array { len: 3, count: 4 });
-    assert_eq!(simd.tape[3], Node::Array { len: 1, count: 1 });
+    assert_eq!(simd.tape[0], Node::Array { len: 3, count: 4 });
+    assert_eq!(simd.tape[2], Node::Array { len: 1, count: 1 });
 }
 
 #[test]
@@ -70,8 +70,8 @@ fn count5() {
     let mut d = String::from("[[],null,null]");
     let d = unsafe { d.as_bytes_mut() };
     let simd = Deserializer::from_slice(d).expect("");
-    assert_eq!(simd.tape[1], Node::Array { len: 3, count: 3 });
-    assert_eq!(simd.tape[2], Node::Array { len: 0, count: 0 });
+    assert_eq!(simd.tape[0], Node::Array { len: 3, count: 3 });
+    assert_eq!(simd.tape[1], Node::Array { len: 0, count: 0 });
 }
 
 #[test]
@@ -82,7 +82,6 @@ fn test_tape_object_simple() {
     assert_eq!(
         simd.tape,
         [
-            Node::Static(StaticNode::Null),
             Node::Object { len: 2, count: 4 },
             Node::String("hello"), // <-- This is already escaped
             Node::Static(StaticNode::I64(1)),
@@ -100,7 +99,6 @@ fn test_tape_object_escaped() {
     assert_eq!(
         simd.tape,
         [
-            Node::Static(StaticNode::Null),
             Node::Object { len: 2, count: 7 },
             Node::String(r#"hell"o"#), // <-- This is already escaped
             Node::Static(StaticNode::I64(1)),
@@ -119,15 +117,14 @@ fn string_array() {
     let mut d = String::from(STR);
     let d = unsafe { d.as_bytes_mut() };
     let simd = Deserializer::from_slice(d).expect("");
-    // assert_eq!(simd.tape[1], Node::Array(1, 3));
-    assert_eq!(simd.tape[1], Node::String("{\"arg\":\"test\"}"));
+    assert_eq!(simd.tape[0], Node::String("{\"arg\":\"test\"}"));
 }
 
 #[cfg(feature = "128bit")]
 #[test]
 fn odd_nuber() {
     use super::value::owned::to_value;
-    use super::value::{Builder, Mutable};
+    use value_trait::prelude::*;
 
     let mut d =
         String::from(r#"{"name": "max_unsafe_auto_id_timestamp", "value": -9223372036854776000}"#);
@@ -145,7 +142,7 @@ fn odd_nuber() {
 #[test]
 fn odd_nuber2() {
     use super::value::owned::to_value;
-    use super::value::{Builder, Mutable};
+    use value_trait::prelude::*;
 
     let mut d =
         String::from(r#"{"name": "max_unsafe_auto_id_timestamp", "value": 9223372036854776000}"#);

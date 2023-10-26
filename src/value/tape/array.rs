@@ -8,7 +8,10 @@ pub struct Array<'tape, 'input>(pub(super) &'tape [Node<'input>]);
 pub struct ArrayIter<'tape, 'input>(&'tape [Node<'input>]);
 
 // value_trait::Array for
-impl<'tape, 'input> Array<'tape, 'input> {
+impl<'tape, 'input> Array<'tape, 'input>
+where
+    'input: 'tape,
+{
     /// FIXME: docs
 
     #[must_use]
@@ -58,6 +61,7 @@ impl<'tape, 'input> Iterator for ArrayIter<'tape, 'input> {
 #[cfg(test)]
 mod test {
     use crate::to_tape;
+    use value_trait::base::ValueAsScalar;
 
     #[test]
     fn get_ints() -> crate::Result<()> {
@@ -80,13 +84,10 @@ mod test {
         let v = t.as_value();
         let a = v.as_array().expect("is an array");
         assert_eq!(a.get(0).and_then(|v| v.as_u64()), Some(1));
-        let a1 = a
-            .get(1)
-            .expect("has first element")
-            .as_array()
-            .expect("is an array");
-        assert_eq!(a1.get(0).and_then(|v| v.as_u64()), Some(2));
-        assert_eq!(a1.get(1).and_then(|v| v.as_u64()), Some(3));
+        let a1 = a.get(1).expect("has first element");
+        let a2 = a1.as_array().expect("is an array");
+        assert_eq!(a2.get(0).and_then(|v| v.as_u64()), Some(2));
+        assert_eq!(a2.get(1).and_then(|v| v.as_u64()), Some(3));
         assert_eq!(a.get(2).and_then(|v| v.as_u64()), Some(4));
         assert_eq!(a.get(3), None);
         Ok(())
@@ -108,7 +109,7 @@ mod test {
         Ok(())
     }
     #[test]
-    fn iter_complex() -> crate::Result<()> {
+    fn iter_container() -> crate::Result<()> {
         let mut input = b"[1,[2,3],4]".to_vec();
         let t = to_tape(input.as_mut_slice())?;
         let v = t.as_value();

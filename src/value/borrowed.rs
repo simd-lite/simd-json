@@ -31,7 +31,6 @@ use crate::{Deserializer, Node, Result, StaticNode};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
-use value_trait::{ValueAccess, ValueInto};
 
 /// Representation of a JSON object
 pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>, ObjectHasher>;
@@ -155,7 +154,7 @@ impl<'value> Value<'value> {
     }
 }
 
-impl<'value> Builder<'value> for Value<'value> {
+impl<'value> ValueBuilder<'value> for Value<'value> {
     #[inline]
     #[must_use]
     fn null() -> Self {
@@ -176,7 +175,9 @@ impl<'value> Builder<'value> for Value<'value> {
     }
 }
 
-impl<'value> Mutable for Value<'value> {
+impl<'value> ValueAsMutContainer for Value<'value> {
+    type Array = Vec<Self>;
+    type Object = Object<'value>;
     #[inline]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'value>>> {
@@ -189,6 +190,7 @@ impl<'value> Mutable for Value<'value> {
     ///
     /// ```rust
     /// use simd_json::*;
+    /// use value_trait::prelude::*;
     ///
     /// let mut object: BorrowedValue = json!({
     ///   "answer": 23,
@@ -212,20 +214,7 @@ impl<'value> Mutable for Value<'value> {
     }
 }
 
-impl<'value> ValueTrait for Value<'value> {
-    #[inline]
-    #[must_use]
-    fn is_null(&self) -> bool {
-        matches!(self, Self::Static(StaticNode::Null))
-    }
-}
-
-impl<'value> ValueAccess for Value<'value> {
-    type Target = Self;
-    type Key = Cow<'value, str>;
-    type Array = Vec<Self>;
-    type Object = Object<'value>;
-
+impl<'value> TypedValue for Value<'value> {
     #[inline]
     #[must_use]
     fn value_type(&self) -> ValueType {
@@ -235,6 +224,13 @@ impl<'value> ValueAccess for Value<'value> {
             Self::Array(_) => ValueType::Array,
             Self::Object(_) => ValueType::Object,
         }
+    }
+}
+impl<'value> ValueAsScalar for Value<'value> {
+    #[inline]
+    #[must_use]
+    fn as_null(&self) -> Option<()> {
+        self.as_static()?.as_null()
     }
 
     #[inline]
@@ -288,6 +284,10 @@ impl<'value> ValueAccess for Value<'value> {
             _ => None,
         }
     }
+}
+impl<'value> ValueAsContainer for Value<'value> {
+    type Array = Vec<Self>;
+    type Object = Object<'value>;
 
     #[inline]
     #[must_use]
@@ -308,24 +308,29 @@ impl<'value> ValueAccess for Value<'value> {
     }
 }
 
-impl<'value> ValueInto for Value<'value> {
+impl<'value> ValueIntoString for Value<'value> {
     type String = Cow<'value, str>;
 
-    fn into_string(self) -> Option<<Value<'value> as ValueInto>::String> {
+    fn into_string(self) -> Option<<Self as ValueIntoString>::String> {
         match self {
             Self::String(s) => Some(s),
             _ => None,
         }
     }
+}
 
-    fn into_array(self) -> Option<<Value<'value> as ValueAccess>::Array> {
+impl<'value> ValueIntoContainer for Value<'value> {
+    type Array = Vec<Self>;
+    type Object = Object<'value>;
+
+    fn into_array(self) -> Option<<Self as ValueIntoContainer>::Array> {
         match self {
             Self::Array(a) => Some(a),
             _ => None,
         }
     }
 
-    fn into_object(self) -> Option<<Value<'value> as ValueAccess>::Object> {
+    fn into_object(self) -> Option<<Self as ValueIntoContainer>::Object> {
         match self {
             Self::Object(a) => Some(*a),
             _ => None,

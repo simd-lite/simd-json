@@ -428,7 +428,7 @@ macro_rules! json_internal_owned {
 
     ({}) => {
         {
-            use $crate::value::Builder;
+            use $crate::value::ValueBuilder;
             $crate::value::owned::Value::object()
         }
     };
@@ -666,7 +666,7 @@ macro_rules! json_internal_owned {
 
     ({}) => {
         {
-            use $crate::value::Builder;
+            use $crate::value::ValueBuilder;
             $crate::value::owned::Value::object()
         }
     };
@@ -913,7 +913,7 @@ macro_rules! json_internal_borrowed {
 
     ({}) => {
         {
-            use $crate::value::Builder;
+            use $crate::value::ValueBuilder;
             $crate::value::borrowed::Value::object()
         }
     };
@@ -1153,7 +1153,7 @@ macro_rules! json_internal_borrowed {
 
     ({}) => {
         {
-            use $crate::value::Builder;
+            use $crate::value::ValueBuilder;
             $crate::value::borrowed::Value::object()
         }
     };

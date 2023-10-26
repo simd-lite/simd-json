@@ -885,8 +885,9 @@ impl<'de> Deserializer<'de> {
     /// where it's know the tape isn't finished.
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub unsafe fn next_(&mut self) -> Node<'de> {
+        let r = *self.tape.get_kinda_unchecked(self.idx);
         self.idx += 1;
-        *self.tape.get_kinda_unchecked(self.idx)
+        r
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

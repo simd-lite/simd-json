@@ -1,17 +1,26 @@
-use std::io::{self, Write};
+use std::{
+    borrow::Borrow,
+    hash::Hash,
+    io::{self, Write},
+};
 
 use value_trait::{
+    base::{TypedValue, ValueAsScalar, ValueIntoContainer, ValueIntoString, Writable},
+    derived::{
+        ValueObjectAccessAsScalar, ValueObjectAccessTryAsScalar, ValueTryAsScalar,
+        ValueTryIntoString,
+    },
     generator::{
         BaseGenerator, DumpGenerator, PrettyGenerator, PrettyWriterGenerator, WriterGenerator,
     },
-    StaticNode, ValueAccess, ValueType, Writable,
+    StaticNode, TryTypeError, ValueType,
 };
 
 use crate::Node;
 
 use super::{Array, Object, Value};
 
-// ValueTrait for
+// Custom functions
 impl<'tape, 'input> Value<'tape, 'input> {
     fn as_static(&self) -> Option<StaticNode> {
         match self.0.first()? {
@@ -19,211 +28,88 @@ impl<'tape, 'input> Value<'tape, 'input> {
             _ => None,
         }
     }
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_null(&self) -> bool {
-        self.as_static() == Some(StaticNode::Null)
-    }
+}
 
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_float(&self) -> bool {
-        self.is_f64()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_integer(&self) -> bool {
-        self.is_i128() || self.is_u128()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_number(&self) -> bool {
-        self.is_float() || self.is_integer()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_bool(&self) -> bool {
-        self.as_bool().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_i128(&self) -> bool {
-        self.as_i128().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_i64(&self) -> bool {
-        self.as_i64().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_i32(&self) -> bool {
-        self.as_i32().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_i16(&self) -> bool {
-        self.as_i16().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_i8(&self) -> bool {
-        self.as_i8().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_u128(&self) -> bool {
-        self.as_u128().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_u64(&self) -> bool {
-        self.as_u64().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_usize(&self) -> bool {
-        self.as_usize().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_u32(&self) -> bool {
-        self.as_u32().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_u16(&self) -> bool {
-        self.as_u16().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_u8(&self) -> bool {
-        self.as_u8().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_f64(&self) -> bool {
-        self.as_f64().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_f64_castable(&self) -> bool {
-        self.cast_f64().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_f32(&self) -> bool {
-        self.as_f32().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_str(&self) -> bool {
-        self.as_str().is_some()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_char(&self) -> bool {
-        self.as_char().is_some()
-    }
-
-    /// FIXME: docs
+// TypedContainerValue
+impl<'tape, 'input> Value<'tape, 'input> {
+    /// returns true if the current value can be represented as an array
     #[must_use]
     pub fn is_array(&self) -> bool {
         self.as_array().is_some()
     }
 
-    /// FIXME: docs
+    /// returns true if the current value can be represented as an object
     #[must_use]
     pub fn is_object(&self) -> bool {
         self.as_object().is_some()
     }
+}
 
-    /// FIXME: docs
-    #[must_use]
-    pub fn is_custom(&self) -> bool {
-        false
+impl<'tape, 'input> ValueAsScalar for Value<'tape, 'input>
+where
+    'input: 'tape,
+{
+    #[inline]
+    fn as_null(&self) -> Option<()> {
+        self.as_static()?.as_null()
+    }
+
+    #[inline]
+    fn as_bool(&self) -> Option<bool> {
+        self.as_static()?.as_bool()
+    }
+
+    #[inline]
+    fn as_i64(&self) -> Option<i64> {
+        self.as_static()?.as_i64()
+    }
+
+    #[inline]
+    fn as_u64(&self) -> Option<u64> {
+        self.as_static()?.as_u64()
+    }
+
+    #[inline]
+    fn as_f64(&self) -> Option<f64> {
+        self.as_static()?.as_f64()
+    }
+
+    #[inline]
+    fn as_str(&self) -> Option<&'input str> {
+        self.into_string()
     }
 }
 
-// ValueInto for
-impl<'tape, 'input> Value<'tape, 'input> {
-    /// FIXME: docs
-    #[must_use]
-    pub fn into_string(self) -> Option<&'input str> {
-        self.as_str()
-    }
+impl<'tape, 'input> ValueIntoString for Value<'tape, 'input> {
+    type String = &'input str;
 
-    /// FIXME: docs
+    fn into_string(self) -> Option<&'input str> {
+        if let Some(Node::String(v)) = self.0.first() {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'tape, 'input> ValueIntoContainer for Value<'tape, 'input> {
+    type Array = Array<'tape, 'input>;
+    type Object = Object<'tape, 'input>;
     #[must_use]
-    pub fn into_array(self) -> Option<Array<'tape, 'input>> {
+    fn into_array(self) -> Option<Self::Array> {
         self.as_array()
     }
 
-    /// FIXME: docs
     #[must_use]
-    pub fn into_object(self) -> Option<Object<'tape, 'input>> {
+    fn into_object(self) -> Option<Self::Object> {
         self.as_object()
     }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_into_string(self) -> Result<&'input str, value_trait::TryTypeError> {
-        let vt = self.value_type();
-        self.into_string().ok_or(value_trait::TryTypeError {
-            expected: ValueType::String,
-            got: vt,
-        })
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_into_array(self) -> Result<Array<'tape, 'input>, value_trait::TryTypeError> {
-        let vt = self.value_type();
-        self.into_array().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Array,
-            got: vt,
-        })
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_into_object(self) -> Result<Object<'tape, 'input>, value_trait::TryTypeError> {
-        let vt = self.value_type();
-        self.into_object().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Object,
-            got: vt,
-        })
-    }
 }
-//ValueAccess for
-impl<'tape, 'input> Value<'tape, 'input> {
-    /// FIXME: docs
-    /// # Panics
-    /// on an empty tape
+
+impl<'tape, 'input> TypedValue for Value<'tape, 'input> {
+    #[inline]
     #[must_use]
-    pub fn value_type(&self) -> ValueType {
+    fn value_type(&self) -> ValueType {
         match self.0.first().expect("invalid tape value") {
             Node::Static(StaticNode::Null) => ValueType::Null,
             Node::Static(StaticNode::Bool(_)) => ValueType::Bool,
@@ -239,42 +125,46 @@ impl<'tape, 'input> Value<'tape, 'input> {
             Node::Object { .. } => ValueType::Object,
         }
     }
+}
 
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_bool(&self) -> Option<bool> {
-        self.as_static()?.as_bool()
+// TryValueObjectAccess
+impl<'tape, 'input> Value<'tape, 'input> {
+    // type Key = &str;
+    // type Target = Value<'tape, 'input>;
+
+    /// Tries to get a value based on a key, returns a `TryTypeError` if the
+    /// current Value isn't an Object, returns `None` if the key isn't in the object
+    /// # Errors
+    /// if the value is not an object
+    pub fn try_get<Q>(&self, k: &Q) -> Result<Option<Value<'tape, 'input>>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        Ok(self.try_as_object()?.get(k))
     }
+}
 
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_i64(&self) -> Option<i64> {
-        self.as_static()?.as_i64()
+//TryValueArrayAccess
+impl<'tape, 'input> Value<'tape, 'input>
+where
+    'input: 'tape,
+{
+    /// Tries to get a value based on n index, returns a type error if the
+    /// current value isn't an Array, returns `None` if the index is out of bounds
+    /// # Errors
+    /// if the requested type doesn't match the actual type or the value is not an object
+    pub fn try_get_idx(&self, i: usize) -> Result<Option<Value<'tape, 'input>>, TryTypeError> {
+        Ok(self.try_as_array()?.get(i))
     }
+}
 
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_u64(&self) -> Option<u64> {
-        self.as_static()?.as_u64()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_f64(&self) -> Option<f64> {
-        self.as_static()?.as_f64()
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_str(&self) -> Option<&'input str> {
-        if let Some(Node::String(v)) = self.0.first() {
-            Some(*v)
-        } else {
-            None
-        }
-    }
-
-    /// FIXME: docs
+//ValueAsContainer
+impl<'tape, 'input> Value<'tape, 'input>
+where
+    'input: 'tape,
+{
+    /// Tries to represent the value as an array and returns a reference to it
     #[must_use]
     pub fn as_array(&self) -> Option<Array<'tape, 'input>> {
         if let Some(Node::Array { count, .. }) = self.0.first() {
@@ -286,550 +176,385 @@ impl<'tape, 'input> Value<'tape, 'input> {
         }
     }
 
-    /// FIXME: docs
+    /// Tries to represent the value as an array and returns a reference to it
     #[must_use]
     pub fn as_object(&self) -> Option<Object<'tape, 'input>> {
         if let Some(Node::Object { count, .. }) = self.0.first() {
             // we add one element as we want to keep the object header
             let count = *count + 1;
-
             Some(Object(&self.0[..count]))
         } else {
             None
         }
     }
+}
 
-    /// FIXME: docs
+// ContainerValueTryAs (needed as we don't have ValueAsContainer)
+impl<'tape, 'input> Value<'tape, 'input> {
+    /// Tries to represent the value as an array and returns a reference to it
     /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_bool(&self) -> Result<bool, value_trait::TryTypeError> {
-        self.as_bool().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Bool,
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_i128(&self) -> Option<i128> {
-        self.as_static()?.as_i128()
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_i128(&self) -> Result<i128, value_trait::TryTypeError> {
-        self.as_i128().ok_or(value_trait::TryTypeError {
-            expected: ValueType::I128,
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_i64(&self) -> Result<i64, value_trait::TryTypeError> {
-        self.as_i64().ok_or(value_trait::TryTypeError {
-            expected: ValueType::I64,
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_i32(&self) -> Option<i32> {
-        self.as_i64().and_then(|u| u.try_into().ok())
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_i32(&self) -> Result<i32, value_trait::TryTypeError> {
-        self.as_i32().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Extended(value_trait::ExtendedValueType::I32),
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_i16(&self) -> Option<i16> {
-        self.as_i64().and_then(|u| u.try_into().ok())
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_i16(&self) -> Result<i16, value_trait::TryTypeError> {
-        self.as_i16().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Extended(value_trait::ExtendedValueType::I16),
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_i8(&self) -> Option<i8> {
-        self.as_i64().and_then(|u| u.try_into().ok())
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_i8(&self) -> Result<i8, value_trait::TryTypeError> {
-        self.as_i8().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Extended(value_trait::ExtendedValueType::I8),
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_u128(&self) -> Option<u128> {
-        self.as_static()?.as_u128()
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_u128(&self) -> Result<u128, value_trait::TryTypeError> {
-        self.as_u128().ok_or(value_trait::TryTypeError {
-            expected: ValueType::U128,
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_u64(&self) -> Result<u64, value_trait::TryTypeError> {
-        self.as_u64().ok_or(value_trait::TryTypeError {
-            expected: ValueType::U64,
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_usize(&self) -> Option<usize> {
-        self.as_u64().and_then(|u| u.try_into().ok())
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_usize(&self) -> Result<usize, value_trait::TryTypeError> {
-        self.as_usize().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Extended(value_trait::ExtendedValueType::Usize),
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_u32(&self) -> Option<u32> {
-        self.as_u64().and_then(|u| u.try_into().ok())
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_u32(&self) -> Result<u32, value_trait::TryTypeError> {
-        self.as_u32().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Extended(value_trait::ExtendedValueType::U32),
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_u16(&self) -> Option<u16> {
-        self.as_u64().and_then(|u| u.try_into().ok())
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_u16(&self) -> Result<u16, value_trait::TryTypeError> {
-        self.as_u16().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Extended(value_trait::ExtendedValueType::U16),
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_u8(&self) -> Option<u8> {
-        self.as_u64().and_then(|u| u.try_into().ok())
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_u8(&self) -> Result<u8, value_trait::TryTypeError> {
-        self.as_u8().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Extended(value_trait::ExtendedValueType::U8),
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_f64(&self) -> Result<f64, value_trait::TryTypeError> {
-        self.as_f64().ok_or(value_trait::TryTypeError {
-            expected: ValueType::F64,
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn cast_f64(&self) -> Option<f64> {
-        self.as_static()?.cast_f64()
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    #[allow(clippy::cast_precision_loss)]
-    pub fn try_cast_f64(&self) -> Result<f64, value_trait::TryTypeError> {
-        if let Some(f) = self.as_f64() {
-            Ok(f)
-        } else if let Some(u) = self.as_u128() {
-            Ok(u as f64)
-        } else {
-            self.try_as_i128().map(|i| i as f64)
-        }
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    #[allow(clippy::cast_possible_truncation)]
-    pub fn as_f32(&self) -> Option<f32> {
-        self.as_static()?.as_f32()
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_f32(&self) -> Result<f32, value_trait::TryTypeError> {
-        self.as_f32().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Extended(value_trait::ExtendedValueType::F32),
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_str(&self) -> Result<&'input str, value_trait::TryTypeError> {
-        self.as_str().ok_or(value_trait::TryTypeError {
-            expected: ValueType::String,
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    #[must_use]
-    pub fn as_char(&self) -> Option<char> {
-        self.as_str().and_then(|s| s.chars().next())
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_char(&self) -> Result<char, value_trait::TryTypeError> {
-        self.as_char().ok_or(value_trait::TryTypeError {
-            expected: ValueType::Extended(value_trait::ExtendedValueType::Char),
-            got: self.value_type(),
-        })
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_array(&self) -> Result<Array<'tape, 'input>, value_trait::TryTypeError> {
-        self.as_array().ok_or(value_trait::TryTypeError {
+    /// if the requested type doesn't match the actual type
+    pub fn try_as_array(&self) -> Result<Array<'tape, 'input>, TryTypeError> {
+        self.as_array().ok_or(TryTypeError {
             expected: ValueType::Array,
             got: self.value_type(),
         })
     }
 
-    /// FIXME: docs
+    /// Tries to represent the value as an object and returns a reference to it
     /// # Errors
-    /// if the value has the wrong type
-    pub fn try_as_object(&self) -> Result<Object<'tape, 'input>, value_trait::TryTypeError> {
-        self.as_object().ok_or(value_trait::TryTypeError {
+    /// if the requested type doesn't match the actual type
+    pub fn try_as_object(&self) -> Result<Object<'tape, 'input>, TryTypeError> {
+        self.as_object().ok_or(TryTypeError {
             expected: ValueType::Object,
             got: self.value_type(),
         })
     }
-
-    /// FIXME: docs
+}
+// ValueObjectAccess (needed as we don't have ValueAsContainer ) and can't return references
+impl<'tape, 'input> Value<'tape, 'input> {
+    /// Gets a ref to a value based on a key, returns `None` if the
+    /// current Value isn't an Object or doesn't contain the key
+    /// it was asked for.
     #[must_use]
-    pub fn get(&self, k: &str) -> Option<Value<'tape, 'input>> {
+    pub fn get<Q>(&self, k: &Q) -> Option<Value<'tape, 'input>>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         self.as_object().and_then(|a| a.get(k))
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get(
-        &self,
-        k: &str,
-    ) -> Result<Option<Value<'tape, 'input>>, value_trait::TryTypeError> {
-        Ok(self
-            .as_object()
-            .ok_or_else(|| value_trait::TryTypeError {
-                expected: ValueType::Object,
-                got: self.value_type(),
-            })?
-            .get(k))
-    }
-
-    /// FIXME: docs
+    /// Checks if a Value contains a given key. This will return
+    /// flase if Value isn't an object  
     #[must_use]
     pub fn contains_key(&self, k: &str) -> bool {
         self.as_object().and_then(|a| a.get(k)).is_some()
     }
+}
 
-    /// FIXME: docs
+// ValueArrayAccess (needed as we don't have ValueAsContainer)
+impl<'tape, 'input> Value<'tape, 'input> {
+    /// Gets a ref to a value based on n index, returns `None` if the
+    /// current Value isn't an Array or doesn't contain the index
+    /// it was asked for.
     #[must_use]
     pub fn get_idx(&self, i: usize) -> Option<Value<'tape, 'input>> {
         self.as_array().and_then(|a| a.get(i))
     }
+}
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_idx(
-        &self,
-        i: usize,
-    ) -> Result<Option<Value<'tape, 'input>>, value_trait::TryTypeError> {
-        Ok(self
-            .as_array()
-            .ok_or_else(|| value_trait::TryTypeError {
-                expected: ValueType::Array,
-                got: self.value_type(),
-            })?
-            .get(i))
-    }
+impl<'tape, 'input> ValueObjectAccessAsScalar for Value<'tape, 'input>
+where
+    'input: 'tape,
+{
+    type Key = str;
 
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_bool(&self, k: &str) -> Option<bool> {
-        self.get(k).and_then(|v| v.as_bool())
+    fn get_bool<Q>(&self, k: &Q) -> Option<bool>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.get(k)?.as_bool()
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_bool(&self, k: &str) -> Result<Option<bool>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_bool()).transpose()
+    fn get_i128<Q>(&self, k: &Q) -> Option<i128>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.get(k)?.as_i128()
     }
 
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_i128(&self, k: &str) -> Option<i128> {
-        self.get(k).and_then(|v| v.as_i128())
+    fn get_i64<Q>(&self, k: &Q) -> Option<i64>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.get(k)?.as_i64()
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_i128(&self, k: &str) -> Result<Option<i128>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_i128()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_i64(&self, k: &str) -> Option<i64> {
-        self.get(k).and_then(|v| v.as_i64())
+    fn get_i32<Q>(&self, k: &Q) -> Option<i32>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.get(k)?.as_i32()
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_i64(&self, k: &str) -> Result<Option<i64>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_i64()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_i32(&self, k: &str) -> Option<i32> {
-        self.get(k).and_then(|v| v.as_i32())
+    fn get_i16<Q>(&self, k: &Q) -> Option<i16>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.get(k)?.as_i16()
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_i32(&self, k: &str) -> Result<Option<i32>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_i32()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_i16(&self, k: &str) -> Option<i16> {
-        self.get(k).and_then(|v| v.as_i16())
+    fn get_i8<Q>(&self, k: &Q) -> Option<i8>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.get(k)?.as_i8()
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_i16(&self, k: &str) -> Result<Option<i16>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_i16()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_i8(&self, k: &str) -> Option<i8> {
-        self.get(k).and_then(|v| v.as_i8())
+    fn get_u128<Q>(&self, k: &Q) -> Option<u128>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.get(k)?.as_u128()
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_i8(&self, k: &str) -> Result<Option<i8>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_i8()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_u128(&self, k: &str) -> Option<u128> {
-        self.get(k).and_then(|v| v.as_u128())
-    }
-
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_u128(&self, k: &str) -> Result<Option<u128>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_u128()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_u64(&self, k: &str) -> Option<u64> {
+    fn get_u64<Q>(&self, k: &Q) -> Option<u64>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         self.get(k).and_then(|v| v.as_u64())
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_u64(&self, k: &str) -> Result<Option<u64>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_u64()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_usize(&self, k: &str) -> Option<usize> {
+    fn get_usize<Q>(&self, k: &Q) -> Option<usize>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         self.get(k).and_then(|v| v.as_usize())
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_usize(&self, k: &str) -> Result<Option<usize>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_usize()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_u32(&self, k: &str) -> Option<u32> {
+    fn get_u32<Q>(&self, k: &Q) -> Option<u32>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         self.get(k).and_then(|v| v.as_u32())
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_u32(&self, k: &str) -> Result<Option<u32>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_u32()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_u16(&self, k: &str) -> Option<u16> {
+    fn get_u16<Q>(&self, k: &Q) -> Option<u16>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         self.get(k).and_then(|v| v.as_u16())
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_u16(&self, k: &str) -> Result<Option<u16>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_u16()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_u8(&self, k: &str) -> Option<u8> {
+    fn get_u8<Q>(&self, k: &Q) -> Option<u8>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         self.get(k).and_then(|v| v.as_u8())
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_u8(&self, k: &str) -> Result<Option<u8>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_u8()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_f64(&self, k: &str) -> Option<f64> {
+    fn get_f64<Q>(&self, k: &Q) -> Option<f64>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         self.get(k).and_then(|v| v.as_f64())
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_f64(&self, k: &str) -> Result<Option<f64>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_f64()).transpose()
-    }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_f32(&self, k: &str) -> Option<f32> {
+    fn get_f32<Q>(&self, k: &Q) -> Option<f32>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         self.get(k).and_then(|v| v.as_f32())
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_f32(&self, k: &str) -> Result<Option<f32>, value_trait::TryTypeError> {
-        self.try_get(k)?.map(|v| v.try_as_f32()).transpose()
+    fn get_str<Q>(&self, k: &Q) -> Option<&'input str>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        if let Some(Node::String(v)) = self.get(k)?.0.first() {
+            Some(v)
+        } else {
+            None
+        }
     }
-    /// FIXME: docs
-    #[must_use]
-    pub fn get_str(&self, k: &str) -> Option<&'input str> {
-        self.get(k).and_then(|v| v.as_str())
-    }
+}
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_str(&self, k: &str) -> Result<Option<&'input str>, value_trait::TryTypeError> {
-        self.try_get(k)
-            .and_then(|s| s.map(|v| v.try_as_str()).transpose())
-    }
-    /// FIXME: docs
+// ValueObjectContainerAccess
+impl<'tape, 'input> Value<'tape, 'input> {
+    /// Tries to get an element of an object as a array
     #[must_use]
-    pub fn get_array(&self, k: &str) -> Option<Array<'tape, 'input>> {
+    pub fn get_array<Q>(&self, k: &Q) -> Option<Array<'tape, 'input>>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         let v = self.get(k)?;
         v.as_array()
     }
 
-    /// FIXME: docs
-    /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_array(
-        &self,
-        k: &str,
-    ) -> Result<Option<Array<'tape, 'input>>, value_trait::TryTypeError> {
-        self.try_get(k)
-            .and_then(|s| s.map(|v| v.try_as_array()).transpose())
-    }
-    /// FIXME: docs
+    /// Tries to get an element of an object as a object
     #[must_use]
-    pub fn get_object(&self, k: &str) -> Option<Object<'tape, 'input>> {
+    pub fn get_object<Q>(&self, k: &Q) -> Option<Object<'tape, 'input>>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
         self.get(k).and_then(|v| v.as_object())
     }
-
-    /// FIXME: docs
+}
+// TryValueObjectContainerAccess
+impl<'tape, 'input> Value<'tape, 'input> {
+    /// Tries to get an element of an object as an array, returns
+    /// an error if it isn't a array
     /// # Errors
-    /// if the value has the wrong type
-    pub fn try_get_object(
-        &self,
-        k: &str,
-    ) -> Result<Option<Object<'tape, 'input>>, value_trait::TryTypeError> {
-        self.try_get(k)
-            .and_then(|s| s.map(|v| v.try_as_object()).transpose())
+    /// if the requested type doesn't match the actual type or the value is not an object
+    pub fn try_get_array<Q>(&self, k: &Q) -> Result<Option<Array<'tape, 'input>>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_as_object()?
+            .get(k)
+            .map(|v| v.try_as_array())
+            .transpose()
+    }
+
+    /// Tries to get an element of an object as an object, returns
+    /// an error if it isn't an object
+    ///
+    /// # Errors
+    /// if the requested type doesn't match the actual type or the value is not an object
+    pub fn try_get_object<Q>(&self, k: &Q) -> Result<Option<Object<'tape, 'input>>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_as_object()?
+            .get(k)
+            .map(|v| v.try_as_object())
+            .transpose()
+    }
+}
+
+impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
+    type Key = str;
+    fn try_get_bool<Q>(&self, k: &Q) -> Result<Option<bool>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_bool()).transpose()
+    }
+
+    fn try_get_i128<Q>(&self, k: &Q) -> Result<Option<i128>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_i128()).transpose()
+    }
+
+    fn try_get_i64<Q>(&self, k: &Q) -> Result<Option<i64>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_i64()).transpose()
+    }
+
+    fn try_get_i32<Q>(&self, k: &Q) -> Result<Option<i32>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_i32()).transpose()
+    }
+
+    fn try_get_i16<Q>(&self, k: &Q) -> Result<Option<i16>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_i16()).transpose()
+    }
+
+    fn try_get_i8<Q>(&self, k: &Q) -> Result<Option<i8>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_i8()).transpose()
+    }
+
+    fn try_get_u128<Q>(&self, k: &Q) -> Result<Option<u128>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_u128()).transpose()
+    }
+
+    fn try_get_u64<Q>(&self, k: &Q) -> Result<Option<u64>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_u64()).transpose()
+    }
+
+    fn try_get_usize<Q>(&self, k: &Q) -> Result<Option<usize>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_usize()).transpose()
+    }
+
+    fn try_get_u32<Q>(&self, k: &Q) -> Result<Option<u32>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_u32()).transpose()
+    }
+
+    fn try_get_u16<Q>(&self, k: &Q) -> Result<Option<u16>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_u16()).transpose()
+    }
+
+    fn try_get_u8<Q>(&self, k: &Q) -> Result<Option<u8>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_u8()).transpose()
+    }
+
+    fn try_get_f64<Q>(&self, k: &Q) -> Result<Option<f64>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_f64()).transpose()
+    }
+
+    fn try_get_f32<Q>(&self, k: &Q) -> Result<Option<f32>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_get(k)?.map(|v| v.try_as_f32()).transpose()
+    }
+
+    fn try_get_str<Q>(&self, k: &Q) -> Result<Option<&'input str>, TryTypeError>
+    where
+        str: Borrow<Q> + Hash + Eq,
+        Q: ?Sized + Hash + Eq + Ord,
+    {
+        self.try_as_object()?
+            .get(k)
+            .map(ValueTryIntoString::try_into_string)
+            .transpose()
     }
 }
 

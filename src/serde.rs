@@ -193,17 +193,19 @@ impl serde_ext::ser::Error for Error {
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn next(&mut self) -> Result<Node<'de>> {
-        self.idx += 1;
-        self.tape
+        let r = self
+            .tape
             .get(self.idx)
             .copied()
-            .ok_or_else(|| Self::error(ErrorType::Syntax))
+            .ok_or_else(|| Self::error(ErrorType::Syntax));
+        self.idx += 1;
+        r
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn peek(&self) -> Result<Node> {
         self.tape
-            .get(self.idx + 1)
+            .get(self.idx)
             .copied()
             .ok_or_else(|| Self::error(ErrorType::Eof))
     }
@@ -783,6 +785,7 @@ mod test {
         });
         let input: Vec<Option<u8>> = vec![None, Some(3_u8)];
         let mut v_str = crate::to_string(&input).unwrap();
+        dbg!(&v_str);
         assert_eq!(input, unsafe {
             crate::from_str::<Vec<Option<u8>>>(&mut v_str).unwrap()
         });
