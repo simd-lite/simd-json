@@ -880,8 +880,9 @@ where
 mod test {
     #![allow(clippy::ignored_unit_patterns)]
     use crate::from_slice;
+    use crate::OwnedValue as Value;
     #[cfg(not(target_arch = "wasm32"))]
-    use crate::{OwnedValue as Value, StaticNode};
+    use crate::StaticNode;
     #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
     #[test]

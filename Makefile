@@ -9,5 +9,5 @@ clippy:
 wasmtest:
 	cargo clean --target-dir target
 	cargo build --tests --target wasm32-wasi --target-dir target
-	wasmtime run --wasm-features=simd target/wasm32-wasi/debug/deps/simd_json*.wasm
-	wasmtime run --dir=. --wasm-features=simd target/wasm32-wasi/debug/deps/jsonchecker*.wasm
+	wasmtime run  target/wasm32-wasi/debug/deps/simd_json*.wasm
+	wasmtime run --dir=.  target/wasm32-wasi/debug/deps/jsonchecker*.wasm
