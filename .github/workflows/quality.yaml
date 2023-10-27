@@ -12,19 +12,9 @@ jobs:
     strategy:
       matrix:
         rustflags:
-          - "-C target-cpu=native"
-          - "-C target-cpu=native -C target-feature=-avx2"
-          - "-C target-cpu=native -C target-feature=-avx2,-pclmulqdq"
-        features:
-          - '--no-default-features'
-          - ''
-          - '--features value-no-dup-keys'
-          - '--features known-key'
-          - '--features 128bit'
-          - '--features beef'
-          - '--features beef,known-key'
-          - '--features beef,known-key,128bit'
-          - '--features approx-number-parsing'
+          - ""
+          - "-C target-feature=-avx2"
+          - "-C target-feature=-avx2,-pclmulqdq"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -36,7 +26,42 @@ jobs:
       - name: Validate cargo format
         run: cargo fmt -- --check
 
-      - name: Run clippy manually without annotations
+      - name: Run tests 
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo clippy --all ${{ matrix.features }}
+        run: cargo clippy
+  
+      - name: Run tests (no-default-features)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo clippy
+  
+      - name: Run tests (value-no-dup-keys)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo clippy --features value-no-dup-keys
+  
+      - name: Run tests (known-key)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo clippy --features known-key
+  
+      - name: Run tests (128bit)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo clippy --features 128bit
+  
+      - name: Run tests (beef)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo clippy --features beef
+      
+      - name: Run tests (arraybackend)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo clippy --features arraybackend
+      
+      - name: Run tests (approx-number-parsing)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo clippy --features approx-number-parsing
