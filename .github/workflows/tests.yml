@@ -7,7 +7,7 @@ on:
       - main
 
 jobs:
-  build:
+  test:
     strategy:
       matrix:
         os:
@@ -18,18 +18,7 @@ jobs:
           - ''
           - '-C target-feature=-avx2'
           - '-C target-feature=-avx2,-pclmulqdq'
-        features:
-          - '--no-default-features'
-          - ''
-          - '--features value-no-dup-keys'
-          - '--features known-key'
-          - '--features 128bit'
-          - '--features beef'
-          - '--features arraybackend'
-          - '--features arraybackend,known-key'
-          - '--features beef,known-key'
-          - '--features beef,known-key,128bit'
-          - '--features approx-number-parsing'
+
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
@@ -42,20 +31,60 @@ jobs:
       uses: taiki-e/install-action@cargo-llvm-cov
 
     - name: Run tests (alloc)
-      if: matrix.features == ''
       env:
         RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
       run: cargo test --features alloc
 
-    - name: Run tests
+    - name: llvm-cov - Clean 
+      run: cargo llvm-cov clean --workspace 
+
+    - name: Run tests 
       env:
         RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo llvm-cov --lcov --output-path lcov.txt --features no-inline ${{ matrix.features }}
+      run: cargo llvm-cov --no-report
+
+    - name: Run tests (no-default-features)
+      env:
+        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+      run: cargo llvm-cov --no-report
+
+    - name: Run tests (value-no-dup-keys)
+      env:
+        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+      run: cargo llvm-cov --no-report --features value-no-dup-keys
+
+    - name: Run tests (known-key)
+      env:
+        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+      run: cargo llvm-cov --no-report --features known-key
+
+    - name: Run tests (128bit)
+      env:
+        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+      run: cargo llvm-cov --no-report --features 128bit
+
+    - name: Run tests (beef)
+      env:
+        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+      run: cargo llvm-cov --no-report --features beef
+    
+    - name: Run tests (arraybackend)
+      env:
+        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+      run: cargo llvm-cov --no-report --features arraybackend
+    
+    - name: Run tests (approx-number-parsing)
+      env:
+        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+      run: cargo llvm-cov --no-report --features approx-number-parsing
+
+    - name: llvm-cov - Report
+      run: cargo llvm-cov report --lcov --output-path lcov.txt
 
     - name: Generate matrix name
       if: matrix.os == 'ubuntu-latest'
       run: |
-            flags="${{ matrix.rustflags }}${{ matrix.features }}"
+            flags="${{ matrix.rustflags }}"
             flags="${flags/-C target-feature=/}"
             flags="${flags//[- ]/}"
             echo "$flags"
@@ -72,17 +101,8 @@ jobs:
           files: ./lcov.txt
           flags: unittests
           verbose: true
-  wasm:
-    strategy:
-      matrix:
-        features:
-          - '--no-default-features'
-          - ''
-          - '--features value-no-dup-keys'
-          - '--features 128bit'
-          - '--features beef'
-          - '--features beef,128bit'
-          - '--features approx-number-parsing'
+
+  build-wasm:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -92,5 +112,40 @@ jobs:
         components: llvm-tools-preview
         targets: wasm32-unknown-unknown
 
-    - name: Compile
-      run: cargo build --target wasm32-unknown-unknown --features no-inline ${{ matrix.features }}
+    - name: Install wasmtime
+      run: cargo install wasmtime
+
+    - name: Run tests
+      run: |
+        cargo build --tests --target-dir target --target wasm32-unknown-unknown
+        wasmtime run --wasm-features=simd target/wasm32-wasi/debug/deps/simd_json*.wasm
+
+    - name: Run tests (no-default-features)
+      run: |
+        cargo build --tests --target-dir target --target wasm32-unknown-unknown --no-default-features
+        wasmtime run --wasm-features=simd target/wasm32-wasi/debug/deps/simd_json*.wasm
+
+    - name: Run tests (no-inline)
+      run: |
+        cargo build --tests --target-dir target --target wasm32-unknown-unknown --features no-inline
+        wasmtime run --wasm-features=simd target/wasm32-wasi/debug/deps/simd_json*.wasm
+
+    - name: Run tests (value-no-dup-keys)
+      run: |
+        cargo build --tests --target-dir target --target wasm32-unknown-unknown --features value-no-dup-keys
+        wasmtime run --wasm-features=simd target/wasm32-wasi/debug/deps/simd_json*.wasm
+
+    - name: Run tests (128bit)
+      run: |
+        cargo build --tests --target-dir target --target wasm32-unknown-unknown --features 128bit
+        wasmtime run --wasm-features=simd target/wasm32-wasi/debug/deps/simd_json*.wasm
+
+    - name: Run tests (beef)
+      run: |
+        cargo build --tests --target-dir target --target wasm32-unknown-unknown --features beef
+        wasmtime run --wasm-features=simd target/wasm32-wasi/debug/deps/simd_json*.wasm
+
+    - name: Run tests (approx-number-parsing)
+      run: |
+        cargo build --tests --target-dir target --target wasm32-unknown-unknown --features approx-number-parsing
+        wasmtime run --wasm-features=simd target/wasm32-wasi/debug/deps/simd_json*.wasm
