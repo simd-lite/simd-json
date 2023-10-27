@@ -1,9 +1,10 @@
 use crate::error::ErrorType;
-use crate::neon::stage1::bit_mask;
+use crate::impls::neon::stage1::bit_mask;
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::stringparse::{handle_unicode_codepoint, ESCAPE_MAP};
 use crate::Deserializer;
 use crate::Result;
+use crate::SillyWrapper;
 
 use std::arch::aarch64::{
     uint8x16_t, vandq_u8, vceqq_u8, vgetq_lane_u32, vld1q_u8, vmovq_n_u8, vpaddq_u8,
@@ -42,11 +43,13 @@ fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
 #[allow(clippy::if_not_else, clippy::too_many_lines)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn parse_str<'invoke, 'de>(
-    input: *mut u8,
+    input: SillyWrapper<'de>,
     data: &'invoke [u8],
     buffer: &'invoke mut [u8],
     mut idx: usize,
 ) -> Result<&'de str> {
+    let input = input.input;
+
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
     // Add 1 to skip the initial "
     idx += 1;

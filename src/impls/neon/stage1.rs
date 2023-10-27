@@ -116,11 +116,11 @@ impl Stage1Parse for SimdInput {
         // * carriage return 0x0d
         // these go into the next 2 buckets of the comparison (8/16)
 
-        const low_nibble_mask: uint8x16_t =
-            std::mem::transmute([16u8, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]);
+        const LOW_NIBBLE_MASK: uint8x16_t =
+            unsafe { std::mem::transmute([16u8, 0, 0, 0, 0, 0, 0, 0, 0, 8, 12, 1, 2, 9, 0, 0]) };
 
-        const high_nibble_mask: uint8x16_t =
-            std::mem::transmute([8u8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]);
+        const HIGH_NIBBLE_MASK: uint8x16_t =
+            unsafe { std::mem::transmute([8u8, 0, 18, 4, 0, 1, 0, 1, 0, 0, 0, 3, 2, 1, 0, 0]) };
 
         let structural_shufti_mask: uint8x16_t = vmovq_n_u8(0x7);
         let whitespace_shufti_mask: uint8x16_t = vmovq_n_u8(0x18);
@@ -128,26 +128,26 @@ impl Stage1Parse for SimdInput {
 
         let nib_0_lo: uint8x16_t = vandq_u8(self.v0, low_nib_and_mask);
         let nib_0_hi: uint8x16_t = vshrq_n_u8(self.v0, 4);
-        let shuf_0_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_0_lo);
-        let shuf_0_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_0_hi);
+        let shuf_0_lo: uint8x16_t = vqtbl1q_u8(LOW_NIBBLE_MASK, nib_0_lo);
+        let shuf_0_hi: uint8x16_t = vqtbl1q_u8(HIGH_NIBBLE_MASK, nib_0_hi);
         let v_0: uint8x16_t = vandq_u8(shuf_0_lo, shuf_0_hi);
 
         let nib_1_lo: uint8x16_t = vandq_u8(self.v1, low_nib_and_mask);
         let nib_1_hi: uint8x16_t = vshrq_n_u8(self.v1, 4);
-        let shuf_1_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_1_lo);
-        let shuf_1_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_1_hi);
+        let shuf_1_lo: uint8x16_t = vqtbl1q_u8(LOW_NIBBLE_MASK, nib_1_lo);
+        let shuf_1_hi: uint8x16_t = vqtbl1q_u8(HIGH_NIBBLE_MASK, nib_1_hi);
         let v_1: uint8x16_t = vandq_u8(shuf_1_lo, shuf_1_hi);
 
         let nib_2_lo: uint8x16_t = vandq_u8(self.v2, low_nib_and_mask);
         let nib_2_hi: uint8x16_t = vshrq_n_u8(self.v2, 4);
-        let shuf_2_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_2_lo);
-        let shuf_2_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_2_hi);
+        let shuf_2_lo: uint8x16_t = vqtbl1q_u8(LOW_NIBBLE_MASK, nib_2_lo);
+        let shuf_2_hi: uint8x16_t = vqtbl1q_u8(HIGH_NIBBLE_MASK, nib_2_hi);
         let v_2: uint8x16_t = vandq_u8(shuf_2_lo, shuf_2_hi);
 
         let nib_3_lo: uint8x16_t = vandq_u8(self.v3, low_nib_and_mask);
         let nib_3_hi: uint8x16_t = vshrq_n_u8(self.v3, 4);
-        let shuf_3_lo: uint8x16_t = vqtbl1q_u8(low_nibble_mask, nib_3_lo);
-        let shuf_3_hi: uint8x16_t = vqtbl1q_u8(high_nibble_mask, nib_3_hi);
+        let shuf_3_lo: uint8x16_t = vqtbl1q_u8(LOW_NIBBLE_MASK, nib_3_lo);
+        let shuf_3_hi: uint8x16_t = vqtbl1q_u8(HIGH_NIBBLE_MASK, nib_3_hi);
         let v_3: uint8x16_t = vandq_u8(shuf_3_lo, shuf_3_hi);
 
         let tmp_0: uint8x16_t = vtstq_u8(v_0, structural_shufti_mask);
