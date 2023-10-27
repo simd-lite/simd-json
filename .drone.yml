@@ -1,4 +1,5 @@
 kind: pipeline
+type: docker
 name: test-on-arm64
 
 platform:
@@ -12,10 +13,9 @@ steps:
       CODECOV_TOKEN:
         from_secret: CODECOV_TOKEN
     commands:
-      - rustup default nightly
       - rustup update
-      - cargo clean && cargo +nightly build --verbose --all
-      - cargo +nightly test --verbose --all
+      - cargo build --verbose --all
+      - cargo test --verbose --all
 #  - cargo +nightly install cargo-clippy -f
 #  - cargo +nightly clippy --verbose --all
 #  - cargo +nightly install cargo-tarpaulin -f
