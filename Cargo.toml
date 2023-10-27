@@ -41,10 +41,11 @@ ref-cast = "1.0"
 [dev-dependencies]
 float-cmp = "0.9"
 getopts = "0.2"
-criterion = { version = "0.5" }
 core_affinity = { version = "0.8" }
 
+
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
+criterion = { version = "0.5" }
 proptest = "1.0"
 
 [lib]

@@ -5,14 +5,12 @@ mod serde;
 
 mod impls;
 
-use super::to_borrowed_value;
-use super::{owned::Value, to_owned_value, Deserializer};
-use crate::tape::Node;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::to_borrowed_value;
+use crate::{owned::Value, tape::Node, to_owned_value, Deserializer};
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
-use value_trait::prelude::Writable;
-#[cfg(not(target_arch = "wasm32"))]
-use value_trait::StaticNode;
+use value_trait::prelude::*;
 
 #[cfg(not(feature = "approx-number-parsing"))]
 #[test]

@@ -3,12 +3,13 @@
     clippy::non_ascii_literal,
     clippy::ignored_unit_patterns
 )]
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{deserialize, OwnedValue};
 use crate::{
-    deserialize,
     owned::{to_value, Object, Value},
     prelude::*,
     serde::from_slice,
-    to_borrowed_value, to_owned_value, OwnedValue,
+    to_borrowed_value, to_owned_value,
 };
 use halfbrown::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
