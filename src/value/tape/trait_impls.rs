@@ -258,6 +258,7 @@ where
         self.get(k)?.as_bool()
     }
 
+    #[inline]
     fn get_i128<Q>(&self, k: &Q) -> Option<i128>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -266,6 +267,7 @@ where
         self.get(k)?.as_i128()
     }
 
+    #[inline]
     fn get_i64<Q>(&self, k: &Q) -> Option<i64>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -274,6 +276,7 @@ where
         self.get(k)?.as_i64()
     }
 
+    #[inline]
     fn get_i32<Q>(&self, k: &Q) -> Option<i32>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -282,6 +285,7 @@ where
         self.get(k)?.as_i32()
     }
 
+    #[inline]
     fn get_i16<Q>(&self, k: &Q) -> Option<i16>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -290,6 +294,7 @@ where
         self.get(k)?.as_i16()
     }
 
+    #[inline]
     fn get_i8<Q>(&self, k: &Q) -> Option<i8>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -298,6 +303,7 @@ where
         self.get(k)?.as_i8()
     }
 
+    #[inline]
     fn get_u128<Q>(&self, k: &Q) -> Option<u128>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -306,6 +312,7 @@ where
         self.get(k)?.as_u128()
     }
 
+    #[inline]
     fn get_u64<Q>(&self, k: &Q) -> Option<u64>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -314,6 +321,7 @@ where
         self.get(k).and_then(|v| v.as_u64())
     }
 
+    #[inline]
     fn get_usize<Q>(&self, k: &Q) -> Option<usize>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -322,6 +330,7 @@ where
         self.get(k).and_then(|v| v.as_usize())
     }
 
+    #[inline]
     fn get_u32<Q>(&self, k: &Q) -> Option<u32>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -330,6 +339,7 @@ where
         self.get(k).and_then(|v| v.as_u32())
     }
 
+    #[inline]
     fn get_u16<Q>(&self, k: &Q) -> Option<u16>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -338,6 +348,7 @@ where
         self.get(k).and_then(|v| v.as_u16())
     }
 
+    #[inline]
     fn get_u8<Q>(&self, k: &Q) -> Option<u8>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -346,6 +357,7 @@ where
         self.get(k).and_then(|v| v.as_u8())
     }
 
+    #[inline]
     fn get_f64<Q>(&self, k: &Q) -> Option<f64>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -354,6 +366,7 @@ where
         self.get(k).and_then(|v| v.as_f64())
     }
 
+    #[inline]
     fn get_f32<Q>(&self, k: &Q) -> Option<f32>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -362,6 +375,7 @@ where
         self.get(k).and_then(|v| v.as_f32())
     }
 
+    #[inline]
     fn get_str<Q>(&self, k: &Q) -> Option<&'input str>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -442,6 +456,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_bool()).transpose()
     }
 
+    #[inline]
     fn try_get_i128<Q>(&self, k: &Q) -> Result<Option<i128>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -450,6 +465,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_i128()).transpose()
     }
 
+    #[inline]
     fn try_get_i64<Q>(&self, k: &Q) -> Result<Option<i64>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -458,6 +474,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_i64()).transpose()
     }
 
+    #[inline]
     fn try_get_i32<Q>(&self, k: &Q) -> Result<Option<i32>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -466,6 +483,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_i32()).transpose()
     }
 
+    #[inline]
     fn try_get_i16<Q>(&self, k: &Q) -> Result<Option<i16>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -474,6 +492,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_i16()).transpose()
     }
 
+    #[inline]
     fn try_get_i8<Q>(&self, k: &Q) -> Result<Option<i8>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -482,6 +501,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_i8()).transpose()
     }
 
+    #[inline]
     fn try_get_u128<Q>(&self, k: &Q) -> Result<Option<u128>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -490,6 +510,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_u128()).transpose()
     }
 
+    #[inline]
     fn try_get_u64<Q>(&self, k: &Q) -> Result<Option<u64>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -498,6 +519,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_u64()).transpose()
     }
 
+    #[inline]
     fn try_get_usize<Q>(&self, k: &Q) -> Result<Option<usize>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -506,6 +528,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_usize()).transpose()
     }
 
+    #[inline]
     fn try_get_u32<Q>(&self, k: &Q) -> Result<Option<u32>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -514,6 +537,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_u32()).transpose()
     }
 
+    #[inline]
     fn try_get_u16<Q>(&self, k: &Q) -> Result<Option<u16>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -522,6 +546,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_u16()).transpose()
     }
 
+    #[inline]
     fn try_get_u8<Q>(&self, k: &Q) -> Result<Option<u8>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -530,6 +555,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_u8()).transpose()
     }
 
+    #[inline]
     fn try_get_f64<Q>(&self, k: &Q) -> Result<Option<f64>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -538,6 +564,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_f64()).transpose()
     }
 
+    #[inline]
     fn try_get_f32<Q>(&self, k: &Q) -> Result<Option<f32>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -546,6 +573,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_f32()).transpose()
     }
 
+    #[inline]
     fn try_get_str<Q>(&self, k: &Q) -> Result<Option<&'input str>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,

@@ -40,20 +40,18 @@ impl<'tape, 'input> Object<'tape, 'input> {
     }
     /// FIXME: docs
     #[must_use]
-    pub fn iter<'i>(
-        &'i self,
-    ) -> Box<dyn Iterator<Item = (&'input str, Value<'tape, 'input>)> + 'i> {
-        Box::new(ObjectIter(&self.0[1..]))
+    pub fn iter<'i>(&'i self) -> ObjectIter<'tape, 'input> {
+        ObjectIter(&self.0[1..])
     }
     /// FIXME: docs
     #[must_use]
-    pub fn keys<'i>(&'i self) -> Box<dyn Iterator<Item = &'input str> + 'i> {
-        Box::new(ObjectKeys(&self.0[1..]))
+    pub fn keys<'i>(&'i self) -> ObjectKeys<'tape, 'input> {
+        ObjectKeys(&self.0[1..])
     }
     /// FIXME: docs
     #[must_use]
-    pub fn values<'i>(&'i self) -> Box<dyn Iterator<Item = Value<'tape, 'input>> + 'i> {
-        Box::new(ObjectValues(&self.0[1..]))
+    pub fn values<'i>(&'i self) -> ObjectValues<'tape, 'input> {
+        ObjectValues(&self.0[1..])
     }
     /// FIXME: docs
     #[must_use]
