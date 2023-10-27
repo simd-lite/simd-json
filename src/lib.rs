@@ -651,6 +651,7 @@ impl<'de> Deserializer<'de> {
         buffer: &'invoke mut [u8],
         idx: usize,
     ) -> Result<&'de str> {
+        let input: SillyWrapper<'de> = SillyWrapper::from(input);
         impls::neon::parse_str(input, data, buffer, idx)
     }
     #[inline]

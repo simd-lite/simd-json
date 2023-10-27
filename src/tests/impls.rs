@@ -40,6 +40,7 @@ fn find_structural_bits_test_cases<S: Stage1Parse>() {
     );
 }
 
+#[cfg(all(not(target_arch = "aarch64"), not(target_feature = "simd128")))]
 #[test]
 fn find_structural_bits_native() {
     find_structural_bits_test_cases::<impls::native::SimdInput>();
