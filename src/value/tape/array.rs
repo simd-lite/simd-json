@@ -26,8 +26,8 @@ where
     }
     /// FIXME: docs
     #[must_use]
-    pub fn iter<'i>(&'i self) -> Box<dyn Iterator<Item = Value<'tape, 'input>> + 'i> {
-        Box::new(ArrayIter(&self.0[1..]))
+    pub fn iter<'i>(&'i self) -> ArrayIter<'tape, 'input> {
+        ArrayIter(&self.0[1..])
     }
 
     /// FIXME: docs
