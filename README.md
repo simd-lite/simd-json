@@ -22,7 +22,7 @@
 
 ### CPU target
 
-To be able to take advantage of `simd-json` your system needs to be SIMD-capable. On 'x86', it will select the best SIMD feature set (`avx2` or 'sse4.2') during runtime. If 'simd-json' is compiled with SIMD support, it will disable runtime detection.
+To be able to take advantage of `simd-json` your system needs to be SIMD-capable. On `x86`, it will select the best SIMD feature set (`avx2` or `sse4.2`) during runtime. If `simd-json` is compiled with SIMD support, it will disable runtime detection.
 
 `simd-json` supports AVX2, SSE4.2, NEON, and simd128 (wasm) natively. It also includes an unoptimized fallback implementation using native rust for other platforms; however, this is a last resort measure and nothing we'd recommend relying on.
 
