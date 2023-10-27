@@ -88,10 +88,6 @@ alloc = ["alloc_counter"]
 # don't inline code - used for debugging
 no-inline = []
 
-# uses safe slice access ([]) instead of get_unsafe
-# **for debugging**
-safe = []
-
 # also bench serde in the benchmarks
 bench-serde = ["serde_json"]
 
@@ -123,3 +119,4 @@ opt-level = 3
 codegen-units = 1
 lto = true
 opt-level = 3
+panic = "abort"
