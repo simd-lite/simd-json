@@ -1069,7 +1069,7 @@ impl AlignedBuf {
     /// Creates a new buffer that is  aligned with the simd register size
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
-        let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING / 2) {
+        let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING) {
             Ok(layout) => layout,
             Err(_) => Self::capacity_overflow(),
         };
