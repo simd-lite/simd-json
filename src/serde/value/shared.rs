@@ -65,7 +65,7 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
     #[cfg(feature = "128bit")]
     deserialize_integer_key!(deserialize_u128 => visit_u128);
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
@@ -74,7 +74,7 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
         visitor.visit_some(self)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_newtype_struct<V>(
         self,
         _name: &'static str,

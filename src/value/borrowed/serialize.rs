@@ -17,21 +17,21 @@ use value_trait::generator::{
 //use util::print_dec;
 
 impl<'value> Writable for Value<'value> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
         let _r = g.write_json(self);
         g.consume()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn encode_pp(&self) -> String {
         let mut g = PrettyGenerator::new(2);
         let _r = g.write_json(self);
         g.consume()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
@@ -40,7 +40,7 @@ impl<'value> Writable for Value<'value> {
         g.write_json(self)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write_pp<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
@@ -53,7 +53,7 @@ impl<'value> Writable for Value<'value> {
 trait Generator: BaseGenerator {
     type T: Write;
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write_object(&mut self, object: &Object) -> io::Result<()> {
         if object.is_empty() {
             self.write(b"{}")
@@ -87,7 +87,7 @@ trait Generator: BaseGenerator {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write_json(&mut self, json: &Value) -> io::Result<()> {
         match *json {
             Value::Static(StaticNode::Null) => self.write(b"null"),
@@ -138,7 +138,7 @@ trait Generator: BaseGenerator {
 trait FastGenerator: BaseGenerator {
     type T: Write;
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write_object(&mut self, object: &Object) -> io::Result<()> {
         if object.is_empty() {
             self.write(b"{}")
@@ -167,7 +167,7 @@ trait FastGenerator: BaseGenerator {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write_json(&mut self, json: &Value) -> io::Result<()> {
         match *json {
             Value::Static(StaticNode::Null) => self.write(b"null"),

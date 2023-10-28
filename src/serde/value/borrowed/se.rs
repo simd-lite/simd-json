@@ -72,22 +72,22 @@ impl<'se> serde::Serializer for Serializer<'se> {
     type SerializeStruct = SerializeMap<'se>;
     type SerializeStructVariant = SerializeStructVariant<'se>;
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_bool(self, value: bool) -> Result<Value<'se>> {
         Ok(Value::Static(StaticNode::Bool(value)))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_i8(self, value: i8) -> Result<Value<'se>> {
         self.serialize_i64(i64::from(value))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_i16(self, value: i16) -> Result<Value<'se>> {
         self.serialize_i64(i64::from(value))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_i32(self, value: i32) -> Result<Value<'se>> {
         self.serialize_i64(i64::from(value))
     }
@@ -101,22 +101,22 @@ impl<'se> serde::Serializer for Serializer<'se> {
         Ok(Value::Static(StaticNode::I128(value)))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_u8(self, value: u8) -> Result<Value<'se>> {
         self.serialize_u64(u64::from(value))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_u16(self, value: u16) -> Result<Value<'se>> {
         self.serialize_u64(u64::from(value))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_u32(self, value: u32) -> Result<Value<'se>> {
         self.serialize_u64(u64::from(value))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_u64(self, value: u64) -> Result<Value<'se>> {
         Ok(Value::Static(StaticNode::U64(value)))
     }
@@ -126,44 +126,44 @@ impl<'se> serde::Serializer for Serializer<'se> {
         Ok(Value::Static(StaticNode::U128(value)))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_f32(self, value: f32) -> Result<Value<'se>> {
         self.serialize_f64(f64::from(value))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_f64(self, value: f64) -> Result<Value<'se>> {
         Ok(Value::Static(StaticNode::F64(value)))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_char(self, value: char) -> Result<Value<'se>> {
         let mut s = String::new();
         s.push(value);
         self.serialize_str(&s)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_str(self, value: &str) -> Result<Value<'se>> {
         Ok(Value::from(value.to_owned()))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_bytes(self, value: &[u8]) -> Result<Value<'se>> {
         Ok(value.iter().copied().collect())
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_unit(self) -> Result<Value<'se>> {
         Ok(Value::Static(StaticNode::Null))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Value<'se>> {
         self.serialize_unit()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_unit_variant(
         self,
         _name: &'static str,
@@ -173,7 +173,7 @@ impl<'se> serde::Serializer for Serializer<'se> {
         self.serialize_str(variant)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_newtype_struct<T: ?Sized>(
         self,
         _name: &'static str,
@@ -201,12 +201,12 @@ impl<'se> serde::Serializer for Serializer<'se> {
         Ok(Value::from(values))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_none(self) -> Result<Value<'se>> {
         self.serialize_unit()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Value<'se>>
     where
         T: Serialize,
@@ -409,7 +409,7 @@ impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
     type SerializeStruct = Impossible<Cow<'se, str>>;
     type SerializeStructVariant = Impossible<Cow<'se, str>>;
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_unit_variant(
         self,
         _name: &'static str,
@@ -419,7 +419,7 @@ impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
         Ok(Cow::from(variant))
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
     where
         T: Serialize,
@@ -479,7 +479,7 @@ impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
         })
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_str(self, value: &str) -> Result<Self::Ok> {
         // TODO: we copy `value` here this is not idea but safe
         Ok(Cow::from(value.to_string()))

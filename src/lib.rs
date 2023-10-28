@@ -185,7 +185,7 @@ pub struct Buffers {
 }
 
 impl Default for Buffers {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         Self::new(128)
     }
@@ -193,7 +193,7 @@ impl Default for Buffers {
 impl Buffers {
     /// Create new buffer for input length.
     /// If this is too small a new buffer will be allocated, if needed during parsing.
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     pub fn new(input_len: usize) -> Self {
         Self {
@@ -208,6 +208,7 @@ impl Buffers {
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn to_tape(s: &mut [u8]) -> Result<Tape> {
     Deserializer::from_slice(s).map(Deserializer::into_tape)
 }
@@ -216,6 +217,7 @@ pub fn to_tape(s: &mut [u8]) -> Result<Tape> {
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
+#[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn to_tape_with_buffers<'de>(s: &'de mut [u8], buffers: &mut Buffers) -> Result<Tape<'de>> {
     Deserializer::from_slice_with_buffers(s, buffers).map(Deserializer::into_tape)
 }
@@ -380,7 +382,7 @@ pub(crate) struct SillyWrapper<'de> {
 }
 
 impl<'de> From<*mut u8> for SillyWrapper<'de> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn from(input: *mut u8) -> Self {
         Self {
             input,
@@ -522,7 +524,7 @@ impl<'de> Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(
         feature = "runtime-detection",
         any(target_arch = "x86_64", target_arch = "x86"),
@@ -540,7 +542,7 @@ impl<'de> Deserializer<'de> {
 
         static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
 
-        #[inline]
+        #[cfg_attr(not(feature = "no-inline"), inline)]
         fn get_fastest_available_implementation() -> ParseStrFn {
             if std::is_x86_feature_detected!("avx2") {
                 impls::avx2::parse_str
@@ -555,7 +557,7 @@ impl<'de> Deserializer<'de> {
             }
         }
 
-        #[inline]
+        #[cfg_attr(not(feature = "no-inline"), inline)]
         unsafe fn get_fastest<'invoke, 'de>(
             input: SillyWrapper<'de>,
             data: &'invoke [u8],
@@ -574,7 +576,7 @@ impl<'de> Deserializer<'de> {
         let fun = FN.load(Ordering::Relaxed);
         mem::transmute::<FnRaw, ParseStrFn>(fun)(input, data, buffer, idx)
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(not(any(
         feature = "runtime-detection",
         feature = "portable",
@@ -595,7 +597,7 @@ impl<'de> Deserializer<'de> {
         let input: SillyWrapper<'de> = SillyWrapper::from(input);
         impls::native::parse_str(input, data, buffer, idx)
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(feature = "portable", not(feature = "runtime-detection")))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
@@ -610,7 +612,7 @@ impl<'de> Deserializer<'de> {
         impls::portable::parse_str(input, data, buffer, idx)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(
         target_feature = "avx2",
         not(feature = "portable"),
@@ -626,7 +628,7 @@ impl<'de> Deserializer<'de> {
         impls::avx2::parse_str(input, data, buffer, idx)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(
         target_feature = "sse4.2",
         not(target_feature = "avx2"),
@@ -643,7 +645,7 @@ impl<'de> Deserializer<'de> {
         impls::sse42::parse_str(input, data, buffer, idx)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(target_arch = "aarch64", not(feature = "portable")))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
@@ -654,7 +656,7 @@ impl<'de> Deserializer<'de> {
         let input: SillyWrapper<'de> = SillyWrapper::from(input);
         impls::neon::parse_str(input, data, buffer, idx)
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(target_feature = "simd128", not(feature = "portable")))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
@@ -669,7 +671,7 @@ impl<'de> Deserializer<'de> {
 
 /// architecture dependant `find_structural_bits`
 impl<'de> Deserializer<'de> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(
         feature = "runtime-detection",
         any(target_arch = "x86_64", target_arch = "x86"),
@@ -682,7 +684,7 @@ impl<'de> Deserializer<'de> {
 
         static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
 
-        #[inline]
+        #[cfg_attr(not(feature = "no-inline"), inline)]
         fn get_fastest_available_implementation() -> FindStructuralBitsFn {
             if std::is_x86_feature_detected!("avx2") {
                 Deserializer::_find_structural_bits::<impls::avx2::SimdInput>
@@ -697,7 +699,7 @@ impl<'de> Deserializer<'de> {
             }
         }
 
-        #[inline]
+        #[cfg_attr(not(feature = "no-inline"), inline)]
         unsafe fn get_fastest(
             input: &[u8],
             structural_indexes: &mut Vec<u32>,
@@ -719,7 +721,7 @@ impl<'de> Deserializer<'de> {
         target_feature = "simd128",
         target_arch = "aarch64",
     )))]
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
@@ -735,7 +737,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg(all(feature = "portable", not(feature = "runtime-detection")))]
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
@@ -748,7 +750,7 @@ impl<'de> Deserializer<'de> {
         not(feature = "portable"),
         not(feature = "runtime-detection"),
     ))]
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
@@ -762,7 +764,7 @@ impl<'de> Deserializer<'de> {
         not(feature = "runtime-detection"),
         not(feature = "portable"),
     ))]
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
@@ -771,7 +773,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg(all(target_arch = "aarch64", not(feature = "portable")))]
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
@@ -780,7 +782,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg(all(target_feature = "simd128", not(feature = "portable")))]
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
@@ -828,7 +830,7 @@ impl<'de> Deserializer<'de> {
     pub fn from_slice_with_buffers(input: &'de mut [u8], buffer: &mut Buffers) -> Result<Self> {
         let len = input.len();
 
-        buffer.string_buffer.clear();
+        // buffer.string_buffer.clear();
         buffer.string_buffer.reserve(len + SIMDJSON_PADDING);
         unsafe {
             buffer.string_buffer.set_len(len + SIMDJSON_PADDING);
@@ -839,8 +841,9 @@ impl<'de> Deserializer<'de> {
         }
         let input_buffer = &mut buffer.input_buffer;
 
-        if input_buffer.capacity() < len + SIMDJSON_PADDING * 2 {
-            *input_buffer = AlignedBuf::with_capacity(len + SIMDJSON_PADDING * 2);
+        let simd_safe_len = len + SIMDINPUT_LENGTH;
+        if input_buffer.capacity() < simd_safe_len {
+            *input_buffer = AlignedBuf::with_capacity(simd_safe_len);
         }
 
         unsafe {
@@ -848,12 +851,12 @@ impl<'de> Deserializer<'de> {
 
             // initialize all remaining bytes
             // this also ensures we have a 0 to terminate the buffer
-            for i in len..input_buffer.capacity() {
+            for i in len..simd_safe_len {
                 std::ptr::write(input_buffer.as_mut_ptr().add(i), 0);
             }
 
             // safety: all bytes are initialized
-            input_buffer.set_len(input_buffer.capacity());
+            input_buffer.set_len(simd_safe_len);
         };
 
         unsafe {
