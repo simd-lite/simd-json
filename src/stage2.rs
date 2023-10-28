@@ -98,11 +98,12 @@ impl<'de> Deserializer<'de> {
         buffer: &mut [u8],
         structural_indexes: &[u32],
         stack: &mut Vec<StackState>,
-    ) -> Result<Vec<Node<'de>>> {
+        res: &mut Vec<Node<'de>>,
+    ) -> Result<()> {
+        res.clear();
+        res.reserve(structural_indexes.len());
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to protect against that.
-        let mut res: Vec<Node<'de>> = Vec::with_capacity(structural_indexes.len());
-
         stack.clear();
         stack.reserve(structural_indexes.len());
 
@@ -154,7 +155,7 @@ impl<'de> Deserializer<'de> {
                 unsafe {
                     res.set_len(r_i);
                 }
-                return Ok(res);
+                return Ok(());
             };
         }
         macro_rules! update_char {
