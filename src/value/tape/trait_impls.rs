@@ -49,32 +49,32 @@ impl<'tape, 'input> ValueAsScalar for Value<'tape, 'input>
 where
     'input: 'tape,
 {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn as_null(&self) -> Option<()> {
         self.as_static()?.as_null()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn as_bool(&self) -> Option<bool> {
         self.as_static()?.as_bool()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn as_i64(&self) -> Option<i64> {
         self.as_static()?.as_i64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn as_u64(&self) -> Option<u64> {
         self.as_static()?.as_u64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn as_f64(&self) -> Option<f64> {
         self.as_static()?.as_f64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn as_str(&self) -> Option<&'input str> {
         self.into_string()
     }
@@ -107,7 +107,7 @@ impl<'tape, 'input> ValueIntoContainer for Value<'tape, 'input> {
 }
 
 impl<'tape, 'input> TypedValue for Value<'tape, 'input> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn value_type(&self) -> ValueType {
         match self.0.first().expect("invalid tape value") {
@@ -258,7 +258,7 @@ where
         self.get(k)?.as_bool()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_i128<Q>(&self, k: &Q) -> Option<i128>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -267,7 +267,7 @@ where
         self.get(k)?.as_i128()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_i64<Q>(&self, k: &Q) -> Option<i64>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -276,7 +276,7 @@ where
         self.get(k)?.as_i64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_i32<Q>(&self, k: &Q) -> Option<i32>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -285,7 +285,7 @@ where
         self.get(k)?.as_i32()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_i16<Q>(&self, k: &Q) -> Option<i16>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -294,7 +294,7 @@ where
         self.get(k)?.as_i16()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_i8<Q>(&self, k: &Q) -> Option<i8>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -303,7 +303,7 @@ where
         self.get(k)?.as_i8()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_u128<Q>(&self, k: &Q) -> Option<u128>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -312,7 +312,7 @@ where
         self.get(k)?.as_u128()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_u64<Q>(&self, k: &Q) -> Option<u64>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -321,7 +321,7 @@ where
         self.get(k).and_then(|v| v.as_u64())
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_usize<Q>(&self, k: &Q) -> Option<usize>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -330,7 +330,7 @@ where
         self.get(k).and_then(|v| v.as_usize())
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_u32<Q>(&self, k: &Q) -> Option<u32>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -339,7 +339,7 @@ where
         self.get(k).and_then(|v| v.as_u32())
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_u16<Q>(&self, k: &Q) -> Option<u16>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -348,7 +348,7 @@ where
         self.get(k).and_then(|v| v.as_u16())
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_u8<Q>(&self, k: &Q) -> Option<u8>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -357,7 +357,7 @@ where
         self.get(k).and_then(|v| v.as_u8())
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_f64<Q>(&self, k: &Q) -> Option<f64>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -366,7 +366,7 @@ where
         self.get(k).and_then(|v| v.as_f64())
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_f32<Q>(&self, k: &Q) -> Option<f32>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -375,7 +375,7 @@ where
         self.get(k).and_then(|v| v.as_f32())
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn get_str<Q>(&self, k: &Q) -> Option<&'input str>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -456,7 +456,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_bool()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_i128<Q>(&self, k: &Q) -> Result<Option<i128>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -465,7 +465,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_i128()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_i64<Q>(&self, k: &Q) -> Result<Option<i64>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -474,7 +474,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_i64()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_i32<Q>(&self, k: &Q) -> Result<Option<i32>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -483,7 +483,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_i32()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_i16<Q>(&self, k: &Q) -> Result<Option<i16>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -492,7 +492,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_i16()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_i8<Q>(&self, k: &Q) -> Result<Option<i8>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -501,7 +501,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_i8()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_u128<Q>(&self, k: &Q) -> Result<Option<u128>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -510,7 +510,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_u128()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_u64<Q>(&self, k: &Q) -> Result<Option<u64>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -519,7 +519,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_u64()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_usize<Q>(&self, k: &Q) -> Result<Option<usize>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -528,7 +528,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_usize()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_u32<Q>(&self, k: &Q) -> Result<Option<u32>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -537,7 +537,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_u32()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_u16<Q>(&self, k: &Q) -> Result<Option<u16>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -546,7 +546,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_u16()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_u8<Q>(&self, k: &Q) -> Result<Option<u8>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -555,7 +555,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_u8()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_f64<Q>(&self, k: &Q) -> Result<Option<f64>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -564,7 +564,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_f64()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_f32<Q>(&self, k: &Q) -> Result<Option<f32>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -573,7 +573,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
         self.try_get(k)?.map(|v| v.try_as_f32()).transpose()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn try_get_str<Q>(&self, k: &Q) -> Result<Option<&'input str>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -587,21 +587,21 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
 }
 
 impl<'tape, 'input> Writable for Value<'tape, 'input> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
         let _r = g.write_json(self);
         g.consume()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn encode_pp(&self) -> String {
         let mut g = PrettyGenerator::new(2);
         let _r = g.write_json(self);
         g.consume()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
@@ -610,7 +610,7 @@ impl<'tape, 'input> Writable for Value<'tape, 'input> {
         g.write_json(self)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write_pp<'writer, W>(&self, w: &mut W) -> io::Result<()>
     where
         W: 'writer + Write,
@@ -623,7 +623,7 @@ impl<'tape, 'input> Writable for Value<'tape, 'input> {
 trait Generator: BaseGenerator {
     type T: Write;
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write_object(&mut self, object: &Object) -> io::Result<()> {
         if object.is_empty() {
             self.write(b"{}")
@@ -657,7 +657,7 @@ trait Generator: BaseGenerator {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write_json(&mut self, json: &Value) -> io::Result<()> {
         //FIXME no expect
         match *json.0.first().expect("invalid JSON") {
@@ -710,7 +710,7 @@ trait Generator: BaseGenerator {
 trait FastGenerator: BaseGenerator {
     type T: Write;
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write_object(&mut self, object: &Object) -> io::Result<()> {
         if object.is_empty() {
             self.write(b"{}")
@@ -739,7 +739,7 @@ trait FastGenerator: BaseGenerator {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn write_json(&mut self, json: &Value) -> io::Result<()> {
         match *json.0.first().expect("invalid JSON") {
             Node::Static(StaticNode::Null) => self.write(b"null"),

@@ -21,7 +21,7 @@ impl Default for NotSoRandomState {
 
 impl BuildHasher for NotSoRandomState {
     type Hasher = AHasher;
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn build_hasher(&self) -> AHasher {
         self.0.build_hasher()
     }
@@ -70,7 +70,7 @@ where
 
 impl<'key> KnownKey<'key> {
     /// The known key
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     pub fn key(&self) -> &Cow<'key, str> {
         &self.key
@@ -92,7 +92,7 @@ impl<'key> KnownKey<'key> {
     /// let known_key = KnownKey::from("answer");
     /// assert_eq!(known_key.lookup(&object).unwrap(), &42);
     /// ```
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     pub fn lookup<'target, 'value>(
         &self,
@@ -120,7 +120,7 @@ impl<'key> KnownKey<'key> {
     ///   assert_eq!(known_key.map_lookup(inner).unwrap(), &42);
     /// }
     /// ```
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     pub fn map_lookup<'target, 'value>(
         &self,
@@ -155,7 +155,7 @@ impl<'key> KnownKey<'key> {
     ///
     /// assert_eq!(object["answer"], 42);
     /// ```
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn lookup_mut<'target, 'value>(
         &self,
         target: &'target mut Value<'value>,
@@ -189,7 +189,7 @@ impl<'key> KnownKey<'key> {
     /// assert_eq!(object["answer"], 42);
     ///
     /// ```
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn map_lookup_mut<'target, 'value>(
         &self,
         map: &'target mut super::borrowed::Object<'value>,
@@ -238,7 +238,7 @@ impl<'key> KnownKey<'key> {
     ///
     /// assert_eq!(object["also the answer"], 42);
     /// ```
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn lookup_or_insert_mut<'target, 'value, F>(
         &self,
         target: &'target mut Value<'value>,
@@ -286,7 +286,7 @@ impl<'key> KnownKey<'key> {
     ///
     /// assert_eq!(object["also the answer"], 42);
     /// ```
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn map_lookup_or_insert_mut<'target, 'value, F>(
         &self,
         map: &'target mut super::borrowed::Object<'value>,
@@ -330,7 +330,7 @@ impl<'key> KnownKey<'key> {
     /// assert_eq!(object["also the answer"], 42);
     ///
     /// ```
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn insert<'target, 'value>(
         &self,
         target: &'target mut Value<'value>,
@@ -375,7 +375,7 @@ impl<'key> KnownKey<'key> {
     ///
     /// assert_eq!(object["also the answer"], 42);
     /// ```
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     pub fn map_insert<'target, 'value>(
         &self,
         map: &'target mut super::borrowed::Object<'value>,

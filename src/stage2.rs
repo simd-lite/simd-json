@@ -90,7 +90,7 @@ enum StackState {
 }
 
 impl<'de> Deserializer<'de> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines, unused_unsafe)]
     pub(crate) fn build_tape(
         input: &'de mut [u8],

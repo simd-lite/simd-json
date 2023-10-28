@@ -93,17 +93,17 @@ impl Value {
 }
 
 impl<'input> ValueBuilder<'input> for Value {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn null() -> Self {
         Self::Static(StaticNode::Null)
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn array_with_capacity(capacity: usize) -> Self {
         Self::Array(Vec::with_capacity(capacity))
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn object_with_capacity(capacity: usize) -> Self {
         Self::Object(Box::new(Object::with_capacity_and_hasher(
@@ -116,7 +116,7 @@ impl<'input> ValueBuilder<'input> for Value {
 impl ValueAsMutContainer for Value {
     type Array = Vec<Self>;
     type Object = Object;
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
         match self {
@@ -124,7 +124,7 @@ impl ValueAsMutContainer for Value {
             _ => None,
         }
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_object_mut(&mut self) -> Option<&mut Object> {
         match self {
@@ -135,7 +135,7 @@ impl ValueAsMutContainer for Value {
 }
 
 impl TypedValue for Value {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn value_type(&self) -> ValueType {
         match self {
@@ -147,54 +147,54 @@ impl TypedValue for Value {
     }
 }
 impl ValueAsScalar for Value {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_null(&self) -> Option<()> {
         self.as_static()?.as_null()
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_bool(&self) -> Option<bool> {
         self.as_static()?.as_bool()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_i64(&self) -> Option<i64> {
         self.as_static()?.as_i64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_i128(&self) -> Option<i128> {
         self.as_static()?.as_i128()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_u64(&self) -> Option<u64> {
         self.as_static()?.as_u64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_u128(&self) -> Option<u128> {
         self.as_static()?.as_u128()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_f64(&self) -> Option<f64> {
         self.as_static()?.as_f64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn cast_f64(&self) -> Option<f64> {
         self.as_static()?.cast_f64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_str(&self) -> Option<&str> {
         match self {
@@ -206,7 +206,7 @@ impl ValueAsScalar for Value {
 impl ValueAsContainer for Value {
     type Array = Vec<Self>;
     type Object = Object;
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array(&self) -> Option<&Vec<Self>> {
         match self {
@@ -215,7 +215,7 @@ impl ValueAsContainer for Value {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_object(&self) -> Option<&Object> {
         match self {
@@ -268,7 +268,7 @@ impl fmt::Display for Value {
 
 impl Index<&str> for Value {
     type Output = Self;
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn index(&self, index: &str) -> &Self::Output {
         self.get(index).expect("index out of bounds")
@@ -277,7 +277,7 @@ impl Index<&str> for Value {
 
 impl Index<usize> for Value {
     type Output = Self;
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn index(&self, index: usize) -> &Self::Output {
         self.get_idx(index).expect("index out of bounds")
@@ -285,7 +285,7 @@ impl Index<usize> for Value {
 }
 
 impl IndexMut<&str> for Value {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
         self.get_mut(index).expect("index out of bounds")
@@ -293,7 +293,7 @@ impl IndexMut<&str> for Value {
 }
 
 impl IndexMut<usize> for Value {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.get_idx_mut(index).expect("index out of bounds")
@@ -301,7 +301,7 @@ impl IndexMut<usize> for Value {
 }
 
 impl Default for Value {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn default() -> Self {
         Self::Static(StaticNode::Null)

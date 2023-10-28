@@ -95,7 +95,7 @@ impl<'value> Value<'value> {
     /// Enforces static lifetime on a borrowed value, this will
     /// force all strings to become owned COW's, the same applies for
     /// Object keys.
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     pub fn into_static(self) -> Value<'static> {
         match self {
@@ -125,7 +125,7 @@ impl<'value> Value<'value> {
 
     /// Clones the current value and enforces a static lifetime, it works the same
     /// as `into_static` but includes cloning logic
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     pub fn clone_static(&self) -> Value<'static> {
         match self {
@@ -155,17 +155,17 @@ impl<'value> Value<'value> {
 }
 
 impl<'value> ValueBuilder<'value> for Value<'value> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn null() -> Self {
         Self::Static(StaticNode::Null)
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn array_with_capacity(capacity: usize) -> Self {
         Self::Array(Vec::with_capacity(capacity))
     }
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn object_with_capacity(capacity: usize) -> Self {
         Self::Object(Box::new(Object::with_capacity_and_hasher(
@@ -178,7 +178,7 @@ impl<'value> ValueBuilder<'value> for Value<'value> {
 impl<'value> ValueAsMutContainer for Value<'value> {
     type Array = Vec<Self>;
     type Object = Object<'value>;
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'value>>> {
         match self {
@@ -204,7 +204,7 @@ impl<'value> ValueAsMutContainer for Value<'value> {
     /// assert_eq!(object["value"], json!({"nested": 42}));
     ///
     /// ```
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_object_mut(&mut self) -> Option<&mut Object<'value>> {
         match self {
@@ -215,7 +215,7 @@ impl<'value> ValueAsMutContainer for Value<'value> {
 }
 
 impl<'value> TypedValue for Value<'value> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn value_type(&self) -> ValueType {
         match self {
@@ -227,55 +227,55 @@ impl<'value> TypedValue for Value<'value> {
     }
 }
 impl<'value> ValueAsScalar for Value<'value> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_null(&self) -> Option<()> {
         self.as_static()?.as_null()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_bool(&self) -> Option<bool> {
         self.as_static()?.as_bool()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_i64(&self) -> Option<i64> {
         self.as_static()?.as_i64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_i128(&self) -> Option<i128> {
         self.as_static()?.as_i128()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_u64(&self) -> Option<u64> {
         self.as_static()?.as_u64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_u128(&self) -> Option<u128> {
         self.as_static()?.as_u128()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_f64(&self) -> Option<f64> {
         self.as_static()?.as_f64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn cast_f64(&self) -> Option<f64> {
         self.as_static()?.cast_f64()
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_str(&self) -> Option<&str> {
         use std::borrow::Borrow;
@@ -289,7 +289,7 @@ impl<'value> ValueAsContainer for Value<'value> {
     type Array = Vec<Self>;
     type Object = Object<'value>;
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array(&self) -> Option<&Vec<Value<'value>>> {
         match self {
@@ -298,7 +298,7 @@ impl<'value> ValueAsContainer for Value<'value> {
         }
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_object(&self) -> Option<&Object<'value>> {
         match self {
@@ -352,7 +352,7 @@ impl<'value> fmt::Display for Value<'value> {
 
 impl<'value> Index<&str> for Value<'value> {
     type Output = Value<'value>;
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn index(&self, index: &str) -> &Self::Output {
         self.get(index).expect("index out of bounds")
@@ -361,7 +361,7 @@ impl<'value> Index<&str> for Value<'value> {
 
 impl<'value> Index<usize> for Value<'value> {
     type Output = Value<'value>;
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn index(&self, index: usize) -> &Self::Output {
         self.get_idx(index).expect("index out of bounds")
@@ -369,7 +369,7 @@ impl<'value> Index<usize> for Value<'value> {
 }
 
 impl<'value> IndexMut<&str> for Value<'value> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
         self.get_mut(index).expect("index out of bounds")
@@ -377,7 +377,7 @@ impl<'value> IndexMut<&str> for Value<'value> {
 }
 
 impl<'value> IndexMut<usize> for Value<'value> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.get_idx_mut(index).expect("index out of bounds")
@@ -385,7 +385,7 @@ impl<'value> IndexMut<usize> for Value<'value> {
 }
 
 impl<'value> Default for Value<'value> {
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn default() -> Self {
         Self::Static(StaticNode::Null)

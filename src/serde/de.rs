@@ -500,7 +500,7 @@ macro_rules! deserialize_integer_key {
 impl<'de, 'a> de::Deserializer<'de> for MapKey<'de, 'a> {
     type Error = Error;
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -525,7 +525,7 @@ impl<'de, 'a> de::Deserializer<'de> for MapKey<'de, 'a> {
     #[cfg(feature = "128bit")]
     deserialize_integer_key!(deserialize_u128 => visit_u128; u128);
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -534,7 +534,7 @@ impl<'de, 'a> de::Deserializer<'de> for MapKey<'de, 'a> {
         visitor.visit_some(self)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -542,7 +542,7 @@ impl<'de, 'a> de::Deserializer<'de> for MapKey<'de, 'a> {
         visitor.visit_newtype_struct(self)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_enum<V>(
         self,
         name: &'static str,
@@ -555,7 +555,7 @@ impl<'de, 'a> de::Deserializer<'de> for MapKey<'de, 'a> {
         self.de.deserialize_enum(name, variants, visitor)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -563,7 +563,7 @@ impl<'de, 'a> de::Deserializer<'de> for MapKey<'de, 'a> {
         self.de.deserialize_bytes(visitor)
     }
 
-    #[inline]
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
