@@ -12,8 +12,7 @@ Thank you for your interest in contributing to the Rust port of the simdjson JSO
     - Code Contributions
 4. Coding Guidelines
 5. Testing
-6. Documentation
-7. License
+6. License
 
 ## Getting Started
 
@@ -23,7 +22,7 @@ Before you begin contributing, make sure you have:
 - To take advantage of simd-json your system needs to be SIMD-capable
 - A GitHub account for version control and issue tracking.
 - Make sure you are using the newly released version
-- Familiarized yourself with the project by reviewing the reviewing the example in this repository `example` folder and understanding its goals.
+- Familiarize yourself with the project by reviewing the example in this repository `example` folder and understanding its goals.
 
 ## Code of Conduct
 
@@ -39,7 +38,7 @@ If you discover any bugs, issues, or unexpected behavior in the Rust port, pleas
 
 ### Adding Features
 
-If you have ideas for new features or improvements, please discuss  by opening a new issue on the [GitHub Issues](https://github.com/simd-lite/simd-json/issues) section. Engage with the Contributors on new features or improvements and refine your proposal.
+If you have ideas for new features or improvements, please discuss them by opening a new issue on the [GitHub Issues](https://github.com/simd-lite/simd-json/issues) section. Engage with the Contributors on new features or improvements and refine your proposal.
 
 ### Code Contributions
 
@@ -50,7 +49,7 @@ For code contributions:
 3. Create a new branch for your changes: `git checkout -b feature/your-feature`
 4. Write your code, following the Code of Conduct (see [Code of Conduct](#CODE_OF_CONDUCT.md)).
 5. Write unit tests for your code (see [Tests](#tests)).
-6. you can refer to `data`folder for further information (see [data](#data)) 
+6. you can refer to `data` folder for further information (see [data](#data)) 
 7. Push your changes to your fork on GitHub: `git push origin feature/your-feature`
 8. Create a Pull Request (PR) in the project repository, providing a clear description of your changes and linking to any relevant issues or discussions.
 
@@ -67,12 +66,8 @@ To maintain a consistent and readable codebase, please follow these guidelines:
 
 We require comprehensive test coverage to maintain the quality of the codebase. Write unit tests for your code and ensure that existing tests pass. Use continuous integration tools to automatically run tests for various Rust versions.
 
-## Documentation
-
-Documentation is crucial for helping others understand the project.There are bindings for upstream simdjson available [Here](https://crates.io/crates/simdjson-rust) this includes the README, Dependencies, and any other relevant documentation files.
-
 ## License
 
-By contributing to this project, you agree that your contributions will be licensed under Apache License, Version 2.0 and MIT license. Please review the project's `LICENSE` file for more information.
+By contributing to this project, you agree that your contributions will be licensed under Apache License, Version 2.0, and MIT license. Please review the project's `LICENSE` file for more information.
 
 Thank you for considering contributing to the Rust port of the simd-json . Your contributions are essential to the project's success and the Rust community as a whole.
