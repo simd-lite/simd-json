@@ -20,6 +20,7 @@ macro_rules! test {
             let _ = to_tape_with_buffers(&mut v1, &mut buffers);
             // we only care about the second run as at this point buffer armortized and we no longer depend
             // on guessing
+            v1.clear();
             File::open(f).unwrap().read_to_end(&mut v1).unwrap();
             let (count, _v) = count_alloc(|| to_tape_with_buffers(&mut v1, &mut buffers));
             dbg!(count);
@@ -29,10 +30,10 @@ macro_rules! test {
     };
 }
 
-test!(canada, 3, 2);
-test!(citm_catalog, 3, 2);
-test!(log, 1, 2);
-test!(marine_ik, 3, 2);
-test!(twitter, 1, 2);
-test!(twitterescaped, 1, 2);
-test!(numbers, 3, 2);
+test!(canada, 1, 0);
+test!(citm_catalog, 1, 0);
+test!(log, 1, 0);
+test!(marine_ik, 1, 0);
+test!(twitter, 1, 0);
+test!(twitterescaped, 1, 0);
+test!(numbers, 1, 0);
