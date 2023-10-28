@@ -830,6 +830,8 @@ impl<'de> Deserializer<'de> {
     pub fn from_slice_with_buffers(input: &'de mut [u8], buffer: &mut Buffers) -> Result<Self> {
         const LOTS_OF_ZOERS: [u8; SIMDINPUT_LENGTH] = [0; SIMDINPUT_LENGTH];
         let len = input.len();
+        let simd_safe_len = len + SIMDINPUT_LENGTH;
+
         if len > std::u32::MAX as usize {
             return Err(Self::error(ErrorType::InputTooLarge));
         }
@@ -840,28 +842,25 @@ impl<'de> Deserializer<'de> {
         };
 
         let input_buffer = &mut buffer.input_buffer;
-
-        let simd_safe_len = len + SIMDINPUT_LENGTH;
         if input_buffer.capacity() < simd_safe_len {
             *input_buffer = AlignedBuf::with_capacity(simd_safe_len);
         }
 
         unsafe {
-            std::ptr::copy_nonoverlapping(input.as_ptr(), input_buffer.as_mut_ptr(), len);
+            input_buffer
+                .as_mut_ptr()
+                .copy_from_nonoverlapping(input.as_ptr(), len);
 
             // initialize all remaining bytes
             // this also ensures we have a 0 to terminate the buffer
-            std::ptr::copy_nonoverlapping(
-                LOTS_OF_ZOERS.as_ptr(),
-                input_buffer.as_mut_ptr().add(len),
-                SIMDINPUT_LENGTH,
-            );
+            input_buffer
+                .as_mut_ptr()
+                .add(len)
+                .copy_from_nonoverlapping(LOTS_OF_ZOERS.as_ptr(), SIMDINPUT_LENGTH);
 
             // safety: all bytes are initialized
             input_buffer.set_len(simd_safe_len);
-        };
 
-        unsafe {
             Self::find_structural_bits(input, &mut buffer.structural_indexes)
                 .map_err(Error::generic)?;
         };

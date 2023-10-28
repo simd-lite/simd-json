@@ -19,11 +19,11 @@ impl<T> GetSaferUnchecked<T> for [T] {
     where
         I: SliceIndex<[T]>,
     {
-        if cfg!(debug_assertions) {
-            &self[index]
-        } else {
-            self.get_unchecked(index)
-        }
+        #[cfg(debug_assertions)]
+        let r = &self[index];
+        #[cfg(not(debug_assertions))]
+        let r = self.get_unchecked(index);
+        r
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -31,10 +31,10 @@ impl<T> GetSaferUnchecked<T> for [T] {
     where
         I: SliceIndex<[T]>,
     {
-        if cfg!(debug_assertions) {
-            &mut self[index]
-        } else {
-            self.get_unchecked_mut(index)
-        }
+        #[cfg(debug_assertions)]
+        let r = &mut self[index];
+        #[cfg(not(debug_assertions))]
+        let r = self.get_unchecked_mut(index);
+        r
     }
 }
