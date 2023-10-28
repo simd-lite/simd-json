@@ -902,10 +902,10 @@ impl<'de> Deserializer<'de> {
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
         let len = input.len();
-        // 16 is a heuristic number to estimate it turns out a rate of 1/16 structural characters
+        // 8 is a heuristic number to estimate it turns out a rate of 1/8 structural characters
         // leads almost never to relocations.
         structural_indexes.clear();
-        structural_indexes.reserve(len / 16);
+        structural_indexes.reserve(len / 8);
 
         let mut utf8_validator = S::Utf8Validator::new();
 
