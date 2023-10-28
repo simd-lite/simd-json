@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate criterion;
 
-use core::time::Duration;
-
 #[cfg(feature = "jemallocator")]
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
@@ -10,20 +8,22 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 #[cfg(feature = "bench-serde")]
 use serde_json;
 
-use criterion::{criterion_group, BatchSize, Criterion, Throughput};
-use simd_json::Buffers;
-
-use std::fs::File;
-use std::io::Read;
+use criterion::{criterion_group, Criterion};
 
 #[cfg(feature = "bench-serde")]
 fn serde_from_slice(data: &[u8]) {
     let _: serde_json::Value = serde_json::from_slice(data).unwrap();
 }
 
+#[allow(unused_macros)]
 macro_rules! bench_file {
     ($name:ident) => {
         fn $name(c: &mut Criterion) {
+            use core::time::Duration;
+            use criterion::{BatchSize, Throughput};
+            use simd_json::Buffers;
+            use std::fs::File;
+            use std::io::Read;
             let core_ids = core_affinity::get_core_ids().unwrap();
             core_affinity::set_for_current(core_ids[0]);
 
@@ -62,6 +62,7 @@ macro_rules! bench_file {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! bench_file_skip {
     ($name:ident) => {
         fn $name(_c: &mut Criterion) {}
