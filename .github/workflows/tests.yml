@@ -109,7 +109,6 @@ jobs:
 
     - uses: dtolnay/rust-toolchain@stable
       with:
-        components: llvm-tools-preview
         targets: wasm32-wasi
 
     - name: Install wasmtime
