@@ -18,6 +18,21 @@ impl<'input> Tape<'input> {
         // Skip initial zero
         Value(&self.0)
     }
+    /// Creates an empty tape with a null element in it
+    #[must_use]
+    pub fn null() -> Self {
+        Self(vec![Node::Static(StaticNode::Null)])
+    }
+
+    /// Clears the tape and returns it with a new lifetime to allow re-using the already
+    /// allocated buffer.
+    #[must_use]
+    pub fn reset<'new>(mut self) -> Tape<'new> {
+        self.0.clear();
+        // SAFETY: At this point the tape is empty, so no data in there has a lifetime associated with it,
+        // so we can safely change the lifetime of the tape to 'new
+        unsafe { std::mem::transmute(self) }
+    }
 }
 
 /// Wrapper around the tape that allows interaction via a `Value`-like API.

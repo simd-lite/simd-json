@@ -228,6 +228,16 @@ pub fn to_tape_with_buffers<'de>(s: &'de mut [u8], buffers: &mut Buffers) -> Res
     Deserializer::from_slice_with_buffers(s, buffers).map(Deserializer::into_tape)
 }
 
+/// Fills a already existing tape from the input for later consumption
+/// # Errors
+///
+/// Will return `Err` if `s` is invalid JSON.
+#[cfg_attr(not(feature = "no-inline"), inline)]
+pub fn fill_tape<'de>(s: &'de mut [u8], buffers: &mut Buffers, tape: &mut Tape<'de>) -> Result<()> {
+    tape.0.clear();
+    Deserializer::fill_tape(s, buffers, &mut tape.0)
+}
+
 pub(crate) trait Stage1Parse {
     type Utf8Validator: ChunkedUtf8Validator;
     type SimdRepresentation;
@@ -827,14 +837,20 @@ impl<'de> Deserializer<'de> {
         Self::from_slice_with_buffers(input, &mut buffer)
     }
 
-    /// Creates a serializer from a mutable slice of bytes using a temporary
-    /// buffer for strings for them to be copied in and out if needed
+    /// Fills the tape without creating a serializer, this function poses
+    /// lifetime chalanges and can be frustrating, howver when it is
+    /// usable it allows a allocation free (armotized) parsing of JSON
     ///
     /// # Errors
     ///
-    /// Will return `Err` if `s` is invalid JSON.
+    /// Will return `Err` if `input` is invalid JSON.
     #[allow(clippy::uninit_vec)]
-    pub fn from_slice_with_buffers(input: &'de mut [u8], buffer: &mut Buffers) -> Result<Self> {
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn fill_tape(
+        input: &'de mut [u8],
+        buffer: &mut Buffers,
+        tape: &mut Vec<Node<'de>>,
+    ) -> Result<()> {
         const LOTS_OF_ZOERS: [u8; SIMDINPUT_LENGTH] = [0; SIMDINPUT_LENGTH];
         let len = input.len();
         let simd_safe_len = len + SIMDINPUT_LENGTH;
@@ -874,13 +890,26 @@ impl<'de> Deserializer<'de> {
                 .map_err(Error::generic)?;
         };
 
-        let tape: Vec<Node> = Self::build_tape(
+        Self::build_tape(
             input,
             input_buffer,
             &mut buffer.string_buffer,
             &buffer.structural_indexes,
             &mut buffer.stage2_stack,
-        )?;
+            tape,
+        )
+    }
+
+    /// Creates a serializer from a mutable slice of bytes using a temporary
+    /// buffer for strings for them to be copied in and out if needed
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if `s` is invalid JSON.
+    pub fn from_slice_with_buffers(input: &'de mut [u8], buffer: &mut Buffers) -> Result<Self> {
+        let mut tape: Vec<Node<'de>> = Vec::with_capacity(buffer.structural_indexes.len());
+
+        Self::fill_tape(input, buffer, &mut tape)?;
 
         Ok(Self { tape, idx: 0 })
     }
