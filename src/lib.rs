@@ -140,6 +140,7 @@ mod safer_unchecked;
 mod stringparse;
 
 use safer_unchecked::GetSaferUnchecked;
+use stage2::StackState;
 
 mod impls;
 
@@ -182,6 +183,7 @@ pub struct Buffers {
     string_buffer: Vec<u8>,
     structural_indexes: Vec<u32>,
     input_buffer: AlignedBuf,
+    stage2_stack: Vec<StackState>,
 }
 
 impl Default for Buffers {
@@ -190,16 +192,20 @@ impl Default for Buffers {
         Self::new(128)
     }
 }
+
 impl Buffers {
     /// Create new buffer for input length.
     /// If this is too small a new buffer will be allocated, if needed during parsing.
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     pub fn new(input_len: usize) -> Self {
+        // this is a heuristic, it will likely be higher but it will avoid some reallocations hopefully
+        let heuristic_index_cout = input_len / 128;
         Self {
             string_buffer: Vec::with_capacity(input_len + SIMDJSON_PADDING),
-            structural_indexes: Vec::default(),
+            structural_indexes: Vec::with_capacity(heuristic_index_cout),
             input_buffer: AlignedBuf::with_capacity(input_len + SIMDJSON_PADDING * 2),
+            stage2_stack: Vec::with_capacity(heuristic_index_cout),
         }
     }
 }
@@ -790,6 +796,7 @@ impl<'de> Deserializer<'de> {
         Self::_find_structural_bits::<impls::simd128::SimdInput>(input, structural_indexes)
     }
 }
+
 impl<'de> Deserializer<'de> {
     /// Extracts the tape from the Deserializer
     #[must_use]
@@ -836,7 +843,9 @@ impl<'de> Deserializer<'de> {
             return Err(Self::error(ErrorType::InputTooLarge));
         }
 
+        buffer.string_buffer.clear();
         buffer.string_buffer.reserve(len + SIMDJSON_PADDING);
+
         unsafe {
             buffer.string_buffer.set_len(len + SIMDJSON_PADDING);
         };
@@ -870,6 +879,7 @@ impl<'de> Deserializer<'de> {
             input_buffer,
             &mut buffer.string_buffer,
             &buffer.structural_indexes,
+            &mut buffer.stage2_stack,
         )?;
 
         Ok(Self { tape, idx: 0 })
