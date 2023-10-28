@@ -16,18 +16,6 @@ use simd_json::Buffers;
 use std::fs::File;
 use std::io::Read;
 
-fn to_borrowed_value(data: &mut [u8]) {
-    simd_json::to_borrowed_value(data).unwrap();
-}
-
-fn to_borrowed_value_with_buffers(data: &mut [u8], buffers: &mut Buffers) {
-    simd_json::to_borrowed_value_with_buffers(data, buffers).unwrap();
-}
-
-fn to_owned_value(data: &mut [u8]) {
-    simd_json::to_owned_value(data).unwrap();
-}
-
 #[cfg(feature = "bench-serde")]
 fn serde_from_slice(data: &[u8]) {
     let _: serde_json::Value = serde_json::from_slice(data).unwrap();
@@ -50,42 +38,23 @@ macro_rules! bench_file {
             group
                 .warm_up_time(Duration::from_secs(1))
                 .measurement_time(Duration::from_secs(20));
-
             let mut buffers = Buffers::default();
 
-            group.bench_with_input("simd_json::to_borrowed_value", &vec, |b, data| {
+            // group.bench_with_input("simd_json::to_tape", &vec, |b, data| {
+            //     b.iter_batched(
+            //         || data.clone(),
+            //         |mut bytes| {
+            //             simd_json::to_tape(&mut bytes).unwrap();
+            //         },
+            //         BatchSize::SmallInput,
+            //     )
+            // });
+            group.bench_with_input("simd_json::to_tape_with_buffers", &vec, |b, data| {
                 b.iter_batched(
                     || data.clone(),
-                    |mut bytes| to_borrowed_value(&mut bytes),
-                    BatchSize::SmallInput,
-                )
-            });
-
-            group.bench_with_input(
-                "simd_json::to_borrowed_value_with_buffers",
-                &vec,
-                |b, data| {
-                    b.iter_batched(
-                        || data.clone(),
-                        |mut bytes| to_borrowed_value_with_buffers(&mut bytes, &mut buffers),
-                        BatchSize::SmallInput,
-                    )
-                },
-            );
-
-            group.bench_with_input("simd_json::to_owned_value", &vec, |b, data| {
-                b.iter_batched(
-                    || data.clone(),
-                    |mut bytes| to_owned_value(&mut bytes),
-                    BatchSize::SmallInput,
-                )
-            });
-
-            #[cfg(feature = "bench-serde")]
-            group.bench_with_input("serde_json::from_slice", &vec, |b, data| {
-                b.iter_batched(
-                    || data,
-                    |bytes| serde_from_slice(&bytes),
+                    |mut bytes| {
+                        simd_json::to_tape_with_buffers(&mut bytes, &mut buffers).unwrap();
+                    },
                     BatchSize::SmallInput,
                 )
             });
@@ -93,13 +62,46 @@ macro_rules! bench_file {
     };
 }
 
+macro_rules! bench_file_skip {
+    ($name:ident) => {
+        fn $name(_c: &mut Criterion) {}
+    };
+}
+
+#[cfg(feature = "bench-apache_builds")]
 bench_file!(apache_builds);
+#[cfg(not(feature = "bench-apache_builds"))]
+bench_file_skip!(apache_builds);
+
+#[cfg(feature = "bench-event_stacktrace_10kb")]
 bench_file!(event_stacktrace_10kb);
+#[cfg(not(feature = "bench-event_stacktrace_10kb"))]
+bench_file_skip!(event_stacktrace_10kb);
+
+#[cfg(feature = "bench-github_events")]
 bench_file!(github_events);
+#[cfg(not(feature = "bench-github_events"))]
+bench_file_skip!(github_events);
+
+#[cfg(feature = "bench-canada")]
 bench_file!(canada);
+#[cfg(not(feature = "bench-canada"))]
+bench_file_skip!(canada);
+
+#[cfg(feature = "bench-citm_catalog")]
 bench_file!(citm_catalog);
+#[cfg(not(feature = "bench-citm_catalog"))]
+bench_file_skip!(citm_catalog);
+
+#[cfg(feature = "bench-log")]
 bench_file!(log);
+#[cfg(not(feature = "bench-log"))]
+bench_file_skip!(log);
+
+#[cfg(feature = "bench-twitter")]
 bench_file!(twitter);
+#[cfg(not(feature = "bench-twitter"))]
+bench_file_skip!(twitter);
 
 criterion_group!(
     benches,

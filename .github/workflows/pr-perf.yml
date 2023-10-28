@@ -1,0 +1,15 @@
+on: [pull_request]
+name: benchmark pull requests
+jobs:
+  runBenchmark:
+    name: run benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: boa-dev/criterion-compare-action@v3 # https://github.com/marketplace/actions/criterion-compare-prs
+        with:
+          # Optional. Compare only this benchmark target
+          benchName: "to_tape"
+          features: "bench-all"
+          # Needed. The name of the branch to compare with. This default uses the branch which is being pulled against
+          branchName: ${{ github.base_ref }}
