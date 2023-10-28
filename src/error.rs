@@ -94,7 +94,6 @@ pub enum ErrorType {
 
 #[derive(Debug, PartialEq)]
 pub enum InternalError {
-    InvalidStrucutralIndexes,
     TapeError,
 }
 
@@ -202,20 +201,5 @@ impl fmt::Display for Error {
 impl From<Error> for std::io::Error {
     fn from(e: Error) -> Self {
         std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::{Error, ErrorType, InternalError};
-    #[test]
-    fn fmt() {
-        let e = Error::generic(ErrorType::InternalError(
-            InternalError::InvalidStrucutralIndexes,
-        ));
-        assert_eq!(
-            e.to_string(),
-            "InternalError(InvalidStrucutralIndexes) at character 0"
-        );
     }
 }

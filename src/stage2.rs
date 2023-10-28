@@ -104,7 +104,7 @@ impl<'de> Deserializer<'de> {
         let mut stack = Vec::with_capacity(structural_indexes.len());
 
         let mut depth: usize = 0;
-        let mut last_start = 1;
+        let mut last_start = 0;
         let mut cnt: usize = 0;
         let mut r_i = 0;
 
@@ -115,7 +115,7 @@ impl<'de> Deserializer<'de> {
         // by UPDATE_CHAR macro
         let mut c: u8 = 0;
         // skip the zero index
-        let mut i: usize = 1;
+        let mut i: usize = 0;
         let mut state;
 
         macro_rules! s2try {

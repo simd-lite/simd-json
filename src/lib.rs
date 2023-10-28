@@ -902,11 +902,10 @@ impl<'de> Deserializer<'de> {
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
         let len = input.len();
-        // 6 is a heuristic number to estimate it turns out a rate of 1/6 structural characters
+        // 16 is a heuristic number to estimate it turns out a rate of 1/16 structural characters
         // leads almost never to relocations.
         structural_indexes.clear();
-        structural_indexes.reserve(len / 6);
-        structural_indexes.push(0); // push extra root element
+        structural_indexes.reserve(len / 16);
 
         let mut utf8_validator = S::Utf8Validator::new();
 
@@ -1032,14 +1031,8 @@ impl<'de> Deserializer<'de> {
 
         // a valid JSON file cannot have zero structural indexes - we should have
         // found something (note that we compare to 1 as we always add the root!)
-        if structural_indexes.len() == 1 {
+        if structural_indexes.is_empty() {
             return Err(ErrorType::Eof);
-        }
-
-        if structural_indexes.last() > Some(&(len as u32)) {
-            return Err(ErrorType::InternalError(
-                InternalError::InvalidStrucutralIndexes,
-            ));
         }
 
         if error_mask != 0 {
