@@ -828,17 +828,17 @@ impl<'de> Deserializer<'de> {
     /// Will return `Err` if `s` is invalid JSON.
     #[allow(clippy::uninit_vec)]
     pub fn from_slice_with_buffers(input: &'de mut [u8], buffer: &mut Buffers) -> Result<Self> {
+        const LOTS_OF_ZOERS: [u8; SIMDINPUT_LENGTH] = [0; SIMDINPUT_LENGTH];
         let len = input.len();
+        if len > std::u32::MAX as usize {
+            return Err(Self::error(ErrorType::InputTooLarge));
+        }
 
-        // buffer.string_buffer.clear();
         buffer.string_buffer.reserve(len + SIMDJSON_PADDING);
         unsafe {
             buffer.string_buffer.set_len(len + SIMDJSON_PADDING);
         };
 
-        if len > std::u32::MAX as usize {
-            return Err(Self::error(ErrorType::InputTooLarge));
-        }
         let input_buffer = &mut buffer.input_buffer;
 
         let simd_safe_len = len + SIMDINPUT_LENGTH;
@@ -851,9 +851,11 @@ impl<'de> Deserializer<'de> {
 
             // initialize all remaining bytes
             // this also ensures we have a 0 to terminate the buffer
-            for i in len..simd_safe_len {
-                std::ptr::write(input_buffer.as_mut_ptr().add(i), 0);
-            }
+            std::ptr::copy_nonoverlapping(
+                LOTS_OF_ZOERS.as_ptr(),
+                input_buffer.as_mut_ptr().add(len),
+                SIMDINPUT_LENGTH,
+            );
 
             // safety: all bytes are initialized
             input_buffer.set_len(simd_safe_len);
