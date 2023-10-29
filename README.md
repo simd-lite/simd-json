@@ -41,7 +41,7 @@ For best performance, we highly suggest using [mimalloc](https://crates.io/crate
 
 This feature allows selecting the optimal algorithm based on available features during runtime; it has no effect on non-x86 or x86_64 platforms. When neither `AVX2` nor `SSE4.2` is supported, it will fall back to a native rust implementation.
 
-Note that an application compiled with `runtime-detection` will not run as fast as an application compiled for a specific CPU. The reason being that rust can't optimise as far to the instruction set when it uses the generic instruction set, and non-simd parts of the code won't be optimised for the given instruction set either.
+Note that an application compiled with `runtime-detection` will not run as fast as an application compiled for a specific CPU. The reason is that rust can't optimise as far as the instruction set when it uses the generic instruction set, and non-simd parts of the code won't be optimised for the given instruction set either.
 
 ### `portable`
 
