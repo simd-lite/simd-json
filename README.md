@@ -1,4 +1,4 @@
-# SIMD Json for Rust &emsp; [![Build Status]][simd-json.rs] [![Build Status ARM]][drone.io] [![Quality]][simd-json.rs]  [![Latest Version]][crates.io] [![Code Coverage]][coveralls]
+# SIMD JSON for Rust &emsp; [![Build Status]][simd-json.rs] [![Build Status ARM]][drone.io] [![Quality]][simd-json.rs]  [![Latest Version]][crates.io] [![Code Coverage]][coveralls]
 
 [Build Status ARM]: https://cloud.drone.io/api/badges/simd-lite/simd-json/status.svg
 [drone.io]: https://cloud.drone.io/simd-lite/simd-json
@@ -18,7 +18,7 @@
 
 ### simdjson version
 
-**Currently tracking version 0.2.x of simdjson upstream (work in progress, feedback welcome!).**
+**Currently tracking version 0.2.x of simdjson upstream (work in progress, feedback is welcome!).**
 
 ### CPU target
 
@@ -47,7 +47,7 @@ Note that an application compiled with `runtime-detection` will not run as fast 
 
 **Currently disabled**
 
-An implementation of the algorithm using `std::simd` and up to 512 byte wide registers, currently disabled due to dependencies and highly experimental.
+An implementation of the algorithm using `std::simd` and up to 512 byte wide registers, currently disabled due to dependencies and is highly experimental.
 
 ### `serde_impl`
 
@@ -57,7 +57,7 @@ That said the serde support is contained in the `serde_impl` feature which is pa
 
 ### `known-key`
 
-The `known-key` feature changes the hash mechanism for the DOM representation of the underlying JSON object, from `ahash` to `fxhash`. The `ahash` hasher is faster at hashing and provides protection against DOS attacks by forcing multiple keys into a single hashing bucket. The `fxhash` hasher on the other hand allows for repeatable hashing results, which in turn allows memoizing hashes for well known keys and saving time on lookups. In workloads that are heavy at accessing some well known keys, this can be a performance advantage.
+The `known-key` feature changes the hash mechanism for the DOM representation of the underlying JSON object, from `ahash` to `fxhash`. The `ahash` hasher is faster at hashing and provides protection against DOS attacks by forcing multiple keys into a single hashing bucket. The `fxhash` hasher, on the other hand allows for repeatable hashing results, which in turn allows memoizing hashes for well known keys and saving time on lookups. In workloads that are heavy on accessing some well-known keys, this can be a performance advantage.
 
 The `known-key` feature is optional and disabled by default and should be explicitly configured.
 
@@ -88,7 +88,7 @@ There are a few reasons for this:
 * Miri testing for UB
 
 This doesn't ensure complete safety nor is at a bulletproof guarantee, but it does go a long way
-to assert that the library is production quality and fit for purpose for practical industrial applications.
+to assert that the library is of high production quality and fit for purpose for practical industrial applications.
 
 ## Other interesting things
 
