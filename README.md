@@ -107,3 +107,8 @@ However it ports a lot of code from [simdjson](https://github.com/lemire/simdjso
 The [serde][1] integration is based on their example and `serde-json` so again, their copyright should as well be respected.
 
 [1]: https://serde.rs
+
+### All Thanks To Our Contributors:
+<a href="https://github.com/simd-lite/simd-json/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=simd-lite/simd-json" />
+</a>
