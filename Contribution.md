@@ -49,7 +49,7 @@ For code contributions:
 3. Create a new branch for your changes: `git checkout -b feature/your-feature`
 4. Write your code, following the Code of Conduct (see [Code of Conduct](#CODE_OF_CONDUCT.md)).
 5. Write unit tests for your code (see [Tests](#tests)).
-6. you can refer to `data` folder for further information (see [data](#data)) 
+6. You can refer to `data` folder for further information (see [data](#data)) 
 7. Push your changes to your fork on GitHub: `git push origin feature/your-feature`
 8. Create a Pull Request (PR) in the project repository, providing a clear description of your changes and linking to any relevant issues or discussions.
 
