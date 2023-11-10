@@ -1209,21 +1209,45 @@ macro_rules! unlikely {
 }
 
 /// possible compiler hint that a branch is likely
+///
+/// Technique borrowed from here: <https://github.com/rust-lang/hashbrown/pull/209>
 #[cfg(not(feature = "hints"))]
 #[macro_export]
 macro_rules! likely {
-    ($e:expr) => {
-        $e
-    };
+    ($e:expr) => {{
+        #[inline]
+        #[cold]
+        fn cold() {}
+
+        let cond = $e;
+
+        if !cond {
+            cold();
+        }
+
+        cond
+    }};
 }
 
 /// possible compiler hint that a branch is unlikely
+///
+/// Technique borrowed from here: <https://github.com/rust-lang/hashbrown/pull/209>
 #[cfg(not(feature = "hints"))]
 #[macro_export]
 macro_rules! unlikely {
-    ($e:expr) => {
-        $e
-    };
+    ($e:expr) => {{
+        #[inline]
+        #[cold]
+        fn cold() {}
+
+        let cond = $e;
+
+        if cond {
+            cold();
+        }
+
+        cond
+    }};
 }
 
 /// static cast to an i8
