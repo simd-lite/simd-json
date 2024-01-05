@@ -190,6 +190,13 @@ impl Stage1Parse for SimdInput {
         base.reserve(64);
         let final_len = l + cnt;
 
+        let is_unaligned = l % 4 != 0;
+        let write_fn = if is_unaligned {
+            std::ptr::write_unaligned
+        } else {
+            std::ptr::write
+        };
+
         while bits != 0 {
             let v0 = bits.trailing_zeros() as i32;
             bits &= bits.wrapping_sub(1);
@@ -202,7 +209,7 @@ impl Stage1Parse for SimdInput {
 
             let v: int32x4_t = mem::transmute([v0, v1, v2, v3]);
             let v: int32x4_t = vaddq_s32(idx_64_v, v);
-            std::ptr::write(base.as_mut_ptr().add(l).cast::<int32x4_t>(), v);
+            write_fn(base.as_mut_ptr().add(l).cast::<int32x4_t>(), v);
             l += 4;
         }
         // We have written all the data
