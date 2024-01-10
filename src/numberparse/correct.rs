@@ -247,7 +247,7 @@ fn parse_large_integer(
     start_idx: usize,
     buf: &[u8],
     negative: bool,
-    end_index: usize,
+    #[allow(unused_variables)] end_index: usize,
 ) -> Result<StaticNode> {
     let mut idx = start_idx;
     if negative {
