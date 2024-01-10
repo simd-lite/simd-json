@@ -68,6 +68,10 @@ The `known-key` feature is optional and disabled by default and should be explic
 
 The `value-no-dup-keys` feature flag toggles stricter behavior for objects when deserializing into a `Value`. When enabled, the Value deserializer will remove duplicate keys in a JSON object and only keep the last one. If not set duplicate keys are considered undefined behavior and Value will not make guarantees on it's behavior.
 
+### `big-int-as-float`
+
+The `big-int-as-float` feature flag treats very large integers that won't fit into u64 as f64 floats. This prevents parsing errors if the JSON you are parsing contains very large numbers. Keep in mind that f64 loses some precision when representing very large numbers.
+
 ## safety
 
 `simd-json` uses **a lot** of unsafe code.
