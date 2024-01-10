@@ -145,6 +145,7 @@ fail!(fail67);
 fail!(fail68);
 // This is not a failure on 128bit parsing
 #[cfg(not(feature = "128bit"))]
+#[cfg(not(feature = "big-int-as-float"))]
 fail!(fail69);
 
 fail!(fail70);
