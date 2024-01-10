@@ -129,6 +129,7 @@ bench-canada = []
 bench-citm_catalog = []
 bench-log = []
 bench-twitter = []
+big-int-as-float = []
 
 [[example]]
 name = "perf"
