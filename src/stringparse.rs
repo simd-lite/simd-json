@@ -28,6 +28,7 @@ const LOW_SURROGATES: Range<u32> = 0xdc00..0xe000;
 /// handle a unicode codepoint
 /// write appropriate values into dest
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[allow(dead_code)]
 pub(crate) fn handle_unicode_codepoint(
     src_ptr: &[u8],
     dst_ptr: &mut [u8],
