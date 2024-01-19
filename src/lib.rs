@@ -482,7 +482,10 @@ impl<'de> Deserializer<'de> {
         }
     }
     #[cfg(not(any(
-        feature = "runtime-detection",
+        all(
+            feature = "runtime-detection",
+            any(target_arch = "x86_64", target_arch = "x86")
+        ),
         feature = "portable",
         target_feature = "avx2",
         target_feature = "sse4.2",
@@ -594,7 +597,10 @@ impl<'de> Deserializer<'de> {
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(not(any(
-        feature = "runtime-detection",
+        all(
+            feature = "runtime-detection",
+            any(target_arch = "x86_64", target_arch = "x86")
+        ),
         feature = "portable",
         target_feature = "avx2",
         target_feature = "sse4.2",
@@ -730,7 +736,10 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg(not(any(
-        feature = "runtime-detection",
+        all(
+            feature = "runtime-detection",
+            any(target_arch = "x86_64", target_arch = "x86")
+        ),
         feature = "portable",
         target_feature = "avx2",
         target_feature = "sse4.2",
