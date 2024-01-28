@@ -923,6 +923,16 @@ impl<'de> Deserializer<'de> {
         Ok(Self { tape, idx: 0 })
     }
 
+    /// Creates a deserializer from a tape.
+    ///
+    /// # Safety
+    /// The tape is not checked for correctness. The deserializer is only 
+    /// guaranteed to operate correctly if the tape came from a previous 
+    /// Deserializer and has not been modified.
+    pub unsafe fn from_tape(tape: Tape<'de>) -> Self {
+        Self { tape:tape.0, idx: 0 }
+    }
+
     #[cfg(feature = "serde_impl")]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn skip(&mut self) {
