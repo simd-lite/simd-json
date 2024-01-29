@@ -12,6 +12,10 @@ use std::str;
 /// to proceed in a deserialize operation.
 ///
 pub trait DeserializerExt<'de> {
+    ///
+    /// The `Error` associated type should be the same as the that of the base
+    /// `Deserializer` implementation.
+    ///
     type Error;
 
     ///

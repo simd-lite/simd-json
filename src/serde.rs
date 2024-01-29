@@ -9,6 +9,7 @@
 mod de;
 mod se;
 mod value;
+pub use self::de::DeserializerExt;
 pub use self::se::*;
 pub use self::value::*;
 use crate::{stry, Buffers, Deserializer, Error, ErrorType, Result};
