@@ -37,7 +37,7 @@ impl<'de> DeserializerExt<'de> for Deserializer<'de> {
     ///
     /// Returns a reference to the "head" [`crate::tape::Value`] of the
     /// deserializer.
-    /// 
+    ///
     /// Returns `Ok(None)` when the deserializer has been expended.
     ///
     fn get_value<'a>(&'a self) -> Result<Option<Value<'de, 'a>>> {
