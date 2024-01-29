@@ -847,8 +847,8 @@ impl<'de> Deserializer<'de> {
     }
 
     /// Fills the tape without creating a serializer, this function poses
-    /// lifetime chalanges and can be frustrating, howver when it is
-    /// usable it allows a allocation free (armotized) parsing of JSON
+    /// lifetime challenges and can be frustrating, however when it is
+    /// usable it allows a allocation free (amortized) parsing of JSON
     ///
     /// # Errors
     ///
@@ -928,7 +928,7 @@ impl<'de> Deserializer<'de> {
     /// # Safety
     /// The tape is not checked for correctness. The deserializer is only
     /// guaranteed to operate correctly if the tape came from a previous
-    /// Deserializer (e.g. from one ot the [crate::to_tape] functions), and has 
+    /// Deserializer (e.g. from one ot the [`crate::to_tape()`] functions), and has 
     /// not been modified.
     #[must_use]
     pub unsafe fn from_tape(tape: Tape<'de>) -> Self {
