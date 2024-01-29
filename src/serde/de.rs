@@ -1,15 +1,15 @@
 use crate::serde_ext::de::IntoDeserializer;
 use crate::{
-    serde_ext, stry, tape::Value, Deserializer, Error, ErrorType, Node, Result, StaticNode,
+    serde_ext, stry, tape::Tape, Deserializer, Error, ErrorType, Node, Result, StaticNode,
 };
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
 use std::str;
 
 ///
-/// A Trait that adds the ability to obtain the [`crate::tape::Value`] from
+/// A Trait that adds the ability to obtain the tape from
 /// the deserializer in order to "peek" its raw values before deciding how
-/// to proceed in a deserialize operation.
+/// to proceed in a deserialize operation. The deserializer can be resnstr
 ///
 pub trait DeserializerExt<'de> {
     ///
@@ -24,7 +24,10 @@ pub trait DeserializerExt<'de> {
     /// # Errors
     /// The default implementation returns `Err(ErrorType::SimdUnsupported)`
     ///
-    fn get_value<'a>(&'a self) -> Result<Option<Value<'de, 'a>>> {
+    fn into_tape(self) -> Result<Tape<'de>>
+    where
+        Self: Sized,
+    {
         Err(Error::generic(ErrorType::SimdUnsupported))
     }
 }
@@ -44,8 +47,11 @@ impl<'de> DeserializerExt<'de> for Deserializer<'de> {
     ///
     /// Returns `Ok(None)` when the deserializer has been expended.
     ///
-    fn get_value<'a>(&'a self) -> Result<Option<Value<'de, 'a>>> {
-        Ok(self.value())
+    fn into_tape<'a>(self) -> Result<Tape<'de>>
+    where
+        Self: Sized,
+    {
+        Ok(self.into_tape())
     }
 }
 

@@ -823,19 +823,6 @@ impl<'de> Deserializer<'de> {
         Tape(self.tape)
     }
 
-    /// Get a reference to the current [`tape::Value`] in the deserializer
-    /// (that is the [`tape::Value`] that will be deserialized next.
-    ///
-    /// Will return `None` if there are no more values to process
-    #[must_use]
-    pub fn value<'a>(&'a self) -> Option<tape::Value<'de, 'a>> {
-        if self.idx >= self.tape.len() {
-            None
-        } else {
-            Some(tape::Value(&self.tape[self.idx..]))
-        }
-    }
-
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn error(error: ErrorType) -> Error {
         Error::new(0, None, error)
