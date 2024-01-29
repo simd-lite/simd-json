@@ -926,12 +926,15 @@ impl<'de> Deserializer<'de> {
     /// Creates a deserializer from a Tape.
     ///
     /// # Safety
-    /// The tape is not checked for correctness. The deserializer is only 
-    /// guaranteed to operate correctly if the tape came from a previous 
+    /// The tape is not checked for correctness. The deserializer is only
+    /// guaranteed to operate correctly if the tape came from a previous
     /// Deserializer or from the [ and has not been modified.
     #[must_use]
     pub unsafe fn from_tape(tape: Tape<'de>) -> Self {
-        Self { tape:tape.0, idx: 0 }
+        Self {
+            tape: tape.0,
+            idx: 0,
+        }
     }
 
     #[cfg(feature = "serde_impl")]
