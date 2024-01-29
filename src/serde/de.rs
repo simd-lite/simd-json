@@ -9,7 +9,8 @@ use std::str;
 ///
 /// A Trait that adds the ability to obtain the tape from
 /// the deserializer in order to "peek" its raw values before deciding how
-/// to proceed in a deserialize operation. The deserializer can be resnstr
+/// to proceed in a deserialize operation. The deserializer can be reconstructed
+/// after the tape has been so-used via the unsafe [`Deserializer::from_tape()`] function
 ///
 pub trait DeserializerExt<'de> {
     ///
@@ -42,10 +43,8 @@ where
 impl<'de> DeserializerExt<'de> for Deserializer<'de> {
     type Error = crate::Error;
     ///
-    /// Returns a reference to the "head" [`crate::tape::Value`] of the
-    /// deserializer.
-    ///
-    /// Returns `Ok(None)` when the deserializer has been expended.
+    /// Consumes the serializer and returns the [`Tape`] underlying
+    /// it.
     ///
     fn into_tape<'a>(self) -> Result<Tape<'de>>
     where
