@@ -1,8 +1,49 @@
 use crate::serde_ext::de::IntoDeserializer;
-use crate::{serde_ext, stry, Deserializer, Error, ErrorType, Node, Result, StaticNode};
+use crate::{
+    serde_ext, stry, tape::Value, Deserializer, Error, ErrorType, Node, Result, StaticNode,
+};
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
 use std::str;
+
+///
+/// A Trait that adds the ability to obtain the [`crate::tape::Value`] from
+/// the deserializer in order to "peek" its raw values before deciding how
+/// to proceed in a deserialize operation.
+///
+pub trait DeserializerExt<'de> {
+    type Error;
+
+    ///
+    /// By default, the operation is unsupported all implementations of Deserializer.
+    ///
+    /// # Errors
+    /// The default implementation returns `Err(ErrorType::SimdUnsupported)`
+    ///
+    fn get_value<'a>(&'a self) -> Result<Option<Value<'de, 'a>>> {
+        Err(Error::generic(ErrorType::SimdUnsupported))
+    }
+}
+
+impl<'de, D> DeserializerExt<'de> for D
+where
+    D: serde::Deserializer<'de>,
+{
+    type Error = D::Error;
+}
+
+impl<'de> DeserializerExt<'de> for Deserializer<'de> {
+    type Error = crate::Error;
+    ///
+    /// Returns a reference to the "head" [`crate::tape::Value`] of the
+    /// deserializer.
+    /// 
+    /// Returns `Ok(None)` when the deserializer has been expended.
+    ///
+    fn get_value<'a>(&'a self) -> Result<Option<Value<'de, 'a>>> {
+        Ok(self.value())
+    }
+}
 
 impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de>
 where
