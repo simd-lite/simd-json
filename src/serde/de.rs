@@ -50,7 +50,7 @@ impl<'de> DeserializerExt<'de> for Deserializer<'de> {
     where
         Self: Sized,
     {
-        Ok(self.into_tape())
+        Ok(Deserializer::into_tape(self))
     }
 }
 
