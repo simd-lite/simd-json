@@ -1,58 +1,9 @@
 use crate::serde_ext::de::IntoDeserializer;
 use crate::{
-    serde_ext, stry, tape::Tape, Deserializer, Error, ErrorType, Node, Result, StaticNode,
-};
+    serde_ext, stry, Deserializer, Error, ErrorType, Node, Result, StaticNode};
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
 use std::str;
-
-///
-/// A Trait that adds the ability to obtain the tape from
-/// the deserializer in order to "peek" its raw values before deciding how
-/// to proceed in a deserialize operation. The deserializer can be reconstructed
-/// after the tape has been so-used via the unsafe [`Deserializer::from_tape()`] function
-///
-pub trait DeserializerExt<'de> {
-    ///
-    /// The `Error` associated type should be the same as the that of the base
-    /// `Deserializer` implementation.
-    ///
-    type Error;
-
-    ///
-    /// By default, the operation is unsupported all implementations of Deserializer.
-    ///
-    /// # Errors
-    /// The default implementation returns `Err(ErrorType::SimdUnsupported)`
-    ///
-    fn into_tape(self) -> Result<Tape<'de>>
-    where
-        Self: Sized,
-    {
-        Err(Error::generic(ErrorType::SimdUnsupported))
-    }
-}
-
-impl<'de, D> DeserializerExt<'de> for D
-where
-    D: serde::Deserializer<'de>,
-{
-    type Error = D::Error;
-}
-
-impl<'de> DeserializerExt<'de> for Deserializer<'de> {
-    type Error = crate::Error;
-    ///
-    /// Consumes the serializer and returns the [`Tape`] underlying
-    /// it.
-    ///
-    fn into_tape<'a>(self) -> Result<Tape<'de>>
-    where
-        Self: Sized,
-    {
-        Ok(Deserializer::into_tape(self))
-    }
-}
 
 impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de>
 where
