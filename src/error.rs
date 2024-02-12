@@ -155,11 +155,11 @@ impl PartialEq for ErrorType {
 #[derive(Debug, PartialEq)]
 pub struct Error {
     /// Byte index it was encountered at
-    index: usize,
+    pub index: usize,
     /// Current character
-    character: Option<char>,
+    pub character: Option<char>,
     /// Type of error
-    error: ErrorType,
+    pub error: ErrorType,
 }
 
 impl Error {
