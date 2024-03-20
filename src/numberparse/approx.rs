@@ -4,9 +4,8 @@ use super::{
 };
 use crate::charutils::is_structural_or_whitespace;
 use crate::safer_unchecked::GetSaferUnchecked;
-use crate::unlikely;
 use crate::StaticNode;
-use crate::{static_cast_i64, Deserializer, ErrorType, Result};
+use crate::{Deserializer, ErrorType, Result};
 
 const POWER_OF_TEN: [f64; 632] = [
     1e-323, 1e-322, 1e-321, 1e-320, 1e-319, 1e-318, 1e-317, 1e-316, 1e-315, 1e-314, 1e-313, 1e-312,

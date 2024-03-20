@@ -65,6 +65,7 @@ impl<'tape, 'input> IntoIterator for &Array<'tape, 'input> {
         self.iter()
     }
 }
+
 #[cfg(test)]
 mod test {
     use crate::to_tape;

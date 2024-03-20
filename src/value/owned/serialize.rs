@@ -235,7 +235,7 @@ where
 mod test {
     use super::Value;
     use crate::prelude::*;
-    use crate::StaticNode;
+
     #[test]
     fn null() {
         assert_eq!(Value::Static(StaticNode::Null).encode(), "null");
