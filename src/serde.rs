@@ -481,7 +481,6 @@ mod test {
     use serde::{Deserialize, Serialize};
     use serde_json::{json as sjson, to_string as sto_string, Value as SerdeValue};
     use std::collections::BTreeMap;
-    use std::convert::TryInto;
 
     #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
     struct UnitStruct;

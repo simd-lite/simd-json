@@ -585,7 +585,6 @@ mod test {
     #[cfg(not(target_arch = "wasm32"))]
     use crate::serde::{from_str, to_string};
     use serde::{Deserialize, Serialize};
-    use serde_json;
 
     #[derive(Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
     struct UnitStruct;

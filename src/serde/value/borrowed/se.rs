@@ -608,7 +608,6 @@ mod test {
     use super::Value;
     use crate::{borrowed::Object, serde::from_slice, ObjectHasher};
     use serde::{Deserialize, Serialize};
-    use serde_json;
     use value_trait::StaticNode;
 
     #[test]

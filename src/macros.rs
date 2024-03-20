@@ -1314,7 +1314,7 @@ macro_rules! stry {
 #[cfg(test)]
 mod test {
     use crate::prelude::*;
-    use crate::{json, json_typed, BorrowedValue, OwnedValue};
+    use crate::{BorrowedValue, OwnedValue};
 
     #[cfg(feature = "serde_impl")]
     fn owned_test_map() -> OwnedValue {
