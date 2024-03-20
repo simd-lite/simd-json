@@ -220,9 +220,4 @@ impl Stage1Parse for SimdInput {
     unsafe fn fill_s8(n: i8) -> int8x16_t {
         vdupq_n_s8(n)
     }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn zero() -> int8x16_t {
-        vdupq_n_s8(0)
-    }
 }

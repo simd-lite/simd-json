@@ -378,7 +378,6 @@ pub(crate) trait Stage1Parse {
     }
 
     unsafe fn fill_s8(n: i8) -> Self::SimdRepresentation;
-    unsafe fn zero() -> Self::SimdRepresentation;
 }
 
 /// Deserializer struct to deserialize a JSON
@@ -929,7 +928,7 @@ impl<'de> Deserializer<'de> {
         self.idx += 1;
     }
 
-    /// Same as next() but we pull out the check so we don't need to
+    /// Same as `next()` but we pull out the check so we don't need to
     /// stry every time. Use this only if you know the next element exists!
     ///
     /// # Safety

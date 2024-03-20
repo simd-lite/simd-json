@@ -25,7 +25,7 @@ mod serialize;
 
 use super::ObjectHasher;
 use crate::{prelude::*, Buffers};
-use crate::{Deserializer, Node, Result, StaticNode};
+use crate::{Deserializer, Node, Result};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};

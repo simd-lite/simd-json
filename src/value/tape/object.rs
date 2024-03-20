@@ -68,6 +68,14 @@ impl<'tape, 'input> Object<'tape, 'input> {
     }
 }
 
+impl<'tape, 'input> IntoIterator for &Object<'tape, 'input> {
+    type IntoIter = ObjectIter<'tape, 'input>;
+    type Item = (&'input str, Value<'tape, 'input>);
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 impl<'tape, 'input> Iterator for ObjectIter<'tape, 'input> {
     type Item = (&'input str, Value<'tape, 'input>);
 

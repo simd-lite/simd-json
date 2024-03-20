@@ -181,7 +181,7 @@ where
             if object.len() != other.len() {
                 return false;
             }
-            for (key, value) in object.iter() {
+            for (key, value) in &object {
                 if !other.get(key).map_or(false, |v| v == &value) {
                     return false;
                 }

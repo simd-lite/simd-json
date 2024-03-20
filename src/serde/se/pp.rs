@@ -1,7 +1,6 @@
-use crate::{serde_ext, stry, Error, ErrorType};
+use crate::{stry, Error, ErrorType};
 use serde_ext::ser;
 use std::io::Write;
-use std::result::Result;
 use std::str;
 use value_trait::generator::BaseGenerator;
 

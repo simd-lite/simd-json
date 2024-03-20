@@ -200,9 +200,4 @@ impl Stage1Parse for SimdInput {
     unsafe fn fill_s8(n: i8) -> v128 {
         i8x16_splat(n)
     }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn zero() -> v128 {
-        i8x16_splat(0)
-    }
 }

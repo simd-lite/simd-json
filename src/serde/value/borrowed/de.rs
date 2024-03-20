@@ -1,7 +1,6 @@
 // A lot of this logic is a re-implementation or copy of serde_json::Value
 use crate::Error;
 use crate::ObjectHasher;
-use crate::StaticNode;
 use crate::{cow::Cow, ErrorType};
 use crate::{
     prelude::*,
