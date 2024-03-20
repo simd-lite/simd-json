@@ -9,9 +9,8 @@ use super::{is_made_of_eight_digits_fast, parse_eight_digits_unrolled};
 use crate::charutils::is_structural_or_whitespace;
 use crate::error::Error;
 use crate::safer_unchecked::GetSaferUnchecked;
-use crate::unlikely;
 use crate::StaticNode;
-use crate::{static_cast_i64, Deserializer, ErrorType, Result};
+use crate::{Deserializer, ErrorType, Result};
 
 macro_rules! get {
     ($buf:ident, $idx:expr) => {
@@ -92,7 +91,9 @@ impl<'de> Deserializer<'de> {
             idx += 1;
             let first_after_period = idx as i64;
             if is_integer(get!(buf, idx)) {
-                num = 10_u64.wrapping_mul(num) + u64::from(get!(buf, idx) - b'0');
+                num = 10_u64
+                    .wrapping_mul(num)
+                    .wrapping_add(u64::from(get!(buf, idx) - b'0'));
                 idx += 1;
             } else {
                 err!(idx, get!(buf, idx))
@@ -111,7 +112,9 @@ impl<'de> Deserializer<'de> {
                 }
             }
             while is_integer(get!(buf, idx)) {
-                num = 10_u64.wrapping_mul(num) + u64::from(get!(buf, idx) - b'0');
+                num = 10_u64
+                    .wrapping_mul(num)
+                    .wrapping_add(u64::from(get!(buf, idx) - b'0'));
                 idx += 1;
             }
             exponent = first_after_period.wrapping_sub(idx as i64);
