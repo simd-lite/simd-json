@@ -922,7 +922,7 @@ proptest! {
         .. ProptestConfig::default()
     })]
     #[test]
-    // #[allow(clippy::should_panic_without_expect)]
+     #[allow(clippy::should_panic_without_expect)]
     #[should_panic]
     fn prop_junk(d in arb_junk()) {
         let mut d1 = d.clone();
@@ -947,7 +947,7 @@ proptest! {
     })]
 
     #[test]
-    // #[allow(clippy::should_panic_without_expect)]
+    #[allow(clippy::should_panic_without_expect)]
     #[should_panic]
     fn prop_string(d in "\\PC*") {
         let mut d1 = d.clone();

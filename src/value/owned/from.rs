@@ -1,6 +1,5 @@
 use super::{Object, Value};
 use crate::{BorrowedValue, StaticNode};
-use std::iter::FromIterator;
 
 impl From<crate::BorrowedValue<'_>> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]

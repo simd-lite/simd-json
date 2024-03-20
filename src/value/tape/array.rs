@@ -7,6 +7,16 @@ pub struct Array<'tape, 'input>(pub(super) &'tape [Node<'input>]);
 
 pub struct ArrayIter<'tape, 'input>(&'tape [Node<'input>]);
 
+impl<'tape, 'input> Iterator for ArrayIter<'tape, 'input> {
+    type Item = Value<'tape, 'input>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (head, tail) = self.0.split_at(self.0.first()?.count());
+        self.0 = tail;
+        Some(Value(head))
+    }
+}
+
 // value_trait::Array for
 impl<'tape, 'input> Array<'tape, 'input>
 where
@@ -48,16 +58,13 @@ where
     }
 }
 
-impl<'tape, 'input> Iterator for ArrayIter<'tape, 'input> {
+impl<'tape, 'input> IntoIterator for &Array<'tape, 'input> {
+    type IntoIter = ArrayIter<'tape, 'input>;
     type Item = Value<'tape, 'input>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let (head, tail) = self.0.split_at(self.0.first()?.count());
-        self.0 = tail;
-        Some(Value(head))
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
-
 #[cfg(test)]
 mod test {
     use crate::to_tape;

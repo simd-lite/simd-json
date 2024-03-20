@@ -276,10 +276,4 @@ impl Stage1Parse for SimdInput {
     unsafe fn fill_s8(n: i8) -> __m128i {
         _mm_set1_epi8(n)
     }
-
-    #[target_feature(enable = "sse4.2")]
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn zero() -> __m128i {
-        _mm_setzero_si128()
-    }
 }

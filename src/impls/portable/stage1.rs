@@ -165,9 +165,4 @@ impl Stage1Parse for SimdInput {
         #[allow(clippy::cast_sign_loss)]
         u8x64::splat(n as u8)
     }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn zero() -> u8x64 {
-        u8x64::splat(0)
-    }
 }

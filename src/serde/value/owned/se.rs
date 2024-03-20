@@ -618,6 +618,7 @@ mod test {
     #[derive(Debug, Serialize, Deserialize)]
     struct TestPoint(f64, f64);
 
+    #[allow(clippy::struct_field_names)]
     #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
     struct Obj {
         v_i128: i128,

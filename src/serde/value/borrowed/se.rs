@@ -682,6 +682,7 @@ mod test {
     struct Map {
         key: u32,
     }
+    #[allow(clippy::struct_field_names)]
     #[derive(Deserialize, Serialize, PartialEq, Debug, Default)]
     struct Obj {
         v_i128: i128,

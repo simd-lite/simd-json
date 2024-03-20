@@ -115,7 +115,7 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
 ))]
 #[allow(clippy::cast_ptr_alignment)]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
-    let val = unsafe { (chars.as_ptr() as *const u64).read_unaligned() }; //    memcpy(&val, chars, sizeof(u64));
+    let val = unsafe { chars.as_ptr().cast::<u64>().read_unaligned() }; //    memcpy(&val, chars, sizeof(u64));
     let val = (val & 0x0F0F_0F0F_0F0F_0F0F).wrapping_mul(2561) >> 8;
     let val = (val & 0x00FF_00FF_00FF_00FF).wrapping_mul(6_553_601) >> 16;
 

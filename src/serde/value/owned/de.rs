@@ -1,6 +1,5 @@
 // A lot of this logic is a re-implementation or copy of serde_json::Value
 use crate::ErrorType;
-use crate::StaticNode;
 use crate::{
     prelude::*,
     serde::value::shared::MapKeyDeserializer,

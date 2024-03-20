@@ -232,10 +232,4 @@ impl Stage1Parse for SimdInput {
     unsafe fn fill_s8(n: i8) -> __m256i {
         _mm256_set1_epi8(n)
     }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[target_feature(enable = "avx2")]
-    unsafe fn zero() -> __m256i {
-        _mm256_setzero_si256()
-    }
 }
