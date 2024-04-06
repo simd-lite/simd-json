@@ -92,7 +92,7 @@ pub enum ErrorType {
     Io(std::io::Error),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum InternalError {
     TapeError,
 }
@@ -155,11 +155,11 @@ impl PartialEq for ErrorType {
 #[derive(Debug, PartialEq)]
 pub struct Error {
     /// Byte index it was encountered at
-    pub index: usize,
+    index: usize,
     /// Current character
-    pub character: Option<char>,
+    character: Option<char>,
     /// Type of error
-    pub error: ErrorType,
+    error: ErrorType,
 }
 
 impl Error {
@@ -182,6 +182,21 @@ impl Error {
             character: None,
             error: t,
         }
+    }
+
+    /// Returns the byte index the error occurred at.
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    /// Returns the current character the error occurred at.
+    pub fn character(&self) -> Option<char> {
+        self.character
+    }
+
+    /// Returns the type of error that occurred.
+    pub fn error(&self) -> &ErrorType {
+        &self.error
     }
 }
 impl std::error::Error for Error {}
