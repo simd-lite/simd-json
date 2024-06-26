@@ -1,10 +1,10 @@
 #[cfg(target_arch = "x86")]
-use std::arch::x86::{
-    __m256i, _mm256_cmpeq_epi8, _mm256_loadu_si256, _mm256_movemask_epi8, _mm256_set1_epi8,
-    _mm256_storeu_si256,
-};
+use std::arch::x86 as arch;
+
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::{
+use std::arch::x86_64 as arch;
+
+use arch::{
     __m256i, _mm256_cmpeq_epi8, _mm256_loadu_si256, _mm256_movemask_epi8, _mm256_set1_epi8,
     _mm256_storeu_si256,
 };
@@ -46,8 +46,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
     loop {
         // _mm256_loadu_si256 does not require alignment
         #[allow(clippy::cast_ptr_alignment)]
-        let v: __m256i =
-            _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<std::arch::x86_64::__m256i>());
+        let v: __m256i = _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<__m256i>());
 
         // store to dest unconditionally - we can overwrite the bits we don't like
         // later
@@ -97,18 +96,11 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
     loop {
         // _mm256_loadu_si256 does not require alignment
         #[allow(clippy::cast_ptr_alignment)]
-        let v: __m256i =
-            _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<std::arch::x86_64::__m256i>());
+        let v: __m256i = _mm256_loadu_si256(src.as_ptr().add(src_i).cast::<__m256i>());
 
         // _mm256_storeu_si256 does not require alignment
         #[allow(clippy::cast_ptr_alignment)]
-        _mm256_storeu_si256(
-            buffer
-                .as_mut_ptr()
-                .add(dst_i)
-                .cast::<std::arch::x86_64::__m256i>(),
-            v,
-        );
+        _mm256_storeu_si256(buffer.as_mut_ptr().add(dst_i).cast::<__m256i>(), v);
 
         // store to dest unconditionally - we can overwrite the bits we don't like
         // later

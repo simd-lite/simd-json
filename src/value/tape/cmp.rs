@@ -9,7 +9,7 @@ impl<'tape, 'input> PartialEq for Value<'tape, 'input> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn eq(&self, other: &Self) -> bool {
-        self == other
+        self.0 == other.0
     }
 }
 

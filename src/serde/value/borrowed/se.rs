@@ -174,18 +174,14 @@ impl<'se> serde::Serializer for Serializer<'se> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_newtype_struct<T: ?Sized>(
-        self,
-        _name: &'static str,
-        value: &T,
-    ) -> Result<Value<'se>>
+    fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Value<'se>>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(self)
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T>(
         self,
         _name: &'static str,
         _variant_index: u32,
@@ -193,7 +189,7 @@ impl<'se> serde::Serializer for Serializer<'se> {
         value: &T,
     ) -> Result<Value<'se>>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         let mut values = Object::with_capacity_and_hasher(1, ObjectHasher::default());
         let x = stry!(to_value(value));
@@ -207,9 +203,9 @@ impl<'se> serde::Serializer for Serializer<'se> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Value<'se>>
+    fn serialize_some<T>(self, value: &T) -> Result<Value<'se>>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(self)
     }
@@ -293,9 +289,9 @@ impl<'se> serde::ser::SerializeSeq for SerializeVec<'se> {
     type Ok = Value<'se>;
     type Error = Error;
 
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         self.vec.push(stry!(to_value(value)));
         Ok(())
@@ -310,9 +306,9 @@ impl<'se> serde::ser::SerializeTuple for SerializeVec<'se> {
     type Ok = Value<'se>;
     type Error = Error;
 
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         serde::ser::SerializeSeq::serialize_element(self, value)
     }
@@ -326,9 +322,9 @@ impl<'se> serde::ser::SerializeTupleStruct for SerializeVec<'se> {
     type Ok = Value<'se>;
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         serde::ser::SerializeSeq::serialize_element(self, value)
     }
@@ -342,9 +338,9 @@ impl<'se> serde::ser::SerializeTupleVariant for SerializeTupleVariant<'se> {
     type Ok = Value<'se>;
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         self.vec.push(stry!(to_value(value)));
         Ok(())
@@ -362,9 +358,9 @@ impl<'se> serde::ser::SerializeMap for SerializeMap<'se> {
     type Ok = Value<'se>;
     type Error = Error;
 
-    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<()>
+    fn serialize_key<T>(&mut self, key: &T) -> Result<()>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         self.next_key = Some(stry!(key.serialize(MapKeySerializer {
             marker: PhantomData
@@ -372,9 +368,9 @@ impl<'se> serde::ser::SerializeMap for SerializeMap<'se> {
         Ok(())
     }
 
-    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_value<T>(&mut self, value: &T) -> Result<()>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         let key = self.next_key.take();
         // Panic because this indicates a bug in the program rather than an
@@ -420,9 +416,9 @@ impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
+    fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(self)
     }
@@ -497,7 +493,7 @@ impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
         Err(key_must_be_a_string())
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T>(
         self,
         _name: &'static str,
         _variant_index: u32,
@@ -505,7 +501,7 @@ impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
         _value: &T,
     ) -> Result<Self::Ok>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         Err(key_must_be_a_string())
     }
@@ -514,9 +510,9 @@ impl<'se> serde_ext::Serializer for MapKeySerializer<'se> {
         Err(key_must_be_a_string())
     }
 
-    fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<Self::Ok>
+    fn serialize_some<T>(self, _value: &T) -> Result<Self::Ok>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         Err(key_must_be_a_string())
     }
@@ -570,9 +566,9 @@ impl<'se> serde::ser::SerializeStruct for SerializeMap<'se> {
     type Ok = Value<'se>;
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         stry!(serde::ser::SerializeMap::serialize_key(self, key));
         serde::ser::SerializeMap::serialize_value(self, value)
@@ -587,9 +583,9 @@ impl<'se> serde::ser::SerializeStructVariant for SerializeStructVariant<'se> {
     type Ok = Value<'se>;
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         self.map.insert(key.into(), stry!(to_value(value)));
         Ok(())

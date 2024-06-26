@@ -146,3 +146,11 @@ codegen-units = 1
 lto = true
 opt-level = 3
 panic = "abort"
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    # Legacy code
+    'cfg(portable)',
+    # Tool specific configurations
+    'cfg(tarpaulin_include)',
+] }
