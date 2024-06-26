@@ -825,7 +825,7 @@ mod test {
 
     #[test]
     fn option_field_absent_owned() {
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         pub struct Person {
             pub name: String,
             pub middle_name: Option<String>,
@@ -835,16 +835,23 @@ mod test {
         let result: Result<Person, _> =
             crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() })
                 .and_then(super::super::from_value);
-        assert!(result.is_ok());
+        assert_eq!(
+            result,
+            Ok(Person {
+                name: "bob".to_string(),
+                middle_name: None,
+                friends: vec![]
+            })
+        );
     }
     #[test]
     fn option_field_present_owned() {
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         pub struct Point {
             pub x: u64,
             pub y: u64,
         }
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         pub struct Person {
             pub name: String,
             pub middle_name: Option<String>,
@@ -857,7 +864,15 @@ mod test {
         let result: Result<Person, _> =
             crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() })
                 .and_then(super::super::from_value);
-        assert!(result.is_ok());
+        assert_eq!(
+            result,
+            Ok(Person {
+                name: "bob".to_string(),
+                middle_name: Some("frank".to_string()),
+                friends: vec![],
+                pos: Point { x: 0, y: 1 },
+            })
+        );
     }
 
     #[test]
