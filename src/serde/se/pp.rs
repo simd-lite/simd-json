@@ -113,9 +113,9 @@ where
     type Ok = ();
     type Error = Error;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         let SerializeSeq {
             ref mut s,
@@ -148,9 +148,9 @@ where
     type Ok = ();
     type Error = Error;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         let SerializeSeq {
             ref mut s,
@@ -182,9 +182,9 @@ where
     type Ok = ();
     type Error = Error;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         let SerializeSeq {
             ref mut s,
@@ -216,9 +216,9 @@ where
     type Ok = ();
     type Error = Error;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         let SerializeSeq {
             ref mut s,
@@ -389,9 +389,9 @@ where
         Err(key_must_be_a_string())
     }
 
-    fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<Self::Ok, Self::Error>
+    fn serialize_some<T>(self, _value: &T) -> Result<Self::Ok, Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         Err(key_must_be_a_string())
     }
@@ -404,7 +404,7 @@ where
         Err(key_must_be_a_string())
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T>(
         self,
         _name: &'static str,
         _variant_index: u32,
@@ -412,7 +412,7 @@ where
         _value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         Err(key_must_be_a_string())
     }
@@ -478,9 +478,9 @@ where
     type Ok = ();
     type Error = Error;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Self::Error>
+    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         let SerializeMap {
             ref mut s,
@@ -500,9 +500,9 @@ where
         }
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         let SerializeMap { ref mut s, .. } = *self;
         value.serialize(&mut **s)
@@ -525,13 +525,9 @@ where
     type Ok = ();
     type Error = Error;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_field<T: ?Sized>(
-        &mut self,
-        key: &'static str,
-        value: &T,
-    ) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         let SerializeMap {
             ref mut s,
@@ -576,13 +572,9 @@ where
     type Ok = ();
     type Error = Error;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_field<T: ?Sized>(
-        &mut self,
-        key: &'static str,
-        value: &T,
-    ) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         let SerializeStructVariant {
             ref mut s,
@@ -725,9 +717,9 @@ where
         self.serialize_unit()
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
+    fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         value.serialize(self)
     }
@@ -750,19 +742,19 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_newtype_struct<T: ?Sized>(
+    fn serialize_newtype_struct<T>(
         self,
         _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         value.serialize(self)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T>(
         self,
         _name: &'static str,
         _variant_index: u32,
@@ -770,7 +762,7 @@ where
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: serde_ext::Serialize,
+        T: ?Sized + serde_ext::Serialize,
     {
         iomap!(self
             .write(b"{")
