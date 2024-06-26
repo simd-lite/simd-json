@@ -863,7 +863,7 @@ impl<'de> Deserializer<'de> {
         let len = input.len();
         let simd_safe_len = len + SIMDINPUT_LENGTH;
 
-        if len > std::u32::MAX as usize {
+        if len > u32::MAX as usize {
             return Err(Self::error(ErrorType::InputTooLarge));
         }
 
