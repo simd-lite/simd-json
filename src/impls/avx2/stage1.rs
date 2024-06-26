@@ -10,7 +10,7 @@ use arch::{
     __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,
     _mm256_max_epu8, _mm256_movemask_epi8, _mm256_set1_epi8, _mm256_set_epi32, _mm256_setr_epi8,
     _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_srli_epi32, _mm256_storeu_si256,
-    _mm_clmulepi64_si128, _mm_cvtsi128_si64, _mm_set1_epi8, _mm_set_epi64x,
+    _mm_clmulepi64_si128, _mm_set1_epi8, _mm_set_epi64x,
 };
 
 macro_rules! low_nibble_mask {
@@ -54,12 +54,27 @@ impl Stage1Parse for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     #[target_feature(enable = "avx2")]
+    #[cfg(target_arch = "x86_64")]
     unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
-        _mm_cvtsi128_si64(_mm_clmulepi64_si128(
+        std::arch::x86_64::_mm_cvtsi128_si64(_mm_clmulepi64_si128(
             _mm_set_epi64x(0, static_cast_i64!(quote_bits)),
             _mm_set1_epi8(-1_i8 /* 0xFF */),
             0,
         )) as u64
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[allow(clippy::cast_sign_loss)]
+    #[target_feature(enable = "avx2")]
+    #[cfg(target_arch = "x86")]
+    unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
+        let mut quote_mask: u64 = quote_bits ^ (quote_bits << 1);
+        quote_mask = quote_mask ^ (quote_mask << 2);
+        quote_mask = quote_mask ^ (quote_mask << 4);
+        quote_mask = quote_mask ^ (quote_mask << 8);
+        quote_mask = quote_mask ^ (quote_mask << 16);
+        quote_mask = quote_mask ^ (quote_mask << 32);
+        quote_mask
     }
 
     /// a straightforward comparison of a mask against input
