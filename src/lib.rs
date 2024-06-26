@@ -435,7 +435,7 @@ type FindStructuralBitsFn = unsafe fn(
 pub enum Implementation {
     /// Rust native implementation
     Native,
-    /// Rust native implementation with using std::simd
+    /// Rust native implementation with using [`std::simd`]
     StdSimd,
     /// SSE4.2 implementation
     SSE42,
