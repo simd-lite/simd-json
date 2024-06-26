@@ -1,14 +1,12 @@
 #![allow(dead_code)]
 use crate::{static_cast_i32, static_cast_i64, static_cast_u32, Stage1Parse};
 #[cfg(target_arch = "x86")]
-use std::arch::x86::{
-    __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,
-    _mm256_max_epu8, _mm256_movemask_epi8, _mm256_set1_epi8, _mm256_set_epi32, _mm256_setr_epi8,
-    _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_srli_epi32, _mm256_storeu_si256,
-    _mm_clmulepi64_si128, _mm_cvtsi128_si64, _mm_set1_epi8, _mm_set_epi64x,
-};
+use std::arch::x86 as arch;
+
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::{
+use std::arch::x86_64 as arch;
+
+use arch::{
     __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,
     _mm256_max_epu8, _mm256_movemask_epi8, _mm256_set1_epi8, _mm256_set_epi32, _mm256_setr_epi8,
     _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_srli_epi32, _mm256_storeu_si256,
@@ -215,12 +213,7 @@ impl Stage1Parse for SimdInput {
 
             let v: __m256i = _mm256_set_epi32(v7, v6, v5, v4, v3, v2, v1, v0);
             let v: __m256i = _mm256_add_epi32(idx_64_v, v);
-            _mm256_storeu_si256(
-                base.as_mut_ptr()
-                    .add(l)
-                    .cast::<std::arch::x86_64::__m256i>(),
-                v,
-            );
+            _mm256_storeu_si256(base.as_mut_ptr().add(l).cast::<__m256i>(), v);
             l += 8;
         }
         // We have written all the data
