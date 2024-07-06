@@ -50,7 +50,7 @@ impl<'tape, 'input> Object<'tape, 'input> {
         }
     }
     /// FIXME: docs
-    #[allow(clippy::iter_without_into_iter)]
+    #[allow(clippy::pedantic)] // we want into_iter_without_iter but that lint doesn't exist in older clippy
     #[must_use]
     pub fn iter<'i>(&'i self) -> Iter<'i, 'input> {
         match self {
