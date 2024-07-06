@@ -1,28 +1,7 @@
 use std::borrow::Borrow;
-
 use value_trait::{base::ValueAsScalar, derived::TypedScalarValue};
 
 use super::Value;
-
-#[allow(clippy::cast_sign_loss, clippy::default_trait_access)]
-impl<'tape, 'input> PartialEq for Value<'tape, 'input> {
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<'tape, 'input, T> PartialEq<&T> for Value<'tape, 'input>
-where
-    Value<'tape, 'input>: PartialEq<T>,
-{
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn eq(&self, other: &&T) -> bool {
-        self == *other
-    }
-}
 
 impl<'tape, 'input> PartialEq<()> for Value<'tape, 'input> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -171,7 +150,7 @@ impl<'tape, 'input> PartialEq<f64> for Value<'tape, 'input> {
 impl<'tape, 'input, K, T, S> PartialEq<std::collections::HashMap<K, T, S>> for Value<'tape, 'input>
 where
     K: Borrow<str> + std::hash::Hash + Eq,
-    for<'i> T: PartialEq<Value<'i, 'input>>,
+    for<'t, 'i> T: PartialEq<Value<'t, 'i>>,
     S: std::hash::BuildHasher,
 {
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -183,7 +162,7 @@ where
         if object.len() != other.len() {
             return false;
         }
-        for (key, value) in &object {
+        for (key, value) in object.iter() {
             if !other.get(key).map_or(false, |v| v == &value) {
                 return false;
             }

@@ -175,7 +175,7 @@ impl Stage1Parse for SimdInput {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
         let idx_minus_64 = idx.wrapping_sub(64);
-        let idx_64_v = mem::transmute::<_, int32x4_t>([
+        let idx_64_v = mem::transmute::<[i32; 4], int32x4_t>([
             static_cast_i32!(idx_minus_64),
             static_cast_i32!(idx_minus_64),
             static_cast_i32!(idx_minus_64),

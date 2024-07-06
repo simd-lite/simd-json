@@ -97,12 +97,24 @@ impl<'tape, 'input> ValueIntoContainer for Value<'tape, 'input> {
     type Object = Object<'tape, 'input>;
     #[must_use]
     fn into_array(self) -> Option<Self::Array> {
-        self.as_array()
+        if let Some(Node::Array { count, .. }) = self.0.first() {
+            // we add one element as we want to keep the array header
+            let count = *count + 1;
+            Some(Array(&self.0[..count]))
+        } else {
+            None
+        }
     }
 
     #[must_use]
     fn into_object(self) -> Option<Self::Object> {
-        self.as_object()
+        if let Some(Node::Object { count, .. }) = self.0.first() {
+            // we add one element as we want to keep the object header
+            let count = *count + 1;
+            Some(Object(&self.0[..count]))
+        } else {
+            None
+        }
     }
 }
 
@@ -136,7 +148,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// current Value isn't an Object, returns `None` if the key isn't in the object
     /// # Errors
     /// if the value is not an object
-    pub fn try_get<Q>(&self, k: &Q) -> Result<Option<Value<'tape, 'input>>, TryTypeError>
+    pub fn try_get<Q>(&self, k: &Q) -> Result<Option<Value<'_, 'input>>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
@@ -154,7 +166,7 @@ where
     /// current value isn't an Array, returns `None` if the index is out of bounds
     /// # Errors
     /// if the requested type doesn't match the actual type or the value is not an object
-    pub fn try_get_idx(&self, i: usize) -> Result<Option<Value<'tape, 'input>>, TryTypeError> {
+    pub fn try_get_idx(&self, i: usize) -> Result<Option<Value<'_, 'input>>, TryTypeError> {
         Ok(self.try_as_array()?.get(i))
     }
 }
@@ -166,7 +178,7 @@ where
 {
     /// Tries to represent the value as an array and returns a reference to it
     #[must_use]
-    pub fn as_array(&self) -> Option<Array<'tape, 'input>> {
+    pub fn as_array(&self) -> Option<Array<'_, 'input>> {
         if let Some(Node::Array { count, .. }) = self.0.first() {
             // we add one element as we want to keep the array header
             let count = *count + 1;
@@ -178,7 +190,7 @@ where
 
     /// Tries to represent the value as an array and returns a reference to it
     #[must_use]
-    pub fn as_object(&self) -> Option<Object<'tape, 'input>> {
+    pub fn as_object(&self) -> Option<Object<'_, 'input>> {
         if let Some(Node::Object { count, .. }) = self.0.first() {
             // we add one element as we want to keep the object header
             let count = *count + 1;
@@ -194,7 +206,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// Tries to represent the value as an array and returns a reference to it
     /// # Errors
     /// if the requested type doesn't match the actual type
-    pub fn try_as_array(&self) -> Result<Array<'tape, 'input>, TryTypeError> {
+    pub fn try_as_array(&self) -> Result<Array<'_, 'input>, TryTypeError> {
         self.as_array().ok_or(TryTypeError {
             expected: ValueType::Array,
             got: self.value_type(),
@@ -204,7 +216,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// Tries to represent the value as an object and returns a reference to it
     /// # Errors
     /// if the requested type doesn't match the actual type
-    pub fn try_as_object(&self) -> Result<Object<'tape, 'input>, TryTypeError> {
+    pub fn try_as_object(&self) -> Result<Object<'_, 'input>, TryTypeError> {
         self.as_object().ok_or(TryTypeError {
             expected: ValueType::Object,
             got: self.value_type(),
@@ -217,7 +229,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// current Value isn't an Object or doesn't contain the key
     /// it was asked for.
     #[must_use]
-    pub fn get<Q>(&self, k: &Q) -> Option<Value<'tape, 'input>>
+    pub fn get<Q>(&self, k: &Q) -> Option<Value<'_, 'input>>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
@@ -239,7 +251,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// current Value isn't an Array or doesn't contain the index
     /// it was asked for.
     #[must_use]
-    pub fn get_idx(&self, i: usize) -> Option<Value<'tape, 'input>> {
+    pub fn get_idx(&self, i: usize) -> Option<Value<'_, 'input>> {
         self.as_array().and_then(|a| a.get(i))
     }
 }
@@ -393,23 +405,54 @@ where
 impl<'tape, 'input> Value<'tape, 'input> {
     /// Tries to get an element of an object as a array
     #[must_use]
-    pub fn get_array<Q>(&self, k: &Q) -> Option<Array<'tape, 'input>>
+    pub fn get_array<Q>(&self, k: &Q) -> Option<Array<'_, 'input>>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
     {
-        let v = self.get(k)?;
-        v.as_array()
+        let mut len = self.0[0].object_len().ok()?;
+        let mut idx = 1;
+        while len > 0 {
+            let Some(s) = self.0[idx].as_str() else {
+                unreachable!()
+            };
+            idx += 1;
+            len -= 1;
+            let count = self.0[idx].count();
+            let s: &Q = s.borrow();
+            if s == k {
+                let count: usize = self.0[idx].array_count().ok()?;
+                return Some(Array(&self.0[idx..idx + count]));
+            }
+            idx += count;
+        }
+        None
     }
 
     /// Tries to get an element of an object as a object
     #[must_use]
-    pub fn get_object<Q>(&self, k: &Q) -> Option<Object<'tape, 'input>>
+    pub fn get_object<Q>(&self, k: &Q) -> Option<Object<'_, 'input>>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
     {
-        self.get(k).and_then(|v| v.as_object())
+        let mut len = self.0[0].object_len().ok()?;
+        let mut idx = 1;
+        while len > 0 {
+            let Some(s) = self.0[idx].as_str() else {
+                unreachable!()
+            };
+            idx += 1;
+            len -= 1;
+            let count = self.0[idx].count();
+            let s: &Q = s.borrow();
+            if s == k {
+                let count: usize = self.0[idx].object_count().ok()?;
+                return Some(Object(&self.0[idx..idx + count]));
+            }
+            idx += count;
+        }
+        None
     }
 }
 // TryValueObjectContainerAccess
@@ -423,10 +466,23 @@ impl<'tape, 'input> Value<'tape, 'input> {
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
     {
-        self.try_as_object()?
-            .get(k)
-            .map(|v| v.try_as_array())
-            .transpose()
+        let mut len = self.0[0].object_len()?;
+        let mut idx = 1;
+        while len > 0 {
+            let Some(s) = self.0[idx].as_str() else {
+                unreachable!()
+            };
+            idx += 1;
+            len -= 1;
+            let count = self.0[idx].count();
+            let s: &Q = s.borrow();
+            if s == k {
+                let count: usize = self.0[idx].array_count()?;
+                return Ok(Some(Array(&self.0[idx..idx + count])));
+            }
+            idx += count;
+        }
+        Ok(None)
     }
 
     /// Tries to get an element of an object as an object, returns
@@ -434,15 +490,28 @@ impl<'tape, 'input> Value<'tape, 'input> {
     ///
     /// # Errors
     /// if the requested type doesn't match the actual type or the value is not an object
-    pub fn try_get_object<Q>(&self, k: &Q) -> Result<Option<Object<'tape, 'input>>, TryTypeError>
+    pub fn try_get_object<Q>(&self, k: &Q) -> Result<Option<Object<'_, 'input>>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
     {
-        self.try_as_object()?
-            .get(k)
-            .map(|v| v.try_as_object())
-            .transpose()
+        let mut len = self.0[0].object_len()?;
+        let mut idx = 1;
+        while len > 0 {
+            let Some(s) = self.0[idx].as_str() else {
+                unreachable!()
+            };
+            idx += 1;
+            len -= 1;
+            let count = self.0[idx].count();
+            let s: &Q = s.borrow();
+            if s == k {
+                let count: usize = self.0[idx].object_count()?;
+                return Ok(Some(Object(&self.0[idx..idx + count])));
+            }
+            idx += count;
+        }
+        Ok(None)
     }
 }
 

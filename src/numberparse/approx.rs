@@ -259,7 +259,7 @@ impl<'de> Deserializer<'de> {
         }
 
         if negative && i > 9_223_372_036_854_775_808 {
-            //i64::min_value() * -1
+            //i64::MIN * -1
             return Err(Self::error_c(
                 idx + digitcount,
                 d as char,
@@ -320,7 +320,7 @@ impl<'de> Deserializer<'de> {
         }
 
         if negative && i > 170_141_183_460_469_231_731_687_303_715_884_105_728_u128 {
-            //i64::min_value() * -1
+            //i64::MIN * -1
             return Err(Self::error_c(
                 idx + digitcount,
                 d as char,
