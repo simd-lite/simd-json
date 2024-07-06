@@ -1,6 +1,6 @@
-use crate::cow::Cow;
 use crate::prelude::*;
 use crate::{borrowed, tape};
+use std::borrow::Cow;
 use std::fmt;
 
 mod array;
@@ -237,10 +237,16 @@ impl<'tape, 'value> ValueIntoString for Value<'tape, 'value> {
             // This is a bit complex but it allows us to avoid cloning
             Value::Value(value) => match value {
                 Cow::Borrowed(value) => match value {
+                    #[cfg(feature = "beef")]
+                    borrowed::Value::String(s) => Some(s.clone().into()),
+                    #[cfg(not(feature = "beef"))]
                     borrowed::Value::String(s) => Some(s.clone()),
                     _ => None,
                 },
                 Cow::Owned(value) => match value {
+                    #[cfg(feature = "beef")]
+                    borrowed::Value::String(s) => Some(s.into()),
+                    #[cfg(not(feature = "beef"))]
                     borrowed::Value::String(s) => Some(s),
                     _ => None,
                 },

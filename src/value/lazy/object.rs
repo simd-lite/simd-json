@@ -18,19 +18,19 @@ pub enum Iter<'tape, 'input> {
     /// Tape variant
     Tape(tape::object::Iter<'tape, 'input>),
     /// Value variant
-    Value(halfbrown::Iter<'tape, Cow<'input, str>, borrowed::Value<'input>>),
+    Value(halfbrown::Iter<'tape, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
 pub enum Keys<'tape, 'input> {
     /// Tape variant
     Tape(tape::object::Keys<'tape, 'input>),
     /// Value variant
-    Value(halfbrown::Keys<'tape, Cow<'input, str>, borrowed::Value<'input>>),
+    Value(halfbrown::Keys<'tape, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
 pub enum Values<'tape, 'input> {
     /// Tape variant
     Tape(tape::object::Values<'tape, 'input>),
     /// Value variant
-    Value(halfbrown::Values<'tape, Cow<'input, str>, borrowed::Value<'input>>),
+    Value(halfbrown::Values<'tape, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
 
 //value_trait::Object for
@@ -41,7 +41,7 @@ impl<'tape, 'input> Object<'tape, 'input> {
     pub fn get<Q>(&self, k: &Q) -> Option<Value<'_, 'input>>
     where
         str: Borrow<Q>,
-        std::borrow::Cow<'input, str>: Borrow<Q>,
+        crate::cow::Cow<'input, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq + Ord,
     {
         match self {
