@@ -8,11 +8,11 @@ use crate::{borrowed, tape};
 
 /// Wrapper around the tape that allows interacting with it via a `Object`-like API.
 
-pub enum Object<'tape, 'value> {
+pub enum Object<'tape, 'input> {
     /// Tape variant
-    Tape(tape::Object<'tape, 'value>),
+    Tape(tape::Object<'tape, 'input>),
     /// Value variant
-    Value(&'tape borrowed::Object<'value>),
+    Value(&'tape borrowed::Object<'input>),
 }
 pub enum Iter<'tape, 'input> {
     /// Tape variant
@@ -35,13 +35,14 @@ pub enum Values<'tape, 'input> {
 
 //value_trait::Object for
 impl<'tape, 'input> Object<'tape, 'input> {
-    /// FIXME: docs
-
+    /// Gets a ref to a value based on a key, returns `None` if the
+    /// current Value isn't an Object or doesn't contain the key
+    /// it was asked for.
     #[must_use]
-    pub fn get<Q>(&self, k: &Q) -> Option<Value<'_, 'input>>
+    pub fn get<'a, Q>(&'a self, k: &Q) -> Option<Value<'a, 'input>>
     where
         str: Borrow<Q>,
-        crate::cow::Cow<'input, str>: Borrow<Q>,
+        for<'b> crate::cow::Cow<'b, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq + Ord,
     {
         match self {
@@ -49,7 +50,8 @@ impl<'tape, 'input> Object<'tape, 'input> {
             Object::Value(v) => v.get(k).map(Cow::Borrowed).map(Value::Value),
         }
     }
-    /// FIXME: docs
+
+    /// Iterates over the key value paris
     #[allow(clippy::pedantic)] // we want into_iter_without_iter but that lint doesn't exist in older clippy
     #[must_use]
     pub fn iter<'i>(&'i self) -> Iter<'i, 'input> {
@@ -58,7 +60,8 @@ impl<'tape, 'input> Object<'tape, 'input> {
             Object::Value(v) => Iter::Value(v.iter()),
         }
     }
-    /// FIXME: docs
+
+    /// Iterates over the keys
     #[must_use]
     pub fn keys<'i>(&'i self) -> Keys<'i, 'input> {
         match self {
@@ -66,7 +69,8 @@ impl<'tape, 'input> Object<'tape, 'input> {
             Object::Value(v) => Keys::Value(v.keys()),
         }
     }
-    /// FIXME: docs
+
+    /// Iterates over the values
     #[must_use]
     pub fn values<'i>(&'i self) -> Values<'i, 'input> {
         match self {
@@ -74,7 +78,8 @@ impl<'tape, 'input> Object<'tape, 'input> {
             Object::Value(v) => Values::Value(v.values()),
         }
     }
-    /// FIXME: docs
+
+    /// Number of key/value pairs
     #[must_use]
     pub fn len(&self) -> usize {
         match self {
@@ -82,7 +87,8 @@ impl<'tape, 'input> Object<'tape, 'input> {
             Object::Value(v) => v.len(),
         }
     }
-    /// FIXME: docs
+
+    /// Returns if the object is empty
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0

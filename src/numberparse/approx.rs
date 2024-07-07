@@ -433,8 +433,6 @@ impl<'de> Deserializer<'de> {
 
             #[cfg(feature = "swar-number-parsing")]
             {
-                // FIXME
-                // can we omit this: buf.len() - byte_count >= 8
                 let chars: [u8; 8] = unsafe {
                     *(buf
                         .get_kinda_unchecked(byte_count..byte_count + 8)
@@ -528,7 +526,6 @@ impl<'de> Deserializer<'de> {
                 StaticNode::F64(0.0)
             } else {
                 if !(-323..=308).contains(&exponent) {
-                    //FIXME Parse it as a expensive float perhaps
                     return Self::parse_float(idx, buf, negative);
                 }
 

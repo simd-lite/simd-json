@@ -5,11 +5,11 @@ use crate::{borrowed, tape};
 
 #[derive(Clone)]
 /// Wrapper around the tape that allows interacting with it via a `Array`-like API.
-pub enum Array<'tape, 'value> {
+pub enum Array<'tape, 'input> {
     /// Tape variant
-    Tape(tape::Array<'tape, 'value>),
+    Tape(tape::Array<'tape, 'input>),
     /// Value variant
-    Value(&'tape borrowed::Array<'value>),
+    Value(&'tape borrowed::Array<'input>),
 }
 
 pub enum ArrayIter<'tape, 'input> {
@@ -29,20 +29,18 @@ impl<'tape, 'input> Iterator for ArrayIter<'tape, 'input> {
 }
 
 // value_trait::Array for
-impl<'tape, 'input> Array<'tape, 'input>
-where
-    'input: 'tape,
-{
-    /// FIXME: docs
-
+impl<'tape, 'input> Array<'tape, 'input> {
+    /// Gets a ref to a value based on n index, returns `None` if the
+    /// current Value isn't an Array or doesn't contain the index
+    /// it was asked for.
     #[must_use]
-    pub fn get(&self, idx: usize) -> Option<Value<'_, 'input>> {
+    pub fn get<'a>(&'a self, idx: usize) -> Option<Value<'a, 'input>> {
         match self {
             Array::Tape(t) => t.get(idx).map(Value::Tape),
             Array::Value(v) => v.get(idx).map(Cow::Borrowed).map(Value::Value),
         }
     }
-    /// FIXME: docs
+    /// Iterates over the values paris
     #[allow(clippy::pedantic)] // we want into_iter_without_iter but that lint doesn't exist in older clippy
     #[must_use]
     pub fn iter<'i>(&'i self) -> ArrayIter<'i, 'input> {
@@ -52,9 +50,7 @@ where
         }
     }
 
-    /// FIXME: docs
-    /// # Panics
-    /// if the tape is not an array
+    /// Number of key/value pairs
     #[must_use]
     pub fn len(&self) -> usize {
         match self {
@@ -62,7 +58,7 @@ where
             Array::Value(v) => v.len(),
         }
     }
-    /// FIXME: docs
+    /// Returns if the array is empty
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0

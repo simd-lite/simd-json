@@ -1,4 +1,26 @@
-use crate::prelude::*;
+//! Lazy value, this gets initialized with a tape and as long as only non mutating operations are performed
+//! it will stay a tape. If it is mutated it is upgtaded to a borrowed value.
+//! This allows for a very cheap parsin and data access while still maintaining mutability.
+//!
+//! # Example
+//!
+//! ```rust
+//! use simd_json::{prelude::*, value::lazy::Value};
+//!
+//! let mut json = br#"{"key": "value", "snot": 42}"#.to_vec();
+//! let tape = simd_json::to_tape( json.as_mut_slice()).unwrap();
+//! let value = tape.as_value();
+//! let mut lazy = Value::from_tape(value);
+//!
+//! assert_eq!(lazy.get("key").unwrap(), "value");
+//!
+//! assert!(lazy.is_tape());
+//! lazy.insert("new", 42);
+//! assert!(lazy.is_value());
+//! assert_eq!(lazy.get("key").unwrap(), "value");
+//! assert_eq!(lazy.get("new").unwrap(), 42);
+//! ```
+
 use crate::{borrowed, tape};
 use std::borrow::Cow;
 use std::fmt;
@@ -7,6 +29,7 @@ mod array;
 mod cmp;
 mod from;
 mod object;
+mod trait_impls;
 
 pub use array::Array;
 pub use object::Object;
@@ -15,7 +38,10 @@ pub use object::Object;
 /// performed it will stay a tape. If a mutating operation is performed it will upgrade to a borrowed
 /// value.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Value<'tape, 'input> {
+pub enum Value<'tape, 'input>
+where
+    'input: 'tape,
+{
     /// tape variant
     Tape(tape::Value<'tape, 'input>),
     /// borrowed variant
@@ -30,6 +56,20 @@ impl Default for Value<'static, '_> {
 }
 
 impl<'tape, 'input> Value<'tape, 'input> {
+    /// returns true when the current representation is a tape
+    #[must_use]
+    pub fn is_tape(&self) -> bool {
+        match self {
+            Value::Tape(_) => true,
+            Value::Value(_) => false,
+        }
+    }
+    /// returns true when the current representation is a borrowed value
+    /// this is the opposite of `is_tape`
+    #[must_use]
+    pub fn is_value(&self) -> bool {
+        !self.is_tape()
+    }
     /// Creates a new lazy Value from a tape
     #[must_use]
     pub fn from_tape(tape: tape::Value<'tape, 'input>) -> Self {
@@ -55,13 +95,6 @@ impl<'tape, 'input> Value<'tape, 'input> {
         *self = Value::Value(Cow::Owned(value));
     }
 
-    fn is_tape(&self) -> bool {
-        match &self {
-            Value::Tape(_) => true,
-            Value::Value(_) => false,
-        }
-    }
-
     fn as_mut(&mut self) -> &mut borrowed::Value<'input> {
         if self.is_tape() {
             self.upgrade();
@@ -74,205 +107,6 @@ impl<'tape, 'input> Value<'tape, 'input> {
         }
     }
 }
-
-impl<'value> ValueBuilder<'value> for Value<'static, 'value> {
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn null() -> Self {
-        Value::Value(Cow::Owned(borrowed::Value::null()))
-    }
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn array_with_capacity(capacity: usize) -> Self {
-        Value::Value(Cow::Owned(borrowed::Value::array_with_capacity(capacity)))
-    }
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn object_with_capacity(capacity: usize) -> Self {
-        Value::Value(Cow::Owned(borrowed::Value::object_with_capacity(capacity)))
-    }
-}
-
-impl<'tape, 'value> ValueAsMutContainer for Value<'tape, 'value> {
-    type Array = Vec<borrowed::Value<'value>>;
-    type Object = super::borrowed::Object<'value>;
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn as_array_mut(&mut self) -> Option<&mut Vec<borrowed::Value<'value>>> {
-        self.as_mut().as_array_mut()
-    }
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn as_object_mut(&mut self) -> Option<&mut super::borrowed::Object<'value>> {
-        self.as_mut().as_object_mut()
-    }
-}
-
-impl<'tape, 'value> TypedValue for Value<'tape, 'value> {
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn value_type(&self) -> ValueType {
-        match &self {
-            Value::Tape(tape) => tape.value_type(),
-            Value::Value(value) => value.value_type(),
-        }
-    }
-}
-
-impl<'tape, 'value> ValueAsScalar for Value<'tape, 'value> {
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn as_null(&self) -> Option<()> {
-        match &self {
-            Value::Tape(tape) => tape.as_null(),
-            Value::Value(value) => value.as_null(),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn as_bool(&self) -> Option<bool> {
-        match &self {
-            Value::Tape(tape) => tape.as_bool(),
-            Value::Value(value) => value.as_bool(),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn as_i64(&self) -> Option<i64> {
-        match &self {
-            Value::Tape(tape) => tape.as_i64(),
-            Value::Value(value) => value.as_i64(),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn as_i128(&self) -> Option<i128> {
-        match &self {
-            Value::Tape(tape) => tape.as_i128(),
-            Value::Value(value) => value.as_i128(),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn as_u64(&self) -> Option<u64> {
-        match &self {
-            Value::Tape(tape) => tape.as_u64(),
-            Value::Value(value) => value.as_u64(),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn as_u128(&self) -> Option<u128> {
-        match &self {
-            Value::Tape(tape) => tape.as_u128(),
-            Value::Value(value) => value.as_u128(),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn as_f64(&self) -> Option<f64> {
-        match &self {
-            Value::Tape(tape) => tape.as_f64(),
-            Value::Value(value) => value.as_f64(),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn cast_f64(&self) -> Option<f64> {
-        match &self {
-            Value::Tape(tape) => tape.cast_f64(),
-            Value::Value(value) => value.cast_f64(),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    fn as_str(&self) -> Option<&str> {
-        match &self {
-            Value::Tape(tape) => tape.as_str(),
-            Value::Value(value) => value.as_str(),
-        }
-    }
-}
-
-// impl<'tape, 'value> ValueAsContainer for Value<'tape, 'value> {
-impl<'tape, 'value> Value<'tape, 'value> {
-    // type Array = array::Array<'tape, 'value>;
-    // type Object = Object<'tape, 'value>;
-
-    /// Tries to represent the value as an array and returns a reference to it
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    pub fn as_array(&self) -> Option<array::Array<'_, 'value>> {
-        match self {
-            Value::Tape(tape) => tape.as_array().map(Array::Tape),
-            Value::Value(value) => value.as_array().map(array::Array::Value),
-        }
-    }
-
-    /// Tries to represent the value as an array and returns a reference to it
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    pub fn as_object(&self) -> Option<object::Object> {
-        match self {
-            Value::Tape(tape) => tape.as_object().map(Object::Tape),
-            Value::Value(value) => value.as_object().map(Object::Value),
-        }
-    }
-}
-
-impl<'tape, 'value> ValueIntoString for Value<'tape, 'value> {
-    type String = Cow<'value, str>;
-
-    fn into_string(self) -> Option<<Self as ValueIntoString>::String> {
-        match self {
-            Value::Tape(tape) => tape.into_string().map(Cow::Borrowed),
-            // This is a bit complex but it allows us to avoid cloning
-            Value::Value(value) => match value {
-                Cow::Borrowed(value) => match value {
-                    #[cfg(feature = "beef")]
-                    borrowed::Value::String(s) => Some(s.clone().into()),
-                    #[cfg(not(feature = "beef"))]
-                    borrowed::Value::String(s) => Some(s.clone()),
-                    _ => None,
-                },
-                Cow::Owned(value) => match value {
-                    #[cfg(feature = "beef")]
-                    borrowed::Value::String(s) => Some(s.into()),
-                    #[cfg(not(feature = "beef"))]
-                    borrowed::Value::String(s) => Some(s),
-                    _ => None,
-                },
-            },
-        }
-    }
-}
-
-// impl<'value> ValueIntoContainer for Value<'value> {
-//     type Array = Vec<Self>;
-//     type Object = Object<'value>;
-
-//     fn into_array(self) -> Option<<Self as ValueIntoContainer>::Array> {
-//         match self {
-//             Self::Array(a) => Some(a),
-//             _ => None,
-//         }
-//     }
-
-//     fn into_object(self) -> Option<<Self as ValueIntoContainer>::Object> {
-//         match self {
-//             Self::Object(a) => Some(*a),
-//             _ => None,
-//         }
-//     }
-// }
 
 #[cfg(not(tarpaulin_include))]
 impl<'tape, 'value> fmt::Display for Value<'tape, 'value> {
@@ -321,8 +155,9 @@ impl<'tape, 'value> fmt::Display for Value<'tape, 'value> {
 #[cfg(test)]
 mod test {
     #![allow(clippy::cognitive_complexity)]
+    use value_trait::prelude::*;
+
     use super::Value;
-    use super::*;
 
     #[test]
     #[should_panic = "Not supported"]

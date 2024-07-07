@@ -22,8 +22,9 @@ impl<'tape, 'input> Array<'tape, 'input>
 where
     'input: 'tape,
 {
-    /// FIXME: docs
-
+    /// Gets a ref to a value based on n index, returns `None` if the
+    /// current Value isn't an Array or doesn't contain the index
+    /// it was asked for.
     #[must_use]
     pub fn get(&self, mut idx: usize) -> Option<Value<'tape, 'input>> {
         let mut offset = 1;
@@ -34,13 +35,14 @@ where
         let count = self.0.get(offset)?.count();
         Some(Value(&self.0[offset..offset + count]))
     }
-    /// FIXME: docs
+
+    /// Iterates over the values paris
     #[must_use]
     pub fn iter<'i>(&'i self) -> Iter<'tape, 'input> {
         Iter(&self.0[1..])
     }
 
-    /// FIXME: docs
+    /// Number of key/value pairs
     /// # Panics
     /// if the tape is not an array
     #[must_use]
@@ -51,7 +53,7 @@ where
             panic!("invalid tape array")
         }
     }
-    /// FIXME: docs
+    /// Returns if the array is empty
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0

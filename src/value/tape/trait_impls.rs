@@ -643,7 +643,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn try_get_str<Q>(&self, k: &Q) -> Result<Option<&'input str>, TryTypeError>
+    fn try_get_str<Q>(&self, k: &Q) -> Result<Option<&str>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,

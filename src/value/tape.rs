@@ -12,7 +12,7 @@ pub struct Tape<'input>(pub Vec<Node<'input>>);
 pub use array::Array;
 pub use object::Object;
 impl<'input> Tape<'input> {
-    /// FIXME: add docs
+    /// Turns the tape into a `Value` that can be used like a `value_trait::Value`
     #[must_use]
     pub fn as_value(&self) -> Value<'_, 'input> {
         // Skip initial zero

@@ -13,8 +13,9 @@ pub struct Values<'tape, 'input>(&'tape [Node<'input>]);
 
 //value_trait::Object for
 impl<'tape, 'input> Object<'tape, 'input> {
-    /// FIXME: docs
-
+    /// Gets a ref to a value based on a key, returns `None` if the
+    /// current Value isn't an Object or doesn't contain the key
+    /// it was asked for.
     #[must_use]
     pub fn get<Q>(&self, k: &Q) -> Option<Value<'tape, 'input>>
     where
@@ -38,22 +39,26 @@ impl<'tape, 'input> Object<'tape, 'input> {
         }
         None
     }
-    /// FIXME: docs
+
+    /// Iterates over the key value paris
     #[must_use]
     pub fn iter<'i>(&'i self) -> Iter<'tape, 'input> {
         Iter(&self.0[1..])
     }
-    /// FIXME: docs
+
+    /// Iterates over the keys
     #[must_use]
     pub fn keys<'i>(&'i self) -> Keys<'tape, 'input> {
         Keys(&self.0[1..])
     }
-    /// FIXME: docs
+
+    /// Iterates over the values
     #[must_use]
     pub fn values<'i>(&'i self) -> Values<'tape, 'input> {
         Values(&self.0[1..])
     }
-    /// FIXME: docs
+
+    /// Number of key/value pairs
     #[must_use]
     pub fn len(&self) -> usize {
         let Some(Node::Object { len, .. }) = self.0.first() else {
@@ -61,7 +66,8 @@ impl<'tape, 'input> Object<'tape, 'input> {
         };
         *len
     }
-    /// FIXME: docs
+
+    /// Returns if the object is empty
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
