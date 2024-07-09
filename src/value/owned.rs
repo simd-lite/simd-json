@@ -113,9 +113,8 @@ impl<'input> ValueBuilder<'input> for Value {
     }
 }
 
-impl ValueAsMutContainer for Value {
+impl ValueAsMutArray for Value {
     type Array = Vec<Self>;
-    type Object = Object;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
@@ -124,6 +123,9 @@ impl ValueAsMutContainer for Value {
             _ => None,
         }
     }
+}
+impl ValueAsMutObject for Value {
+    type Object = Object;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_object_mut(&mut self) -> Option<&mut Object> {
@@ -203,9 +205,8 @@ impl ValueAsScalar for Value {
         }
     }
 }
-impl ValueAsContainer for Value {
+impl ValueAsArray for Value {
     type Array = Vec<Self>;
-    type Object = Object;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array(&self) -> Option<&Vec<Self>> {
@@ -214,6 +215,9 @@ impl ValueAsContainer for Value {
             _ => None,
         }
     }
+}
+impl ValueAsObject for Value {
+    type Object = Object;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -235,18 +239,20 @@ impl ValueIntoString for Value {
         }
     }
 }
-impl ValueIntoContainer for Value {
+impl ValueIntoArray for Value {
     type Array = Vec<Self>;
-    type Object = Object;
 
-    fn into_array(self) -> Option<<Value as ValueIntoContainer>::Array> {
+    fn into_array(self) -> Option<<Value as ValueIntoArray>::Array> {
         match self {
             Self::Array(a) => Some(a),
             _ => None,
         }
     }
+}
+impl ValueIntoObject for Value {
+    type Object = Object;
 
-    fn into_object(self) -> Option<<Value as ValueIntoContainer>::Object> {
+    fn into_object(self) -> Option<<Value as ValueIntoObject>::Object> {
         match self {
             Self::Object(a) => Some(*a),
             _ => None,

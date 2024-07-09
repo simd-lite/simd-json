@@ -177,9 +177,8 @@ impl<'value> ValueBuilder<'value> for Value<'value> {
     }
 }
 
-impl<'value> ValueAsMutContainer for Value<'value> {
+impl<'value> ValueAsMutArray for Value<'value> {
     type Array = Array<'value>;
-    type Object = Object<'value>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'value>>> {
@@ -188,6 +187,9 @@ impl<'value> ValueAsMutContainer for Value<'value> {
             _ => None,
         }
     }
+}
+impl<'value> ValueAsMutObject for Value<'value> {
+    type Object = Object<'value>;
     /// Get mutable access to a map.
     ///
     /// ```rust
@@ -287,9 +289,8 @@ impl<'value> ValueAsScalar for Value<'value> {
         }
     }
 }
-impl<'value> ValueAsContainer for Value<'value> {
+impl<'value> ValueAsArray for Value<'value> {
     type Array = Array<'value>;
-    type Object = Object<'value>;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -299,6 +300,10 @@ impl<'value> ValueAsContainer for Value<'value> {
             _ => None,
         }
     }
+}
+
+impl<'value> ValueAsObject for Value<'value> {
+    type Object = Object<'value>;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -321,18 +326,21 @@ impl<'value> ValueIntoString for Value<'value> {
     }
 }
 
-impl<'value> ValueIntoContainer for Value<'value> {
+impl<'value> ValueIntoArray for Value<'value> {
     type Array = Array<'value>;
-    type Object = Object<'value>;
 
-    fn into_array(self) -> Option<<Self as ValueIntoContainer>::Array> {
+    fn into_array(self) -> Option<<Self as ValueIntoArray>::Array> {
         match self {
             Self::Array(a) => Some(a),
             _ => None,
         }
     }
+}
 
-    fn into_object(self) -> Option<<Self as ValueIntoContainer>::Object> {
+impl<'value> ValueIntoObject for Value<'value> {
+    type Object = Object<'value>;
+
+    fn into_object(self) -> Option<<Self as ValueIntoObject>::Object> {
         match self {
             Self::Object(a) => Some(*a),
             _ => None,
