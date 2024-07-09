@@ -6,12 +6,11 @@ use std::{
 
 use value_trait::{
     base::{
-        TypedValue, ValueAsContainer, ValueAsMutContainer, ValueAsScalar, ValueIntoString, Writable,
+        TypedValue, ValueAsArray as _, ValueAsMutArray, ValueAsMutObject, ValueAsObject as _,
+        ValueAsScalar, ValueIntoString, Writable,
     },
     derived::{
-        ValueArrayTryAccess, ValueObjectAccessAsContainer, ValueObjectAccessAsScalar,
-        ValueObjectAccessTryAsContainer, ValueObjectAccessTryAsScalar, ValueObjectTryAccess,
-        ValueTryAsScalar,
+        ValueArrayTryAccess, ValueObjectAccessAsArray as _, ValueObjectAccessAsObject as _, ValueObjectAccessAsScalar, ValueObjectAccessTryAsArray as _, ValueObjectAccessTryAsObject as _, ValueObjectAccessTryAsScalar, ValueObjectTryAccess, ValueTryAsScalar
     },
     TryTypeError, ValueBuilder, ValueType,
 };
@@ -271,14 +270,16 @@ where
     }
 }
 
-impl<'tape, 'input> ValueAsMutContainer for Value<'tape, 'input> {
+impl<'tape, 'input> ValueAsMutArray for Value<'tape, 'input> {
     type Array = Vec<borrowed::Value<'input>>;
-    type Object = super::borrowed::Object<'input>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<borrowed::Value<'input>>> {
         self.as_mut().as_array_mut()
     }
+}
+impl<'tape, 'input> ValueAsMutObject for Value<'tape, 'input> {
+    type Object = super::borrowed::Object<'input>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_object_mut(&mut self) -> Option<&mut super::borrowed::Object<'input>> {

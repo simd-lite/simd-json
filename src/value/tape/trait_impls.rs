@@ -5,7 +5,7 @@ use std::{
 };
 
 use value_trait::{
-    base::{TypedValue, ValueAsScalar, ValueIntoContainer, ValueIntoString, Writable},
+    base::{TypedValue, ValueAsScalar, ValueIntoArray, ValueIntoObject, ValueIntoString, Writable},
     derived::{
         ValueObjectAccessAsScalar, ValueObjectAccessTryAsScalar, ValueTryAsScalar,
         ValueTryIntoString,
@@ -92,9 +92,8 @@ impl<'tape, 'input> ValueIntoString for Value<'tape, 'input> {
     }
 }
 
-impl<'tape, 'input> ValueIntoContainer for Value<'tape, 'input> {
+impl<'tape, 'input> ValueIntoArray for Value<'tape, 'input> {
     type Array = Array<'tape, 'input>;
-    type Object = Object<'tape, 'input>;
     #[must_use]
     fn into_array(self) -> Option<Self::Array> {
         if let Some(Node::Array { count, .. }) = self.0.first() {
@@ -105,7 +104,9 @@ impl<'tape, 'input> ValueIntoContainer for Value<'tape, 'input> {
             None
         }
     }
-
+}
+impl<'tape, 'input> ValueIntoObject for Value<'tape, 'input> {
+    type Object = Object<'tape, 'input>;
     #[must_use]
     fn into_object(self) -> Option<Self::Object> {
         if let Some(Node::Object { count, .. }) = self.0.first() {
