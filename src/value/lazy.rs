@@ -38,24 +38,41 @@ pub use object::Object;
 /// performed it will stay a tape. If a mutating operation is performed it will upgrade to a borrowed
 /// value.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Value<'tape, 'input>
-where
-    'input: 'tape,
-{
+pub enum Value<'borrow, 'tape, 'input> {
     /// tape variant
     Tape(tape::Value<'tape, 'input>),
     /// borrowed variant
-    Value(Cow<'tape, borrowed::Value<'input>>),
+    Value(Cow<'borrow, borrowed::Value<'input>>),
 }
 
-impl Default for Value<'static, '_> {
+impl Default for Value<'static, 'static, '_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         Value::Value(Cow::Owned(borrowed::Value::default()))
     }
 }
 
-impl<'tape, 'input> Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
+    /// turns the lazy value into a borrowed value
+    #[must_use]
+    pub fn into_value(self) -> borrowed::Value<'input> {
+        match self {
+            Value::Tape(tape) => {
+                let value = super::borrowed::BorrowSliceDeserializer::from_tape(tape.0).parse();
+                value
+            }
+            Value::Value(value) => value.into_owned(),
+        }
+    }
+    /// extends the Value COW is owned
+    #[must_use]
+    pub fn into_owned<'snot>(self) -> Value<'snot, 'tape, 'input> {
+        match self {
+            Value::Tape(tape) => Value::Tape(tape),
+            Value::Value(Cow::Owned(value)) => Value::Value(Cow::Owned(value)),
+            Value::Value(Cow::Borrowed(value)) => Value::Value(Cow::Owned(value.clone())),
+        }
+    }
     /// returns true when the current representation is a tape
     #[must_use]
     pub fn is_tape(&self) -> bool {
@@ -109,7 +126,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
 }
 
 #[cfg(not(tarpaulin_include))]
-impl<'tape, 'value> fmt::Display for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> fmt::Display for Value<'borrow, 'tape, 'value> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
             Value::Tape(tape) => write!(f, "{tape:?}"),

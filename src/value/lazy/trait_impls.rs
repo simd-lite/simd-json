@@ -10,20 +10,23 @@ use value_trait::{
         ValueAsScalar, ValueIntoString, Writable,
     },
     derived::{
-        ValueArrayTryAccess, ValueObjectAccessAsArray as _, ValueObjectAccessAsObject as _, ValueObjectAccessAsScalar, ValueObjectAccessTryAsArray as _, ValueObjectAccessTryAsObject as _, ValueObjectAccessTryAsScalar, ValueObjectTryAccess, ValueTryAsScalar
+        ValueArrayTryAccess, ValueObjectAccessAsArray as _, ValueObjectAccessAsObject as _,
+        ValueObjectAccessAsScalar, ValueObjectAccessTryAsArray as _,
+        ValueObjectAccessTryAsObject as _, ValueObjectAccessTryAsScalar, ValueObjectTryAccess,
+        ValueTryAsScalar,
     },
     TryTypeError, ValueBuilder, ValueType,
 };
 
-use crate::borrowed;
+use crate::{borrowed, tape};
 
 use super::{Array, Object, Value};
 
-impl<'value> ValueBuilder<'value> for Value<'static, 'value> {
+impl<'value> ValueBuilder<'value> for Value<'static, 'static, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn null() -> Self {
-        Value::Value(Cow::Owned(borrowed::Value::null()))
+        Value::Tape(tape::Value::null())
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -38,7 +41,7 @@ impl<'value> ValueBuilder<'value> for Value<'static, 'value> {
 }
 
 // TypedContainerValue
-impl<'tape, 'input> Value<'tape, 'input>
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input>
 where
     'input: 'tape,
 {
@@ -55,7 +58,7 @@ where
     }
 }
 
-impl<'tape, 'value> ValueAsScalar for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_null(&self) -> Option<()> {
@@ -138,7 +141,7 @@ impl<'tape, 'value> ValueAsScalar for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value> ValueIntoString for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> ValueIntoString for Value<'borrow, 'tape, 'value> {
     type String = Cow<'value, str>;
 
     fn into_string(self) -> Option<<Self as ValueIntoString>::String> {
@@ -191,7 +194,7 @@ impl<'tape, 'value> ValueIntoString for Value<'tape, 'value> {
 //     }
 // }
 
-impl<'tape, 'input> TypedValue for Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> TypedValue for Value<'borrow, 'tape, 'input> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn value_type(&self) -> ValueType {
@@ -203,7 +206,7 @@ impl<'tape, 'input> TypedValue for Value<'tape, 'input> {
 }
 
 // TryValueObjectAccess
-impl<'tape, 'input> Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
     // type Key = &str;
     // type Target = Value<'tape, 'input>;
 
@@ -211,7 +214,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// current Value isn't an Object, returns `None` if the key isn't in the object
     /// # Errors
     /// if the value is not an object
-    pub fn try_get<Q>(&self, k: &Q) -> Result<Option<Value<'_, 'input>>, TryTypeError>
+    pub fn try_get<Q>(&self, k: &Q) -> Result<Option<Value<'_, 'tape, 'input>>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
         for<'b> crate::cow::Cow<'b, str>: Borrow<Q>,
@@ -225,7 +228,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
 }
 
 //TryValueArrayAccess
-impl<'tape, 'input> Value<'tape, 'input>
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input>
 where
     'input: 'tape,
 {
@@ -233,7 +236,7 @@ where
     /// current value isn't an Array, returns `None` if the index is out of bounds
     /// # Errors
     /// if the requested type doesn't match the actual type or the value is not an object
-    pub fn try_get_idx(&self, i: usize) -> Result<Option<Value<'_, 'input>>, TryTypeError> {
+    pub fn try_get_idx(&self, i: usize) -> Result<Option<Value<'_, 'tape, 'input>>, TryTypeError> {
         match self {
             Value::Tape(tape) => Ok(tape.try_get_idx(i)?.map(Value::Tape)),
             Value::Value(value) => Ok(value.try_get_idx(i)?.map(Cow::Borrowed).map(Value::Value)),
@@ -242,7 +245,7 @@ where
 }
 
 // impl<'tape, 'value> ValueAsContainer for Value<'tape, 'value> {
-impl<'tape, 'input> Value<'tape, 'input>
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input>
 where
     'input: 'tape,
 {
@@ -252,7 +255,7 @@ where
     /// Tries to represent the value as an array and returns a reference to it
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
-    pub fn as_array(&self) -> Option<Array<'_, 'input>> {
+    pub fn as_array(&self) -> Option<Array<'_, 'tape, 'input>> {
         match self {
             Value::Tape(tape) => tape.as_array().map(Array::Tape),
             Value::Value(value) => value.as_array().map(Array::Value),
@@ -262,7 +265,7 @@ where
     /// Tries to represent the value as an array and returns a reference to it
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
-    pub fn as_object(&self) -> Option<Object<'_, 'input>> {
+    pub fn as_object(&self) -> Option<Object<'_, 'tape, 'input>> {
         match self {
             Value::Tape(tape) => tape.as_object().map(Object::Tape),
             Value::Value(value) => value.as_object().map(Object::Value),
@@ -270,7 +273,7 @@ where
     }
 }
 
-impl<'tape, 'input> ValueAsMutArray for Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> ValueAsMutArray for Value<'borrow, 'tape, 'input> {
     type Array = Vec<borrowed::Value<'input>>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -278,7 +281,7 @@ impl<'tape, 'input> ValueAsMutArray for Value<'tape, 'input> {
         self.as_mut().as_array_mut()
     }
 }
-impl<'tape, 'input> ValueAsMutObject for Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> ValueAsMutObject for Value<'borrow, 'tape, 'input> {
     type Object = super::borrowed::Object<'input>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -288,11 +291,11 @@ impl<'tape, 'input> ValueAsMutObject for Value<'tape, 'input> {
 }
 
 // ContainerValueTryAs (needed as we don't have ValueAsContainer)
-impl<'tape, 'input> Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
     /// Tries to represent the value as an array and returns a reference to it
     /// # Errors
     /// if the requested type doesn't match the actual type
-    pub fn try_as_array(&self) -> Result<Array<'_, 'input>, TryTypeError> {
+    pub fn try_as_array(&self) -> Result<Array<'_, 'tape, 'input>, TryTypeError> {
         self.as_array().ok_or(TryTypeError {
             expected: ValueType::Array,
             got: self.value_type(),
@@ -302,7 +305,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// Tries to represent the value as an object and returns a reference to it
     /// # Errors
     /// if the requested type doesn't match the actual type
-    pub fn try_as_object(&self) -> Result<Object<'_, 'input>, TryTypeError> {
+    pub fn try_as_object(&self) -> Result<Object<'_, 'tape, 'input>, TryTypeError> {
         self.as_object().ok_or(TryTypeError {
             expected: ValueType::Object,
             got: self.value_type(),
@@ -310,12 +313,12 @@ impl<'tape, 'input> Value<'tape, 'input> {
     }
 }
 // ValueObjectAccess (needed as we don't have ValueAsContainer ) and can't return references
-impl<'tape, 'input> Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key
     /// it was asked for.
     #[must_use]
-    pub fn get<Q>(&self, k: &Q) -> Option<Value<'_, 'input>>
+    pub fn get<'k, Q>(&self, k: &'k Q) -> Option<Value<'_, 'tape, 'input>>
     where
         str: Borrow<Q>,
         for<'a> crate::cow::Cow<'a, str>: Borrow<Q>,
@@ -349,12 +352,12 @@ impl<'tape, 'input> Value<'tape, 'input> {
 }
 
 // ValueArrayAccess (needed as we don't have ValueAsContainer)
-impl<'tape, 'input> Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
     /// Gets a ref to a value based on n index, returns `None` if the
     /// current Value isn't an Array or doesn't contain the index
     /// it was asked for.
     #[must_use]
-    pub fn get_idx(&self, i: usize) -> Option<Value<'_, 'input>> {
+    pub fn get_idx(&self, i: usize) -> Option<Value<'_, 'tape, 'input>> {
         match self {
             Value::Tape(tape) => tape.get_idx(i).map(Value::Tape),
             Value::Value(value) => value
@@ -367,7 +370,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
 }
 
 // impl<'tape, 'input> ValueObjectAccessAsScalar for Value<'tape, 'input>
-impl<'tape, 'input> Value<'tape, 'input>
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input>
 where
     'input: 'tape,
 {
@@ -539,10 +542,10 @@ where
 }
 
 // ValueObjectContainerAccess
-impl<'tape, 'input> Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
     /// Tries to get an element of an object as a array
     #[must_use]
-    pub fn get_array<Q>(&self, k: &Q) -> Option<Array<'_, 'input>>
+    pub fn get_array<Q>(&self, k: &Q) -> Option<Array<'_, 'tape, 'input>>
     where
         str: Borrow<Q>,
         for<'a> crate::cow::Cow<'a, str>: Borrow<Q>,
@@ -556,7 +559,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
 
     /// Tries to get an element of an object as a object
     #[must_use]
-    pub fn get_object<Q>(&self, k: &Q) -> Option<Object<'_, 'input>>
+    pub fn get_object<Q>(&self, k: &Q) -> Option<Object<'_, 'tape, 'input>>
     where
         str: Borrow<Q>,
         for<'a> crate::cow::Cow<'a, str>: Borrow<Q>,
@@ -569,12 +572,12 @@ impl<'tape, 'input> Value<'tape, 'input> {
     }
 }
 // TryValueObjectContainerAccess
-impl<'tape, 'input> Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
     /// Tries to get an element of an object as an array, returns
     /// an error if it isn't a array
     /// # Errors
     /// if the requested type doesn't match the actual type or the value is not an object
-    pub fn try_get_array<Q>(&self, k: &Q) -> Result<Option<Array<'_, 'input>>, TryTypeError>
+    pub fn try_get_array<Q>(&self, k: &Q) -> Result<Option<Array<'_, 'tape, 'input>>, TryTypeError>
     where
         str: Borrow<Q>,
         for<'a> crate::cow::Cow<'a, str>: Borrow<Q>,
@@ -591,7 +594,10 @@ impl<'tape, 'input> Value<'tape, 'input> {
     ///
     /// # Errors
     /// if the requested type doesn't match the actual type or the value is not an object
-    pub fn try_get_object<Q>(&self, k: &Q) -> Result<Option<Object<'_, 'input>>, TryTypeError>
+    pub fn try_get_object<Q>(
+        &self,
+        k: &Q,
+    ) -> Result<Option<Object<'_, 'tape, 'input>>, TryTypeError>
     where
         str: Borrow<Q>,
         for<'a> crate::cow::Cow<'a, str>: Borrow<Q>,
@@ -605,7 +611,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
 }
 
 // impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
-impl<'tape, 'input> Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
     /// Tries to get an element of an object as a bool, returns
     /// an error if it isn't bool
     /// # Errors
@@ -819,7 +825,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     }
 }
 
-impl<'tape, 'input> Writable for Value<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Writable for Value<'borrow, 'tape, 'input> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn encode(&self) -> String {
         match self {

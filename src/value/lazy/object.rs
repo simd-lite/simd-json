@@ -8,38 +8,38 @@ use crate::{borrowed, tape};
 
 /// Wrapper around the tape that allows interacting with it via a `Object`-like API.
 
-pub enum Object<'tape, 'input> {
+pub enum Object<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::Object<'tape, 'input>),
     /// Value variant
-    Value(&'tape borrowed::Object<'input>),
+    Value(&'borrow borrowed::Object<'input>),
 }
-pub enum Iter<'tape, 'input> {
+pub enum Iter<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::object::Iter<'tape, 'input>),
     /// Value variant
-    Value(halfbrown::Iter<'tape, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
+    Value(halfbrown::Iter<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
-pub enum Keys<'tape, 'input> {
+pub enum Keys<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::object::Keys<'tape, 'input>),
     /// Value variant
-    Value(halfbrown::Keys<'tape, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
+    Value(halfbrown::Keys<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
-pub enum Values<'tape, 'input> {
+pub enum Values<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::object::Values<'tape, 'input>),
     /// Value variant
-    Value(halfbrown::Values<'tape, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
+    Value(halfbrown::Values<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
 
 //value_trait::Object for
-impl<'tape, 'input> Object<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Object<'borrow, 'tape, 'input> {
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key
     /// it was asked for.
     #[must_use]
-    pub fn get<'a, Q>(&'a self, k: &Q) -> Option<Value<'a, 'input>>
+    pub fn get<'a, Q>(&'a self, k: &Q) -> Option<Value<'a, 'tape, 'input>>
     where
         str: Borrow<Q>,
         for<'b> crate::cow::Cow<'b, str>: Borrow<Q>,
@@ -54,7 +54,7 @@ impl<'tape, 'input> Object<'tape, 'input> {
     /// Iterates over the key value paris
     #[allow(clippy::pedantic)] // we want into_iter_without_iter but that lint doesn't exist in older clippy
     #[must_use]
-    pub fn iter<'i>(&'i self) -> Iter<'i, 'input> {
+    pub fn iter<'i>(&'i self) -> Iter<'i, 'tape, 'input> {
         match self {
             Object::Tape(t) => Iter::Tape(t.iter()),
             Object::Value(v) => Iter::Value(v.iter()),
@@ -63,7 +63,7 @@ impl<'tape, 'input> Object<'tape, 'input> {
 
     /// Iterates over the keys
     #[must_use]
-    pub fn keys<'i>(&'i self) -> Keys<'i, 'input> {
+    pub fn keys<'i>(&'i self) -> Keys<'i, 'tape, 'input> {
         match self {
             Object::Tape(t) => Keys::Tape(t.keys()),
             Object::Value(v) => Keys::Value(v.keys()),
@@ -72,7 +72,7 @@ impl<'tape, 'input> Object<'tape, 'input> {
 
     /// Iterates over the values
     #[must_use]
-    pub fn values<'i>(&'i self) -> Values<'i, 'input> {
+    pub fn values<'i>(&'i self) -> Values<'i, 'tape, 'input> {
         match self {
             Object::Tape(t) => Values::Tape(t.values()),
             Object::Value(v) => Values::Value(v.values()),
@@ -103,8 +103,8 @@ impl<'tape, 'input> Object<'tape, 'input> {
 //     }
 // }
 
-impl<'tape, 'input> Iterator for Iter<'tape, 'input> {
-    type Item = (&'tape str, Value<'tape, 'input>);
+impl<'borrow, 'tape, 'input> Iterator for Iter<'borrow, 'tape, 'input> {
+    type Item = (&'borrow str, Value<'borrow, 'tape, 'input>);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -116,8 +116,8 @@ impl<'tape, 'input> Iterator for Iter<'tape, 'input> {
     }
 }
 
-impl<'tape, 'input> Iterator for Keys<'tape, 'input> {
-    type Item = &'tape str;
+impl<'borrow, 'tape, 'input> Iterator for Keys<'borrow, 'tape, 'input> {
+    type Item = &'borrow str;
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Keys::Tape(t) => t.next(),
@@ -126,8 +126,8 @@ impl<'tape, 'input> Iterator for Keys<'tape, 'input> {
     }
 }
 
-impl<'tape, 'input> Iterator for Values<'tape, 'input> {
-    type Item = Value<'tape, 'input>;
+impl<'borrow, 'tape, 'input> Iterator for Values<'borrow, 'tape, 'input> {
+    type Item = Value<'borrow, 'tape, 'input>;
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Values::Tape(t) => t.next().map(Value::Tape),

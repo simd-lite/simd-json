@@ -5,20 +5,20 @@ use crate::{borrowed, tape};
 
 #[derive(Clone)]
 /// Wrapper around the tape that allows interacting with it via a `Array`-like API.
-pub enum Array<'tape, 'input> {
+pub enum Array<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::Array<'tape, 'input>),
     /// Value variant
-    Value(&'tape borrowed::Array<'input>),
+    Value(&'borrow borrowed::Array<'input>),
 }
 
-pub enum ArrayIter<'tape, 'input> {
+pub enum ArrayIter<'borrow, 'tape, 'input> {
     Tape(tape::array::Iter<'tape, 'input>),
-    Value(std::slice::Iter<'tape, borrowed::Value<'input>>),
+    Value(std::slice::Iter<'borrow, borrowed::Value<'input>>),
 }
 
-impl<'tape, 'input> Iterator for ArrayIter<'tape, 'input> {
-    type Item = Value<'tape, 'input>;
+impl<'borrow, 'tape, 'input> Iterator for ArrayIter<'borrow, 'tape, 'input> {
+    type Item = Value<'borrow, 'tape, 'input>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -29,12 +29,12 @@ impl<'tape, 'input> Iterator for ArrayIter<'tape, 'input> {
 }
 
 // value_trait::Array for
-impl<'tape, 'input> Array<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Array<'borrow, 'tape, 'input> {
     /// Gets a ref to a value based on n index, returns `None` if the
     /// current Value isn't an Array or doesn't contain the index
     /// it was asked for.
     #[must_use]
-    pub fn get<'a>(&'a self, idx: usize) -> Option<Value<'a, 'input>> {
+    pub fn get<'a>(&'a self, idx: usize) -> Option<Value<'a, 'tape, 'input>> {
         match self {
             Array::Tape(t) => t.get(idx).map(Value::Tape),
             Array::Value(v) => v.get(idx).map(Cow::Borrowed).map(Value::Value),
@@ -43,7 +43,7 @@ impl<'tape, 'input> Array<'tape, 'input> {
     /// Iterates over the values paris
     #[allow(clippy::pedantic)] // we want into_iter_without_iter but that lint doesn't exist in older clippy
     #[must_use]
-    pub fn iter<'i>(&'i self) -> ArrayIter<'i, 'input> {
+    pub fn iter<'i>(&'i self) -> ArrayIter<'i, 'tape, 'input> {
         match self {
             Array::Tape(t) => ArrayIter::Tape(t.iter()),
             Array::Value(v) => ArrayIter::Value(v.iter()),

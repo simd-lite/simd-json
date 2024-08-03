@@ -43,11 +43,13 @@ where
     'input: 'tape;
 
 impl Value<'static, 'static> {
-    const NULL: [Node<'static>; 1] = [Node::Static(StaticNode::Null)];
+    const NULL_TAPE: [Node<'static>; 1] = [Node::Static(StaticNode::Null)];
+    /// A static null value
+    pub const NULL: Value<'static, 'static> = Value(&Self::NULL_TAPE);
     /// Creates tape value representing a null value
     #[must_use]
     pub const fn null() -> Self {
-        Self(&Self::NULL)
+        Self::NULL
     }
 }
 

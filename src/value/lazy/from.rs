@@ -2,7 +2,16 @@ use super::Value;
 use crate::StaticNode;
 use crate::{borrowed, cow::Cow};
 use std::borrow::Cow as StdCow;
-impl<'tape, 'value> From<StaticNode> for Value<'tape, 'value> {
+
+impl<'borrow, 'tape, 'value> From<borrowed::Value<'value>> for Value<'borrow, 'tape, 'value> {
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[must_use]
+    fn from(v: borrowed::Value<'value>) -> Self {
+        Value::Value(StdCow::Owned(v))
+    }
+}
+
+impl<'borrow, 'tape, 'value> From<StaticNode> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: StaticNode) -> Self {
@@ -10,7 +19,7 @@ impl<'tape, 'value> From<StaticNode> for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value, T> From<Option<T>> for Value<'tape, 'value>
+impl<'borrow, 'tape, 'value, T> From<Option<T>> for Value<'borrow, 'tape, 'value>
 where
     borrowed::Value<'value>: From<Option<T>>,
 {
@@ -21,7 +30,7 @@ where
     }
 }
 /********* str_ **********/
-impl<'tape, 'value> From<&'value str> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<&'value str> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: &'value str) -> Self {
@@ -30,7 +39,7 @@ impl<'tape, 'value> From<&'value str> for Value<'tape, 'value> {
 }
 
 #[cfg(feature = "beef")]
-impl<'tape, 'value> From<std::borrow::Cow<'value, str>> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<std::borrow::Cow<'value, str>> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: std::borrow::Cow<'value, str>) -> Self {
@@ -39,7 +48,7 @@ impl<'tape, 'value> From<std::borrow::Cow<'value, str>> for Value<'tape, 'value>
 }
 
 #[cfg(not(feature = "beef"))]
-impl<'tape, 'value> From<std::borrow::Cow<'value, str>> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<std::borrow::Cow<'value, str>> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: std::borrow::Cow<'value, str>) -> Self {
@@ -48,7 +57,7 @@ impl<'tape, 'value> From<std::borrow::Cow<'value, str>> for Value<'tape, 'value>
 }
 
 #[cfg(feature = "beef")]
-impl<'tape, 'value> From<beef::lean::Cow<'value, str>> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<beef::lean::Cow<'value, str>> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: beef::lean::Cow<'value, str>) -> Self {
@@ -56,7 +65,7 @@ impl<'tape, 'value> From<beef::lean::Cow<'value, str>> for Value<'tape, 'value> 
     }
 }
 
-impl<'tape, 'value> From<String> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<String> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: String) -> Self {
@@ -65,14 +74,14 @@ impl<'tape, 'value> From<String> for Value<'tape, 'value> {
 }
 
 /********* atoms **********/
-impl<'tape, 'value> From<bool> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<bool> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: bool) -> Self {
         Value::Value(StdCow::Owned(borrowed::Value::from(v)))
     }
 }
-impl<'tape, 'value> From<()> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<()> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: ()) -> Self {
@@ -81,7 +90,7 @@ impl<'tape, 'value> From<()> for Value<'tape, 'value> {
 }
 
 /********* i_ **********/
-impl<'tape, 'value> From<i8> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<i8> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: i8) -> Self {
@@ -89,7 +98,7 @@ impl<'tape, 'value> From<i8> for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value> From<i16> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<i16> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: i16) -> Self {
@@ -97,7 +106,7 @@ impl<'tape, 'value> From<i16> for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value> From<i32> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<i32> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: i32) -> Self {
@@ -105,7 +114,7 @@ impl<'tape, 'value> From<i32> for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value> From<i64> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<i64> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: i64) -> Self {
@@ -114,7 +123,7 @@ impl<'tape, 'value> From<i64> for Value<'tape, 'value> {
 }
 
 #[cfg(feature = "128bit")]
-impl<'tape, 'value> From<i128> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<i128> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: i128) -> Self {
@@ -123,7 +132,7 @@ impl<'tape, 'value> From<i128> for Value<'tape, 'value> {
 }
 
 /********* u_ **********/
-impl<'tape, 'value> From<u8> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<u8> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: u8) -> Self {
@@ -131,7 +140,7 @@ impl<'tape, 'value> From<u8> for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value> From<u16> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<u16> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: u16) -> Self {
@@ -139,7 +148,7 @@ impl<'tape, 'value> From<u16> for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value> From<u32> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<u32> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: u32) -> Self {
@@ -147,7 +156,7 @@ impl<'tape, 'value> From<u32> for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value> From<u64> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<u64> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: u64) -> Self {
@@ -156,7 +165,7 @@ impl<'tape, 'value> From<u64> for Value<'tape, 'value> {
 }
 
 #[cfg(feature = "128bit")]
-impl<'tape, 'value> From<u128> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<u128> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: u128) -> Self {
@@ -164,7 +173,7 @@ impl<'tape, 'value> From<u128> for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value> From<usize> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<usize> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: usize) -> Self {
@@ -173,7 +182,7 @@ impl<'tape, 'value> From<usize> for Value<'tape, 'value> {
 }
 
 /********* f_ **********/
-impl<'tape, 'value> From<f32> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<f32> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: f32) -> Self {
@@ -181,7 +190,7 @@ impl<'tape, 'value> From<f32> for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value> From<f64> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<f64> for Value<'borrow, 'tape, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: f64) -> Self {
@@ -189,7 +198,7 @@ impl<'tape, 'value> From<f64> for Value<'tape, 'value> {
     }
 }
 
-impl<'tape, 'value, S> From<Vec<S>> for Value<'tape, 'value>
+impl<'borrow, 'tape, 'value, S> From<Vec<S>> for Value<'borrow, 'tape, 'value>
 where
     borrowed::Value<'value>: From<Vec<S>>,
 {
@@ -200,7 +209,9 @@ where
     }
 }
 
-impl<'tape, 'value, V: Into<borrowed::Value<'value>>> FromIterator<V> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value, V: Into<borrowed::Value<'value>>> FromIterator<V>
+    for Value<'borrow, 'tape, 'value>
+{
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from_iter<I: IntoIterator<Item = V>>(v: I) -> Self {
@@ -208,8 +219,8 @@ impl<'tape, 'value, V: Into<borrowed::Value<'value>>> FromIterator<V> for Value<
     }
 }
 
-impl<'tape, 'value, K: Into<Cow<'value, str>>, V: Into<borrowed::Value<'value>>>
-    FromIterator<(K, V)> for Value<'tape, 'value>
+impl<'borrow, 'tape, 'value, K: Into<Cow<'value, str>>, V: Into<borrowed::Value<'value>>>
+    FromIterator<(K, V)> for Value<'borrow, 'tape, 'value>
 {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -218,7 +229,9 @@ impl<'tape, 'value, K: Into<Cow<'value, str>>, V: Into<borrowed::Value<'value>>>
     }
 }
 
-impl<'tape, 'value> From<crate::borrowed::Object<'value>> for Value<'tape, 'value> {
+impl<'borrow, 'tape, 'value> From<crate::borrowed::Object<'value>>
+    for Value<'borrow, 'tape, 'value>
+{
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(v: crate::borrowed::Object<'value>) -> Self {
