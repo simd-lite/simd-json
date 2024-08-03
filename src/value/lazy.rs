@@ -48,7 +48,7 @@ pub enum Value<'borrow, 'tape, 'input> {
 impl Default for Value<'static, 'static, '_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
-        Value::Value(Cow::Owned(borrowed::Value::default()))
+        Value::Tape(tape::Value::null())
     }
 }
 
