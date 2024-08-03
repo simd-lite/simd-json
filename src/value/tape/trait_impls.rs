@@ -149,7 +149,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// current Value isn't an Object, returns `None` if the key isn't in the object
     /// # Errors
     /// if the value is not an object
-    pub fn try_get<Q>(&self, k: &Q) -> Result<Option<Value<'_, 'input>>, TryTypeError>
+    pub fn try_get<Q>(&self, k: &Q) -> Result<Option<Value<'tape, 'input>>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
@@ -167,7 +167,7 @@ where
     /// current value isn't an Array, returns `None` if the index is out of bounds
     /// # Errors
     /// if the requested type doesn't match the actual type or the value is not an object
-    pub fn try_get_idx(&self, i: usize) -> Result<Option<Value<'_, 'input>>, TryTypeError> {
+    pub fn try_get_idx(&self, i: usize) -> Result<Option<Value<'tape, 'input>>, TryTypeError> {
         Ok(self.try_as_array()?.get(i))
     }
 }
@@ -179,7 +179,7 @@ where
 {
     /// Tries to represent the value as an array and returns a reference to it
     #[must_use]
-    pub fn as_array(&self) -> Option<Array<'_, 'input>> {
+    pub fn as_array(&self) -> Option<Array<'tape, 'input>> {
         if let Some(Node::Array { count, .. }) = self.0.first() {
             // we add one element as we want to keep the array header
             let count = *count + 1;
@@ -191,7 +191,7 @@ where
 
     /// Tries to represent the value as an array and returns a reference to it
     #[must_use]
-    pub fn as_object(&self) -> Option<Object<'_, 'input>> {
+    pub fn as_object(&self) -> Option<Object<'tape, 'input>> {
         if let Some(Node::Object { count, .. }) = self.0.first() {
             // we add one element as we want to keep the object header
             let count = *count + 1;
@@ -207,7 +207,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// Tries to represent the value as an array and returns a reference to it
     /// # Errors
     /// if the requested type doesn't match the actual type
-    pub fn try_as_array(&self) -> Result<Array<'_, 'input>, TryTypeError> {
+    pub fn try_as_array(&self) -> Result<Array<'tape, 'input>, TryTypeError> {
         self.as_array().ok_or(TryTypeError {
             expected: ValueType::Array,
             got: self.value_type(),
@@ -217,7 +217,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// Tries to represent the value as an object and returns a reference to it
     /// # Errors
     /// if the requested type doesn't match the actual type
-    pub fn try_as_object(&self) -> Result<Object<'_, 'input>, TryTypeError> {
+    pub fn try_as_object(&self) -> Result<Object<'tape, 'input>, TryTypeError> {
         self.as_object().ok_or(TryTypeError {
             expected: ValueType::Object,
             got: self.value_type(),
@@ -230,7 +230,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// current Value isn't an Object or doesn't contain the key
     /// it was asked for.
     #[must_use]
-    pub fn get<Q>(&self, k: &Q) -> Option<Value<'_, 'input>>
+    pub fn get<Q>(&self, k: &Q) -> Option<Value<'tape, 'input>>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
@@ -252,7 +252,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// current Value isn't an Array or doesn't contain the index
     /// it was asked for.
     #[must_use]
-    pub fn get_idx(&self, i: usize) -> Option<Value<'_, 'input>> {
+    pub fn get_idx(&self, i: usize) -> Option<Value<'tape, 'input>> {
         self.as_array().and_then(|a| a.get(i))
     }
 }
@@ -406,7 +406,7 @@ where
 impl<'tape, 'input> Value<'tape, 'input> {
     /// Tries to get an element of an object as a array
     #[must_use]
-    pub fn get_array<Q>(&self, k: &Q) -> Option<Array<'_, 'input>>
+    pub fn get_array<Q>(&self, k: &Q) -> Option<Array<'tape, 'input>>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
@@ -432,7 +432,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
 
     /// Tries to get an element of an object as a object
     #[must_use]
-    pub fn get_object<Q>(&self, k: &Q) -> Option<Object<'_, 'input>>
+    pub fn get_object<Q>(&self, k: &Q) -> Option<Object<'tape, 'input>>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
@@ -491,7 +491,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     ///
     /// # Errors
     /// if the requested type doesn't match the actual type or the value is not an object
-    pub fn try_get_object<Q>(&self, k: &Q) -> Result<Option<Object<'_, 'input>>, TryTypeError>
+    pub fn try_get_object<Q>(&self, k: &Q) -> Result<Option<Object<'tape, 'input>>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
