@@ -25,15 +25,17 @@ mod from;
 mod serialize;
 
 use super::ObjectHasher;
-use crate::cow::Cow;
+use crate::{cow::Cow, safer_unchecked::GetSaferUnchecked as _};
 use crate::{prelude::*, Buffers};
-use crate::{Deserializer, Node, Result, StaticNode};
+use crate::{Deserializer, Node, Result};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
 
 /// Representation of a JSON object
 pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>, ObjectHasher>;
+/// Representation of a JSON array
+pub type Array<'value> = Vec<Value<'value>>;
 
 /// Parses a slice of bytes into a Value dom. This function will
 /// rewrite the slice to de-escape strings.
@@ -175,9 +177,8 @@ impl<'value> ValueBuilder<'value> for Value<'value> {
     }
 }
 
-impl<'value> ValueAsMutContainer for Value<'value> {
-    type Array = Vec<Self>;
-    type Object = Object<'value>;
+impl<'value> ValueAsMutArray for Value<'value> {
+    type Array = Array<'value>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'value>>> {
@@ -186,6 +187,9 @@ impl<'value> ValueAsMutContainer for Value<'value> {
             _ => None,
         }
     }
+}
+impl<'value> ValueAsMutObject for Value<'value> {
+    type Object = Object<'value>;
     /// Get mutable access to a map.
     ///
     /// ```rust
@@ -285,9 +289,8 @@ impl<'value> ValueAsScalar for Value<'value> {
         }
     }
 }
-impl<'value> ValueAsContainer for Value<'value> {
-    type Array = Vec<Self>;
-    type Object = Object<'value>;
+impl<'value> ValueAsArray for Value<'value> {
+    type Array = Array<'value>;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -297,6 +300,10 @@ impl<'value> ValueAsContainer for Value<'value> {
             _ => None,
         }
     }
+}
+
+impl<'value> ValueAsObject for Value<'value> {
+    type Object = Object<'value>;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -319,18 +326,21 @@ impl<'value> ValueIntoString for Value<'value> {
     }
 }
 
-impl<'value> ValueIntoContainer for Value<'value> {
-    type Array = Vec<Self>;
-    type Object = Object<'value>;
+impl<'value> ValueIntoArray for Value<'value> {
+    type Array = Array<'value>;
 
-    fn into_array(self) -> Option<<Self as ValueIntoContainer>::Array> {
+    fn into_array(self) -> Option<<Self as ValueIntoArray>::Array> {
         match self {
             Self::Array(a) => Some(a),
             _ => None,
         }
     }
+}
 
-    fn into_object(self) -> Option<<Self as ValueIntoContainer>::Object> {
+impl<'value> ValueIntoObject for Value<'value> {
+    type Object = Object<'value>;
+
+    fn into_object(self) -> Option<<Self as ValueIntoObject>::Object> {
         match self {
             Self::Object(a) => Some(*a),
             _ => None,
@@ -392,7 +402,7 @@ impl<'value> Default for Value<'value> {
     }
 }
 
-struct BorrowDeserializer<'de>(Deserializer<'de>);
+pub(super) struct BorrowDeserializer<'de>(Deserializer<'de>);
 
 impl<'de> BorrowDeserializer<'de> {
     pub fn from_deserializer(de: Deserializer<'de>) -> Self {
@@ -444,6 +454,66 @@ impl<'de> BorrowDeserializer<'de> {
         Value::from(res)
     }
 }
+pub(super) struct BorrowSliceDeserializer<'tape, 'de> {
+    tape: &'tape [Node<'de>],
+    idx: usize,
+}
+impl<'tape, 'de> BorrowSliceDeserializer<'tape, 'de> {
+    pub fn from_tape(de: &'tape [Node<'de>]) -> Self {
+        Self { tape: de, idx: 0 }
+    }
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    pub unsafe fn next_(&mut self) -> Node<'de> {
+        let r = *self.tape.get_kinda_unchecked(self.idx);
+        self.idx += 1;
+        r
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    pub fn parse(&mut self) -> Value<'de> {
+        match unsafe { self.next_() } {
+            Node::Static(s) => Value::Static(s),
+            Node::String(s) => Value::from(s),
+            Node::Array { len, count: _ } => self.parse_array(len),
+            Node::Object { len, count: _ } => self.parse_map(len),
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn parse_array(&mut self, len: usize) -> Value<'de> {
+        // Rust doesn't optimize the normal loop away here
+        // so we write our own avoiding the length
+        // checks during push
+        let mut res: Vec<Value<'de>> = Vec::with_capacity(len);
+        let res_ptr = res.as_mut_ptr();
+        unsafe {
+            for i in 0..len {
+                res_ptr.add(i).write(self.parse());
+            }
+            res.set_len(len);
+        }
+        Value::Array(res)
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn parse_map(&mut self, len: usize) -> Value<'de> {
+        let mut res = Object::with_capacity_and_hasher(len, ObjectHasher::default());
+
+        // Since we checked if it's empty we know that we at least have one
+        // element so we eat this
+        for _ in 0..len {
+            if let Node::String(key) = unsafe { self.next_() } {
+                #[cfg(not(feature = "value-no-dup-keys"))]
+                res.insert_nocheck(key.into(), self.parse());
+                #[cfg(feature = "value-no-dup-keys")]
+                res.insert(key.into(), self.parse());
+            } else {
+                unreachable!();
+            }
+        }
+        Value::from(res)
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -483,7 +553,7 @@ mod test {
     #[cfg(feature = "128bit")]
     #[test]
     fn conversions_i128() {
-        let v = Value::from(i128::max_value());
+        let v = Value::from(i128::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(!v.is_i64());
@@ -497,7 +567,7 @@ mod test {
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(i128::min_value());
+        let v = Value::from(i128::MIN);
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(!v.is_i64());
@@ -515,7 +585,7 @@ mod test {
 
     #[test]
     fn conversions_i64() {
-        let v = Value::from(i64::max_value());
+        let v = Value::from(i64::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -529,7 +599,7 @@ mod test {
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(i64::min_value());
+        let v = Value::from(i64::MIN);
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -547,7 +617,7 @@ mod test {
 
     #[test]
     fn conversions_i32() {
-        let v = Value::from(i32::max_value());
+        let v = Value::from(i32::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -561,7 +631,7 @@ mod test {
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(i32::min_value());
+        let v = Value::from(i32::MIN);
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -579,7 +649,7 @@ mod test {
 
     #[test]
     fn conversions_i16() {
-        let v = Value::from(i16::max_value());
+        let v = Value::from(i16::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -593,7 +663,7 @@ mod test {
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(i16::min_value());
+        let v = Value::from(i16::MIN);
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -612,7 +682,7 @@ mod test {
 
     #[test]
     fn conversions_i8() {
-        let v = Value::from(i8::max_value());
+        let v = Value::from(i8::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -626,7 +696,7 @@ mod test {
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(i8::min_value());
+        let v = Value::from(i8::MIN);
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -644,7 +714,7 @@ mod test {
 
     #[test]
     fn conversions_usize() {
-        let v = Value::from(usize::min_value() as u64);
+        let v = Value::from(usize::MIN as u64);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -666,7 +736,7 @@ mod test {
     #[cfg(feature = "128bit")]
     #[test]
     fn conversions_u128() {
-        let v = Value::from(u128::min_value());
+        let v = Value::from(u128::MIN);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -684,7 +754,7 @@ mod test {
 
     #[test]
     fn conversions_u64() {
-        let v = Value::from(u64::min_value());
+        let v = Value::from(u64::MIN);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -702,7 +772,7 @@ mod test {
 
     #[test]
     fn conversions_u32() {
-        let v = Value::from(u32::max_value());
+        let v = Value::from(u32::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -720,7 +790,7 @@ mod test {
 
     #[test]
     fn conversions_u16() {
-        let v = Value::from(u16::max_value());
+        let v = Value::from(u16::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -738,7 +808,7 @@ mod test {
 
     #[test]
     fn conversions_u8() {
-        let v = Value::from(u8::max_value());
+        let v = Value::from(u8::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -756,13 +826,13 @@ mod test {
 
     #[test]
     fn conversions_f64() {
-        let v = Value::from(std::f64::MAX);
+        let v = Value::from(f64::MAX);
         assert!(!v.is_i64());
         assert!(!v.is_u64());
         assert!(v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(std::f64::MIN);
+        let v = Value::from(f64::MIN);
         assert!(!v.is_i64());
         assert!(!v.is_u64());
         assert!(v.is_f64());
@@ -774,13 +844,13 @@ mod test {
 
     #[test]
     fn conversions_f32() {
-        let v = Value::from(std::f32::MAX);
+        let v = Value::from(f32::MAX);
         assert!(!v.is_i64());
         assert!(!v.is_u64());
         assert!(v.is_f64());
         assert!(v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(std::f32::MIN);
+        let v = Value::from(f32::MIN);
         assert!(!v.is_i64());
         assert!(!v.is_u64());
         assert!(v.is_f64());

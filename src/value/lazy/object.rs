@@ -1,70 +1,91 @@
-use std::{borrow::Borrow, hash::Hash};
+use std::{
+    borrow::{Borrow, Cow},
+    hash::Hash,
+};
 
 use super::Value;
-use crate::Node;
+use crate::{borrowed, tape};
 
 /// Wrapper around the tape that allows interacting with it via a `Object`-like API.
 
-pub struct Object<'tape, 'input>(pub(super) &'tape [Node<'input>]);
-
-pub struct Iter<'tape, 'input>(&'tape [Node<'input>]);
-pub struct Keys<'tape, 'input>(&'tape [Node<'input>]);
-pub struct Values<'tape, 'input>(&'tape [Node<'input>]);
+pub enum Object<'borrow, 'tape, 'input> {
+    /// Tape variant
+    Tape(tape::Object<'tape, 'input>),
+    /// Value variant
+    Value(&'borrow borrowed::Object<'input>),
+}
+pub enum Iter<'borrow, 'tape, 'input> {
+    /// Tape variant
+    Tape(tape::object::Iter<'tape, 'input>),
+    /// Value variant
+    Value(halfbrown::Iter<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
+}
+pub enum Keys<'borrow, 'tape, 'input> {
+    /// Tape variant
+    Tape(tape::object::Keys<'tape, 'input>),
+    /// Value variant
+    Value(halfbrown::Keys<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
+}
+pub enum Values<'borrow, 'tape, 'input> {
+    /// Tape variant
+    Tape(tape::object::Values<'tape, 'input>),
+    /// Value variant
+    Value(halfbrown::Values<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
+}
 
 //value_trait::Object for
-impl<'tape, 'input> Object<'tape, 'input> {
+impl<'borrow, 'tape, 'input> Object<'borrow, 'tape, 'input> {
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key
     /// it was asked for.
     #[must_use]
-    pub fn get<Q>(&self, k: &Q) -> Option<Value<'tape, 'input>>
+    pub fn get<'a, Q>(&'a self, k: &Q) -> Option<Value<'a, 'tape, 'input>>
     where
-        str: Borrow<Q> + Hash + Eq,
+        str: Borrow<Q>,
+        for<'b> crate::cow::Cow<'b, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq + Ord,
     {
-        let Node::Object { mut len, .. } = self.0.first()? else {
-            return None;
-        };
-        let mut idx = 1;
-        while len > 0 {
-            let s = self.0.get(idx)?.as_str()?;
-            idx += 1;
-            len -= 1;
-            let count = self.0.get(idx)?.count();
-            let s: &Q = s.borrow();
-            if s == k {
-                return Some(Value(&self.0[idx..idx + count]));
-            }
-            idx += count;
+        match self {
+            Object::Tape(t) => t.get(k).map(Value::Tape),
+            Object::Value(v) => v.get(k).map(Cow::Borrowed).map(Value::Value),
         }
-        None
     }
 
     /// Iterates over the key value paris
+    #[allow(clippy::pedantic)] // we want into_iter_without_iter but that lint doesn't exist in older clippy
     #[must_use]
-    pub fn iter<'i>(&'i self) -> Iter<'tape, 'input> {
-        Iter(&self.0[1..])
+    pub fn iter<'i>(&'i self) -> Iter<'i, 'tape, 'input> {
+        match self {
+            Object::Tape(t) => Iter::Tape(t.iter()),
+            Object::Value(v) => Iter::Value(v.iter()),
+        }
     }
 
     /// Iterates over the keys
     #[must_use]
-    pub fn keys<'i>(&'i self) -> Keys<'tape, 'input> {
-        Keys(&self.0[1..])
+    pub fn keys<'i>(&'i self) -> Keys<'i, 'tape, 'input> {
+        match self {
+            Object::Tape(t) => Keys::Tape(t.keys()),
+            Object::Value(v) => Keys::Value(v.keys()),
+        }
     }
 
     /// Iterates over the values
     #[must_use]
-    pub fn values<'i>(&'i self) -> Values<'tape, 'input> {
-        Values(&self.0[1..])
+    pub fn values<'i>(&'i self) -> Values<'i, 'tape, 'input> {
+        match self {
+            Object::Tape(t) => Values::Tape(t.values()),
+            Object::Value(v) => Values::Value(v.values()),
+        }
     }
 
     /// Number of key/value pairs
     #[must_use]
     pub fn len(&self) -> usize {
-        let Some(Node::Object { len, .. }) = self.0.first() else {
-            unreachable!("invalid tape object");
-        };
-        *len
+        match self {
+            Object::Tape(t) => t.len(),
+            Object::Value(v) => v.len(),
+        }
     }
 
     /// Returns if the object is empty
@@ -74,47 +95,44 @@ impl<'tape, 'input> Object<'tape, 'input> {
     }
 }
 
-impl<'tape, 'input> IntoIterator for &Object<'tape, 'input> {
-    type IntoIter = Iter<'tape, 'input>;
-    type Item = (&'input str, Value<'tape, 'input>);
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+// impl<'tape, 'input> IntoIterator for &Object<'tape, 'input> {
+//     type IntoIter = Iter<'tape, 'input>;
+//     type Item = (&'input str, Value<'tape, 'input>);
+//     fn into_iter(self) -> Self::IntoIter {
+//         self.iter()
+//     }
+// }
+
+impl<'borrow, 'tape, 'input> Iterator for Iter<'borrow, 'tape, 'input> {
+    type Item = (&'borrow str, Value<'borrow, 'tape, 'input>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Iter::Tape(t) => t.next().map(|(k, v)| (k, Value::Tape(v))),
+            Iter::Value(v) => v
+                .next()
+                .map(|(k, v)| (k.as_ref(), Value::Value(Cow::Borrowed(v)))),
+        }
     }
 }
 
-impl<'tape, 'input> Iterator for Iter<'tape, 'input> {
-    type Item = (&'input str, Value<'tape, 'input>);
-
+impl<'borrow, 'tape, 'input> Iterator for Keys<'borrow, 'tape, 'input> {
+    type Item = &'borrow str;
     fn next(&mut self) -> Option<Self::Item> {
-        let (k, v) = self.0.split_first()?;
-        let k = k.as_str()?;
-        let count = v.first()?.count();
-        let (head, tail) = v.split_at(count);
-        self.0 = tail;
-        Some((k, Value(head)))
+        match self {
+            Keys::Tape(t) => t.next(),
+            Keys::Value(v) => v.next().map(std::convert::AsRef::as_ref),
+        }
     }
 }
 
-impl<'tape, 'input> Iterator for Keys<'tape, 'input> {
-    type Item = &'input str;
+impl<'borrow, 'tape, 'input> Iterator for Values<'borrow, 'tape, 'input> {
+    type Item = Value<'borrow, 'tape, 'input>;
     fn next(&mut self) -> Option<Self::Item> {
-        let (k, v) = self.0.split_first()?;
-        let k = k.as_str()?;
-        let count = v.first()?.count();
-        let (_, tail) = v.split_at(count);
-        self.0 = tail;
-        Some(k)
-    }
-}
-
-impl<'tape, 'input> Iterator for Values<'tape, 'input> {
-    type Item = Value<'tape, 'input>;
-    fn next(&mut self) -> Option<Self::Item> {
-        let (_, v) = self.0.split_first()?;
-        let count = v.first()?.count();
-        let (head, tail) = v.split_at(count);
-        self.0 = tail;
-        Some(Value(head))
+        match self {
+            Values::Tape(t) => t.next().map(Value::Tape),
+            Values::Value(v) => v.next().map(|v| Value::Value(Cow::Borrowed(v))),
+        }
     }
 }
 

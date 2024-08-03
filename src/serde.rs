@@ -11,12 +11,10 @@ mod se;
 mod value;
 pub use self::se::*;
 pub use self::value::*;
-use crate::{stry, Buffers, Deserializer, Error, ErrorType, Result};
+use crate::{stry, Buffers, Deserializer, Error, ErrorType, Node, Result};
 use crate::{BorrowedValue, OwnedValue};
-use crate::{Node, StaticNode};
 use serde::de::DeserializeOwned;
 use serde_ext::Deserialize;
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::io;
 use value_trait::prelude::*;
@@ -483,7 +481,6 @@ mod test {
     use serde::{Deserialize, Serialize};
     use serde_json::{json as sjson, to_string as sto_string, Value as SerdeValue};
     use std::collections::BTreeMap;
-    use std::convert::TryInto;
 
     #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
     struct UnitStruct;
@@ -631,7 +628,7 @@ mod test {
 
     #[test]
     fn option_field_absent() {
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         pub struct Person {
             pub name: String,
             pub middle_name: Option<String>,
@@ -639,11 +636,18 @@ mod test {
         }
         let mut raw_json = r#"{"name":"bob","friends":[]}"#.to_string();
         let result: Result<Person, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
+        assert_eq!(
+            result,
+            Ok(Person {
+                name: "bob".to_string(),
+                middle_name: None,
+                friends: vec![],
+            })
+        );
     }
     #[test]
     fn option_field_present() {
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         pub struct Person {
             pub name: String,
             pub middle_name: Option<String>,
@@ -651,20 +655,27 @@ mod test {
         }
         let mut raw_json = r#"{"name":"bob","middle_name": "frank", "friends":[]}"#.to_string();
         let result: Result<Person, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
+        assert_eq!(
+            result,
+            Ok(Person {
+                name: "bob".to_string(),
+                middle_name: Some("frank".to_string()),
+                friends: vec![],
+            })
+        );
     }
 
     #[test]
     fn convert_enum() {
         #[allow(dead_code)]
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         #[serde(tag = "type")]
         enum Message {
             Request { id: usize, method: String },
             Response { id: String, result: String },
         }
 
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         #[serde(tag = "type", content = "v")]
         pub enum Color {
             Red(String), // TODO: If `content` flag is present, `Red` works and `Green` doesn't
@@ -672,7 +683,7 @@ mod test {
             Blue,
         }
 
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         #[serde(tag = "type")]
         pub enum Color1 {
             Red(String),
@@ -682,27 +693,39 @@ mod test {
 
         let mut raw_json = r#"{"type": "Request", "id": 1, "method": "..."}"#.to_string();
         let result: Result<Message, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
+        assert_eq!(
+            result,
+            Ok(Message::Request {
+                id: 1,
+                method: "...".to_string()
+            })
+        );
 
         let mut raw_json = r#"{"type": "Response", "id": "1", "result": "..."}"#.to_string();
         let result: Result<Message, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
+        assert_eq!(
+            result,
+            Ok(Message::Response {
+                id: "1".to_string(),
+                result: "...".to_string()
+            })
+        );
 
         let mut raw_json = r#"{"type": "Red", "v": "1"}"#.to_string();
         let result: Result<Color, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
+        assert_eq!(result, Ok(Color::Red("1".to_string())));
 
         let mut raw_json = r#"{"type": "Blue"}"#.to_string();
         let result: Result<Color, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
+        assert_eq!(result, Ok(Color::Blue));
 
         let mut raw_json = r#"{"type": "Green", "v": false}"#.to_string();
         let result: Result<Color1, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
+        assert_eq!(result, Ok(Color1::Green { v: false }));
 
         let mut raw_json = r#"{"type": "Blue"}"#.to_string();
         let result: Result<Color1, _> = super::from_slice(unsafe { raw_json.as_bytes_mut() });
-        assert!(result.is_ok());
+        assert_eq!(result, Ok(Color1::Blue));
     }
 
     #[derive(serde_ext::Deserialize)]

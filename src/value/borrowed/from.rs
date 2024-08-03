@@ -2,7 +2,6 @@ use super::{Object, Value};
 use crate::cow::Cow;
 use crate::OwnedValue;
 use crate::StaticNode;
-use std::iter::FromIterator;
 
 impl<'value> From<OwnedValue> for Value<'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]

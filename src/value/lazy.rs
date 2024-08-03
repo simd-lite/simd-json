@@ -1,184 +1,180 @@
-/// A tape of a parsed json, all values are extracted and validated and
-/// can be used without further computation.
-use value_trait::{base::TypedValue as _, StaticNode, TryTypeError, ValueType};
+//! Lazy value, this gets initialized with a tape and as long as only non mutating operations are performed
+//! it will stay a tape. If it is mutated it is upgtaded to a borrowed value.
+//! This allows for a very cheap parsin and data access while still maintaining mutability.
+//!
+//! # Example
+//!
+//! ```rust
+//! use simd_json::{prelude::*, value::lazy::Value};
+//!
+//! let mut json = br#"{"key": "value", "snot": 42}"#.to_vec();
+//! let tape = simd_json::to_tape( json.as_mut_slice()).unwrap();
+//! let value = tape.as_value();
+//! let mut lazy = Value::from_tape(value);
+//!
+//! assert_eq!(lazy.get("key").unwrap(), "value");
+//!
+//! assert!(lazy.is_tape());
+//! lazy.insert("new", 42);
+//! assert!(lazy.is_value());
+//! assert_eq!(lazy.get("key").unwrap(), "value");
+//! assert_eq!(lazy.get("new").unwrap(), 42);
+//! ```
 
-pub(super) mod array;
+use crate::{borrowed, tape};
+use std::borrow::Cow;
+use std::fmt;
+
+mod array;
 mod cmp;
-pub(super) mod object;
+mod from;
+mod object;
 mod trait_impls;
-#[derive(Debug)]
-/// `Tape`
-pub struct Tape<'input>(pub Vec<Node<'input>>);
+
 pub use array::Array;
 pub use object::Object;
-impl<'input> Tape<'input> {
-    /// Turns the tape into a `Value` that can be used like a `value_trait::Value`
-    #[must_use]
-    pub fn as_value(&self) -> Value<'_, 'input> {
-        // Skip initial zero
-        Value(&self.0)
-    }
-    /// Creates an empty tape with a null element in it
-    #[must_use]
-    pub fn null() -> Self {
-        Self(vec![Node::Static(StaticNode::Null)])
-    }
 
-    /// Clears the tape and returns it with a new lifetime to allow re-using the already
-    /// allocated buffer.
-    #[must_use]
-    pub fn reset<'new>(mut self) -> Tape<'new> {
-        self.0.clear();
-        // SAFETY: At this point the tape is empty, so no data in there has a lifetime associated with it,
-        // so we can safely change the lifetime of the tape to 'new
-        unsafe { std::mem::transmute(self) }
+/// A lazy value, this gets initialized with a tape and as long as only non mutating operations are
+/// performed it will stay a tape. If a mutating operation is performed it will upgrade to a borrowed
+/// value.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Value<'borrow, 'tape, 'input> {
+    /// tape variant
+    Tape(tape::Value<'tape, 'input>),
+    /// borrowed variant
+    Value(Cow<'borrow, borrowed::Value<'input>>),
+}
+
+impl Default for Value<'static, 'static, '_> {
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn default() -> Self {
+        Value::Tape(tape::Value::null())
     }
 }
 
-/// Wrapper around the tape that allows interaction via a `Value`-like API.
-#[derive(Clone, Copy, Debug)]
-#[repr(transparent)]
-pub struct Value<'tape, 'input>(pub(super) &'tape [Node<'input>])
-where
-    'input: 'tape;
-
-impl Value<'static, 'static> {
-    const NULL_TAPE: [Node<'static>; 1] = [Node::Static(StaticNode::Null)];
-    /// A static null value
-    pub const NULL: Value<'static, 'static> = Value(&Self::NULL_TAPE);
-    /// Creates tape value representing a null value
+impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
+    /// turns the lazy value into a borrowed value
     #[must_use]
-    pub const fn null() -> Self {
-        Self::NULL
-    }
-}
-
-#[allow(clippy::derive_partial_eq_without_eq)]
-/// Tape `Node`
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Node<'input> {
-    /// A string, located inside the input slice
-    String(&'input str),
-    /// An `Object` with the given `size` starts here.
-    /// the following values are keys and values, alternating
-    /// however values can be nested and have a length themselves.
-    Object {
-        /// The number of keys in the object
-        len: usize,
-        /// The total number of nodes in the object, including subelements.
-        count: usize,
-    },
-    /// An array with a given size starts here. The next `size`
-    /// elements belong to it - values can be nested and have a
-    /// `size` of their own.
-    Array {
-        /// The number of elements in the array
-        len: usize,
-        /// The total number of nodes in the array, including subelements.
-        count: usize,
-    },
-    /// A static value that is interned into the tape, it can
-    /// be directly taken and isn't nested.
-    Static(StaticNode),
-}
-
-impl<'input> Node<'input> {
-    fn as_str(&self) -> Option<&'input str> {
-        if let Node::String(s) = self {
-            Some(*s)
-        } else {
-            None
-        }
-    }
-    /// Returns the type of the node
-    #[must_use]
-    pub fn value_type(&self) -> ValueType {
+    pub fn into_value(self) -> borrowed::Value<'input> {
         match self {
-            Node::String(_) => ValueType::String,
-            Node::Object { .. } => ValueType::Object,
-            Node::Array { .. } => ValueType::Array,
-            Node::Static(v) => v.value_type(),
+            Value::Tape(tape) => {
+                let value = super::borrowed::BorrowSliceDeserializer::from_tape(tape.0).parse();
+                value
+            }
+            Value::Value(value) => value.into_owned(),
         }
     }
-
-    // returns the count of elements in an array
-    fn array_count(&self) -> Result<usize, TryTypeError> {
-        if let Node::Array { count, .. } = self {
-            Ok(*count)
-        } else {
-            Err(TryTypeError {
-                expected: ValueType::Array,
-                got: self.value_type(),
-            })
-        }
-    }
-
-    // // returns the length of an array
-    // fn array_len(&self) -> Result<usize, TryTypeError> {
-    //     if let Node::Array { len, .. } = self {
-    //         Ok(*len)
-    //     } else {
-    //         Err(TryTypeError {
-    //             expected: ValueType::Array,
-    //             got: self.value_type(),
-    //         })
-    //     }
-    // }
-
-    // returns the count of nodes in an object
-    fn object_count(&self) -> Result<usize, TryTypeError> {
-        if let Node::Object { count, .. } = self {
-            Ok(*count)
-        } else {
-            Err(TryTypeError {
-                expected: ValueType::Object,
-                got: self.value_type(),
-            })
-        }
-    }
-
-    // returns the count of elements in an array
-    fn object_len(&self) -> Result<usize, TryTypeError> {
-        if let Node::Object { len, .. } = self {
-            Ok(*len)
-        } else {
-            Err(TryTypeError {
-                expected: ValueType::Object,
-                got: self.value_type(),
-            })
-        }
-    }
-
-    // returns the count of elements in this node, including the node itself (n for nested, 1 for the rest)
-    fn count(&self) -> usize {
+    /// extends the Value COW is owned
+    #[must_use]
+    pub fn into_owned<'snot>(self) -> Value<'snot, 'tape, 'input> {
         match self {
-            // We add 1 as we need to include the header itself
-            Node::Object { count, .. } | Node::Array { count, .. } => *count + 1,
-            _ => 1,
+            Value::Tape(tape) => Value::Tape(tape),
+            Value::Value(Cow::Owned(value)) => Value::Value(Cow::Owned(value)),
+            Value::Value(Cow::Borrowed(value)) => Value::Value(Cow::Owned(value.clone())),
         }
     }
-    //     // Returns the lenght of nested elements
-    //     fn as_len(&self) -> Option<usize> {
-    //         match self {
-    //             Node::Object { len, .. } | Node::Array { len, .. } => Some(*len),
-    //             _ => None,
-    //         }
-    //     }
+    /// returns true when the current representation is a tape
+    #[must_use]
+    pub fn is_tape(&self) -> bool {
+        match self {
+            Value::Tape(_) => true,
+            Value::Value(_) => false,
+        }
+    }
+    /// returns true when the current representation is a borrowed value
+    /// this is the opposite of `is_tape`
+    #[must_use]
+    pub fn is_value(&self) -> bool {
+        !self.is_tape()
+    }
+    /// Creates a new lazy Value from a tape
+    #[must_use]
+    pub fn from_tape(tape: tape::Value<'tape, 'input>) -> Self {
+        Value::Tape(tape)
+    }
+    unsafe fn into_tape(self) -> tape::Value<'tape, 'input> {
+        match self {
+            Value::Tape(tape) => tape,
+            Value::Value(_) => unreachable!("we know we are not a value"),
+        }
+    }
 
-    // fn as_len_and_count(&self) -> Option<(usize, usize)> {
-    //     match self {
-    //         Node::Object { len, count } | Node::Array { len, count } => Some((*len, *count)),
-    //         _ => None,
-    //     }
-    // }
+    fn upgrade(&mut self) {
+        if let Value::Value(_) = &self {
+            return;
+        }
+        let mut dummy = Value::Tape(tape::Value::null());
+        std::mem::swap(self, &mut dummy);
+        let tape = unsafe { dummy.into_tape() };
+
+        let value = super::borrowed::BorrowSliceDeserializer::from_tape(tape.0).parse();
+
+        *self = Value::Value(Cow::Owned(value));
+    }
+
+    fn as_mut(&mut self) -> &mut borrowed::Value<'input> {
+        if self.is_tape() {
+            self.upgrade();
+        }
+
+        if let Value::Value(value) = self {
+            value.to_mut()
+        } else {
+            unreachable!()
+        }
+    }
 }
+
+#[cfg(not(tarpaulin_include))]
+impl<'borrow, 'tape, 'value> fmt::Display for Value<'borrow, 'tape, 'value> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self {
+            Value::Tape(tape) => write!(f, "{tape:?}"),
+            Value::Value(value) => write!(f, "{value}"),
+        }
+    }
+}
+
+// impl<'value> Index<&str> for Value<'value> {
+//     type Output = Value<'value>;
+//     #[cfg_attr(not(feature = "no-inline"), inline)]
+//     #[must_use]
+//     fn index(&self, index: &str) -> &Self::Output {
+//         self.get(index).expect("index out of bounds")
+//     }
+// }
+
+// impl<'value> Index<usize> for Value<'value> {
+//     type Output = Value<'value>;
+//     #[cfg_attr(not(feature = "no-inline"), inline)]
+//     #[must_use]
+//     fn index(&self, index: usize) -> &Self::Output {
+//         self.get_idx(index).expect("index out of bounds")
+//     }
+// }
+
+// impl<'value> IndexMut<&str> for Value<'value> {
+//     #[cfg_attr(not(feature = "no-inline"), inline)]
+//     #[must_use]
+//     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
+//         self.get_mut(index).expect("index out of bounds")
+//     }
+// }
+
+// impl<'value> IndexMut<usize> for Value<'value> {
+//     #[cfg_attr(not(feature = "no-inline"), inline)]
+//     #[must_use]
+//     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+//         self.get_idx_mut(index).expect("index out of bounds")
+//     }
+// }
 
 #[cfg(test)]
 mod test {
     #![allow(clippy::cognitive_complexity)]
-    use super::StaticNode as Value;
-    use super::*;
-    use crate::prelude::*;
+    use value_trait::prelude::*;
+
+    use super::Value;
 
     #[test]
     #[should_panic = "Not supported"]
@@ -586,7 +582,7 @@ mod test {
 
     #[test]
     fn default() {
-        assert_eq!(Value::default(), Value::Null);
+        assert_eq!(Value::default(), Value::null());
     }
 
     #[test]

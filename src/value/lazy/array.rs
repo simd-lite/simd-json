@@ -1,70 +1,67 @@
+use std::borrow::Cow;
+
 use super::Value;
-use crate::Node;
+use crate::{borrowed, tape};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 /// Wrapper around the tape that allows interacting with it via a `Array`-like API.
-pub struct Array<'tape, 'input>(pub(super) &'tape [Node<'input>]);
+pub enum Array<'borrow, 'tape, 'input> {
+    /// Tape variant
+    Tape(tape::Array<'tape, 'input>),
+    /// Value variant
+    Value(&'borrow borrowed::Array<'input>),
+}
 
-pub struct Iter<'tape, 'input>(&'tape [Node<'input>]);
+pub enum ArrayIter<'borrow, 'tape, 'input> {
+    Tape(tape::array::Iter<'tape, 'input>),
+    Value(std::slice::Iter<'borrow, borrowed::Value<'input>>),
+}
 
-impl<'tape, 'input> Iterator for Iter<'tape, 'input> {
-    type Item = Value<'tape, 'input>;
+impl<'borrow, 'tape, 'input> Iterator for ArrayIter<'borrow, 'tape, 'input> {
+    type Item = Value<'borrow, 'tape, 'input>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (head, tail) = self.0.split_at(self.0.first()?.count());
-        self.0 = tail;
-        Some(Value(head))
+        match self {
+            ArrayIter::Tape(t) => t.next().map(Value::Tape),
+            ArrayIter::Value(v) => v.next().map(Cow::Borrowed).map(Value::Value),
+        }
     }
 }
 
 // value_trait::Array for
-impl<'tape, 'input> Array<'tape, 'input>
-where
-    'input: 'tape,
-{
+impl<'borrow, 'tape, 'input> Array<'borrow, 'tape, 'input> {
     /// Gets a ref to a value based on n index, returns `None` if the
     /// current Value isn't an Array or doesn't contain the index
     /// it was asked for.
     #[must_use]
-    pub fn get(&self, mut idx: usize) -> Option<Value<'tape, 'input>> {
-        let mut offset = 1;
-        while idx > 0 {
-            offset += self.0.get(offset)?.count();
-            idx -= 1;
+    pub fn get<'a>(&'a self, idx: usize) -> Option<Value<'a, 'tape, 'input>> {
+        match self {
+            Array::Tape(t) => t.get(idx).map(Value::Tape),
+            Array::Value(v) => v.get(idx).map(Cow::Borrowed).map(Value::Value),
         }
-        let count = self.0.get(offset)?.count();
-        Some(Value(&self.0[offset..offset + count]))
     }
-
     /// Iterates over the values paris
+    #[allow(clippy::pedantic)] // we want into_iter_without_iter but that lint doesn't exist in older clippy
     #[must_use]
-    pub fn iter<'i>(&'i self) -> Iter<'tape, 'input> {
-        Iter(&self.0[1..])
+    pub fn iter<'i>(&'i self) -> ArrayIter<'i, 'tape, 'input> {
+        match self {
+            Array::Tape(t) => ArrayIter::Tape(t.iter()),
+            Array::Value(v) => ArrayIter::Value(v.iter()),
+        }
     }
 
     /// Number of key/value pairs
-    /// # Panics
-    /// if the tape is not an array
     #[must_use]
     pub fn len(&self) -> usize {
-        if let Some(Node::Array { len, .. }) = self.0.first() {
-            *len
-        } else {
-            panic!("invalid tape array")
+        match self {
+            Array::Tape(t) => t.len(),
+            Array::Value(v) => v.len(),
         }
     }
     /// Returns if the array is empty
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
-    }
-}
-
-impl<'tape, 'input> IntoIterator for &Array<'tape, 'input> {
-    type IntoIter = Iter<'tape, 'input>;
-    type Item = Value<'tape, 'input>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
     }
 }
 

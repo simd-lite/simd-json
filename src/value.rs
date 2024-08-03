@@ -56,6 +56,10 @@ pub mod borrowed;
 pub mod owned;
 /// Tape implementation
 pub mod tape;
+
+/// A value that starts out as a tape and upgraes to a borrowed value when mutation is needed
+pub mod lazy;
+
 pub use self::borrowed::{
     to_value as to_borrowed_value, to_value_with_buffers as to_borrowed_value_with_buffers,
     Value as BorrowedValue,

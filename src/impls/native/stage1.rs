@@ -478,8 +478,4 @@ impl Stage1Parse for SimdInput {
     unsafe fn fill_s8(n: i8) -> V128 {
         u8x16_splat(n as u8)
     }
-
-    unsafe fn zero() -> V128 {
-        u8x16_splat(0)
-    }
 }

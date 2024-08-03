@@ -2,11 +2,9 @@
 mod test {
 
     pub(crate) mod snowflake {
-        use std::convert::TryFrom;
-        use std::fmt;
-
         use serde::de::{Error, Visitor};
         use serde::{Deserializer, Serializer};
+        use std::fmt;
 
         pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
             deserializer.deserialize_any(SnowflakeVisitor)

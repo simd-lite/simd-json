@@ -5,7 +5,7 @@ use std::{
 };
 
 use value_trait::{
-    base::{TypedValue, ValueAsScalar, ValueIntoContainer, ValueIntoString, Writable},
+    base::{TypedValue, ValueAsScalar, ValueIntoArray, ValueIntoObject, ValueIntoString, Writable},
     derived::{
         ValueObjectAccessAsScalar, ValueObjectAccessTryAsScalar, ValueTryAsScalar,
         ValueTryIntoString,
@@ -92,17 +92,30 @@ impl<'tape, 'input> ValueIntoString for Value<'tape, 'input> {
     }
 }
 
-impl<'tape, 'input> ValueIntoContainer for Value<'tape, 'input> {
+impl<'tape, 'input> ValueIntoArray for Value<'tape, 'input> {
     type Array = Array<'tape, 'input>;
-    type Object = Object<'tape, 'input>;
     #[must_use]
     fn into_array(self) -> Option<Self::Array> {
-        self.as_array()
+        if let Some(Node::Array { count, .. }) = self.0.first() {
+            // we add one element as we want to keep the array header
+            let count = *count + 1;
+            Some(Array(&self.0[..count]))
+        } else {
+            None
+        }
     }
-
+}
+impl<'tape, 'input> ValueIntoObject for Value<'tape, 'input> {
+    type Object = Object<'tape, 'input>;
     #[must_use]
     fn into_object(self) -> Option<Self::Object> {
-        self.as_object()
+        if let Some(Node::Object { count, .. }) = self.0.first() {
+            // we add one element as we want to keep the object header
+            let count = *count + 1;
+            Some(Object(&self.0[..count]))
+        } else {
+            None
+        }
     }
 }
 
@@ -398,8 +411,23 @@ impl<'tape, 'input> Value<'tape, 'input> {
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
     {
-        let v = self.get(k)?;
-        v.as_array()
+        let mut len = self.0[0].object_len().ok()?;
+        let mut idx = 1;
+        while len > 0 {
+            let Some(s) = self.0[idx].as_str() else {
+                unreachable!()
+            };
+            idx += 1;
+            len -= 1;
+            let count = self.0[idx].count();
+            let s: &Q = s.borrow();
+            if s == k {
+                let count: usize = self.0[idx].array_count().ok()?;
+                return Some(Array(&self.0[idx..idx + count]));
+            }
+            idx += count;
+        }
+        None
     }
 
     /// Tries to get an element of an object as a object
@@ -409,7 +437,23 @@ impl<'tape, 'input> Value<'tape, 'input> {
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
     {
-        self.get(k).and_then(|v| v.as_object())
+        let mut len = self.0[0].object_len().ok()?;
+        let mut idx = 1;
+        while len > 0 {
+            let Some(s) = self.0[idx].as_str() else {
+                unreachable!()
+            };
+            idx += 1;
+            len -= 1;
+            let count = self.0[idx].count();
+            let s: &Q = s.borrow();
+            if s == k {
+                let count: usize = self.0[idx].object_count().ok()?;
+                return Some(Object(&self.0[idx..idx + count]));
+            }
+            idx += count;
+        }
+        None
     }
 }
 // TryValueObjectContainerAccess
@@ -423,10 +467,23 @@ impl<'tape, 'input> Value<'tape, 'input> {
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
     {
-        self.try_as_object()?
-            .get(k)
-            .map(|v| v.try_as_array())
-            .transpose()
+        let mut len = self.0[0].object_len()?;
+        let mut idx = 1;
+        while len > 0 {
+            let Some(s) = self.0[idx].as_str() else {
+                unreachable!()
+            };
+            idx += 1;
+            len -= 1;
+            let count = self.0[idx].count();
+            let s: &Q = s.borrow();
+            if s == k {
+                let count: usize = self.0[idx].array_count()?;
+                return Ok(Some(Array(&self.0[idx..idx + count])));
+            }
+            idx += count;
+        }
+        Ok(None)
     }
 
     /// Tries to get an element of an object as an object, returns
@@ -439,10 +496,23 @@ impl<'tape, 'input> Value<'tape, 'input> {
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
     {
-        self.try_as_object()?
-            .get(k)
-            .map(|v| v.try_as_object())
-            .transpose()
+        let mut len = self.0[0].object_len()?;
+        let mut idx = 1;
+        while len > 0 {
+            let Some(s) = self.0[idx].as_str() else {
+                unreachable!()
+            };
+            idx += 1;
+            len -= 1;
+            let count = self.0[idx].count();
+            let s: &Q = s.borrow();
+            if s == k {
+                let count: usize = self.0[idx].object_count()?;
+                return Ok(Some(Object(&self.0[idx..idx + count])));
+            }
+            idx += count;
+        }
+        Ok(None)
     }
 }
 
@@ -574,7 +644,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn try_get_str<Q>(&self, k: &Q) -> Result<Option<&'input str>, TryTypeError>
+    fn try_get_str<Q>(&self, k: &Q) -> Result<Option<&str>, TryTypeError>
     where
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,

@@ -1262,7 +1262,7 @@ macro_rules! static_cast_i8 {
 #[macro_export]
 macro_rules! static_cast_i32 {
     ($v:expr) => {
-        std::mem::transmute::<_, i32>($v)
+        ::std::mem::transmute::<u32, i32>($v)
     };
 }
 
@@ -1278,7 +1278,7 @@ macro_rules! static_cast_u32 {
 #[macro_export]
 macro_rules! static_cast_i64 {
     ($v:expr) => {
-        ::std::mem::transmute::<_, i64>($v)
+        ::std::mem::transmute::<u64, i64>($v)
     };
 }
 
@@ -1294,7 +1294,7 @@ macro_rules! static_cast_i128 {
 #[macro_export]
 macro_rules! static_cast_u64 {
     ($v:expr) => {
-        ::std::mem::transmute::<_, u64>($v)
+        ::std::mem::transmute::<i64, u64>($v)
     };
 }
 
@@ -1314,7 +1314,7 @@ macro_rules! stry {
 #[cfg(test)]
 mod test {
     use crate::prelude::*;
-    use crate::{json, json_typed, BorrowedValue, OwnedValue};
+    use crate::{BorrowedValue, OwnedValue};
 
     #[cfg(feature = "serde_impl")]
     fn owned_test_map() -> OwnedValue {

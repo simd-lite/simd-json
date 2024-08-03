@@ -25,7 +25,7 @@ mod serialize;
 
 use super::ObjectHasher;
 use crate::{prelude::*, Buffers};
-use crate::{Deserializer, Node, Result, StaticNode};
+use crate::{Deserializer, Node, Result};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
@@ -113,9 +113,8 @@ impl<'input> ValueBuilder<'input> for Value {
     }
 }
 
-impl ValueAsMutContainer for Value {
+impl ValueAsMutArray for Value {
     type Array = Vec<Self>;
-    type Object = Object;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
@@ -124,6 +123,9 @@ impl ValueAsMutContainer for Value {
             _ => None,
         }
     }
+}
+impl ValueAsMutObject for Value {
+    type Object = Object;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_object_mut(&mut self) -> Option<&mut Object> {
@@ -203,9 +205,8 @@ impl ValueAsScalar for Value {
         }
     }
 }
-impl ValueAsContainer for Value {
+impl ValueAsArray for Value {
     type Array = Vec<Self>;
-    type Object = Object;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn as_array(&self) -> Option<&Vec<Self>> {
@@ -214,6 +215,9 @@ impl ValueAsContainer for Value {
             _ => None,
         }
     }
+}
+impl ValueAsObject for Value {
+    type Object = Object;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -235,18 +239,20 @@ impl ValueIntoString for Value {
         }
     }
 }
-impl ValueIntoContainer for Value {
+impl ValueIntoArray for Value {
     type Array = Vec<Self>;
-    type Object = Object;
 
-    fn into_array(self) -> Option<<Value as ValueIntoContainer>::Array> {
+    fn into_array(self) -> Option<<Value as ValueIntoArray>::Array> {
         match self {
             Self::Array(a) => Some(a),
             _ => None,
         }
     }
+}
+impl ValueIntoObject for Value {
+    type Object = Object;
 
-    fn into_object(self) -> Option<<Value as ValueIntoContainer>::Object> {
+    fn into_object(self) -> Option<<Value as ValueIntoObject>::Object> {
         match self {
             Self::Object(a) => Some(*a),
             _ => None,
@@ -397,7 +403,7 @@ mod test {
     #[cfg(feature = "128bit")]
     #[test]
     fn conversions_i128() {
-        let v = Value::from(i128::max_value());
+        let v = Value::from(i128::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(!v.is_i64());
@@ -411,7 +417,7 @@ mod test {
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(i128::min_value());
+        let v = Value::from(i128::MIN);
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(!v.is_i64());
@@ -428,7 +434,7 @@ mod test {
     }
     #[test]
     fn conversions_i64() {
-        let v = Value::from(i64::max_value());
+        let v = Value::from(i64::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -442,7 +448,7 @@ mod test {
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(i64::min_value());
+        let v = Value::from(i64::MIN);
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -460,7 +466,7 @@ mod test {
 
     #[test]
     fn conversions_i32() {
-        let v = Value::from(i32::max_value());
+        let v = Value::from(i32::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -474,7 +480,7 @@ mod test {
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(i32::min_value());
+        let v = Value::from(i32::MIN);
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -492,7 +498,7 @@ mod test {
 
     #[test]
     fn conversions_i16() {
-        let v = Value::from(i16::max_value());
+        let v = Value::from(i16::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -506,7 +512,7 @@ mod test {
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(i16::min_value());
+        let v = Value::from(i16::MIN);
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -525,7 +531,7 @@ mod test {
 
     #[test]
     fn conversions_i8() {
-        let v = Value::from(i8::max_value());
+        let v = Value::from(i8::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -539,7 +545,7 @@ mod test {
         assert!(!v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(i8::min_value());
+        let v = Value::from(i8::MIN);
         assert!(v.is_i128());
         assert!(!v.is_u128());
         assert!(v.is_i64());
@@ -557,7 +563,7 @@ mod test {
 
     #[test]
     fn conversions_usize() {
-        let v = Value::from(usize::min_value() as u64);
+        let v = Value::from(usize::MIN as u64);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -579,7 +585,7 @@ mod test {
     #[cfg(feature = "128bit")]
     #[test]
     fn conversions_u128() {
-        let v = Value::from(u128::min_value());
+        let v = Value::from(u128::MIN);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -596,7 +602,7 @@ mod test {
     }
     #[test]
     fn conversions_u64() {
-        let v = Value::from(u64::min_value());
+        let v = Value::from(u64::MIN);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -614,7 +620,7 @@ mod test {
 
     #[test]
     fn conversions_u32() {
-        let v = Value::from(u32::max_value());
+        let v = Value::from(u32::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -632,7 +638,7 @@ mod test {
 
     #[test]
     fn conversions_u16() {
-        let v = Value::from(u16::max_value());
+        let v = Value::from(u16::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -650,7 +656,7 @@ mod test {
 
     #[test]
     fn conversions_u8() {
-        let v = Value::from(u8::max_value());
+        let v = Value::from(u8::MAX);
         assert!(v.is_i128());
         assert!(v.is_u128());
         assert!(v.is_i64());
@@ -668,13 +674,13 @@ mod test {
 
     #[test]
     fn conversions_f64() {
-        let v = Value::from(std::f64::MAX);
+        let v = Value::from(f64::MAX);
         assert!(!v.is_i64());
         assert!(!v.is_u64());
         assert!(v.is_f64());
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(std::f64::MIN);
+        let v = Value::from(f64::MIN);
         assert!(!v.is_i64());
         assert!(!v.is_u64());
         assert!(v.is_f64());
@@ -686,13 +692,13 @@ mod test {
 
     #[test]
     fn conversions_f32() {
-        let v = Value::from(std::f32::MAX);
+        let v = Value::from(f32::MAX);
         assert!(!v.is_i64());
         assert!(!v.is_u64());
         assert!(v.is_f64());
         assert!(v.is_f32());
         assert!(v.is_f64_castable());
-        let v = Value::from(std::f32::MIN);
+        let v = Value::from(f32::MIN);
         assert!(!v.is_i64());
         assert!(!v.is_u64());
         assert!(v.is_f64());

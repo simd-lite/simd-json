@@ -1,6 +1,5 @@
 // A lot of this logic is a re-implementation or copy of serde_json::Value
 use crate::ErrorType;
-use crate::StaticNode;
 use crate::{
     prelude::*,
     serde::value::shared::MapKeyDeserializer,
@@ -802,7 +801,7 @@ mod test {
 
     #[test]
     fn option_field_absent_owned() {
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         pub struct Person {
             pub name: String,
             pub middle_name: Option<String>,
@@ -811,16 +810,23 @@ mod test {
         let mut raw_json = r#"{"name":"bob","friends":[]}"#.to_string();
         let result: Result<Person, _> = crate::to_owned_value(unsafe { raw_json.as_bytes_mut() })
             .and_then(super::super::from_value);
-        assert!(result.is_ok());
+        assert_eq!(
+            result,
+            Ok(Person {
+                name: "bob".to_string(),
+                middle_name: None,
+                friends: vec![]
+            })
+        );
     }
     #[test]
     fn option_field_present_owned() {
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         pub struct Point {
             pub x: u64,
             pub y: u64,
         }
-        #[derive(serde::Deserialize, Debug)]
+        #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         pub struct Person {
             pub name: String,
             pub middle_name: Option<String>,
@@ -831,7 +837,15 @@ mod test {
             r#"{"name":"bob","middle_name": "frank", "friends":[], "pos": [1,2]}"#.to_string();
         let result: Result<Person, _> = crate::to_owned_value(unsafe { raw_json.as_bytes_mut() })
             .and_then(super::super::from_value);
-        assert!(result.is_ok());
+        assert_eq!(
+            result,
+            Ok(Person {
+                name: "bob".to_string(),
+                middle_name: Some("frank".to_string()),
+                friends: vec![],
+                pos: Point { x: 1, y: 2 }
+            })
+        );
     }
 
     #[test]
