@@ -1,5 +1,6 @@
-kind: pipeline
 name: test-on-arm64
+kind: pipeline
+type: docker
 
 platform:
   arch: arm64
@@ -15,6 +16,7 @@ steps:
     commands:
       - rustup update
       - cargo build --verbose --all
+      - cargo clippy --verbose --all
       - cargo test --verbose --all
 #  - cargo +nightly install cargo-clippy -f
 #  - cargo +nightly clippy --verbose --all
