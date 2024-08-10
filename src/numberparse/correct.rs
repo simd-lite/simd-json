@@ -381,10 +381,9 @@ fn f64_from_parts(
 
 #[cold]
 fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
-    match lexical_core::parse_with_options::<f64, { lexical_core::format::JSON }>(
-        slice,
-        &lexical_core::parse_float_options::JSON,
-    ) {
+    // we already validated the content of the slice we only need to translate
+    // the slice to a string and parse it as parse is not defined for a u8 slice
+    match unsafe { std::str::from_utf8_unchecked(slice).parse::<f64>() } {
         Ok(val) => {
             if val.is_infinite() {
                 err!(offset, get!(slice, 0))
