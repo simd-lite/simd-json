@@ -81,7 +81,7 @@ pub enum Value<'value> {
     /// string type
     String(Cow<'value, str>),
     /// array type
-    Array(Vec<Value<'value>>),
+    Array(Box<Vec<Value<'value>>>),
     /// object type
     Object(Box<Object<'value>>),
 }
@@ -165,7 +165,7 @@ impl<'value> ValueBuilder<'value> for Value<'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn array_with_capacity(capacity: usize) -> Self {
-        Self::Array(Vec::with_capacity(capacity))
+        Self::Array(Box::new(Vec::with_capacity(capacity)))
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -331,7 +331,7 @@ impl<'value> ValueIntoArray for Value<'value> {
 
     fn into_array(self) -> Option<<Self as ValueIntoArray>::Array> {
         match self {
-            Self::Array(a) => Some(a),
+            Self::Array(a) => Some(*a),
             _ => None,
         }
     }
@@ -432,7 +432,7 @@ impl<'de> BorrowDeserializer<'de> {
             }
             res.set_len(len);
         }
-        Value::Array(res)
+        Value::Array(Box::new(res))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -492,7 +492,7 @@ impl<'tape, 'de> BorrowSliceDeserializer<'tape, 'de> {
             }
             res.set_len(len);
         }
-        Value::Array(res)
+        Value::Array(Box::new(res))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -980,7 +980,7 @@ mod test {
             |inner| {
                 prop_oneof![
                     // Take the inner strategy and make the two recursive cases.
-                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::from),
                     prop::collection::hash_map(".*".prop_map(Cow::from), inner, 0..10)
                         .prop_map(|m| m.into_iter().collect()),
                 ]
@@ -1129,4 +1129,9 @@ mod test {
         let v: Value = v.into();
         assert_eq!(v, 42);
     }
+
+    // #[test]
+    // fn size() {
+    //     assert_eq!(std::mem::size_of::<Value>(), 24);
+    // }
 }

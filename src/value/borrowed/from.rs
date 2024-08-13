@@ -218,7 +218,7 @@ impl<'value, V: Into<Value<'value>>> FromIterator<V> for Value<'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from_iter<I: IntoIterator<Item = V>>(iter: I) -> Self {
-        Value::Array(iter.into_iter().map(Into::into).collect())
+        Value::Array(Box::new(iter.into_iter().map(Into::into).collect()))
     }
 }
 

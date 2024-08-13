@@ -31,7 +31,7 @@ impl<'value> Serialize for Value<'value> {
             Value::String(s) => serializer.serialize_str(s),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
-                for e in v {
+                for e in v.as_ref() {
                     seq.serialize_element(e)?;
                 }
                 seq.end()
@@ -298,7 +298,7 @@ impl<'se> serde::ser::SerializeSeq for SerializeVec<'se> {
     }
 
     fn end(self) -> Result<Value<'se>> {
-        Ok(Value::Array(self.vec))
+        Ok(Value::Array(Box::new(self.vec)))
     }
 }
 
@@ -348,7 +348,7 @@ impl<'se> serde::ser::SerializeTupleVariant for SerializeTupleVariant<'se> {
 
     fn end(self) -> Result<Value<'se>> {
         let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
-        object.insert_nocheck(self.name.into(), Value::Array(self.vec));
+        object.insert_nocheck(self.name.into(), Value::Array(Box::new(self.vec)));
 
         Ok(Value::Object(Box::new(object)))
     }
@@ -654,10 +654,10 @@ mod test {
 
     #[test]
     fn arr() {
-        let v = Value::Array(vec![
+        let v = Value::Array(Box::new(vec![
             Value::Static(StaticNode::I64(42)),
             Value::Static(StaticNode::I64(23)),
-        ]);
+        ]));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
         assert_eq!(s, "[42,23]");
     }
