@@ -28,7 +28,7 @@ impl Serialize for Value {
             Value::String(s) => serializer.serialize_str(s),
             Value::Array(v) => {
                 let mut seq = serializer.serialize_seq(Some(v.len()))?;
-                for e in v {
+                for e in v.as_ref() {
                     seq.serialize_element(e)?;
                 }
                 seq.end()
@@ -284,7 +284,7 @@ impl serde::ser::SerializeSeq for SerializeVec {
     }
 
     fn end(self) -> Result<Value> {
-        Ok(Value::Array(self.vec))
+        Ok(Value::Array(Box::new(self.vec)))
     }
 }
 
@@ -334,7 +334,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
 
     fn end(self) -> Result<Value> {
         let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
-        object.insert_nocheck(self.name, Value::Array(self.vec));
+        object.insert_nocheck(self.name, Value::Array(Box::new(self.vec)));
         Ok(Value::from(object))
     }
 }
