@@ -904,11 +904,11 @@ macro_rules! json_internal_borrowed {
     };
 
     ([]) => {
-        $crate::value::borrowed::Value::Array(json_internal_vec![])
+        $crate::value::borrowed::Value::Array(Box::new(json_internal_vec![]))
     };
 
     ([ $($tt:tt)+ ]) => {
-        $crate::value::borrowed::Value::Array(json_internal_borrowed!(@array [] $($tt)+))
+        $crate::value::borrowed::Value::Array(Box::new(json_internal_borrowed!(@array [] $($tt)+)))
     };
 
     ({}) => {
