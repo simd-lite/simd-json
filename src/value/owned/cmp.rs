@@ -9,7 +9,7 @@ impl PartialEq<BorrowedValue<'_>> for Value {
         match (self, other) {
             (Self::Static(s1), BorrowedValue::Static(s2)) => s1 == s2,
             (Self::String(v1), BorrowedValue::String(v2)) => v1.eq(v2),
-            (Self::Array(v1), BorrowedValue::Array(v2)) => v1.eq(v2.as_ref()),
+            (Self::Array(v1), BorrowedValue::Array(v2)) => v1.as_ref().eq(v2.as_ref()),
             (Self::Object(v1), BorrowedValue::Object(v2)) => {
                 if v1.len() != v2.len() {
                     return false;

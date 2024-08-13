@@ -195,7 +195,7 @@ fn empty_array() {
     let d = unsafe { d.as_bytes_mut() };
     let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
     let v_simd: serde_json::Value = from_slice(d).expect("parse_simd");
-    assert_eq!(to_value(d1), Ok(Value::Array(vec![])));
+    assert_eq!(to_value(d1), Ok(Value::array()));
     assert_eq!(v_simd, v_serde);
 }
 
@@ -225,7 +225,7 @@ fn double_array() {
     let d = unsafe { d.as_bytes_mut() };
     let v_serde: serde_json::Value = serde_json::from_slice(d).expect("parse_serde");
     let v_simd: serde_json::Value = from_slice(d).expect("parse_simd");
-    assert_eq!(to_value(d1), Ok(Value::Array(vec![Value::Array(vec![])])));
+    assert_eq!(to_value(d1), Ok(Value::from(vec![Value::array()])));
     assert_eq!(v_simd, v_serde);
 }
 
@@ -239,8 +239,8 @@ fn null_null_array() {
     let v_simd: serde_json::Value = from_slice(d).expect("parse_simd");
     assert_eq!(
         to_value(d1),
-        Ok(Value::Array(vec![
-            Value::Array(vec![]),
+        Ok(Value::from(vec![
+            Value::array(),
             Value::Static(StaticNode::Null),
             Value::Static(StaticNode::Null),
         ]))
@@ -254,7 +254,7 @@ fn one_element_array() {
     let mut d1 = d.clone();
     let d1 = unsafe { d1.as_bytes_mut() };
     let d = unsafe { d.as_bytes_mut() };
-    assert_eq!(to_value(d1), Ok(Value::Array(vec![Value::from("snot")])));
+    assert_eq!(to_value(d1), Ok(Value::from(vec![Value::from("snot")])));
     let v_serde: serde_json::Value = serde_json::from_slice(d).expect("");
     let v_simd: serde_json::Value = from_slice(d).expect("");
     assert_eq!(v_simd, v_serde);
@@ -268,7 +268,7 @@ fn two_element_array() {
     let d = unsafe { d.as_bytes_mut() };
     assert_eq!(
         to_value(d1),
-        Ok(Value::Array(vec![
+        Ok(Value::from(vec![
             Value::from("snot"),
             Value::from("badger")
         ]))
@@ -289,7 +289,7 @@ fn list() {
     assert_eq!(v_simd, v_serde);
     assert_eq!(
         to_value(d1),
-        Ok(Value::Array(vec![
+        Ok(Value::from(vec![
             Value::from(42),
             Value::from(23.0),
             Value::from("snot badger")
@@ -305,9 +305,9 @@ fn nested_list1() {
     let d = unsafe { d.as_bytes_mut() };
     assert_eq!(
         to_value(d1),
-        Ok(Value::Array(vec![
+        Ok(Value::from(vec![
             Value::from(42),
-            Value::Array(vec![Value::from(23.0), Value::from("snot")]),
+            Value::from(vec![Value::from(23.0), Value::from("snot")]),
             Value::from("bad"),
             Value::from("ger")
         ]))
@@ -366,7 +366,7 @@ fn odd_array() {
     assert_eq!(v_simd, v_serde);
     assert_eq!(
         to_value(d1),
-        Ok(Value::Array(vec![
+        Ok(Value::from(vec![
             Value::from(Object::default()),
             Value::Static(StaticNode::Null)
         ]))
@@ -420,7 +420,7 @@ fn null_null() {
     let d = unsafe { d.as_bytes_mut() };
     assert_eq!(
         to_value(d1),
-        Ok(Value::Array(vec![
+        Ok(Value::from(vec![
             Value::Static(StaticNode::Null),
             Value::Static(StaticNode::Null),
         ]))
@@ -438,7 +438,7 @@ fn nested_null() {
     let d = unsafe { d.as_bytes_mut() };
     assert_eq!(
         to_value(d1),
-        Ok(Value::Array(vec![Value::Array(vec![
+        Ok(Value::from(vec![Value::from(vec![
             Value::Static(StaticNode::Null),
             Value::Static(StaticNode::Null),
         ])]))
@@ -460,7 +460,7 @@ fn nestednested_null() {
     assert_eq!(v_simd, v_serde);
     assert_eq!(
         to_value(d1),
-        Ok(Value::Array(vec![Value::Array(vec![Value::Array(vec![
+        Ok(Value::from(vec![Value::from(vec![Value::from(vec![
             Value::Static(StaticNode::Null),
             Value::Static(StaticNode::Null),
         ])])]))

@@ -78,7 +78,7 @@ pub enum Value {
     /// string type
     String(String),
     /// array type
-    Array(Vec<Value>),
+    Array(Box<Vec<Value>>),
     /// object type
     Object(Box<Object>),
 }
@@ -101,7 +101,7 @@ impl<'input> ValueBuilder<'input> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn array_with_capacity(capacity: usize) -> Self {
-        Self::Array(Vec::with_capacity(capacity))
+        Self::Array(Box::new(Vec::with_capacity(capacity)))
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
@@ -244,7 +244,7 @@ impl ValueIntoArray for Value {
 
     fn into_array(self) -> Option<<Value as ValueIntoArray>::Array> {
         match self {
-            Self::Array(a) => Some(a),
+            Self::Array(a) => Some(*a),
             _ => None,
         }
     }
@@ -345,7 +345,7 @@ impl<'de> OwnedDeserializer<'de> {
             }
             res.set_len(len);
         }
-        Value::Array(res)
+        Value::Array(Box::new(res))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -825,7 +825,7 @@ mod test {
             |inner| {
                 prop_oneof![
                     // Take the inner strategy and make the two recursive cases.
-                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::Array),
+                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::from),
                     prop::collection::hash_map(".*", inner, 0..10)
                         .prop_map(|m| m.into_iter().collect()),
                 ]

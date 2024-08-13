@@ -419,11 +419,11 @@ macro_rules! json_internal_owned {
     };
 
     ([]) => {
-        $crate::value::owned::Value::Array(json_internal_vec![])
+        $crate::value::owned::Value::Array(Box::new(json_internal_vec![]))
     };
 
     ([ $($tt:tt)+ ]) => {
-        $crate::value::owned::Value::Array(json_internal_owned!(@array [] $($tt)+))
+        $crate::value::owned::Value::Array(Box::new(json_internal_owned!(@array [] $($tt)+)))
     };
 
     ({}) => {
