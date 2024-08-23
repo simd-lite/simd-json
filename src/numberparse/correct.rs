@@ -363,13 +363,11 @@ fn f64_from_parts(
             f *= get!(POW10, exponent);
         }
         let res = StaticNode::F64(if positive { f } else { -f });
-        return Ok(res);
-    }
-    if significand == 0 {
+        Ok(res)
+    } else if significand == 0 {
         let res = StaticNode::F64(if positive { 0.0 } else { -0.0 });
-        return Ok(res);
-    }
-    if (-325..=308).contains(&exponent) {
+        Ok(res)
+    } else if (-325..=308).contains(&exponent) {
         let (factor_mantissa, factor_exponent) = get!(POW10_COMPONENTS, exponent + 325);
         let mut leading_zeroes = u64::from(significand.leading_zeros());
         let f = significand << leading_zeroes;
