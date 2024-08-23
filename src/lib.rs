@@ -139,6 +139,7 @@ mod numberparse;
 mod safer_unchecked;
 mod stringparse;
 
+use iex::Outcome;
 use safer_unchecked::GetSaferUnchecked;
 use stage2::StackState;
 
@@ -547,6 +548,7 @@ impl<'de> Deserializer<'de> {
         feature = "runtime-detection",
         any(target_arch = "x86_64", target_arch = "x86"),
     ))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -606,6 +608,7 @@ impl<'de> Deserializer<'de> {
         target_feature = "simd128",
         target_arch = "aarch64",
     )))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -620,6 +623,7 @@ impl<'de> Deserializer<'de> {
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(feature = "portable", not(feature = "runtime-detection")))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -639,6 +643,7 @@ impl<'de> Deserializer<'de> {
         not(feature = "portable"),
         not(feature = "runtime-detection"),
     ))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -656,6 +661,7 @@ impl<'de> Deserializer<'de> {
         not(feature = "runtime-detection"),
         not(feature = "portable"),
     ))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -668,6 +674,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(target_arch = "aarch64", not(feature = "portable")))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -679,6 +686,7 @@ impl<'de> Deserializer<'de> {
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(target_feature = "simd128", not(feature = "portable")))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -842,7 +850,7 @@ impl<'de> Deserializer<'de> {
 
         let mut buffer = Buffers::new(len);
 
-        Self::from_slice_with_buffers(input, &mut buffer)
+        Self::from_slice_with_buffers(input, &mut buffer).into_result()
     }
 
     /// Fills the tape without creating a serializer, this function poses
@@ -854,6 +862,7 @@ impl<'de> Deserializer<'de> {
     /// Will return `Err` if `input` is invalid JSON.
     #[allow(clippy::uninit_vec)]
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[iex::iex(captures = "'de")]
     fn fill_tape(
         input: &'de mut [u8],
         buffer: &mut Buffers,
@@ -905,7 +914,8 @@ impl<'de> Deserializer<'de> {
             &buffer.structural_indexes,
             &mut buffer.stage2_stack,
             tape,
-        )
+        )?;
+        Ok(())
     }
 
     /// Creates a serializer from a mutable slice of bytes using a temporary
@@ -914,6 +924,7 @@ impl<'de> Deserializer<'de> {
     /// # Errors
     ///
     /// Will return `Err` if `s` is invalid JSON.
+    #[iex::iex]
     pub fn from_slice_with_buffers(input: &'de mut [u8], buffer: &mut Buffers) -> Result<Self> {
         let mut tape: Vec<Node<'de>> = Vec::with_capacity(buffer.structural_indexes.len());
 

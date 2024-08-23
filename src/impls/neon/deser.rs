@@ -42,6 +42,7 @@ fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
 
 #[allow(clippy::if_not_else, clippy::too_many_lines)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[iex::iex]
 pub(crate) fn parse_str<'invoke, 'de>(
     input: SillyWrapper<'de>,
     data: &'invoke [u8],

@@ -5,6 +5,8 @@ use crate::value::tape::Node;
 use crate::{Deserializer, Error, ErrorType, InternalError, Result};
 use value_trait::StaticNode;
 
+use iex::Outcome;
+
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn is_valid_true_atom(loc: &[u8]) -> bool {
     debug_assert!(loc.len() >= 8, "loc too short for a u64 read");
@@ -92,6 +94,7 @@ pub(crate) enum StackState {
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines, unused_unsafe)]
+    #[iex::iex(captures = "'de")]
     pub(crate) fn build_tape(
         input: &'de mut [u8],
         input2: &[u8],
@@ -123,12 +126,6 @@ impl<'de> Deserializer<'de> {
         let mut i: usize = 0;
         let mut state;
 
-        macro_rules! insert_res {
-            ($t:expr) => {
-                res.push($t);
-            };
-        }
-
         macro_rules! update_char {
             () => {
                 if i < structural_indexes.len() {
@@ -146,19 +143,6 @@ impl<'de> Deserializer<'de> {
                 state = $state;
                 continue;
             }};
-        }
-
-        macro_rules! insert_str {
-            () => {
-                unsafe {
-                    insert_res!(Node::String(Self::parse_str_(
-                        input.as_mut_ptr(),
-                        &input2,
-                        buffer,
-                        idx
-                    )?));
-                }
-            };
         }
 
         // The continue cases are the most frequently called onces it's
@@ -191,7 +175,11 @@ impl<'de> Deserializer<'de> {
                         cnt += 1;
                         update_char!();
                         if c == b'"' {
-                            insert_str!();
+                            unsafe {
+                                let n = Self::parse_str_(input.as_mut_ptr(), &input2, buffer, idx)
+                                    .into_result()?;
+                                res.push(Node::String(n));
+                            }
                             goto!(ObjectKey);
                         }
                         fail!(ErrorType::ExpectedObjectKey);
@@ -222,7 +210,11 @@ impl<'de> Deserializer<'de> {
                 update_char!();
                 match c {
                     b'"' => {
-                        insert_str!();
+                        unsafe {
+                            let n = Self::parse_str_(input.as_mut_ptr(), &input2, buffer, idx)
+                                .into_result()?;
+                            res.push(Node::String(n));
+                        }
                         goto!(ObjectKey)
                     }
                     b'}' => {
@@ -258,7 +250,7 @@ impl<'de> Deserializer<'de> {
                 }
 
                 last_start = res.len();
-                insert_res!(Node::Object { len: 0, count: 0 });
+                res.push(Node::Object { len: 0, count: 0 });
 
                 depth += 1;
                 cnt = 1;
@@ -266,7 +258,10 @@ impl<'de> Deserializer<'de> {
                 update_char!();
                 match c {
                     b'"' => {
-                        insert_str!();
+                        unsafe {
+                            let n = Self::parse_str_(input.as_mut_ptr(), &input2, buffer, idx)?;
+                            res.push(Node::String(n));
+                        }
                         state = State::ObjectKey;
                     }
                     b'}' => {
@@ -284,7 +279,7 @@ impl<'de> Deserializer<'de> {
                 }
 
                 last_start = res.len();
-                insert_res!(Node::Array { len: 0, count: 0 });
+                res.push(Node::Array { len: 0, count: 0 });
 
                 depth += 1;
                 cnt = 1;
@@ -303,7 +298,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedTrue);
                     }
                 };
-                insert_res!(Node::Static(StaticNode::Bool(true)));
+                res.push(Node::Static(StaticNode::Bool(true)));
                 if i == structural_indexes.len() {
                     return Ok(());
                 }
@@ -315,7 +310,7 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedFalse);
                     }
                 };
-                insert_res!(Node::Static(StaticNode::Bool(false)));
+                res.push(Node::Static(StaticNode::Bool(false)));
                 if i == structural_indexes.len() {
                     return Ok(());
                 }
@@ -327,21 +322,25 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::ExpectedNull);
                     }
                 };
-                insert_res!(Node::Static(StaticNode::Null));
+                res.push(Node::Static(StaticNode::Null));
                 if i == structural_indexes.len() {
                     return Ok(());
                 }
                 fail!(ErrorType::TrailingData);
             }
             b'"' => {
-                insert_str!();
+                unsafe {
+                    let n = Self::parse_str_(input.as_mut_ptr(), &input2, buffer, idx)?;
+                    res.push(Node::String(n));
+                }
                 if i == structural_indexes.len() {
                     return Ok(());
                 }
                 fail!(ErrorType::TrailingData);
             }
             b'-' => {
-                insert_res!(Node::Static(Self::parse_number(idx, input2, true)?));
+                let n = Self::parse_number(idx, input2, true)?;
+                res.push(Node::Static(n));
 
                 if i == structural_indexes.len() {
                     return Ok(());
@@ -349,7 +348,8 @@ impl<'de> Deserializer<'de> {
                 fail!(ErrorType::TrailingData);
             }
             b'0'..=b'9' => {
-                insert_res!(Node::Static(Self::parse_number(idx, input2, false)?));
+                let n = Self::parse_number(idx, input2, false)?;
+                res.push(Node::Static(n));
 
                 if i == structural_indexes.len() {
                     return Ok(());
@@ -373,37 +373,42 @@ impl<'de> Deserializer<'de> {
                     update_char!();
                     match c {
                         b'"' => {
-                            insert_str!();
+                            unsafe {
+                                let n = Self::parse_str_(input.as_mut_ptr(), &input2, buffer, idx)?;
+                                res.push(Node::String(n));
+                            }
                             object_continue!();
                         }
                         b't' => {
-                            insert_res!(Node::Static(StaticNode::Bool(true)));
+                            res.push(Node::Static(StaticNode::Bool(true)));
                             if !is_valid_true_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedTrue);
                             }
                             object_continue!();
                         }
                         b'f' => {
-                            insert_res!(Node::Static(StaticNode::Bool(false)));
+                            res.push(Node::Static(StaticNode::Bool(false)));
                             if !is_valid_false_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedFalse);
                             }
                             object_continue!();
                         }
                         b'n' => {
-                            insert_res!(Node::Static(StaticNode::Null));
+                            res.push(Node::Static(StaticNode::Null));
                             if !is_valid_null_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedNull);
                             }
                             object_continue!();
                         }
                         b'-' => {
-                            insert_res!(Node::Static(Self::parse_number(idx, input2, true)?));
+                            let n = Self::parse_number(idx, input2, true)?;
+                            res.push(Node::Static(n));
 
                             object_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(Node::Static(Self::parse_number(idx, input2, false)?));
+                            let n = Self::parse_number(idx, input2, false)?;
+                            res.push(Node::Static(n));
 
                             object_continue!();
                         }
@@ -414,7 +419,7 @@ impl<'de> Deserializer<'de> {
                                     .write(StackState::Object { last_start, cnt });
                             }
                             last_start = res.len();
-                            insert_res!(Node::Object { len: 0, count: 0 });
+                            res.push(Node::Object { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -426,7 +431,7 @@ impl<'de> Deserializer<'de> {
                                     .write(StackState::Object { last_start, cnt });
                             }
                             last_start = res.len();
-                            insert_res!(Node::Array { len: 0, count: 0 });
+                            res.push(Node::Array { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
                             array_begin!();
@@ -493,36 +498,41 @@ impl<'de> Deserializer<'de> {
                     // on paths that can accept a close square brace (post-, and at start)
                     match c {
                         b'"' => {
-                            insert_str!();
+                            unsafe {
+                                let n = Self::parse_str_(input.as_mut_ptr(), &input2, buffer, idx)?;
+                                res.push(Node::String(n));
+                            }
                             array_continue!();
                         }
                         b't' => {
-                            insert_res!(Node::Static(StaticNode::Bool(true)));
+                            res.push(Node::Static(StaticNode::Bool(true)));
                             if !is_valid_true_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedTrue);
                             }
                             array_continue!();
                         }
                         b'f' => {
-                            insert_res!(Node::Static(StaticNode::Bool(false)));
+                            res.push(Node::Static(StaticNode::Bool(false)));
                             if !is_valid_false_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedFalse);
                             }
                             array_continue!();
                         }
                         b'n' => {
-                            insert_res!(Node::Static(StaticNode::Null));
+                            res.push(Node::Static(StaticNode::Null));
                             if !is_valid_null_atom(get!(input2, idx..)) {
                                 fail!(ErrorType::ExpectedNull);
                             }
                             array_continue!();
                         }
                         b'-' => {
-                            insert_res!(Node::Static(Self::parse_number(idx, input2, true)?));
+                            let n = Self::parse_number(idx, input2, true)?;
+                            res.push(Node::Static(n));
                             array_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(Node::Static(Self::parse_number(idx, input2, false)?));
+                            let n = Self::parse_number(idx, input2, false)?;
+                            res.push(Node::Static(n));
                             array_continue!();
                         }
                         b'{' => {
@@ -532,7 +542,7 @@ impl<'de> Deserializer<'de> {
                                     .write(StackState::Array { last_start, cnt });
                             }
                             last_start = res.len();
-                            insert_res!(Node::Object { len: 0, count: 0 });
+                            res.push(Node::Object { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
                             object_begin!();
@@ -544,7 +554,7 @@ impl<'de> Deserializer<'de> {
                                     .write(StackState::Array { last_start, cnt });
                             }
                             last_start = res.len();
-                            insert_res!(Node::Array { len: 0, count: 0 });
+                            res.push(Node::Array { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
                             array_begin!();
@@ -561,6 +571,8 @@ impl<'de> Deserializer<'de> {
 
 #[cfg(test)]
 mod test {
+    use iex::Outcome;
+
     use crate::SIMDJSON_PADDING;
 
     use super::*;
@@ -638,7 +650,8 @@ mod test {
         let mut buffer = vec![0; 1024];
 
         let s = unsafe {
-            Deserializer::parse_str_(input.as_mut_ptr(), &input2, buffer.as_mut_slice(), 0)?
+            Deserializer::parse_str_(input.as_mut_ptr(), &input2, buffer.as_mut_slice(), 0)
+                .into_result()?
         };
         assert_eq!(r#"{"arg":"test"}"#, s);
         Ok(())

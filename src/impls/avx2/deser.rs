@@ -23,6 +23,7 @@ use crate::{
     clippy::too_many_lines
 )]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[iex::iex]
 pub(crate) unsafe fn parse_str<'invoke, 'de>(
     input: SillyWrapper<'de>,
     data: &'invoke [u8],

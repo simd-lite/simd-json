@@ -5,6 +5,7 @@ use crate::{
 };
 
 #[allow(clippy::cast_possible_truncation)]
+#[iex::iex]
 pub(crate) unsafe fn parse_str<'invoke, 'de>(
     input: SillyWrapper<'de>,
     data: &'invoke [u8],

@@ -17,6 +17,7 @@ use arch::{
 #[target_feature(enable = "sse4.2")]
 #[allow(clippy::if_not_else, clippy::cast_possible_wrap)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[iex::iex]
 pub(crate) unsafe fn parse_str<'invoke, 'de>(
     input: SillyWrapper<'de>,
     data: &'invoke [u8],
