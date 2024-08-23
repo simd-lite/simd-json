@@ -576,3 +576,6 @@ impl<'de, 'a> de::Deserializer<'de> for MapKey<'de, 'a> {
         struct identifier ignored_any
     }
 }
+
+#[cfg(test)]
+mod tests;

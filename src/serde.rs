@@ -100,6 +100,7 @@ where
 {
     let mut deserializer = stry!(Deserializer::from_slice(s.as_bytes_mut()));
 
+    dbg!(&deserializer.tape);
     T::deserialize(&mut deserializer)
 }
 
@@ -222,7 +223,8 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u16(&mut self) -> Result<u16> {
-        match unsafe { self.next_() } {
+        let next = unsafe { self.next_() };
+        match next {
             Node::Static(s) => s
                 .as_u16()
                 .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
