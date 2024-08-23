@@ -9,7 +9,7 @@ description = "High performance JSON parser based on a port of simdjson"
 repository = "https://github.com/simd-lite/simd-json"
 readme = "README.md"
 documentation = "https://docs.rs/simd-json"
-rust-version = "1.64"
+rust-version = "1.80"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }

@@ -6,7 +6,6 @@ on:
     branches:
       - main
 
-
 jobs:
   clippy_check:
     strategy:
@@ -19,48 +18,48 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: dtolnay/rust-toolchain@1.72 # do clippy chekcs with the minimum supported version
+      - uses: dtolnay/rust-toolchain@1.80 # do clippy chekcs with the minimum supported version
         with:
           components: rustfmt, clippy
 
       - name: Validate cargo format
         run: cargo fmt -- --check
 
-      - name: Run tests 
+      - name: Run tests
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
         run: cargo clippy
-  
+
       - name: Run tests (no-default-features)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
         run: cargo clippy
-  
+
       - name: Run tests (value-no-dup-keys)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
         run: cargo clippy --features value-no-dup-keys
-  
+
       - name: Run tests (known-key)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
         run: cargo clippy --features known-key
-  
+
       - name: Run tests (128bit)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
         run: cargo clippy --features 128bit
-  
+
       - name: Run tests (beef)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
         run: cargo clippy --features beef
-      
+
       - name: Run tests (arraybackend)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
         run: cargo clippy --features arraybackend
-      
+
       - name: Run tests (approx-number-parsing)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
