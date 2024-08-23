@@ -100,7 +100,6 @@ where
 {
     let mut deserializer = stry!(Deserializer::from_slice(s.as_bytes_mut()));
 
-    dbg!(&deserializer.tape);
     T::deserialize(&mut deserializer)
 }
 
