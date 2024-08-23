@@ -226,7 +226,9 @@ pub fn to_tape(s: &mut [u8]) -> Result<Tape> {
 /// Will return `Err` if `s` is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn to_tape_with_buffers<'de>(s: &'de mut [u8], buffers: &mut Buffers) -> Result<Tape<'de>> {
-    Deserializer::from_slice_with_buffers(s, buffers).map(Deserializer::into_tape)
+    Deserializer::from_slice_with_buffers(s, buffers)
+        .into_result()
+        .map(Deserializer::into_tape)
 }
 
 /// Fills a already existing tape from the input for later consumption
@@ -236,7 +238,7 @@ pub fn to_tape_with_buffers<'de>(s: &'de mut [u8], buffers: &mut Buffers) -> Res
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn fill_tape<'de>(s: &'de mut [u8], buffers: &mut Buffers, tape: &mut Tape<'de>) -> Result<()> {
     tape.0.clear();
-    Deserializer::fill_tape(s, buffers, &mut tape.0)
+    Deserializer::fill_tape(s, buffers, &mut tape.0).into_result()
 }
 
 pub(crate) trait Stage1Parse {

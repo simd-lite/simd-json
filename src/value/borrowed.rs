@@ -29,6 +29,7 @@ use crate::{cow::Cow, safer_unchecked::GetSaferUnchecked as _};
 use crate::{prelude::*, Buffers};
 use crate::{Deserializer, Node, Result};
 use halfbrown::HashMap;
+use iex::Outcome;
 use std::fmt;
 use std::ops::{Index, IndexMut};
 
@@ -66,7 +67,7 @@ pub fn to_value_with_buffers<'value>(
     s: &'value mut [u8],
     buffers: &mut Buffers,
 ) -> Result<Value<'value>> {
-    match Deserializer::from_slice_with_buffers(s, buffers) {
+    match Deserializer::from_slice_with_buffers(s, buffers).into_result() {
         Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
     }
