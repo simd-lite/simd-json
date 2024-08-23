@@ -57,7 +57,7 @@ trait Generator: BaseGenerator {
             self.write(b"{}")
         } else {
             let mut iter = object.iter();
-            stry!(self.write(b"{"));
+            self.write(b"{")?;
 
             // We know this exists since it's not empty
             let (key, value) = if let Some(v) = iter.next() {
@@ -67,20 +67,20 @@ trait Generator: BaseGenerator {
                 unreachable!();
             };
             self.indent();
-            stry!(self.new_line());
-            stry!(self.write_simple_string(key));
-            stry!(self.write_min(b": ", b':'));
-            stry!(self.write_json(value));
+            self.new_line()?;
+            self.write_simple_string(key)?;
+            self.write_min(b": ", b':')?;
+            self.write_json(value)?;
 
             for (key, value) in iter {
-                stry!(self.write(b","));
-                stry!(self.new_line());
-                stry!(self.write_simple_string(key));
-                stry!(self.write_min(b": ", b':'));
-                stry!(self.write_json(value));
+                self.write(b",")?;
+                self.new_line()?;
+                self.write_simple_string(key)?;
+                self.write_min(b": ", b':')?;
+                self.write_json(value)?;
             }
             self.dedent();
-            stry!(self.new_line());
+            self.new_line()?;
             self.write(b"}")
         }
     }
@@ -112,19 +112,19 @@ trait Generator: BaseGenerator {
                         // We check against size
                         unreachable!();
                     };
-                    stry!(self.write(b"["));
+                    self.write(b"[")?;
                     self.indent();
 
-                    stry!(self.new_line());
-                    stry!(self.write_json(item));
+                    self.new_line()?;
+                    self.write_json(item)?;
 
                     for item in iter {
-                        stry!(self.write(b","));
-                        stry!(self.new_line());
-                        stry!(self.write_json(item));
+                        self.write(b",")?;
+                        self.new_line()?;
+                        self.write_json(item)?;
                     }
                     self.dedent();
-                    stry!(self.new_line());
+                    self.new_line()?;
                     self.write(b"]")
                 }
             }
@@ -142,7 +142,7 @@ trait FastGenerator: BaseGenerator {
             self.write(b"{}")
         } else {
             let mut iter = object.iter();
-            stry!(self.write(b"{\""));
+            self.write(b"{\"")?;
 
             // We know this exists since it's not empty
             let (key, value) = if let Some(v) = iter.next() {
@@ -151,15 +151,15 @@ trait FastGenerator: BaseGenerator {
                 // We check against size
                 unreachable!();
             };
-            stry!(self.write_simple_str_content(key));
-            stry!(self.write(b"\":"));
-            stry!(self.write_json(value));
+            self.write_simple_str_content(key)?;
+            self.write(b"\":")?;
+            self.write_json(value)?;
 
             for (key, value) in iter {
-                stry!(self.write(b",\""));
-                stry!(self.write_simple_str_content(key));
-                stry!(self.write(b"\":"));
-                stry!(self.write_json(value));
+                self.write(b",\"")?;
+                self.write_simple_str_content(key)?;
+                self.write(b"\":")?;
+                self.write_json(value)?;
             }
             self.write(b"}")
         }
@@ -192,12 +192,12 @@ trait FastGenerator: BaseGenerator {
                         unreachable!();
                     };
 
-                    stry!(self.write(b"["));
-                    stry!(self.write_json(item));
+                    self.write(b"[")?;
+                    self.write_json(item)?;
 
                     for item in iter {
-                        stry!(self.write(b","));
-                        stry!(self.write_json(item));
+                        self.write(b",")?;
+                        self.write_json(item)?;
                     }
                     self.write(b"]")
                 }

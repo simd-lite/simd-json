@@ -107,13 +107,11 @@ impl<'de> Deserializer<'de> {
         stack.clear();
         stack.reserve(structural_indexes.len());
 
-        let res_ptr = res.as_mut_ptr();
         let stack_ptr = stack.as_mut_ptr();
 
         let mut depth: usize = 0;
         let mut last_start;
         let mut cnt: usize;
-        let mut r_i = 0;
 
         // let mut i: usize = 0; // index of the structural character (0,1,2,3...)
         // location of the structural character in the input (buf)
@@ -125,39 +123,12 @@ impl<'de> Deserializer<'de> {
         let mut i: usize = 0;
         let mut state;
 
-        macro_rules! s2try {
-            ($e:expr) => {
-                match $e {
-                    ::std::result::Result::Ok(val) => val,
-                    ::std::result::Result::Err(err) => {
-                        // We need to ensure that rust doesn't
-                        // try to free strings that we never
-                        // allocated
-                        unsafe {
-                            res.set_len(r_i);
-                        };
-                        return ::std::result::Result::Err(err);
-                    }
-                }
+        macro_rules! insert_res {
+            ($t:expr) => {
+                res.push($t);
             };
         }
 
-        macro_rules! insert_res {
-            ($t:expr) => {
-                unsafe {
-                    res_ptr.add(r_i).write($t);
-                    r_i += 1;
-                }
-            };
-        }
-        macro_rules! success {
-            () => {
-                unsafe {
-                    res.set_len(r_i);
-                }
-                return Ok(());
-            };
-        }
         macro_rules! update_char {
             () => {
                 if i < structural_indexes.len() {
@@ -179,12 +150,14 @@ impl<'de> Deserializer<'de> {
 
         macro_rules! insert_str {
             () => {
-                insert_res!(Node::String(s2try!(Self::parse_str_(
-                    input.as_mut_ptr(),
-                    &input2,
-                    buffer,
-                    idx
-                ))));
+                unsafe {
+                    insert_res!(Node::String(Self::parse_str_(
+                        input.as_mut_ptr(),
+                        &input2,
+                        buffer,
+                        idx
+                    )?));
+                }
             };
         }
 
@@ -265,12 +238,6 @@ impl<'de> Deserializer<'de> {
 
         macro_rules! fail {
             () => {
-                // We need to ensure that rust doesn't
-                // try to free strings that we never
-                // allocated
-                unsafe {
-                    res.set_len(r_i);
-                };
                 return Err(Error::new_c(
                     idx,
                     c as char,
@@ -278,12 +245,6 @@ impl<'de> Deserializer<'de> {
                 ));
             };
             ($t:expr) => {
-                // We need to ensure that rust doesn't
-                // try to free strings that we never
-                // allocated
-                unsafe {
-                    res.set_len(r_i);
-                };
                 return Err(Error::new_c(idx, c as char, $t));
             };
         }
@@ -296,7 +257,7 @@ impl<'de> Deserializer<'de> {
                     stack_ptr.add(depth).write(StackState::Start);
                 }
 
-                last_start = r_i;
+                last_start = res.len();
                 insert_res!(Node::Object { len: 0, count: 0 });
 
                 depth += 1;
@@ -322,7 +283,7 @@ impl<'de> Deserializer<'de> {
                     stack_ptr.add(depth).write(StackState::Start);
                 }
 
-                last_start = r_i;
+                last_start = res.len();
                 insert_res!(Node::Array { len: 0, count: 0 });
 
                 depth += 1;
@@ -344,7 +305,7 @@ impl<'de> Deserializer<'de> {
                 };
                 insert_res!(Node::Static(StaticNode::Bool(true)));
                 if i == structural_indexes.len() {
-                    success!();
+                    return Ok(());
                 }
                 fail!(ErrorType::TrailingData);
             }
@@ -356,7 +317,7 @@ impl<'de> Deserializer<'de> {
                 };
                 insert_res!(Node::Static(StaticNode::Bool(false)));
                 if i == structural_indexes.len() {
-                    success!();
+                    return Ok(());
                 }
                 fail!(ErrorType::TrailingData);
             }
@@ -368,30 +329,30 @@ impl<'de> Deserializer<'de> {
                 };
                 insert_res!(Node::Static(StaticNode::Null));
                 if i == structural_indexes.len() {
-                    success!();
+                    return Ok(());
                 }
                 fail!(ErrorType::TrailingData);
             }
             b'"' => {
                 insert_str!();
                 if i == structural_indexes.len() {
-                    success!();
+                    return Ok(());
                 }
                 fail!(ErrorType::TrailingData);
             }
             b'-' => {
-                insert_res!(Node::Static(s2try!(Self::parse_number(idx, input2, true))));
+                insert_res!(Node::Static(Self::parse_number(idx, input2, true)?));
 
                 if i == structural_indexes.len() {
-                    success!();
+                    return Ok(());
                 }
                 fail!(ErrorType::TrailingData);
             }
             b'0'..=b'9' => {
-                insert_res!(Node::Static(s2try!(Self::parse_number(idx, input2, false))));
+                insert_res!(Node::Static(Self::parse_number(idx, input2, false)?));
 
                 if i == structural_indexes.len() {
-                    success!();
+                    return Ok(());
                 }
                 fail!(ErrorType::TrailingData);
             }
@@ -437,16 +398,12 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'-' => {
-                            insert_res!(Node::Static(s2try!(Self::parse_number(
-                                idx, input2, true
-                            ))));
+                            insert_res!(Node::Static(Self::parse_number(idx, input2, true)?));
 
                             object_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(Node::Static(s2try!(Self::parse_number(
-                                idx, input2, false
-                            ))));
+                            insert_res!(Node::Static(Self::parse_number(idx, input2, false)?));
 
                             object_continue!();
                         }
@@ -456,7 +413,7 @@ impl<'de> Deserializer<'de> {
                                     .add(depth)
                                     .write(StackState::Object { last_start, cnt });
                             }
-                            last_start = r_i;
+                            last_start = res.len();
                             insert_res!(Node::Object { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
@@ -468,7 +425,7 @@ impl<'de> Deserializer<'de> {
                                     .add(depth)
                                     .write(StackState::Object { last_start, cnt });
                             }
-                            last_start = r_i;
+                            last_start = res.len();
                             insert_res!(Node::Array { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
@@ -485,22 +442,23 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::Syntax);
                     }
                     depth -= 1;
-                    unsafe {
-                        match *res_ptr.add(last_start) {
-                            Node::Array {
-                                ref mut len,
-                                count: ref mut end,
-                            }
-                            | Node::Object {
-                                ref mut len,
-                                count: ref mut end,
-                            } => {
-                                *len = cnt;
-                                *end = r_i - last_start - 1;
-                            }
-                            _ => unreachable!(),
-                        };
-                    }
+
+                    let r_i = res.len();
+                    match unsafe { res.get_unchecked_mut(last_start) } {
+                        Node::Array {
+                            ref mut len,
+                            count: ref mut end,
+                        }
+                        | Node::Object {
+                            ref mut len,
+                            count: ref mut end,
+                        } => {
+                            *len = cnt;
+                            *end = r_i - last_start - 1;
+                        }
+                        _ => unreachable!(),
+                    };
+
                     unsafe {
                         match *stack_ptr.add(depth) {
                             StackState::Object {
@@ -521,7 +479,7 @@ impl<'de> Deserializer<'de> {
                             }
                             StackState::Start => {
                                 if i == structural_indexes.len() {
-                                    success!();
+                                    return Ok(());
                                 }
                                 fail!();
                             }
@@ -560,17 +518,11 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'-' => {
-                            insert_res!(Node::Static(s2try!(Self::parse_number(
-                                idx, input2, true
-                            ))));
-
+                            insert_res!(Node::Static(Self::parse_number(idx, input2, true)?));
                             array_continue!();
                         }
                         b'0'..=b'9' => {
-                            insert_res!(Node::Static(s2try!(Self::parse_number(
-                                idx, input2, false
-                            ))));
-
+                            insert_res!(Node::Static(Self::parse_number(idx, input2, false)?));
                             array_continue!();
                         }
                         b'{' => {
@@ -579,7 +531,7 @@ impl<'de> Deserializer<'de> {
                                     .add(depth)
                                     .write(StackState::Array { last_start, cnt });
                             }
-                            last_start = r_i;
+                            last_start = res.len();
                             insert_res!(Node::Object { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;
@@ -591,7 +543,7 @@ impl<'de> Deserializer<'de> {
                                     .add(depth)
                                     .write(StackState::Array { last_start, cnt });
                             }
-                            last_start = r_i;
+                            last_start = res.len();
                             insert_res!(Node::Array { len: 0, count: 0 });
                             depth += 1;
                             cnt = 1;

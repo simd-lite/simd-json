@@ -1,5 +1,5 @@
 use crate::serde_ext::de::IntoDeserializer;
-use crate::{stry, Deserializer, Error, ErrorType, Node, Result, StaticNode};
+use crate::{Deserializer, Error, ErrorType, Node, Result, StaticNode};
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
 use std::str;
@@ -18,7 +18,7 @@ where
     where
         V: Visitor<'de>,
     {
-        match stry!(self.next()) {
+        match self.next()? {
             Node::String(s) => visitor.visit_borrowed_str(s),
             Node::Static(StaticNode::Null) => visitor.visit_unit(),
             Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
@@ -53,7 +53,7 @@ where
     where
         V: Visitor<'de>,
     {
-        match stry!(self.next()) {
+        match self.next()? {
             Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
             _c => Err(Deserializer::error(ErrorType::ExpectedBoolean)),
         }
@@ -93,7 +93,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i8(stry!(self.parse_i8()))
+        visitor.visit_i8(self.parse_i8()?)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -102,7 +102,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i16(stry!(self.parse_i16()))
+        visitor.visit_i16(self.parse_i16()?)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -111,7 +111,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i32(stry!(self.parse_i32()))
+        visitor.visit_i32(self.parse_i32()?)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -119,7 +119,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i64(stry!(self.parse_i64()))
+        visitor.visit_i64(self.parse_i64()?)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -127,7 +127,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_i128(stry!(self.parse_i128()))
+        visitor.visit_i128(self.parse_i128()?)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -136,7 +136,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u8(stry!(self.parse_u8()))
+        visitor.visit_u8(self.parse_u8()?)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -145,7 +145,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u16(stry!(self.parse_u16()))
+        visitor.visit_u16(self.parse_u16()?)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -154,7 +154,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u32(stry!(self.parse_u32()))
+        visitor.visit_u32(self.parse_u32()?)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -162,7 +162,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u64(stry!(self.parse_u64()))
+        visitor.visit_u64(self.parse_u64()?)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -170,7 +170,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u128(stry!(self.parse_u128()))
+        visitor.visit_u128(self.parse_u128()?)
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -179,7 +179,7 @@ where
     where
         V: Visitor<'de>,
     {
-        let v: f64 = stry!(self.parse_double());
+        let v: f64 = self.parse_double()?;
         visitor.visit_f32(v as f32)
     }
 
@@ -188,7 +188,7 @@ where
     where
         V: Visitor<'de>,
     {
-        visitor.visit_f64(stry!(self.parse_double()))
+        visitor.visit_f64(self.parse_double()?)
     }
 
     // An absent optional is represented as the JSON `null` and a present
@@ -205,7 +205,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if stry!(self.peek()) == Node::Static(StaticNode::Null) {
+        if self.peek()? == Node::Static(StaticNode::Null) {
             self.skip();
             visitor.visit_unit()
         } else {
@@ -219,7 +219,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if stry!(self.next()) != Node::Static(StaticNode::Null) {
+        if self.next()? != Node::Static(StaticNode::Null) {
             return Err(Deserializer::error(ErrorType::ExpectedNull));
         }
         visitor.visit_unit()
@@ -371,7 +371,7 @@ impl<'de, 'a> de::EnumAccess<'de> for VariantAccess<'a, 'de> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        let val = stry!(seed.deserialize(&mut *self.de));
+        let val = seed.deserialize(&mut *self.de)?;
         Ok((val, self))
     }
 }
@@ -487,12 +487,12 @@ macro_rules! deserialize_integer_key {
         where
             V: de::Visitor<'de>,
         {
-            visitor.$visit(stry!(match unsafe { self.de.next_() } {
+            visitor.$visit(match unsafe { self.de.next_() } {
                 Node::String(s) => s
                     .parse::<$type>()
                     .map_err(|_| Deserializer::error(ErrorType::InvalidNumber)),
                 _ => Err(Deserializer::error(ErrorType::ExpectedString)),
-            }))
+            }?)
         }
     };
 }
@@ -505,7 +505,7 @@ impl<'de, 'a> de::Deserializer<'de> for MapKey<'de, 'a> {
     where
         V: de::Visitor<'de>,
     {
-        match stry!(self.de.next()) {
+        match self.de.next()? {
             Node::String(s) => visitor.visit_borrowed_str(s),
             _ => Err(Deserializer::error(ErrorType::ExpectedString)),
         }
