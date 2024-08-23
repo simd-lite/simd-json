@@ -191,11 +191,12 @@ impl<'de> Deserializer<'de> {
         } else if is_structural_or_whitespace(get!(buf, idx)) == 0 {
             err!(idx, get!(buf, idx))
         } else {
-            Ok(StaticNode::I64(if negative {
-                unsafe { static_cast_i64!(num.wrapping_neg()) } // -(num as i64)
+            Ok(if negative {
+                StaticNode::I64(unsafe { static_cast_i64!(num.wrapping_neg()) })
+            // -(num as i64)
             } else {
-                num as i64
-            }))
+                StaticNode::U64(num)
+            })
         }
     }
 }
@@ -238,7 +239,6 @@ fn parse_large_integer(
         (true, 9_223_372_036_854_775_808) => Ok(StaticNode::I64(i64::MIN)),
         (true, 9_223_372_036_854_775_809..=u64::MAX) => err!(idx, get!(buf, idx)),
         (true, 0..=9_223_372_036_854_775_807) => Ok(StaticNode::I64(-(num as i64))),
-        (false, 0..=9_223_372_036_854_775_807) => Ok(StaticNode::I64(num as i64)),
         (false, _) => Ok(StaticNode::U64(num)),
     }
 }
@@ -404,6 +404,7 @@ mod test {
     use crate::value::owned::Value::Static;
     use value_trait::StaticNode::F64;
     use value_trait::StaticNode::I64;
+    use value_trait::StaticNode::U64;
 
     fn to_value_from_str(buf: &str) -> Result<Value, Error> {
         let mut val = String::from(buf);
@@ -530,7 +531,7 @@ mod test {
 
     #[test]
     fn zero_int() -> Result<(), crate::Error> {
-        assert_eq!(to_value_from_str("0")?, Static(I64(0)));
+        assert_eq!(to_value_from_str("0")?, Static(U64(0)));
         Ok(())
     }
 
@@ -545,8 +546,9 @@ mod test {
 
     #[test]
     fn int() -> Result<(), crate::Error> {
-        assert_eq!(to_value_from_str("1")?, Static(I64(1)));
-        assert_eq!(to_value_from_str("257")?, Static(I64(257)));
+        assert!(matches!(to_value_from_str("1")?, Static(U64(1))));
+        assert_eq!(to_value_from_str("-1")?, Static(I64(-1)));
+        assert_eq!(to_value_from_str("257")?, Static(U64(257)));
         Ok(())
     }
 
