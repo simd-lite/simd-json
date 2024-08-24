@@ -29,6 +29,7 @@ const LOW_SURROGATES: Range<u32> = 0xdc00..0xe000;
 /// write appropriate values into dest
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[allow(dead_code)]
+#[iex::iex]
 pub(crate) fn handle_unicode_codepoint(
     src_ptr: &[u8],
     dst_ptr: &mut [u8],
@@ -45,6 +46,7 @@ pub(crate) fn handle_unicode_codepoint(
 /// return true if the unicode codepoint was valid
 /// We work in little-endian then swap at write time
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[iex::iex]
 pub(crate) fn get_unicode_codepoint(mut src_ptr: &[u8]) -> Result<(u32, usize), ErrorType> {
     // hex_to_u32_nocheck fills high 16 bits of the return value with 1s if the
     // conversion isn't valid; we defer the check for this to inside the

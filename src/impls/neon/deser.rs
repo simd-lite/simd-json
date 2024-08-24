@@ -1,3 +1,5 @@
+use iex::Outcome;
+
 use crate::error::ErrorType;
 use crate::impls::neon::stage1::bit_mask;
 use crate::safer_unchecked::GetSaferUnchecked;
@@ -169,14 +171,11 @@ pub(crate) fn parse_str<'invoke, 'de>(
                 // within the unicode codepoint handling code.
                 src_i += bs_dist as usize;
                 dst_i += bs_dist as usize;
-                let (o, s) = if let Ok(r) =
+                let (o, s) =
                     handle_unicode_codepoint(unsafe { src.get_kinda_unchecked(src_i..) }, unsafe {
                         buffer.get_kinda_unchecked_mut(dst_i..)
-                    }) {
-                    r
-                } else {
-                    return Err(Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint));
-                };
+                    })
+                    .map_err(|_| Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint))?;
                 if o == 0 {
                     return Err(Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint));
                 };
