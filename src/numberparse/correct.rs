@@ -12,6 +12,12 @@ use crate::safer_unchecked::GetSaferUnchecked;
 use crate::StaticNode;
 use crate::{Deserializer, ErrorType, Result};
 
+macro_rules! err {
+    ($idx:ident, $num:expr) => {
+        return Err(Error::new_c($idx, $num as char, ErrorType::InvalidNumber))
+    };
+}
+
 macro_rules! get {
     ($buf:ident, $idx:expr) => {
         unsafe { *$buf.get_kinda_unchecked($idx as usize) }
@@ -23,11 +29,7 @@ macro_rules! check_overflow {
         if $overflowed {
             #[cfg(not(feature = "big-int-as-float"))]
             {
-                return Err(Error::new_c(
-                    $idx,
-                    get!($buf, $idx) as char,
-                    ErrorType::InvalidNumber,
-                ));
+                err!($idx, get!($buf, $idx));
             }
             #[cfg(feature = "big-int-as-float")]
             {
@@ -61,11 +63,7 @@ impl<'de> Deserializer<'de> {
         if negative {
             idx += 1;
             if !is_integer(get!(buf, idx)) {
-                return Err(Error::new_c(
-                    idx,
-                    get!(buf, idx) as char,
-                    ErrorType::InvalidNumber,
-                ));
+                err!(idx, get!(buf, idx));
             }
         }
         let mut start = idx;
@@ -73,19 +71,11 @@ impl<'de> Deserializer<'de> {
         if get!(buf, idx) == b'0' {
             idx += 1;
             if is_not_structural_or_whitespace_or_exponent_or_decimal(get!(buf, idx)) {
-                return Err(Error::new_c(
-                    idx,
-                    get!(buf, idx) as char,
-                    ErrorType::InvalidNumber,
-                ));
+                err!(idx, get!(buf, idx));
             }
         } else {
             if !is_integer(get!(buf, idx)) {
-                return Err(Error::new_c(
-                    idx,
-                    get!(buf, idx) as char,
-                    ErrorType::InvalidNumber,
-                ));
+                err!(idx, get!(buf, idx));
             }
             num = u64::from(get!(buf, idx) - b'0');
             idx += 1;
@@ -108,11 +98,7 @@ impl<'de> Deserializer<'de> {
                     .wrapping_add(u64::from(get!(buf, idx) - b'0'));
                 idx += 1;
             } else {
-                return Err(Error::new_c(
-                    idx,
-                    get!(buf, idx) as char,
-                    ErrorType::InvalidNumber,
-                ));
+                err!(idx, get!(buf, idx));
             }
 
             #[cfg(feature = "swar-number-parsing")]
@@ -155,11 +141,7 @@ impl<'de> Deserializer<'de> {
                     }
                 }
                 if !is_integer(get!(buf, idx)) {
-                    return Err(Error::new_c(
-                        idx,
-                        get!(buf, idx) as char,
-                        ErrorType::InvalidNumber,
-                    ));
+                    err!(idx, get!(buf, idx));
                 }
                 let mut exp_number = i64::from(get!(buf, idx) - b'0');
                 idx += 1;
@@ -173,11 +155,7 @@ impl<'de> Deserializer<'de> {
                 }
                 while is_integer(get!(buf, idx)) {
                     if exp_number > 0x0001_0000_0000 {
-                        return Err(Error::new_c(
-                            idx,
-                            get!(buf, idx) as char,
-                            ErrorType::InvalidNumber,
-                        ));
+                        err!(idx, get!(buf, idx));
                     }
                     exp_number = 10 * exp_number + i64::from(get!(buf, idx) - b'0');
                     idx += 1;
@@ -202,11 +180,7 @@ impl<'de> Deserializer<'de> {
                 }
             }
             if is_structural_or_whitespace(get!(buf, idx)) == 0 {
-                return Err(Error::new_c(
-                    idx,
-                    get!(buf, idx) as char,
-                    ErrorType::InvalidNumber,
-                ));
+                err!(idx, get!(buf, idx));
             }
             Ok(f64_from_parts(
                 !negative,
@@ -224,13 +198,11 @@ impl<'de> Deserializer<'de> {
                 ErrorType::InvalidNumber,
             ))
         } else {
-            let res = if negative {
+            Ok(if negative {
                 StaticNode::I64(unsafe { static_cast_i64!(num.wrapping_neg()) })
-            // -(num as i64)
             } else {
                 StaticNode::U64(num)
-            };
-            Ok(res)
+            })
         }
     }
 }
@@ -362,11 +334,9 @@ fn f64_from_parts(
         } else {
             f *= get!(POW10, exponent);
         }
-        let res = StaticNode::F64(if positive { f } else { -f });
-        Ok(res)
+        Ok(StaticNode::F64(if positive { f } else { -f }))
     } else if significand == 0 {
-        let res = StaticNode::F64(if positive { 0.0 } else { -0.0 });
-        Ok(res)
+        Ok(StaticNode::F64(if positive { 0.0 } else { -0.0 }))
     } else if (-325..=308).contains(&exponent) {
         let (factor_mantissa, factor_exponent) = get!(POW10_COMPONENTS, exponent + 325);
         let mut leading_zeroes = u64::from(significand.leading_zeros());
@@ -421,8 +391,7 @@ fn f64_from_parts(
                 ErrorType::InvalidNumber,
             ))
         } else {
-            let res = StaticNode::F64(res);
-            Ok(res)
+            Ok(StaticNode::F64(res))
         }
     } else {
         let res = f64_from_parts_slow(slice, offset)?;
@@ -438,21 +407,12 @@ fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
     match unsafe { std::str::from_utf8_unchecked(slice).parse::<f64>() } {
         Ok(val) => {
             if val.is_infinite() {
-                return Err(Error::new_c(
-                    offset,
-                    get!(slice, 0) as char,
-                    ErrorType::InvalidNumber,
-                ));
+                err!(offset, get!(slice, 0));
             }
-
             Ok(StaticNode::F64(val))
         }
         Err(_) => {
-            return Err(Error::new_c(
-                offset,
-                get!(slice, offset) as char,
-                ErrorType::InvalidNumber,
-            ))
+            err!(offset, get!(slice, offset));
         }
     }
 }

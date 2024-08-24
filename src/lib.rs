@@ -1126,16 +1126,14 @@ impl AlignedBuf {
     /// Creates a new buffer that is  aligned with the simd register size
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
-        let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING) {
-            Ok(layout) => layout,
-            Err(_) => Self::capacity_overflow(),
+        let Ok(layout) = Layout::from_size_align(capacity, SIMDJSON_PADDING) else {
+            Self::capacity_overflow()
         };
         if mem::size_of::<usize>() < 8 && capacity > isize::MAX as usize {
             Self::capacity_overflow()
         }
-        let inner = match unsafe { NonNull::new(alloc(layout)) } {
-            Some(ptr) => ptr,
-            None => handle_alloc_error(layout),
+        let Some(inner) = NonNull::new(unsafe { alloc(layout) }) else {
+            handle_alloc_error(layout)
         };
         Self {
             layout,
