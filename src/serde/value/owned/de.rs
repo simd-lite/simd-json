@@ -670,11 +670,8 @@ impl<'de> de::Deserializer<'de> for &'de Value {
         let (variant, value) = match self {
             Value::Object(value) => {
                 let mut iter = value.iter();
-                let (variant, value) = match iter.next() {
-                    Some(v) => v,
-                    None => {
-                        return Err(crate::Deserializer::error(ErrorType::Eof));
-                    }
+                let Some((variant, value)) = iter.next() else {
+                    return Err(crate::Deserializer::error(ErrorType::Eof));
                 };
                 // enums are encoded in json as maps with a single key:value pair
                 if iter.next().is_some() {

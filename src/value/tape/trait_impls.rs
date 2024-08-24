@@ -702,9 +702,7 @@ trait Generator: BaseGenerator {
             self.write(b"{")?;
 
             // We know this exists since it's not empty
-            let (key, value) = if let Some(v) = iter.next() {
-                v
-            } else {
+            let Some((key, value)) = iter.next() else {
                 // We check against size
                 unreachable!();
             };
@@ -750,9 +748,7 @@ trait Generator: BaseGenerator {
                     let mut iter = array.iter();
                     // We know we have one item
 
-                    let item = if let Some(v) = iter.next() {
-                        v
-                    } else {
+                    let Some(item) = iter.next() else {
                         // We check against size
                         unreachable!();
                     };
@@ -789,9 +785,7 @@ trait FastGenerator: BaseGenerator {
             self.write(b"{\"")?;
 
             // We know this exists since it's not empty
-            let (key, value) = if let Some(v) = iter.next() {
-                v
-            } else {
+            let Some((key, value)) = iter.next() else {
                 // We check against size
                 unreachable!();
             };
@@ -830,9 +824,7 @@ trait FastGenerator: BaseGenerator {
                     let array = Array(&json.0[..=count]);
                     let mut iter = array.iter();
                     // We know we have one item
-                    let item = if let Some(v) = iter.next() {
-                        v
-                    } else {
+                    let Some(item) = iter.next() else {
                         // We check against size
                         unreachable!();
                     };
