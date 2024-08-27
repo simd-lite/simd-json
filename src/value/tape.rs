@@ -33,6 +33,24 @@ impl<'input> Tape<'input> {
         // so we can safely change the lifetime of the tape to 'new
         unsafe { std::mem::transmute(self) }
     }
+
+    /// Deserializes the tape into a type that implements `serde::Deserialize`
+    /// # Errors
+    /// Returns an error if the deserialization fails
+    #[cfg(feature = "serde")]
+    pub fn deserialize<T>(self) -> crate::Result<T>
+    where
+        T: serde::Deserialize<'input>,
+    {
+        use crate::Deserializer;
+
+        let mut deserializer = Deserializer {
+            tape: self.0,
+            idx: 0,
+        };
+
+        T::deserialize(&mut deserializer)
+    }
 }
 
 /// Wrapper around the tape that allows interaction via a `Value`-like API.
