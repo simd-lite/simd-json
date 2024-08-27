@@ -17,6 +17,7 @@ macro_rules! get {
         unsafe { *$buf.get_kinda_unchecked($idx as usize) }
     };
 }
+
 macro_rules! err {
     ($idx:ident, $num:expr) => {
         return Err(Error::new_c($idx, $num as char, ErrorType::InvalidNumber))
@@ -28,7 +29,7 @@ macro_rules! check_overflow {
         if $overflowed {
             #[cfg(not(feature = "big-int-as-float"))]
             {
-                err!($idx, get!($buf, $idx))
+                err!($idx, get!($buf, $idx));
             }
             #[cfg(feature = "big-int-as-float")]
             {
@@ -55,13 +56,14 @@ impl<'de> Deserializer<'de> {
         clippy::cast_possible_truncation,
         clippy::too_many_lines
     )]
+    #[iex::iex]
     pub(crate) fn parse_number(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
         let start_idx = idx;
         let mut idx = idx;
         if negative {
             idx += 1;
             if !is_integer(get!(buf, idx)) {
-                err!(idx, get!(buf, idx))
+                err!(idx, get!(buf, idx));
             }
         }
         let mut start = idx;
@@ -69,11 +71,11 @@ impl<'de> Deserializer<'de> {
         if get!(buf, idx) == b'0' {
             idx += 1;
             if is_not_structural_or_whitespace_or_exponent_or_decimal(get!(buf, idx)) {
-                err!(idx, get!(buf, idx))
+                err!(idx, get!(buf, idx));
             }
         } else {
             if !is_integer(get!(buf, idx)) {
-                err!(idx, get!(buf, idx))
+                err!(idx, get!(buf, idx));
             }
             num = u64::from(get!(buf, idx) - b'0');
             idx += 1;
@@ -96,7 +98,7 @@ impl<'de> Deserializer<'de> {
                     .wrapping_add(u64::from(get!(buf, idx) - b'0'));
                 idx += 1;
             } else {
-                err!(idx, get!(buf, idx))
+                err!(idx, get!(buf, idx));
             }
 
             #[cfg(feature = "swar-number-parsing")]
@@ -139,7 +141,7 @@ impl<'de> Deserializer<'de> {
                     }
                 }
                 if !is_integer(get!(buf, idx)) {
-                    err!(idx, get!(buf, idx))
+                    err!(idx, get!(buf, idx));
                 }
                 let mut exp_number = i64::from(get!(buf, idx) - b'0');
                 idx += 1;
@@ -153,7 +155,7 @@ impl<'de> Deserializer<'de> {
                 }
                 while is_integer(get!(buf, idx)) {
                     if exp_number > 0x0001_0000_0000 {
-                        err!(idx, get!(buf, idx))
+                        err!(idx, get!(buf, idx));
                     }
                     exp_number = 10 * exp_number + i64::from(get!(buf, idx) - b'0');
                     idx += 1;
@@ -170,30 +172,30 @@ impl<'de> Deserializer<'de> {
                 }
                 digit_count = digit_count.wrapping_sub(start.wrapping_sub(start_digits));
                 if digit_count >= 19 {
-                    return f64_from_parts_slow(
+                    let res = f64_from_parts_slow(
                         unsafe { buf.get_kinda_unchecked(start_idx..idx) },
                         start_idx,
-                    );
+                    )?;
+                    return Ok(res);
                 }
             }
             if is_structural_or_whitespace(get!(buf, idx)) == 0 {
-                err!(idx, get!(buf, idx))
+                err!(idx, get!(buf, idx));
             }
-            f64_from_parts(
+            Ok(f64_from_parts(
                 !negative,
                 num,
                 exponent as i32,
                 unsafe { buf.get_kinda_unchecked(start_idx..idx) },
                 start_idx,
-            )
+            )?)
         } else if unlikely!(digit_count >= 18) {
-            parse_large_integer(start_idx, buf, negative, idx)
+            Ok(parse_large_integer(start_idx, buf, negative, idx)?)
         } else if is_structural_or_whitespace(get!(buf, idx)) == 0 {
             err!(idx, get!(buf, idx))
         } else {
             Ok(if negative {
                 StaticNode::I64(unsafe { static_cast_i64!(num.wrapping_neg()) })
-            // -(num as i64)
             } else {
                 StaticNode::U64(num)
             })
@@ -204,6 +206,7 @@ impl<'de> Deserializer<'de> {
 #[cfg(not(feature = "128bit"))]
 #[cold]
 #[allow(clippy::cast_possible_wrap)]
+#[iex::iex]
 fn parse_large_integer(
     start_idx: usize,
     buf: &[u8],
@@ -246,6 +249,7 @@ fn parse_large_integer(
 #[cfg(feature = "128bit")]
 #[cold]
 #[allow(clippy::cast_possible_wrap)]
+#[iex::iex]
 fn parse_large_integer(
     start_idx: usize,
     buf: &[u8],
@@ -307,6 +311,7 @@ fn parse_large_integer(
     clippy::cast_precision_loss,
     clippy::cast_possible_wrap
 )]
+#[iex::iex]
 fn f64_from_parts(
     positive: bool,
     significand: u64,
@@ -342,7 +347,8 @@ fn f64_from_parts(
                 && product_high & 0x1FF == 0x1FF
                 && product_low.wrapping_add(f) < product_low
             {
-                return f64_from_parts_slow(slice, offset);
+                let res = f64_from_parts_slow(slice, offset)?;
+                return Ok(res);
             }
             upper = product_high;
             lower = product_middle;
@@ -352,7 +358,7 @@ fn f64_from_parts(
         leading_zeroes += 1 ^ upperbit;
 
         if lower == 0 && upper.trailing_zeros() >= 9 && mantissa & 3 == 1 {
-            return f64_from_parts_slow(slice, offset);
+            return Ok(f64_from_parts_slow(slice, offset)?);
         }
         mantissa += mantissa & 1;
         mantissa >>= 1;
@@ -365,30 +371,32 @@ fn f64_from_parts(
         let real_exponent = (factor_exponent as u64).wrapping_sub(leading_zeroes);
         // we have to check that real_exponent is in range, otherwise we bail out
         if !(1..=2046).contains(&real_exponent) {
-            return f64_from_parts_slow(slice, offset);
+            return Ok(f64_from_parts_slow(slice, offset)?);
         }
         mantissa |= real_exponent.wrapping_shl(52);
         mantissa |= u64::from(!positive) << 63;
         let res = f64::from_bits(mantissa);
         if res.is_infinite() {
             err!(offset, get!(slice, offset))
+        } else {
+            Ok(StaticNode::F64(res))
         }
-        Ok(StaticNode::F64(res))
     } else {
-        f64_from_parts_slow(slice, offset)
+        let res = f64_from_parts_slow(slice, offset)?;
+        Ok(res)
     }
 }
 
 #[cold]
+#[iex::iex]
 fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
     // we already validated the content of the slice we only need to translate
     // the slice to a string and parse it as parse is not defined for a u8 slice
     match unsafe { std::str::from_utf8_unchecked(slice).parse::<f64>() } {
         Ok(val) => {
             if val.is_infinite() {
-                err!(offset, get!(slice, 0))
+                err!(offset, get!(slice, 0));
             }
-
             Ok(StaticNode::F64(val))
         }
         Err(_) => err!(offset, get!(slice, offset)),

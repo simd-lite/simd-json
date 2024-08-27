@@ -1,4 +1,4 @@
-use crate::{stry, Error, ErrorType};
+use crate::{Error, ErrorType};
 use serde_ext::ser;
 use std::io::Write;
 use std::str;
@@ -87,7 +87,7 @@ where
             9 => self.get_writer().write_all(b"                  "),
             _ => {
                 for _ in 0..(self.dent * 2) {
-                    stry!(self.get_writer().write_all(b" "));
+                    self.get_writer().write_all(b" ")?;
                 }
                 Ok(())
             }

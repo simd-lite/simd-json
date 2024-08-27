@@ -27,6 +27,7 @@ use super::ObjectHasher;
 use crate::{prelude::*, Buffers};
 use crate::{Deserializer, Node, Result};
 use halfbrown::HashMap;
+use iex::Outcome;
 use std::fmt;
 use std::ops::{Index, IndexMut};
 
@@ -61,7 +62,7 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
 ///
 /// Will return `Err` if `s` is invalid JSON.
 pub fn to_value_with_buffers(s: &mut [u8], buffers: &mut Buffers) -> Result<Value> {
-    match Deserializer::from_slice_with_buffers(s, buffers) {
+    match Deserializer::from_slice_with_buffers(s, buffers).into_result() {
         Ok(de) => Ok(OwnedDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
     }

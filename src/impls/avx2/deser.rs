@@ -16,13 +16,14 @@ use crate::{
     Deserializer, Result, SillyWrapper,
 };
 
-#[target_feature(enable = "avx2")]
 #[allow(
     clippy::if_not_else,
     clippy::cast_possible_wrap,
     clippy::too_many_lines
 )]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[iex::iex]
+#[target_feature(enable = "avx2")]
 pub(crate) unsafe fn parse_str<'invoke, 'de>(
     input: SillyWrapper<'de>,
     data: &'invoke [u8],

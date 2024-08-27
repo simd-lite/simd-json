@@ -1,3 +1,5 @@
+use iex::Outcome;
+
 use crate::error::ErrorType;
 use crate::impls::neon::stage1::bit_mask;
 use crate::safer_unchecked::GetSaferUnchecked;
@@ -42,6 +44,7 @@ fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
 
 #[allow(clippy::if_not_else, clippy::too_many_lines)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[iex::iex]
 pub(crate) fn parse_str<'invoke, 'de>(
     input: SillyWrapper<'de>,
     data: &'invoke [u8],
@@ -168,14 +171,11 @@ pub(crate) fn parse_str<'invoke, 'de>(
                 // within the unicode codepoint handling code.
                 src_i += bs_dist as usize;
                 dst_i += bs_dist as usize;
-                let (o, s) = if let Ok(r) =
+                let (o, s) =
                     handle_unicode_codepoint(unsafe { src.get_kinda_unchecked(src_i..) }, unsafe {
                         buffer.get_kinda_unchecked_mut(dst_i..)
-                    }) {
-                    r
-                } else {
-                    return Err(Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint));
-                };
+                    })
+                    .map_err(|_| Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint))?;
                 if o == 0 {
                     return Err(Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint));
                 };

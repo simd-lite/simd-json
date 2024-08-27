@@ -139,6 +139,7 @@ mod numberparse;
 mod safer_unchecked;
 mod stringparse;
 
+use iex::Outcome;
 use safer_unchecked::GetSaferUnchecked;
 use stage2::StackState;
 
@@ -225,7 +226,9 @@ pub fn to_tape(s: &mut [u8]) -> Result<Tape> {
 /// Will return `Err` if `s` is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn to_tape_with_buffers<'de>(s: &'de mut [u8], buffers: &mut Buffers) -> Result<Tape<'de>> {
-    Deserializer::from_slice_with_buffers(s, buffers).map(Deserializer::into_tape)
+    Deserializer::from_slice_with_buffers(s, buffers)
+        .into_result()
+        .map(Deserializer::into_tape)
 }
 
 /// Fills a already existing tape from the input for later consumption
@@ -235,7 +238,7 @@ pub fn to_tape_with_buffers<'de>(s: &'de mut [u8], buffers: &mut Buffers) -> Res
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub fn fill_tape<'de>(s: &'de mut [u8], buffers: &mut Buffers, tape: &mut Tape<'de>) -> Result<()> {
     tape.0.clear();
-    Deserializer::fill_tape(s, buffers, &mut tape.0)
+    Deserializer::fill_tape(s, buffers, &mut tape.0).into_result()
 }
 
 pub(crate) trait Stage1Parse {
@@ -547,6 +550,7 @@ impl<'de> Deserializer<'de> {
         feature = "runtime-detection",
         any(target_arch = "x86_64", target_arch = "x86"),
     ))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -606,6 +610,7 @@ impl<'de> Deserializer<'de> {
         target_feature = "simd128",
         target_arch = "aarch64",
     )))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -620,6 +625,7 @@ impl<'de> Deserializer<'de> {
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(feature = "portable", not(feature = "runtime-detection")))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -639,6 +645,7 @@ impl<'de> Deserializer<'de> {
         not(feature = "portable"),
         not(feature = "runtime-detection"),
     ))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -656,6 +663,7 @@ impl<'de> Deserializer<'de> {
         not(feature = "runtime-detection"),
         not(feature = "portable"),
     ))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -668,6 +676,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(target_arch = "aarch64", not(feature = "portable")))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -679,6 +688,7 @@ impl<'de> Deserializer<'de> {
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(target_feature = "simd128", not(feature = "portable")))]
+    #[iex::iex]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -842,7 +852,7 @@ impl<'de> Deserializer<'de> {
 
         let mut buffer = Buffers::new(len);
 
-        Self::from_slice_with_buffers(input, &mut buffer)
+        Self::from_slice_with_buffers(input, &mut buffer).into_result()
     }
 
     /// Fills the tape without creating a serializer, this function poses
@@ -854,6 +864,7 @@ impl<'de> Deserializer<'de> {
     /// Will return `Err` if `input` is invalid JSON.
     #[allow(clippy::uninit_vec)]
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[iex::iex(captures = "'de")]
     fn fill_tape(
         input: &'de mut [u8],
         buffer: &mut Buffers,
@@ -905,7 +916,8 @@ impl<'de> Deserializer<'de> {
             &buffer.structural_indexes,
             &mut buffer.stage2_stack,
             tape,
-        )
+        )?;
+        Ok(())
     }
 
     /// Creates a serializer from a mutable slice of bytes using a temporary
@@ -914,6 +926,7 @@ impl<'de> Deserializer<'de> {
     /// # Errors
     ///
     /// Will return `Err` if `s` is invalid JSON.
+    #[iex::iex]
     pub fn from_slice_with_buffers(input: &'de mut [u8], buffer: &mut Buffers) -> Result<Self> {
         let mut tape: Vec<Node<'de>> = Vec::with_capacity(buffer.structural_indexes.len());
 
@@ -1113,16 +1126,14 @@ impl AlignedBuf {
     /// Creates a new buffer that is  aligned with the simd register size
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
-        let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING) {
-            Ok(layout) => layout,
-            Err(_) => Self::capacity_overflow(),
+        let Ok(layout) = Layout::from_size_align(capacity, SIMDJSON_PADDING) else {
+            Self::capacity_overflow()
         };
         if mem::size_of::<usize>() < 8 && capacity > isize::MAX as usize {
             Self::capacity_overflow()
         }
-        let inner = match unsafe { NonNull::new(alloc(layout)) } {
-            Some(ptr) => ptr,
-            None => handle_alloc_error(layout),
+        let Some(inner) = NonNull::new(unsafe { alloc(layout) }) else {
+            handle_alloc_error(layout)
         };
         Self {
             layout,

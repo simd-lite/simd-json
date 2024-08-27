@@ -11,8 +11,9 @@ mod se;
 mod value;
 pub use self::se::*;
 pub use self::value::*;
-use crate::{stry, Buffers, Deserializer, Error, ErrorType, Node, Result};
 use crate::{BorrowedValue, OwnedValue};
+use crate::{Buffers, Deserializer, Error, ErrorType, Node, Result};
+use iex::Outcome;
 use serde::de::DeserializeOwned;
 use serde_ext::Deserialize;
 use std::fmt;
@@ -57,7 +58,7 @@ pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = stry!(Deserializer::from_slice(s));
+    let mut deserializer = Deserializer::from_slice(s)?;
     T::deserialize(&mut deserializer)
 }
 
@@ -74,7 +75,7 @@ pub fn from_slice_with_buffers<'a, T>(s: &'a mut [u8], buffers: &mut Buffers) ->
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = stry!(Deserializer::from_slice_with_buffers(s, buffers));
+    let mut deserializer = Deserializer::from_slice_with_buffers(s, buffers).into_result()?;
     T::deserialize(&mut deserializer)
 }
 
@@ -98,7 +99,7 @@ pub unsafe fn from_str<'a, T>(s: &'a mut str) -> Result<T>
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = stry!(Deserializer::from_slice(s.as_bytes_mut()));
+    let mut deserializer = Deserializer::from_slice(s.as_bytes_mut())?;
 
     T::deserialize(&mut deserializer)
 }
@@ -125,10 +126,8 @@ pub unsafe fn from_str_with_buffers<'a, T>(s: &'a mut str, buffers: &mut Buffers
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = stry!(Deserializer::from_slice_with_buffers(
-        s.as_bytes_mut(),
-        buffers
-    ));
+    let mut deserializer =
+        Deserializer::from_slice_with_buffers(s.as_bytes_mut(), buffers).into_result()?;
 
     T::deserialize(&mut deserializer)
 }
@@ -149,7 +148,7 @@ where
     if let Err(e) = rdr.read_to_end(&mut data) {
         return Err(Error::generic(ErrorType::Io(e)));
     };
-    let mut deserializer = stry!(Deserializer::from_slice(&mut data));
+    let mut deserializer = Deserializer::from_slice(&mut data)?;
     T::deserialize(&mut deserializer)
 }
 
@@ -171,7 +170,8 @@ where
     if let Err(e) = rdr.read_to_end(&mut data) {
         return Err(Error::generic(ErrorType::Io(e)));
     };
-    let mut deserializer = stry!(Deserializer::from_slice_with_buffers(&mut data, buffers));
+    let mut deserializer =
+        Deserializer::from_slice_with_buffers(&mut data, buffers).into_result()?;
     T::deserialize(&mut deserializer)
 }
 

@@ -77,6 +77,7 @@ impl<'de> Deserializer<'de> {
         clippy::cast_precision_loss,
         clippy::too_many_lines
     )]
+    #[iex::iex]
     fn parse_float(idx: usize, p: &[u8], negative: bool) -> Result<StaticNode> {
         let mut digitcount = usize::from(negative);
         let mut i: f64;
@@ -222,6 +223,7 @@ impl<'de> Deserializer<'de> {
     #[cfg(not(feature = "128bit"))]
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
+    #[iex::iex]
     fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
         let mut digitcount = usize::from(negative);
         let mut i: u64;
@@ -283,6 +285,7 @@ impl<'de> Deserializer<'de> {
     #[cfg(feature = "128bit")]
     #[inline(never)]
     #[allow(clippy::cast_possible_wrap)]
+    #[iex::iex]
     fn parse_large_integer(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
         let mut digitcount = usize::from(negative);
         let mut i: u128;
@@ -358,6 +361,7 @@ impl<'de> Deserializer<'de> {
         clippy::cast_possible_wrap,
         clippy::too_many_lines
     )]
+    #[iex::iex]
     pub(crate) fn parse_number(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
         let buf = unsafe { buf.get_kinda_unchecked(idx..) };
         let mut byte_count = usize::from(negative);

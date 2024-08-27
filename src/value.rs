@@ -70,6 +70,7 @@ pub use self::owned::{
 };
 use crate::{Buffers, Deserializer, Result};
 use halfbrown::HashMap;
+use iex::Outcome;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use tape::Node;
@@ -119,7 +120,7 @@ where
     Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
-    match Deserializer::from_slice_with_buffers(s, buffers) {
+    match Deserializer::from_slice_with_buffers(s, buffers).into_result() {
         Ok(de) => Ok(ValueDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
     }

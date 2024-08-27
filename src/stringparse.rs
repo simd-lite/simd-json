@@ -29,6 +29,7 @@ const LOW_SURROGATES: Range<u32> = 0xdc00..0xe000;
 /// write appropriate values into dest
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[allow(dead_code)]
+#[iex::iex]
 pub(crate) fn handle_unicode_codepoint(
     src_ptr: &[u8],
     dst_ptr: &mut [u8],
@@ -45,6 +46,7 @@ pub(crate) fn handle_unicode_codepoint(
 /// return true if the unicode codepoint was valid
 /// We work in little-endian then swap at write time
 #[cfg_attr(not(feature = "no-inline"), inline)]
+#[iex::iex]
 pub(crate) fn get_unicode_codepoint(mut src_ptr: &[u8]) -> Result<(u32, usize), ErrorType> {
     // hex_to_u32_nocheck fills high 16 bits of the return value with 1s if the
     // conversion isn't valid; we defer the check for this to inside the
@@ -71,14 +73,10 @@ pub(crate) fn get_unicode_codepoint(mut src_ptr: &[u8]) -> Result<(u32, usize), 
         if ((code_point | code_point_2) >> 16) != 0 {
             return Ok((0, src_offset));
         }
-        let c1 = if let Some(c) = code_point.checked_sub(0xd800) {
-            c
-        } else {
+        let Some(c1) = code_point.checked_sub(0xd800) else {
             return Err(ErrorType::InvalidUtf8);
         };
-        let c2 = if let Some(c) = code_point_2.checked_sub(0xdc00) {
-            c
-        } else {
+        let Some(c2) = code_point_2.checked_sub(0xdc00) else {
             return Err(ErrorType::InvalidUtf8);
         };
         code_point = ((c1 << 10) | c2) + 0x10000;
