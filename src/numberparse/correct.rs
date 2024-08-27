@@ -12,15 +12,15 @@ use crate::safer_unchecked::GetSaferUnchecked;
 use crate::StaticNode;
 use crate::{Deserializer, ErrorType, Result};
 
-macro_rules! err {
-    ($idx:ident, $num:expr) => {
-        return Err(Error::new_c($idx, $num as char, ErrorType::InvalidNumber))
-    };
-}
-
 macro_rules! get {
     ($buf:ident, $idx:expr) => {
         unsafe { *$buf.get_kinda_unchecked($idx as usize) }
+    };
+}
+
+macro_rules! err {
+    ($idx:ident, $num:expr) => {
+        return Err(Error::new_c($idx, $num as char, ErrorType::InvalidNumber))
     };
 }
 
@@ -192,11 +192,7 @@ impl<'de> Deserializer<'de> {
         } else if unlikely!(digit_count >= 18) {
             Ok(parse_large_integer(start_idx, buf, negative, idx)?)
         } else if is_structural_or_whitespace(get!(buf, idx)) == 0 {
-            Err(Error::new_c(
-                idx,
-                get!(buf, idx) as char,
-                ErrorType::InvalidNumber,
-            ))
+            err!(idx, get!(buf, idx))
         } else {
             Ok(if negative {
                 StaticNode::I64(unsafe { static_cast_i64!(num.wrapping_neg()) })
@@ -244,11 +240,7 @@ fn parse_large_integer(
     }
     match (negative, num) {
         (true, 9_223_372_036_854_775_808) => Ok(StaticNode::I64(i64::MIN)),
-        (true, 9_223_372_036_854_775_809..=u64::MAX) => Err(Error::new_c(
-            idx,
-            get!(buf, idx) as char,
-            ErrorType::InvalidNumber,
-        )),
+        (true, 9_223_372_036_854_775_809..=u64::MAX) => err!(idx, get!(buf, idx)),
         (true, 0..=9_223_372_036_854_775_807) => Ok(StaticNode::I64(-(num as i64))),
         (false, _) => Ok(StaticNode::U64(num)),
     }
@@ -385,11 +377,7 @@ fn f64_from_parts(
         mantissa |= u64::from(!positive) << 63;
         let res = f64::from_bits(mantissa);
         if res.is_infinite() {
-            Err(Error::new_c(
-                offset,
-                get!(slice, offset) as char,
-                ErrorType::InvalidNumber,
-            ))
+            err!(offset, get!(slice, offset))
         } else {
             Ok(StaticNode::F64(res))
         }
@@ -411,9 +399,7 @@ fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
             }
             Ok(StaticNode::F64(val))
         }
-        Err(_) => {
-            err!(offset, get!(slice, offset));
-        }
+        Err(_) => err!(offset, get!(slice, offset)),
     }
 }
 
