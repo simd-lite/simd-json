@@ -296,12 +296,12 @@ pub(crate) struct SimdInput {
 impl Stage1Parse for SimdInput {
     type Utf8Validator = super::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = V128;
-    unsafe fn new(ptr: &[u8]) -> Self {
+    unsafe fn new(ptr: [u8; SIMDINPUT_LENGTH]) -> Self {
         SimdInput {
-            v0: *(ptr.as_ptr().cast::<V128>()),
-            v1: *(ptr.as_ptr().add(16).cast::<V128>()),
-            v2: *(ptr.as_ptr().add(32).cast::<V128>()),
-            v3: *(ptr.as_ptr().add(48).cast::<V128>()),
+            v0: ptr.as_ptr().cast::<V128>().read(),
+            v1: ptr.as_ptr().add(16).cast::<V128>().read(),
+            v2: ptr.as_ptr().add(32).cast::<V128>().read(),
+            v3: ptr.as_ptr().add(48).cast::<V128>().read(),
         }
     }
 

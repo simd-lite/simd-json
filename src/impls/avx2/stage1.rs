@@ -41,13 +41,13 @@ impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = __m256i;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    // _mm256_loadu_si256 does not need alignment
+    // _mm256_loadu_si256 does not need alignment we allign our input so we can use _mm256_loadu_si256
     #[allow(clippy::cast_ptr_alignment)]
     #[target_feature(enable = "avx2")]
-    unsafe fn new(ptr: &[u8]) -> Self {
+    unsafe fn new(ptr: [u8; SIMDINPUT_LENGTH]) -> Self {
         Self {
-            v0: _mm256_loadu_si256(ptr.as_ptr().cast::<__m256i>()),
-            v1: _mm256_loadu_si256(ptr.as_ptr().add(32).cast::<__m256i>()),
+            v0: _mm256_load_si256(ptr.as_ptr().cast::<__m256i>()),
+            v1: _mm256_load_si256(ptr.as_ptr().add(32).cast::<__m256i>()),
         }
     }
 

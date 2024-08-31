@@ -18,7 +18,7 @@ impl Stage1Parse for SimdInput {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_ptr_alignment)]
-    unsafe fn new(ptr: &[u8]) -> Self {
+    unsafe fn new(ptr: [u8; SIMDINPUT_LENGTH]) -> Self {
         Self {
             v0: v128_load(ptr.as_ptr().cast::<v128>()),
             v1: v128_load(ptr.as_ptr().add(16).cast::<v128>()),

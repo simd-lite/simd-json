@@ -45,12 +45,12 @@ impl Stage1Parse for SimdInput {
     #[target_feature(enable = "sse4.2")]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_ptr_alignment)]
-    unsafe fn new(ptr: &[u8]) -> Self {
+    unsafe fn new(ptr: [u8; SIMDINPUT_LENGTH]) -> Self {
         Self {
-            v0: _mm_loadu_si128(ptr.as_ptr().cast::<arch::__m128i>()),
-            v1: _mm_loadu_si128(ptr.as_ptr().add(16).cast::<arch::__m128i>()),
-            v2: _mm_loadu_si128(ptr.as_ptr().add(32).cast::<arch::__m128i>()),
-            v3: _mm_loadu_si128(ptr.as_ptr().add(48).cast::<arch::__m128i>()),
+            v0: _mm_load_si128(ptr.as_ptr().cast::<arch::__m128i>()),
+            v1: _mm_load_si128(ptr.as_ptr().add(16).cast::<arch::__m128i>()),
+            v2: _mm_load_si128(ptr.as_ptr().add(32).cast::<arch::__m128i>()),
+            v3: _mm_load_si128(ptr.as_ptr().add(48).cast::<arch::__m128i>()),
         }
     }
 

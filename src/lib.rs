@@ -141,7 +141,7 @@ pub(crate) trait Stage1Parse {
     type Utf8Validator: ChunkedUtf8Validator;
     type SimdRepresentation;
 
-    unsafe fn new(ptr: &[u8]) -> Self;
+    unsafe fn new(ptr: [u8; SIMDINPUT_LENGTH]) -> Self;
 
     unsafe fn compute_quote_mask(quote_bits: u64) -> u64;
 
@@ -698,10 +698,11 @@ impl<'de> Deserializer<'de> {
     #[cfg(all(target_arch = "aarch64", not(feature = "portable")))]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
-        input: &[u8],
+        input: &AlignedBuf,
+        len: usize,
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
-        Self::_find_structural_bits::<impls::neon::SimdInput>(input, structural_indexes)
+        Self::_find_structural_bits::<impls::neon::SimdInput>(input, len, structural_indexes)
     }
 
     #[cfg(all(target_feature = "simd128", not(feature = "portable")))]
@@ -758,7 +759,7 @@ impl<'de> Deserializer<'de> {
         buffer: &mut Buffers,
         tape: &mut Vec<Node<'de>>,
     ) -> Result<()> {
-        const LOTS_OF_ZOERS: [u8; SIMDINPUT_LENGTH] = [0; SIMDINPUT_LENGTH];
+        const LOTS_OF_ZOERS: [u8; SIMDINPUT_LENGTH] = [0x20; SIMDINPUT_LENGTH];
         let len = input.len();
         let simd_safe_len = len + SIMDINPUT_LENGTH;
 
@@ -793,7 +794,7 @@ impl<'de> Deserializer<'de> {
             // safety: all bytes are initialized
             input_buffer.set_len(simd_safe_len);
 
-            Self::find_structural_bits(input, &mut buffer.structural_indexes)
+            Self::find_structural_bits(input_buffer, input.len(), &mut buffer.structural_indexes)
                 .map_err(Error::generic)?;
         };
 
@@ -844,10 +845,11 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_truncation)]
     pub(crate) unsafe fn _find_structural_bits<S: Stage1Parse>(
-        input: &[u8],
+        input: &AlignedBuf,
+        len: usize,
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
-        let len = input.len();
+        // let len = input.len();
         // 8 is a heuristic number to estimate it turns out a rate of 1/8 structural characters
         // leads almost never to relocations.
         structural_indexes.clear();
@@ -879,18 +881,18 @@ impl<'de> Deserializer<'de> {
         // expensive carryless multiply in the previous step with this work
         let mut structurals: u64 = 0;
 
-        let lenminus64: usize = if len < 64 { 0 } else { len - 64 };
+        // let lenminus64: usize = if len < 64 { 0 } else { len - 64 };
         let mut idx: usize = 0;
         let mut error_mask: u64 = 0; // for unescaped characters within strings (ASCII code points < 0x20)
 
-        while idx < lenminus64 {
+        while idx <= len / SIMDINPUT_LENGTH {
             /*
             #ifndef _MSC_VER
               __builtin_prefetch(buf + idx + 128);
             #endif
              */
-            let chunk = input.get_kinda_unchecked(idx..idx + 64);
-            utf8_validator.update_from_chunks(chunk);
+            let chunk: [u8; SIMDINPUT_LENGTH] = input.load_register(idx);
+            utf8_validator.update_from_chunks(&chunk);
 
             let input = S::new(chunk);
             // detect odd sequences of backslashes
@@ -909,7 +911,7 @@ impl<'de> Deserializer<'de> {
 
             // take the previous iterations structural bits, not our current iteration,
             // and flatten
-            S::flatten_bits(structural_indexes, idx as u32, structurals);
+            S::flatten_bits(structural_indexes, (idx * 64) as u32, structurals);
 
             let mut whitespace: u64 = 0;
             input.find_whitespace_and_structurals(&mut whitespace, &mut structurals);
@@ -922,58 +924,15 @@ impl<'de> Deserializer<'de> {
                 quote_bits,
                 &mut prev_iter_ends_pseudo_pred,
             );
-            idx += SIMDINPUT_LENGTH;
+            idx += 1;
         }
 
-        // we use a giant copy-paste which is ugly.
-        // but otherwise the string needs to be properly padded or else we
-        // risk invalidating the UTF-8 checks.
-        if idx < len {
-            let mut tmpbuf: [u8; SIMDINPUT_LENGTH] = [0x20; SIMDINPUT_LENGTH];
-            tmpbuf
-                .as_mut_ptr()
-                .copy_from(input.as_ptr().add(idx), len - idx);
-            utf8_validator.update_from_chunks(&tmpbuf);
-
-            let input = S::new(&tmpbuf);
-
-            // detect odd sequences of backslashes
-            let odd_ends: u64 =
-                input.find_odd_backslash_sequences(&mut prev_iter_ends_odd_backslash);
-
-            // detect insides of quote pairs ("quote_mask") and also our quote_bits
-            // themselves
-            let mut quote_bits: u64 = 0;
-            let quote_mask: u64 = input.find_quote_mask_and_bits(
-                odd_ends,
-                &mut prev_iter_inside_quote,
-                &mut quote_bits,
-                &mut error_mask,
-            );
-
-            // take the previous iterations structural bits, not our current iteration,
-            // and flatten
-            S::flatten_bits(structural_indexes, idx as u32, structurals);
-
-            let mut whitespace: u64 = 0;
-            input.find_whitespace_and_structurals(&mut whitespace, &mut structurals);
-
-            // fixup structurals to reflect quotes and add pseudo-structural characters
-            structurals = S::finalize_structurals(
-                structurals,
-                whitespace,
-                quote_mask,
-                quote_bits,
-                &mut prev_iter_ends_pseudo_pred,
-            );
-            idx += SIMDINPUT_LENGTH;
-        }
         // This test isn't in upstream, for some reason the error mask is et for then.
         if prev_iter_inside_quote != 0 {
             return Err(ErrorType::Syntax);
         }
         // finally, flatten out the remaining structurals from the last iteration
-        S::flatten_bits(structural_indexes, idx as u32, structurals);
+        S::flatten_bits(structural_indexes, (idx * 64) as u32, structurals);
 
         // a valid JSON file cannot have zero structural indexes - we should have
         // found something (note that we compare to 1 as we always add the root!)
@@ -1012,13 +971,21 @@ impl AlignedBuf {
     /// Creates a new buffer that is  aligned with the simd register size
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
-        let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING) {
-            Ok(layout) => layout,
-            Err(_) => Self::capacity_overflow(),
+        let offset = capacity % SIMDINPUT_LENGTH;
+        let capacity = if offset == 0 {
+            capacity
+        } else {
+            capacity + SIMDINPUT_LENGTH - offset
         };
+
         if mem::size_of::<usize>() < 8 && capacity > isize::MAX as usize {
             Self::capacity_overflow()
         }
+        let layout = match Layout::from_size_align(capacity, SIMDINPUT_LENGTH) {
+            Ok(layout) => layout,
+            Err(_) => Self::capacity_overflow(),
+        };
+
         let inner = match unsafe { NonNull::new(alloc(layout)) } {
             Some(ptr) => ptr,
             None => handle_alloc_error(layout),
@@ -1029,6 +996,14 @@ impl AlignedBuf {
             len: 0,
             inner,
         }
+    }
+
+    unsafe fn load_register(&self, idx: usize) -> [u8; SIMDINPUT_LENGTH] {
+        self.inner
+            .as_ptr()
+            .cast::<[u8; SIMDINPUT_LENGTH]>()
+            .add(idx)
+            .read()
     }
 
     fn as_mut_ptr(&mut self) -> *mut u8 {
