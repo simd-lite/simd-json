@@ -10,9 +10,9 @@ impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::portable::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = u8x64;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn new(ptr: &[u8]) -> Self {
+    unsafe fn new(ptr: [u8; SIMDINPUT_LENGTH]) -> Self {
         Self {
-            v: u8x64::from_array(*ptr.as_ptr().cast::<[u8; 64]>()),
+            v: u8x64::from_array(ptr),
         }
     }
 

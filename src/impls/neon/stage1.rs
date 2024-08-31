@@ -1,4 +1,4 @@
-use crate::Stage1Parse;
+use crate::{SIMDINPUT_LENGTH, Stage1Parse, macros::static_cast_i32};
 use std::arch::aarch64::{
     int8x16_t, int32x4_t, uint8x16_t, vaddq_s32, vandq_u8, vceqq_u8, vcleq_u8, vdupq_n_s8,
     vgetq_lane_u64, vld1q_u8, vmovq_n_u8, vpaddq_u8, vqtbl1q_u8, vreinterpretq_u8_s8,
@@ -57,13 +57,13 @@ impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::aarch64::neon::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = int8x16_t;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn new(ptr: &[u8]) -> Self {
+    unsafe fn new(ptr: [u8; SIMDINPUT_LENGTH]) -> Self {
         unsafe {
             Self {
-                v0: vld1q_u8(ptr.as_ptr().cast::<u8>()),
-                v1: vld1q_u8(ptr.as_ptr().add(16).cast::<u8>()),
-                v2: vld1q_u8(ptr.as_ptr().add(32).cast::<u8>()),
-                v3: vld1q_u8(ptr.as_ptr().add(48).cast::<u8>()),
+                v0: vld1q_u8(ptr.as_ptr()),
+                v1: vld1q_u8(ptr.as_ptr().add(16)),
+                v2: vld1q_u8(ptr.as_ptr().add(32)),
+                v3: vld1q_u8(ptr.as_ptr().add(48)),
             }
         }
     }
