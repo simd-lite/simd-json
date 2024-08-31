@@ -1,6 +1,6 @@
 #![allow(clippy::cast_lossless, clippy::cast_sign_loss)]
 
-use crate::{Stage1Parse, macros::static_cast_i32};
+use crate::{SIMDINPUT_LENGTH, Stage1Parse, macros::static_cast_i32};
 
 type V128 = [u8; 16];
 
