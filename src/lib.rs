@@ -335,7 +335,8 @@ type ParseStrFn = for<'invoke, 'de> unsafe fn(
     any(target_arch = "x86_64", target_arch = "x86"),
 ))]
 type FindStructuralBitsFn = unsafe fn(
-    input: &[u8],
+    input: &AlignedBuf,
+    len: usize,
     structural_indexes: &mut Vec<u32>,
 ) -> std::result::Result<(), ErrorType>;
 
@@ -611,7 +612,8 @@ impl Deserializer<'_> {
         any(target_arch = "x86_64", target_arch = "x86"),
     ))]
     pub(crate) unsafe fn find_structural_bits(
-        input: &[u8],
+        input: &AlignedBuf,
+        len: usize,
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
         unsafe {
@@ -636,18 +638,19 @@ impl Deserializer<'_> {
 
             #[cfg_attr(not(feature = "no-inline"), inline)]
             unsafe fn get_fastest(
-                input: &[u8],
+                input: &AlignedBuf,
+                len: usize,
                 structural_indexes: &mut Vec<u32>,
             ) -> core::result::Result<(), error::ErrorType> {
                 unsafe {
                     let fun = get_fastest_available_implementation();
                     FN.store(fun as FnRaw, Ordering::Relaxed);
-                    (fun)(input, structural_indexes)
+                    (fun)(input, len, structural_indexes)
                 }
             }
 
             let fun = FN.load(Ordering::Relaxed);
-            mem::transmute::<FnRaw, FindStructuralBitsFn>(fun)(input, structural_indexes)
+            mem::transmute::<FnRaw, FindStructuralBitsFn>(fun)(input, len, structural_indexes)
         }
     }
 
@@ -664,7 +667,7 @@ impl Deserializer<'_> {
     )))]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
-        input: &[u8],
+        input: &AlignedBuf,
         len: usize,
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
@@ -683,7 +686,7 @@ impl Deserializer<'_> {
     #[cfg(all(feature = "portable", not(feature = "runtime-detection")))]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
-        input: &[u8],
+        input: &AlignedBuf,
         len: usize,
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
@@ -703,7 +706,7 @@ impl Deserializer<'_> {
     ))]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
-        input: &[u8],
+        input: &AlignedBuf,
         len: usize,
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
@@ -720,7 +723,7 @@ impl Deserializer<'_> {
     ))]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
-        input: &[u8],
+        input: &AlignedBuf,
         len: usize,
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
@@ -744,7 +747,7 @@ impl Deserializer<'_> {
     #[cfg(all(target_feature = "simd128", not(feature = "portable")))]
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub(crate) unsafe fn find_structural_bits(
-        input: &[u8],
+        input: &AlignedBuf,
         len: usize,
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
