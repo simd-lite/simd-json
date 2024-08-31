@@ -989,7 +989,7 @@ impl AlignedBuf {
         if mem::size_of::<usize>() < 8 && capacity > isize::MAX as usize {
             Self::capacity_overflow()
         }
-        let layout = match Layout::from_size_align(capacity, SIMDINPUT_LENGTH) {
+        let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING) {
             Ok(layout) => layout,
             Err(_) => Self::capacity_overflow(),
         };
