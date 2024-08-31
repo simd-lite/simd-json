@@ -38,9 +38,6 @@ pub unsafe fn neon_movemask_bulk(
 
 // /NEON-SPECIFIC
 
-//pub const SIMDJSON_PADDING: usize = mem::size_of::<uint8x16_t>() * 4;
-//pub const SIMDINPUT_LENGTH: usize = 64;
-
 #[derive(Debug)]
 pub(crate) struct SimdInput {
     v0: uint8x16_t,

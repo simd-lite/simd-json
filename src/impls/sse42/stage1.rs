@@ -1,4 +1,4 @@
-use crate::{static_cast_i32, static_cast_u32, Stage1Parse};
+use crate::{static_cast_i32, static_cast_u32, Stage1Parse, SIMDINPUT_LENGTH};
 #[cfg(target_arch = "x86")]
 use std::arch::x86 as arch;
 
@@ -7,16 +7,17 @@ use std::arch::x86_64 as arch;
 
 #[cfg(target_arch = "x86")]
 use arch::{
-    __m128i, _mm_add_epi32, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_loadu_si128,
-    _mm_max_epu8, _mm_movemask_epi8, _mm_or_si128, _mm_set1_epi8, _mm_set_epi32, _mm_setr_epi8,
-    _mm_setzero_si128, _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128, _mm_testz_si128,
+    __m128i, _mm_add_epi32, _mm_and_si128, _mm_cmpeq_epi8, _mm_cmpgt_epi8, _mm_load_si128,
+    _mm_loadu_si128, _mm_max_epu8, _mm_movemask_epi8, _mm_or_si128, _mm_set1_epi8, _mm_set_epi32,
+    _mm_setr_epi8, _mm_setzero_si128, _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128,
+    _mm_testz_si128,
 };
 
 #[cfg(target_arch = "x86_64")]
 use arch::{
-    __m128i, _mm_add_epi32, _mm_and_si128, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_max_epu8,
-    _mm_movemask_epi8, _mm_set1_epi8, _mm_set_epi32, _mm_setr_epi8, _mm_setzero_si128,
-    _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128,
+    __m128i, _mm_add_epi32, _mm_and_si128, _mm_cmpeq_epi8, _mm_load_si128, _mm_loadu_si128,
+    _mm_max_epu8, _mm_movemask_epi8, _mm_set1_epi8, _mm_set_epi32, _mm_setr_epi8,
+    _mm_setzero_si128, _mm_shuffle_epi8, _mm_srli_epi32, _mm_storeu_si128,
 };
 
 macro_rules! low_nibble_mask {

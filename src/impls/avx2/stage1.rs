@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::{static_cast_i32, static_cast_i64, static_cast_u32, Stage1Parse};
+use crate::{static_cast_i32, static_cast_i64, static_cast_u32, Stage1Parse, SIMDINPUT_LENGTH};
 #[cfg(target_arch = "x86")]
 use std::arch::x86 as arch;
 
@@ -7,10 +7,10 @@ use std::arch::x86 as arch;
 use std::arch::x86_64 as arch;
 
 use arch::{
-    __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256,
-    _mm256_max_epu8, _mm256_movemask_epi8, _mm256_set1_epi8, _mm256_set_epi32, _mm256_setr_epi8,
-    _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_srli_epi32, _mm256_storeu_si256,
-    _mm_clmulepi64_si128, _mm_set1_epi8, _mm_set_epi64x,
+    __m256i, _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_load_si256,
+    _mm256_loadu_si256, _mm256_max_epu8, _mm256_movemask_epi8, _mm256_set1_epi8, _mm256_set_epi32,
+    _mm256_setr_epi8, _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_srli_epi32,
+    _mm256_storeu_si256, _mm_clmulepi64_si128, _mm_set1_epi8, _mm_set_epi64x,
 };
 
 macro_rules! low_nibble_mask {
