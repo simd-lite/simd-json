@@ -1,5 +1,6 @@
-/// Taken from: <https://github.com/serde-rs/json/blob/5b5f95831d9e0d769367b30b76a686339bffd209/src/macros.rs>
 /// Construct a `simd_json::Value` from a JSON literal.
+///
+/// Taken from: <https://github.com/serde-rs/json/blob/5b5f95831d9e0d769367b30b76a686339bffd209/src/macros.rs>
 ///
 /// ```edition2018
 /// # use simd_json::json;
@@ -87,10 +88,10 @@ macro_rules! json {
     };
 }
 
-/// Adapted from: <https://github.com/serde-rs/json/blob/5b5f95831d9e0d769367b30b76a686339bffd209/src/macros.rs>
 /// Constructs a `simd_json::Value` from a JSON literal and allows specifying whether it generates
 /// an owned or borrowed variant.
 ///
+/// Adapted from: <https://github.com/serde-rs/json/blob/5b5f95831d9e0d769367b30b76a686339bffd209/src/macros.rs>
 ///
 /// Create an owned value of the form:
 ///
@@ -1298,6 +1299,8 @@ macro_rules! static_cast_u64 {
     };
 }
 
+/// Custom `try!` macro that does no `From` conversions
+///
 /// FROM serde-json
 /// We only use our own error type; no need for From conversions provided by the
 /// standard library's try! macro. This reduces lines of LLVM IR by 4%.

@@ -10,109 +10,7 @@
     missing_docs
 )]
 #![allow(clippy::module_name_repetitions, renamed_and_removed_lints)]
-
-//! simd-json is a rust port of the simdjson c++ library. It follows
-//! most of the design closely with a few exceptions to make it better
-//! fit into the rust ecosystem.
-//!
-//! Note: On `x86` it will select the best SIMD featureset
-//! (`avx2`, or `sse4.2`) during runtime. If `simd-json` is compiled
-//! with SIMD support, it will disable runtime detection.
-//!
-//! ## Goals
-//!
-//! the goal of the rust port of simdjson is not to create a one to
-//! one copy, but to integrate the principles of the c++ library into
-//! a rust library that plays well with the rust ecosystem. As such
-//! we provide both compatibility with serde as well as parsing to a
-//! dom to manipulate data.
-//!
-//! ## Performance
-//!
-//! As a rule of thumb this library tries to get as close as possible
-//! to the performance of the c++ implementation, but some of the
-//! design decisions - such as parsing to a dom or a tape, weigh
-//! ergonomics over performance. In other places Rust makes it harder
-//! to achieve the same level of performance.
-//!
-//! ## Safety
-//!
-//! this library uses unsafe all over the place, and while it leverages
-//! quite a few test cases along with property based testing, please use
-//! this library with caution.
-//!
-//!
-//! ## Features
-//!
-//! simd-json.rs comes with a number of features that can be toggled,
-//! the following features are intended for 'user' selection. Additional
-//! features in the `Cargo.toml` exist to work around cargo limitations.
-//!
-//! ### `swar-number-parsing` (default)
-//!
-//! Enables a parsing method that will parse 8 digits at a time for
-//! floats - this is a common pattern but comes as a slight perf hit
-//! if all the floats have less then 8 digits.
-//!
-//! ### `serde_impl` (default)
-//!
-//! Compatibility with [serde](https://serde.rs/). This allows to use
-//! [simd-json.rs](https://simd-json.rs) to deserialize serde objects
-//! as well as serde compatibility of the different Value types.
-//! This can be disabled if serde is not used alongside simd-json.
-//!
-//! ### `128bit`
-//!
-//! Support for signed and unsigned 128 bit integer. This feature
-//! is disabled by default as 128 bit integers are rare in the wild
-//! and parsing them comes as a performance penalty due to extra logic
-//! and a changed memory layout.
-//!
-//! ### `known-key`
-//!
-//! The known-key feature changes hasher for the objects, from ahash
-//! to fxhash, ahash is faster at hashing and provides protection
-//! against DOS attacks by forcing multiple keys into a single hashing
-//! bucket. fxhash on the other hand allows for repeatable hashing
-//! results, that allows memorizing hashes for well know keys and saving
-//! time on lookups. In workloads that are heavy at accessing some well
-//! known keys this can be a performance advantage.
-//!
-//! ## Usage
-//!
-//! simd-json offers two main entry points for usage:
-//!
-//! ### Values API
-//!
-//! The values API is a set of optimized DOM objects that allow parsed
-//! json to JSON data that has no known variable structure. simd-lite
-//! has two versions of this:
-//!
-//! **Borrowed Values**
-//!
-//! ```
-//! use simd_json;
-//! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
-//! let v: simd_json::BorrowedValue = simd_json::to_borrowed_value(&mut d).unwrap();
-//! ```
-//!
-//! **Owned Values**
-//!
-//! ```
-//! use simd_json;
-//! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
-//! let v: simd_json::OwnedValue = simd_json::to_owned_value(&mut d).unwrap();
-//! ```
-//!
-//! ### Serde Compatible API
-//!
-//! ```ignore
-//! use simd_json;
-//! use serde_json::Value;
-//!
-//! let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
-//! let v: Value = simd_json::serde::from_slice(&mut d).unwrap();
-//! ```
+#![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 
 #[cfg(feature = "serde_impl")]
 extern crate serde as serde_ext;
@@ -144,7 +42,7 @@ use stage2::StackState;
 
 mod impls;
 
-/// Reexport of Cow
+/// Re-export of Cow
 pub mod cow;
 
 /// The maximum padding size required by any SIMD implementation

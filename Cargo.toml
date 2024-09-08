@@ -79,7 +79,7 @@ known-key = ["once_cell", "ahash"]
 # use 8 number at once parsing strategy
 swar-number-parsing = []
 
-# Uses a approximate float parsing algorithm that is faster
+# Uses an approximate float parsing algorithm that is faster
 # but does not guarantee round trips for the edges
 approx-number-parsing = []
 
