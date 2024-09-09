@@ -37,8 +37,9 @@ pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>, ObjectHasher>
 /// Representation of a JSON array
 pub type Array<'value> = Vec<Value<'value>>;
 
-/// Parses a slice of bytes into a Value dom. This function will
-/// rewrite the slice to de-escape strings.
+/// Parses a slice of bytes into a Value dom.
+///
+/// This function will rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
 /// has the same lifetime as the slice it was created from.
 ///
@@ -52,8 +53,9 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
     }
 }
 
-/// Parses a slice of bytes into a Value dom. This function will
-/// rewrite the slice to de-escape strings.
+/// Parses a slice of bytes into a Value dom.
+///
+/// This function will rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
 /// has the same lifetime as the slice it was created from.
 ///

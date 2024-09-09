@@ -1,14 +1,15 @@
-/// This module holds the two dom implementations we use. We distinguish between
-/// owned and borrowed. The difference being is that the borrowed value will
-/// use `&str` as its string type, referencing the input, while owned will
-/// allocate a new String for each value.
+/// This module holds the two dom implementations we use.
 ///
-/// Note that since json strings allow for for escape sequences the borrowed
+/// We distinguish between owned and borrowed. The difference being is that
+/// the borrowed value will use `&str` as its string type, referencing the input,
+/// while owned will allocate a new String for each value.
+///
+/// Note that since JSON strings allow for escape sequences the borrowed
 /// value does not implement zero copy parsing, it does however not allocate
 /// new memory for strings.
 ///
-/// This differs notably from serde's zero copy implementation as, unlike serde,
-/// we do not require prior knowledge about string content to to take advantage
+/// This differs notably from Serde's zero copy implementation as, unlike Serde,
+/// we do not require prior knowledge about string content to take advantage
 /// of it.
 ///
 /// ## Usage
@@ -57,7 +58,6 @@ pub mod owned;
 /// Tape implementation
 pub mod tape;
 
-/// A value that starts out as a tape and upgraes to a borrowed value when mutation is needed
 pub mod lazy;
 
 pub use self::borrowed::{
@@ -82,8 +82,9 @@ pub type ObjectHasher = crate::known_key::NotSoRandomState;
 #[cfg(not(feature = "known-key"))]
 pub type ObjectHasher = halfbrown::DefaultHashBuilder;
 
-/// Parses a slice of bytes into a Value dom. This function will
-/// rewrite the slice to de-escape strings.
+/// Parses a slice of bytes into a Value dom.
+///
+/// This function will rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
 /// has the same lifetime as the slice it was created from.
 ///
@@ -101,8 +102,9 @@ where
     }
 }
 
-/// Parses a slice of bytes into a Value dom. This function will
-/// rewrite the slice to de-escape strings.
+/// Parses a slice of bytes into a Value dom.
+///
+/// This function will rewrite the slice to de-escape strings.
 /// As we reference parts of the input slice the resulting dom
 /// has the same lifetime as the slice it was created from.
 ///

@@ -141,12 +141,12 @@ An highly experimental implementation of the algorithm using `std::simd` and up 
 
 ## Usage
 
-simd-json offers two main entry points for usage:
+simd-json offers three main entry points for usage:
 
 ### Values API
 
 The values API is a set of optimized DOM objects that allow parsed
-json to JSON data that has no known variable structure. simd-lite
+JSON to JSON data that has no known variable structure. `simd-json`
 has two versions of this:
 
 **Borrowed Values**
@@ -173,6 +173,22 @@ use serde_json::Value;
 
 let mut d = br#"{"some": ["key", "value", 2]}"#.to_vec();
 let v: Value = simd_json::serde::from_slice(&mut d).unwrap();
+```
+
+### Tape API
+
+```rust
+use simd_json;
+
+let mut d = br#"{"the_answer": 42}"#.to_vec();
+let tape = simd_json::to_tape(&mut d).unwrap();
+let value = tape.as_value();
+// try_get treats value like an object, returns Ok(Some(_)) because the key is found
+assert!(value.try_get("the_answer").unwrap().unwrap() == 42);
+// returns Ok(None) because the key is not found but value is an object
+assert!(value.try_get("does_not_exist").unwrap() == None);
+// try_get_idx treats value like an array, returns Err(_) because value is not an array
+assert!(value.try_get_idx(0).is_err());
 ```
 
 ## Other interesting things

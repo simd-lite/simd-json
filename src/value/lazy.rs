@@ -1,6 +1,7 @@
-//! Lazy value, this gets initialized with a tape and as long as only non mutating operations are performed
-//! it will stay a tape. If it is mutated it is upgtaded to a borrowed value.
-//! This allows for a very cheap parsin and data access while still maintaining mutability.
+//! Lazy value, uses a tape until mutated.
+//!
+//! If it is mutated it is upgraded to a borrowed value.
+//! This allows for cheap parsing and data access while still maintaining mutability.
 //!
 //! # Example
 //!

@@ -33,8 +33,9 @@ use std::ops::{Index, IndexMut};
 /// Representation of a JSON object
 pub type Object = HashMap<String, Value, ObjectHasher>;
 
-/// Parses a slice of bytes into a Value dom. This function will
-/// rewrite the slice to de-escape strings.
+/// Parses a slice of bytes into a Value dom.
+///
+/// This function will rewrite the slice to de-escape strings.
 /// We do not keep any references to the raw data but re-allocate
 /// owned memory wherever required thus returning a value without
 /// a lifetime.
@@ -49,8 +50,9 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
     }
 }
 
-/// Parses a slice of bytes into a Value dom. This function will
-/// rewrite the slice to de-escape strings.
+/// Parses a slice of bytes into a Value dom.
+///
+/// This function will rewrite the slice to de-escape strings.
 /// We do not keep any references to the raw data but re-allocate
 /// owned memory wherever required thus returning a value without
 /// a lifetime.
