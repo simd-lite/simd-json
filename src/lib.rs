@@ -58,6 +58,7 @@ use std::{alloc::dealloc, mem};
 pub use value_trait::StaticNode;
 
 pub use crate::error::{Error, ErrorType};
+#[doc(inline)]
 pub use crate::value::*;
 pub use value_trait::ValueType;
 
