@@ -1,6 +1,6 @@
 [package]
 name = "simd-json"
-version = "0.13.10"
+version = "0.13.11"
 authors = ["Heinz N. Gies <heinz@licenser.net>", "Sunny Gleason"]
 edition = "2021"
 exclude = ["data/*", "fuzz/*"]
@@ -17,7 +17,7 @@ getrandom = { version = "0.2", features = ["js"] }
 [dependencies]
 simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
 
-lexical-core = { version = "0.8", features = ["format"] }
+lexical-core = { version = "1", features = ["format"] }
 beef = { version = "0.5", optional = true }
 halfbrown = "0.2"
 value-trait = { version = "0.8" }
@@ -146,3 +146,12 @@ codegen-units = 1
 lto = true
 opt-level = 3
 panic = "abort"
+
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    # Legacy code
+    'cfg(portable)',
+    # Tool specific configurations
+    'cfg(tarpaulin_include)',
+] }
