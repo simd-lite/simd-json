@@ -38,7 +38,7 @@ perfcnt = { version = "0.8", optional = true }
 ref-cast = "1.0"
 
 [dev-dependencies]
-float-cmp = "0.9"
+float-cmp = "0.10"
 getopts = "0.2"
 core_affinity = { version = "0.8" }
 
