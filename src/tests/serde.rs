@@ -553,7 +553,6 @@ fn map1() {
     assert_eq!(to_value(d1), Ok(Value::from(h)));
 }
 
-#[cfg(feature = "serde_impl")]
 #[test]
 fn tpl1() {
     let mut d = String::from("[-65.613616999999977, 43.420273000000009]");
@@ -701,7 +700,6 @@ fn crazy_string() {
     assert_eq!(v_simd, v_serde);
 }
 
-#[cfg(feature = "serde_impl")]
 #[test]
 fn event() {
     #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -825,7 +823,6 @@ fn arb_json() -> BoxedStrategy<String> {
     .boxed()
 }
 
-#[cfg(feature = "serde_impl")]
 #[test]
 fn int_map_key() -> Result<(), crate::Error> {
     use std::collections::BTreeMap;

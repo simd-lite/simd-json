@@ -193,7 +193,7 @@ where
         if self.first {
             Ok(())
         } else {
-            iomap!(self.s.write(b"}"))
+            iomap!(self.s.write(b"]}"))
         }
     }
 }
@@ -815,6 +815,20 @@ mod test {
     #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
 
+    #[test]
+    fn enum_tuple() {
+        #[derive(serde::Serialize, Clone)]
+        enum ErrType {
+            Instruction(i64, i64),
+        }
+
+        let err = ErrType::Instruction(2, 68800);
+
+        assert_eq!(
+            crate::to_string(&err).expect("failed to serialize"),
+            "{\"Instruction\":[2,68800]}",
+        );
+    }
     #[test]
     fn print_serde() {
         #[derive(Clone, Debug, PartialEq, serde::Serialize)]
