@@ -1,4 +1,4 @@
-use crate::Stage1Parse;
+use crate::{Stage1Parse, SIMDINPUT_LENGTH};
 use std::arch::wasm32::{
     i8x16_splat, u32x4, u32x4_add, u32x4_splat, u8x16, u8x16_bitmask, u8x16_eq, u8x16_le,
     u8x16_shr, u8x16_splat, u8x16_swizzle, v128, v128_and, v128_load, v128_store,
@@ -18,7 +18,7 @@ impl Stage1Parse for SimdInput {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_ptr_alignment)]
-    unsafe fn new(ptr: &[u8]) -> Self {
+    unsafe fn new(ptr: [u8; SIMDINPUT_LENGTH]) -> Self {
         Self {
             v0: v128_load(ptr.as_ptr().cast::<v128>()),
             v1: v128_load(ptr.as_ptr().add(16).cast::<v128>()),
