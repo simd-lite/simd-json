@@ -803,6 +803,10 @@ mod test {
         assert_eq!(Value::default(), Value::null());
     }
 
+    fn static_node_f64(f: f64) -> StaticNode {
+        StaticNode::from(f)
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
     #[cfg(not(target_arch = "wasm32"))]
@@ -816,7 +820,7 @@ mod test {
                 .prop_map(StaticNode::I64)
                 .prop_map(Value::Static),
             any::<f64>()
-                .prop_map(StaticNode::F64)
+                .prop_map(static_node_f64)
                 .prop_map(Value::Static),
             ".*".prop_map(Value::from),
         ];

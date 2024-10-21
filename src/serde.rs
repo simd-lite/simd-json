@@ -98,7 +98,7 @@ pub unsafe fn from_str<'a, T>(s: &'a mut str) -> Result<T>
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = stry!(Deserializer::from_slice(s.as_bytes_mut()));
+    let mut deserializer = stry!(Deserializer::from_slice(unsafe{s.as_bytes_mut()}));
 
     T::deserialize(&mut deserializer)
 }
@@ -126,7 +126,7 @@ where
     T: Deserialize<'a>,
 {
     let mut deserializer = stry!(Deserializer::from_slice_with_buffers(
-        s.as_bytes_mut(),
+        unsafe{s.as_bytes_mut()},
         buffers
     ));
 
