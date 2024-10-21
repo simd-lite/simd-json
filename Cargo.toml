@@ -59,7 +59,7 @@ name = "to_tape"
 harness = false
 
 [features]
-default = ["swar-number-parsing", "serde_impl", "runtime-detection", "ordered-float"]
+default = ["swar-number-parsing", "serde_impl", "runtime-detection"]
 
 arraybackend = ["halfbrown/arraybackend"]
 
@@ -155,7 +155,3 @@ unexpected_cfgs = { level = "allow", check-cfg = [
     # Tool specific configurations
     'cfg(tarpaulin_include)',
 ] }
-
-
-[patch.crates-io]
-value-trait = { path = '/home/jbartle9/Development/git/repositories/personal/value-trait' }
