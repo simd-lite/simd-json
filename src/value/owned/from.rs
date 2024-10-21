@@ -190,7 +190,7 @@ impl From<f32> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(f: f32) -> Self {
-        Self::Static(StaticNode::F64(f64::from(f)))
+        Self::Static(StaticNode::from(f64::from(f)))
     }
 }
 
@@ -198,7 +198,7 @@ impl From<f64> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     fn from(f: f64) -> Self {
-        Self::Static(StaticNode::F64(f))
+        Self::Static(StaticNode::from(f))
     }
 }
 

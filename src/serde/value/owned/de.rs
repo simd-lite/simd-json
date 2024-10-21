@@ -34,7 +34,7 @@ impl<'de> de::Deserializer<'de> for Value {
             Value::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
             #[cfg(feature = "128bit")]
             Value::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
-            Value::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
+            Value::Static(StaticNode::F64(n)) => visitor.visit_f64(n.into()),
             Value::String(s) => visitor.visit_string(s),
             Value::Array(a) => visitor.visit_seq(Array(a.into_iter())),
             Value::Object(o) => visitor.visit_map(ObjectAccess {
@@ -386,7 +386,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticNode::F64(f64::from(value))))
+        Ok(Value::Static(StaticNode::from(f64::from(value))))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -394,7 +394,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::Static(StaticNode::F64(value)))
+        Ok(Value::Static(StaticNode::from(value)))
     }
 
     /****************** stringy stuff ******************/
@@ -608,7 +608,7 @@ impl<'de> de::Deserializer<'de> for &'de Value {
             Value::Static(StaticNode::U64(n)) => visitor.visit_u64(*n),
             #[cfg(feature = "128bit")]
             Value::Static(StaticNode::U128(n)) => visitor.visit_u128(*n),
-            Value::Static(StaticNode::F64(n)) => visitor.visit_f64(*n),
+            Value::Static(StaticNode::F64(n)) => visitor.visit_f64((*n).into()),
             Value::String(s) => visitor.visit_borrowed_str(s),
             Value::Array(a) => visitor.visit_seq(ArrayRef(a.as_slice().iter())),
             Value::Object(o) => visitor.visit_map(ObjectRefAccess::new(o.iter())),

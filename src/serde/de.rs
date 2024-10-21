@@ -22,7 +22,7 @@ where
             Node::String(s) => visitor.visit_borrowed_str(s),
             Node::Static(StaticNode::Null) => visitor.visit_unit(),
             Node::Static(StaticNode::Bool(b)) => visitor.visit_bool(b),
-            Node::Static(StaticNode::F64(n)) => visitor.visit_f64(n),
+            Node::Static(StaticNode::F64(n)) => visitor.visit_f64(n.into()),
             Node::Static(StaticNode::I64(n)) => visitor.visit_i64(n),
             #[cfg(feature = "128bit")]
             Node::Static(StaticNode::I128(n)) => visitor.visit_i128(n),
