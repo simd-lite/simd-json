@@ -95,6 +95,9 @@ no-inline = []
 # also bench serde in the benchmarks
 bench-serde = ["serde_json"]
 
+# use an Eq wrapper for floats
+ordered-float = ["value-trait/ordered-float"]
+
 # use branch hints - requires nightly :(
 hints = [] # requires nightly
 

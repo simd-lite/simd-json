@@ -321,9 +321,9 @@ fn f64_from_parts(
         } else {
             f *= get!(POW10, exponent);
         }
-        Ok(StaticNode::F64(if positive { f } else { -f }))
+        Ok(StaticNode::from(if positive { f } else { -f }))
     } else if significand == 0 {
-        Ok(StaticNode::F64(if positive { 0.0 } else { -0.0 }))
+        Ok(StaticNode::from(if positive { 0.0 } else { -0.0 }))
     } else if (-325..=308).contains(&exponent) {
         let (factor_mantissa, factor_exponent) = get!(POW10_COMPONENTS, exponent + 325);
         let mut leading_zeroes = u64::from(significand.leading_zeros());
@@ -373,7 +373,7 @@ fn f64_from_parts(
         if res.is_infinite() {
             err!(offset, get!(slice, offset))
         }
-        Ok(StaticNode::F64(res))
+        Ok(StaticNode::from(res))
     } else {
         f64_from_parts_slow(slice, offset)
     }
@@ -389,7 +389,7 @@ fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
                 err!(offset, get!(slice, 0))
             }
 
-            Ok(StaticNode::F64(val))
+            Ok(StaticNode::from(val))
         }
         Err(_) => err!(offset, get!(slice, offset)),
     }
@@ -402,9 +402,7 @@ mod test {
     use crate::value::owned::to_value;
     use crate::value::owned::Value;
     use crate::value::owned::Value::Static;
-    use value_trait::StaticNode::F64;
-    use value_trait::StaticNode::I64;
-    use value_trait::StaticNode::U64;
+    use value_trait::StaticNode::{self,I64,U64};
 
     fn to_value_from_str(buf: &str) -> Result<Value, Error> {
         let mut val = String::from(buf);
@@ -417,28 +415,28 @@ mod test {
     fn float() -> Result<(), crate::Error> {
         assert_eq!(
             to_value_from_str("0.4e5").expect("40000.0"),
-            Static(F64(40000.0))
+            Static(StaticNode::from(40000.0))
         );
         assert_eq!(
             to_value_from_str("-12345678901234.56789012")?,
-            Static(F64(-12_345_678_901_234.568))
+            Static(StaticNode::from(-12_345_678_901_234.568))
         );
-        assert_eq!(to_value_from_str("0.4e-001")?, Static(F64(0.04)));
+        assert_eq!(to_value_from_str("0.4e-001")?, Static(StaticNode::from(0.04)));
         assert_eq!(
             to_value_from_str("0.123456789e-12")?,
-            Static(F64(1.234_567_89e-13))
+            Static(StaticNode::from(1.234_567_89e-13))
         );
         assert_eq!(to_value_from_str("1.234567890E+34")?, 1.234_567_89e34);
         assert_eq!(
             to_value_from_str("23456789012E66")?,
-            Static(F64(2.345_678_901_2e76))
+            Static(StaticNode::from(2.345_678_901_2e76))
         );
         assert_eq!(
             to_value_from_str("0.0000000000000000000000000000000000000000000000000123e50")
                 .expect("1.23"),
-            Static(F64(1.23))
+                Static(StaticNode::from(1.23))
         );
-        assert_eq!(to_value_from_str("0.6").expect("0.6"), Static(F64(0.6)));
+        assert_eq!(to_value_from_str("0.6").expect("0.6"), Static(StaticNode::from(0.6)));
         Ok(())
     }
 
@@ -537,10 +535,10 @@ mod test {
 
     #[test]
     fn zero_float() -> Result<(), crate::Error> {
-        assert_eq!(to_value_from_str("0e1")?, Static(F64(0.0)));
-        assert_eq!(to_value_from_str("0.00e-00")?, Static(F64(0.0)));
-        assert_eq!(to_value_from_str("0e-1")?, Static(F64(-0.0)));
-        assert_eq!(to_value_from_str("-0.00e-00")?, Static(F64(-0.0)));
+        assert_eq!(to_value_from_str("0e1")?, Static(StaticNode::from(0.0)));
+        assert_eq!(to_value_from_str("0.00e-00")?, Static(StaticNode::from(0.0)));
+        assert_eq!(to_value_from_str("0e-1")?, Static(StaticNode::from(-0.0)));
+        assert_eq!(to_value_from_str("-0.00e-00")?, Static(StaticNode::from(-0.0)));
         Ok(())
     }
 
@@ -556,14 +554,14 @@ mod test {
     fn minus_309() -> Result<(), crate::Error> {
         assert_eq!(
             to_value_from_str("-5.96916642387374e-309")?,
-            Static(F64(-5.969_166_423_873_74e-_309))
+            Static(StaticNode::from(-5.969_166_423_873_74e-_309))
         );
         Ok(())
     }
     #[allow(clippy::unreadable_literal)]
     #[test]
     fn tiny_float() -> Result<(), crate::Error> {
-        assert_eq!(to_value_from_str("-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374")?, Static(F64(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374)));
+        assert_eq!(to_value_from_str("-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374")?, Static(StaticNode::from(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374)));
         Ok(())
     }
 
@@ -572,7 +570,7 @@ mod test {
     fn huge_int() -> Result<(), crate::Error> {
         assert_eq!(
             to_value_from_str("999999999999999999999999999999")?,
-            Static(F64(999999999999999999999999999999f64))
+            StaticNode::from(999999999999999999999999999999f64)
         );
         Ok(())
     }

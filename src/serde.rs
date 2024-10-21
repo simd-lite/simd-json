@@ -323,7 +323,7 @@ impl<'de> Deserializer<'de> {
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {
         match unsafe { self.next_() } {
-            Node::Static(StaticNode::F64(n)) => Ok(n),
+            Node::Static(StaticNode::F64(n)) => Ok(n.into()),
             Node::Static(StaticNode::I64(n)) => Ok(n as f64),
             Node::Static(StaticNode::U64(n)) => Ok(n as f64),
             _ => Err(Self::error(ErrorType::ExpectedFloat)),
@@ -344,7 +344,7 @@ impl TryFrom<serde_json::Value> for OwnedValue {
                 } else if let Some(n) = b.as_u64() {
                     Self::Static(StaticNode::U64(n))
                 } else if let Some(n) = b.as_f64() {
-                    Self::Static(StaticNode::F64(n))
+                    Self::Static(StaticNode::from(n))
                 } else {
                     return Err(SerdeConversionError::Oops);
                 }
@@ -384,7 +384,7 @@ impl TryInto<serde_json::Value> for OwnedValue {
                     .into(),
             ),
             Self::Static(StaticNode::F64(n)) => {
-                if let Some(n) = serde_json::Number::from_f64(n) {
+                if let Some(n) = serde_json::Number::from_f64(n.into()) {
                     Value::Number(n)
                 } else {
                     return Err(SerdeConversionError::NanOrInfinity);
@@ -450,7 +450,7 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
                     .into(),
             ),
             BorrowedValue::Static(StaticNode::F64(n)) => {
-                if let Some(n) = serde_json::Number::from_f64(n) {
+                if let Some(n) = serde_json::Number::from_f64(n.into()) {
                     Value::Number(n)
                 } else {
                     return Err(SerdeConversionError::NanOrInfinity);

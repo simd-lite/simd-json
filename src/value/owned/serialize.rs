@@ -95,7 +95,7 @@ trait Generator: BaseGenerator {
             Value::Static(StaticNode::U64(number)) => self.write_int(number),
             #[cfg(feature = "128bit")]
             Value::Static(StaticNode::U128(number)) => self.write_int(number),
-            Value::Static(StaticNode::F64(number)) => self.write_float(number),
+            Value::Static(StaticNode::F64(number)) => self.write_float(number.into()),
             Value::Static(StaticNode::Bool(true)) => self.write(b"true"),
             Value::Static(StaticNode::Bool(false)) => self.write(b"false"),
             Value::String(ref string) => self.write_string(string),
@@ -177,7 +177,7 @@ trait FastGenerator: BaseGenerator {
             Value::Static(StaticNode::U64(number)) => self.write_int(number),
             #[cfg(feature = "128bit")]
             Value::Static(StaticNode::U128(number)) => self.write_int(number),
-            Value::Static(StaticNode::F64(number)) => self.write_float(number),
+            Value::Static(StaticNode::F64(number)) => self.write_float(number.into()),
             Value::Static(StaticNode::Bool(true)) => self.write(b"true"),
             Value::Static(StaticNode::Bool(false)) => self.write(b"false"),
             Value::String(ref string) => self.write_string(string),

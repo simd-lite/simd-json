@@ -21,7 +21,7 @@ impl<'value> Serialize for Value<'value> {
         match self {
             Value::Static(StaticNode::Null) => serializer.serialize_unit(),
             Value::Static(StaticNode::Bool(b)) => serializer.serialize_bool(*b),
-            Value::Static(StaticNode::F64(f)) => serializer.serialize_f64(*f),
+            Value::Static(StaticNode::F64(f)) => serializer.serialize_f64((*f).into()),
             Value::Static(StaticNode::U64(i)) => serializer.serialize_u64(*i),
             #[cfg(feature = "128bit")]
             Value::Static(StaticNode::U128(i)) => serializer.serialize_u128(*i),
@@ -133,7 +133,7 @@ impl<'se> serde::Serializer for Serializer<'se> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_f64(self, value: f64) -> Result<Value<'se>> {
-        Ok(Value::Static(StaticNode::F64(value)))
+        Ok(Value::Static(StaticNode::from(value)))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -629,7 +629,7 @@ mod test {
 
     #[test]
     fn float() {
-        let v = Value::Static(StaticNode::F64(1.0));
+        let v = Value::Static(StaticNode::from(1.0));
         let s = serde_json::to_string(&v).expect("Failed to serialize");
         assert_eq!(s, "1.0");
     }
