@@ -207,7 +207,7 @@ impl<'de> Deserializer<'de> {
                 ErrorType::InvalidNumber,
             ))
         } else {
-            Ok(StaticNode::F64(if negative { -i } else { i }))
+            Ok(StaticNode::from(if negative { -i } else { i }))
         }
     }
 
@@ -523,7 +523,7 @@ impl<'de> Deserializer<'de> {
             // We want 0.1e1 to be a float.
             //////////
             if i == 0 {
-                StaticNode::F64(0.0)
+                StaticNode::from(0.0)
             } else {
                 if !(-323..=308).contains(&exponent) {
                     return Self::parse_float(idx, buf, negative);
@@ -531,7 +531,7 @@ impl<'de> Deserializer<'de> {
 
                 let mut d1: f64 = i as f64;
                 d1 *= unsafe { POWER_OF_TEN.get_kinda_unchecked((323 + exponent) as usize) };
-                StaticNode::F64(if negative { d1 * -1.0 } else { d1 })
+                StaticNode::from(if negative { d1 * -1.0 } else { d1 })
             }
         } else {
             if unlikely!(byte_count >= 18) {
