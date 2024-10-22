@@ -19,7 +19,7 @@ simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
 
 beef = { version = "0.5", optional = true }
 halfbrown = "0.2"
-value-trait = { version = "0.10.0" }
+value-trait = { version = "0.10" }
 # ahash known key
 once_cell = { version = "1.17", optional = true }
 ahash = { version = "0.8", optional = true }
@@ -155,7 +155,3 @@ unexpected_cfgs = { level = "allow", check-cfg = [
     # Tool specific configurations
     'cfg(tarpaulin_include)',
 ] }
-
-
-[patch.crates-io]
-value-trait = { git = 'https://github.com/simd-lite/value-trait', branch = "main" }
