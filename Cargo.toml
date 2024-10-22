@@ -155,3 +155,7 @@ unexpected_cfgs = { level = "allow", check-cfg = [
     # Tool specific configurations
     'cfg(tarpaulin_include)',
 ] }
+
+
+[patch.crates-io]
+value-trait = { git = 'https://github.com/bassmanitram/value-trait', branch = "feature/ordered-float" }
