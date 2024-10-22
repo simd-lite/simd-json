@@ -15,136 +15,141 @@ jobs:
           - windows-latest
           - macOS-latest
         rustflags:
-          - ''
-          - '-C target-feature=-avx2'
-          - '-C target-feature=-avx2,-pclmulqdq'
+          - ""
+          - "-C target-feature=-avx2"
+          - "-C target-feature=-avx2,-pclmulqdq"
 
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        components: llvm-tools-preview
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
 
-    - name: Install cargo-llvm-cov
-      uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
 
-    - name: Run tests (alloc)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo test --features alloc
+      - name: Run tests (alloc)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test --features alloc
 
-    - name: llvm-cov - Clean 
-      run: cargo llvm-cov clean --workspace 
+      - name: llvm-cov - Clean
+        run: cargo llvm-cov clean --workspace
 
-    - name: Run tests 
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo llvm-cov --no-report
+      - name: Run tests
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo llvm-cov --no-report
 
-    - name: Run tests (no-default-features)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo llvm-cov --no-report
+      - name: Run tests (no-default-features)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo llvm-cov --no-report
 
-    - name: Run tests (value-no-dup-keys)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo llvm-cov --no-report --features value-no-dup-keys
+      - name: Run tests (value-no-dup-keys)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo llvm-cov --no-report --features value-no-dup-keys
 
-    - name: Run tests (known-key)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo llvm-cov --no-report --features known-key
+      - name: Run tests (known-key)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo llvm-cov --no-report --features known-key
 
-    - name: Run tests (128bit)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo llvm-cov --no-report --features 128bit
+      - name: Run tests (128bit)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo llvm-cov --no-report --features 128bit
 
-    - name: Run tests (beef)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo llvm-cov --no-report --features beef
-    
-    - name: Run tests (arraybackend)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo llvm-cov --no-report --features arraybackend
-    
-    - name: Run tests (approx-number-parsing)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo llvm-cov --no-report --features approx-number-parsing
+      - name: Run tests (beef)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo llvm-cov --no-report --features beef
 
-    - name: llvm-cov - Report
-      run: cargo llvm-cov report --lcov --output-path lcov.txt
+      - name: Run tests (arraybackend)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo llvm-cov --no-report --features arraybackend
 
-    - name: Generate matrix name
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-            flags="${{ matrix.rustflags }}"
-            flags="${flags/-C target-feature=/}"
-            flags="${flags//[- ]/}"
-            echo "$flags"
-            echo "flags=$flags" >> $GITHUB_ENV
+      - name: Run tests (approx-number-parsing)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo llvm-cov --no-report --features approx-number-parsing
 
-    - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest'
-      uses: Wandalen/wretry.action@master
-      with:
-        action: codecov/codecov-action@v3
-        attempt_limit: 6
-        attempt_delay: 10000
-        with: |
-          files: ./lcov.txt
-          flags: unittests
-          verbose: true
+      - name: Run tests (ordered-float)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo llvm-cov --no-report --features ordered-float
+
+      - name: llvm-cov - Report
+        run: cargo llvm-cov report --lcov --output-path lcov.txt
+
+      - name: Generate matrix name
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          flags="${{ matrix.rustflags }}"
+          flags="${flags/-C target-feature=/}"
+          flags="${flags//[- ]/}"
+          echo "$flags"
+          echo "flags=$flags" >> $GITHUB_ENV
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest'
+        uses: Wandalen/wretry.action@master
+        with:
+          action: codecov/codecov-action@v3
+          attempt_limit: 6
+          attempt_delay: 10000
+          with: |
+            files: ./lcov.txt
+            flags: unittests
+            verbose: true
 
   test-wasm:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: wasm32-wasi
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasi
 
-    - name: Install wasmtime
-      run: cargo install wasmtime-cli
+      - name: Install wasmtime
+        run: cargo install wasmtime-cli
 
-    - name: Run tests
-      run: |
-        cargo build --tests --target-dir target --target wasm32-wasi
-        wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+      - name: Run tests
+        run: |
+          cargo build --tests --target-dir target --target wasm32-wasi
+          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
 
-    - name: Run tests (no-default-features)
-      run: |
-        cargo build --tests --target-dir target --target wasm32-wasi --no-default-features
-        wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+      - name: Run tests (no-default-features)
+        run: |
+          cargo build --tests --target-dir target --target wasm32-wasi --no-default-features
+          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
 
-    - name: Run tests (no-inline)
-      run: |
-        cargo build --tests --target-dir target --target wasm32-wasi --features no-inline
-        wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+      - name: Run tests (no-inline)
+        run: |
+          cargo build --tests --target-dir target --target wasm32-wasi --features no-inline
+          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
 
-    - name: Run tests (value-no-dup-keys)
-      run: |
-        cargo build --tests --target-dir target --target wasm32-wasi --features value-no-dup-keys
-        wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+      - name: Run tests (value-no-dup-keys)
+        run: |
+          cargo build --tests --target-dir target --target wasm32-wasi --features value-no-dup-keys
+          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
 
-    - name: Run tests (128bit)
-      run: |
-        cargo build --tests --target-dir target --target wasm32-wasi --features 128bit
-        wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+      - name: Run tests (128bit)
+        run: |
+          cargo build --tests --target-dir target --target wasm32-wasi --features 128bit
+          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
 
-    - name: Run tests (beef)
-      run: |
-        cargo build --tests --target-dir target --target wasm32-wasi --features beef
-        wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+      - name: Run tests (beef)
+        run: |
+          cargo build --tests --target-dir target --target wasm32-wasi --features beef
+          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
 
-    - name: Run tests (approx-number-parsing)
-      run: |
-        cargo build --tests --target-dir target --target wasm32-wasi --features approx-number-parsing
-        wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+      - name: Run tests (approx-number-parsing)
+        run: |
+          cargo build --tests --target-dir target --target wasm32-wasi --features approx-number-parsing
+          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
