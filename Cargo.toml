@@ -158,4 +158,4 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 
 
 [patch.crates-io]
-value-trait = { git = 'https://github.com/simd-lite/value-trait', branch = "master" }
+value-trait = { git = 'https://github.com/simd-lite/value-trait', branch = "main" }
