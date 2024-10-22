@@ -467,7 +467,7 @@ impl<'tape, 'de> BorrowSliceDeserializer<'tape, 'de> {
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub unsafe fn next_(&mut self) -> Node<'de> {
-        let r = unsafe{*self.tape.get_kinda_unchecked(self.idx)};
+        let r = unsafe { *self.tape.get_kinda_unchecked(self.idx) };
         self.idx += 1;
         r
     }
