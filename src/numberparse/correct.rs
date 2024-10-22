@@ -402,7 +402,7 @@ mod test {
     use crate::value::owned::to_value;
     use crate::value::owned::Value;
     use crate::value::owned::Value::Static;
-    use value_trait::StaticNode::{self,I64,U64};
+    use value_trait::StaticNode::{self, I64, U64};
 
     fn to_value_from_str(buf: &str) -> Result<Value, Error> {
         let mut val = String::from(buf);
@@ -421,7 +421,10 @@ mod test {
             to_value_from_str("-12345678901234.56789012")?,
             Static(StaticNode::from(-12_345_678_901_234.568))
         );
-        assert_eq!(to_value_from_str("0.4e-001")?, Static(StaticNode::from(0.04)));
+        assert_eq!(
+            to_value_from_str("0.4e-001")?,
+            Static(StaticNode::from(0.04))
+        );
         assert_eq!(
             to_value_from_str("0.123456789e-12")?,
             Static(StaticNode::from(1.234_567_89e-13))
@@ -434,9 +437,12 @@ mod test {
         assert_eq!(
             to_value_from_str("0.0000000000000000000000000000000000000000000000000123e50")
                 .expect("1.23"),
-                Static(StaticNode::from(1.23))
+            Static(StaticNode::from(1.23))
         );
-        assert_eq!(to_value_from_str("0.6").expect("0.6"), Static(StaticNode::from(0.6)));
+        assert_eq!(
+            to_value_from_str("0.6").expect("0.6"),
+            Static(StaticNode::from(0.6))
+        );
         Ok(())
     }
 
@@ -536,9 +542,15 @@ mod test {
     #[test]
     fn zero_float() -> Result<(), crate::Error> {
         assert_eq!(to_value_from_str("0e1")?, Static(StaticNode::from(0.0)));
-        assert_eq!(to_value_from_str("0.00e-00")?, Static(StaticNode::from(0.0)));
+        assert_eq!(
+            to_value_from_str("0.00e-00")?,
+            Static(StaticNode::from(0.0))
+        );
         assert_eq!(to_value_from_str("0e-1")?, Static(StaticNode::from(-0.0)));
-        assert_eq!(to_value_from_str("-0.00e-00")?, Static(StaticNode::from(-0.0)));
+        assert_eq!(
+            to_value_from_str("-0.00e-00")?,
+            Static(StaticNode::from(-0.0))
+        );
         Ok(())
     }
 
