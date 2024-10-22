@@ -74,6 +74,7 @@ pub fn to_value_with_buffers(s: &mut [u8], buffers: &mut Buffers) -> Result<Valu
 /// This is slower then the `BorrowedValue` as a tradeoff
 /// for getting rid of lifetimes.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "ordered-float", derive(Eq))]
 pub enum Value {
     /// Static values
     Static(StaticNode),
