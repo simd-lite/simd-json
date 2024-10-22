@@ -77,6 +77,7 @@ pub fn to_value_with_buffers<'value>(
 /// Borrowed JSON-DOM Value, consider using the `ValueTrait`
 /// to access its content
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "ordered-float", derive(Eq))]
 pub enum Value<'value> {
     /// Static values
     Static(StaticNode),
