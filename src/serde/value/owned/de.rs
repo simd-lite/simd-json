@@ -34,6 +34,7 @@ impl<'de> de::Deserializer<'de> for Value {
             Value::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
             #[cfg(feature = "128bit")]
             Value::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
+            #[allow(clippy::useless_conversion)] // .into() required by ordered-float
             Value::Static(StaticNode::F64(n)) => visitor.visit_f64(n.into()),
             Value::String(s) => visitor.visit_string(s),
             Value::Array(a) => visitor.visit_seq(Array(a.into_iter())),
@@ -608,6 +609,7 @@ impl<'de> de::Deserializer<'de> for &'de Value {
             Value::Static(StaticNode::U64(n)) => visitor.visit_u64(*n),
             #[cfg(feature = "128bit")]
             Value::Static(StaticNode::U128(n)) => visitor.visit_u128(*n),
+            #[allow(clippy::useless_conversion)] // .into() required by ordered-float
             Value::Static(StaticNode::F64(n)) => visitor.visit_f64((*n).into()),
             Value::String(s) => visitor.visit_borrowed_str(s),
             Value::Array(a) => visitor.visit_seq(ArrayRef(a.as_slice().iter())),

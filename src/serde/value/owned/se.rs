@@ -18,6 +18,7 @@ impl Serialize for Value {
         match self {
             Value::Static(StaticNode::Null) => serializer.serialize_unit(),
             Value::Static(StaticNode::Bool(b)) => serializer.serialize_bool(*b),
+            #[allow(clippy::useless_conversion)] // .into() required by ordered-float
             Value::Static(StaticNode::F64(f)) => serializer.serialize_f64((*f).into()),
             Value::Static(StaticNode::U64(i)) => serializer.serialize_u64(*i),
             #[cfg(feature = "128bit")]
