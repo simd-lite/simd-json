@@ -132,6 +132,16 @@ Replace [`std::borrow::Cow`](https://doc.rust-lang.org/std/borrow/enum.Cow.html)
 [`beef::lean::Cow`][beef] This feature is disabled by default, because
 it is a breaking change in the API. 
 
+### `ordered-float`
+
+By default the representation of `Floats` used in `borrowed::Value ` and `owned::Value` is simply a value of `f64`. 
+This however has the normally-not-a-big-deal side effect of _not_ having these `Value` types be `std::cmp::Eq`. This does,
+however, introduce some incompatibilities when offering `simd-json` as a quasi-drop-in replacement for `serde-json`.
+
+So, this feature changes the internal representation of `Floats` to be an `f64` _wrapped by [an Eq-compatible adapter](https://docs.rs/ordered-float/latest/ordered_float/)_.
+
+This probably carries with it some small performance trade-offs, hence its enablement by feature rather than by default.
+
 ### `portable`
 
 **Currently disabled**
