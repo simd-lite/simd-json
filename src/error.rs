@@ -201,6 +201,36 @@ impl Error {
     pub fn error(&self) -> &ErrorType {
         &self.error
     }
+
+    // These make it a bit easier to fit into a serde_json context
+    // The classification is based on that of serde_json - so if maybe
+    // you disagree with that classification, please leave as is anyway.
+
+    /// Indicates if the error that occurred was an IO error
+    #[must_use]
+    pub fn is_io(&self) -> bool {
+        // We have to include InternalError _somewhere_
+        matches!(self.error, ErrorType::Io(_) | ErrorType::InternalError(_))
+    }
+    
+    /// Indicates if the error that occurred was an early EOF
+    #[must_use]
+    pub fn is_eof(&self) -> bool {
+        matches!(self.error, ErrorType::Eof)
+    }
+
+    /// Indicates if the error that occurred was due to a deserializer error
+    #[must_use]
+    pub fn is_data(&self) -> bool {
+        matches!(self.error, ErrorType::Parser | ErrorType::Serde(_))
+    }
+
+    /// Indicates if the error that occurred was due an input syntax error
+    #[must_use]
+    pub fn is_syntax(&self) -> bool {
+        // Lazy? maybe but if it aint something else...
+        !(self.is_data() || self.is_eof() || self.is_io())
+    }
 }
 impl std::error::Error for Error {}
 
