@@ -212,7 +212,7 @@ impl Error {
         // We have to include InternalError _somewhere_
         matches!(self.error, ErrorType::Io(_) | ErrorType::InternalError(_))
     }
-    
+
     /// Indicates if the error that occurred was an early EOF
     #[must_use]
     pub fn is_eof(&self) -> bool {
