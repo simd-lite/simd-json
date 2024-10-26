@@ -4,6 +4,8 @@ use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
 use std::str;
 
+pub const TAPE_TOKEN: &str = "$simd_json::private::Tape";
+
 impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de>
 where
     'de: 'a,
@@ -285,10 +287,17 @@ where
     // As is done here, serializers are encouraged to treat newtype structs as
     // insignificant wrappers around the data they contain. That means not
     // parsing anything other than the contained value.
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
+        //
+        // How to get the tape out of the deserializer - inspired by serde_json::de::Deserializer RawValue support
+        //
+        if name == TAPE_TOKEN {
+            return self.deserialize_tape(visitor);
+        }
+
         visitor.visit_newtype_struct(self)
     }
 
@@ -575,6 +584,26 @@ impl<'de, 'a> de::Deserializer<'de> for MapKey<'de, 'a> {
     forward_to_deserialize_any! {
         bool f32 f64 char str string unit unit_struct seq tuple tuple_struct map
         struct identifier ignored_any
+    }
+}
+
+// WHAT WE NEED TO EXTRACT THE TAPE FROM THE DESERIALIZER
+//
+// This is HEAVILY inspired by how serde_json does RawValue, but is more straight forward
+// because 
+// * we don't aim to allow this multiple times - extracting the Tape "destroys" the
+//   deserializer (It actually swaps in a null Tape)
+// * The deserializer cannot be used further
+// * This more like an "into" operation - after this the returned tape becomes the way to
+//   continue deserialization
+impl<'de> Deserializer<'de> {
+
+    // Not REALLY "deserializing" the tape - just removing and returning it!
+    fn deserialize_tape<V>(&mut self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!()
     }
 }
 
