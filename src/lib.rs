@@ -1088,6 +1088,7 @@ impl DerefMut for AlignedBuf {
     }
 }
 
+#[cfg(feature = "serde_impl")] //since the tested features are there to help work better with serde ...
 #[cfg(test)]
 mod tests {
     use crate::Deserializer;
