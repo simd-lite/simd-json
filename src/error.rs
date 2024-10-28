@@ -213,7 +213,7 @@ impl Error {
         match &self.error {
             ErrorType::Io(_) | ErrorType::InputTooLarge => true,
             ErrorType::InternalError(e) if !matches!(e, crate::InternalError::TapeError) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -234,7 +234,8 @@ impl Error {
     #[must_use]
     pub fn is_syntax(&self) -> bool {
         // Lazy? maybe but if it aint something else...
-        matches!(self.error,
+        matches!(
+            self.error,
             ErrorType::InternalError(crate::InternalError::TapeError) | //This seems to get thrown on some syntax errors
             ErrorType::BadKeyType |
             ErrorType::ExpectedArrayComma |
@@ -258,7 +259,8 @@ impl Error {
             ErrorType::ExpectedObjectContent |
             ErrorType::ExpectedObjectKey |
             ErrorType::Overflow |
-            ErrorType::SimdUnsupported)
+            ErrorType::SimdUnsupported
+        )
     }
 }
 impl std::error::Error for Error {}

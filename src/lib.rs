@@ -1090,8 +1090,8 @@ impl DerefMut for AlignedBuf {
 
 #[cfg(test)]
 mod tests {
-    use serde_ext::Deserialize;
     use crate::Deserializer;
+    use serde_ext::Deserialize;
 
     static JSON: &str = r#"{
         "code": 200,
@@ -1106,14 +1106,14 @@ mod tests {
 
     #[derive(Deserialize, PartialEq, Debug)]
     struct TestPayload {
-        features: Vec<String>
+        features: Vec<String>,
     }
 
     #[derive(Deserialize, PartialEq, Debug)]
     struct TestEnvelope {
         code: usize,
         success: bool,
-        payload: TestPayload
+        payload: TestPayload,
     }
 
     #[test]
@@ -1135,11 +1135,18 @@ mod tests {
 
         // proving that value peeking doesn't affect the deserializer
 
-        assert_eq!(original_index, d.idx, "Deserializer has been internally modified");
-        assert_eq!(original_nodes, d.tape.len(), "Deserializer has been internally modified");
+        assert_eq!(
+            original_index, d.idx,
+            "Deserializer has been internally modified"
+        );
+        assert_eq!(
+            original_nodes,
+            d.tape.len(),
+            "Deserializer has been internally modified"
+        );
     }
 
-     #[test]
+    #[test]
     fn test_deser_restart() {
         let mut json = JSON.as_bytes().to_vec();
         let mut d = Deserializer::from_slice(&mut json).expect("Invalid JSON");
@@ -1149,12 +1156,20 @@ mod tests {
 
         let test1 = TestEnvelope::deserialize(&mut d).expect("Deserialization failed");
 
-        assert!(original_index != d.idx, "Deserializer has NOT been internally modified");
-        assert_eq!(original_nodes, d.tape.len(), "Deserializer nodes are NOT intact");
+        assert!(
+            original_index != d.idx,
+            "Deserializer has NOT been internally modified"
+        );
+        assert_eq!(
+            original_nodes,
+            d.tape.len(),
+            "Deserializer nodes are NOT intact"
+        );
 
         d.restart();
 
         let test2 = TestEnvelope::deserialize(&mut d).expect("Deserialization failed");
 
         assert_eq!(test2, test1, "Deserializer is not idempotent");
-    }}
+    }
+}
