@@ -56,7 +56,7 @@ impl<'input> Tape<'input> {
 /// Wrapper around the tape that allows interaction via a `Value`-like API.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
-pub struct Value<'tape, 'input>(pub(super) &'tape [Node<'input>])
+pub struct Value<'tape, 'input>(pub(crate) &'tape [Node<'input>])
 where
     'input: 'tape;
 
