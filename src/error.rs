@@ -210,7 +210,11 @@ impl Error {
     #[must_use]
     pub fn is_io(&self) -> bool {
         // We have to include InternalError _somewhere_
-        matches!(self.error, ErrorType::Io(_) | ErrorType::InternalError(_))
+        match &self.error {
+            ErrorType::Io(_) => true,
+            ErrorType::InternalError(e) if !matches!(e, crate::InternalError::TapeError) => true,
+            _ => false
+        }
     }
 
     /// Indicates if the error that occurred was an early EOF
@@ -230,7 +234,8 @@ impl Error {
     #[must_use]
     pub fn is_syntax(&self) -> bool {
         // Lazy? maybe but if it aint something else...
-        matches!(self.error, 
+        matches!(self.error,
+            ErrorType::InternalError(crate::InternalError::TapeError) | //This seems to get thrown on some syntax errors
             ErrorType::InputTooLarge |
             ErrorType::BadKeyType |
             ErrorType::ExpectedArrayComma |
