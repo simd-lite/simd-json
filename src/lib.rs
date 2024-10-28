@@ -281,6 +281,7 @@ pub(crate) trait Stage1Parse {
 }
 
 /// Deserializer struct to deserialize a JSON
+#[derive(Debug)]
 pub struct Deserializer<'de> {
     // Note: we use the 2nd part as both index and length since only one is ever
     // used (array / object use len) everything else uses idx
