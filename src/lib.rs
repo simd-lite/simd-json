@@ -1127,11 +1127,11 @@ mod tests {
         let v = d.as_value();
 
         assert!(v.contains_key("payload"), "Failed to find payload key");
-        let v = v.get("payload").unwrap();
-        assert!(v.is_object(), "payload not recognized as object: {:?}", v);
+        let v = v.get("payload").expect("Can't get payload");
+        assert!(v.is_object(), "payload not recognized as object: {v:?}");
         assert!(v.contains_key("features"), "Failed to find features key");
-        let v = v.get("features").unwrap();
-        assert!(v.is_array(), "features not recognized as array: {:?}", v);
+        let v = v.get("features").expect("can't get features");
+        assert!(v.is_array(), "features not recognized as array: {v:?}");
 
         // proving that value peeking doesn't affect the deserializer
 
