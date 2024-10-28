@@ -219,17 +219,42 @@ impl Error {
         matches!(self.error, ErrorType::Eof)
     }
 
-    /// Indicates if the error that occurred was due to a deserializer error
+    /// Indicates if the error that occurred was due to a data shape error
     #[must_use]
     pub fn is_data(&self) -> bool {
-        matches!(self.error, ErrorType::Parser | ErrorType::Serde(_))
+        // Lazy? maybe but if it aint something else...
+        !(self.is_syntax() || self.is_eof() || self.is_io())
     }
 
-    /// Indicates if the error that occurred was due an input syntax error
+    /// Indicates if the error that occurred was due a JSON syntax error
     #[must_use]
     pub fn is_syntax(&self) -> bool {
         // Lazy? maybe but if it aint something else...
-        !(self.is_data() || self.is_eof() || self.is_io())
+        matches!(self.error, 
+            ErrorType::InputTooLarge |
+            ErrorType::BadKeyType |
+            ErrorType::ExpectedArrayComma |
+            ErrorType::ExpectedObjectColon |
+            ErrorType::ExpectedMapComma |
+            ErrorType::ExpectedMapEnd |
+            ErrorType::InvalidEscape |
+            ErrorType::InvalidExponent |
+            ErrorType::InvalidNumber |
+            ErrorType::InvalidUtf8 |
+            ErrorType::InvalidUnicodeEscape |
+            ErrorType::InvalidUnicodeCodepoint |
+            ErrorType::KeyMustBeAString |
+            ErrorType::NoStructure |
+            ErrorType::Parser |
+            ErrorType::Syntax |
+            ErrorType::TrailingData |
+            ErrorType::UnexpectedCharacter |
+            ErrorType::UnterminatedString |
+            ErrorType::ExpectedArrayContent |
+            ErrorType::ExpectedObjectContent |
+            ErrorType::ExpectedObjectKey |
+            ErrorType::Overflow |
+            ErrorType::SimdUnsupported)
     }
 }
 impl std::error::Error for Error {}
