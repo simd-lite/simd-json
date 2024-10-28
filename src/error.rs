@@ -211,7 +211,7 @@ impl Error {
     pub fn is_io(&self) -> bool {
         // We have to include InternalError _somewhere_
         match &self.error {
-            ErrorType::Io(_) => true,
+            ErrorType::Io(_) | ErrorType::InputTooLarge => true,
             ErrorType::InternalError(e) if !matches!(e, crate::InternalError::TapeError) => true,
             _ => false
         }
@@ -236,7 +236,6 @@ impl Error {
         // Lazy? maybe but if it aint something else...
         matches!(self.error,
             ErrorType::InternalError(crate::InternalError::TapeError) | //This seems to get thrown on some syntax errors
-            ErrorType::InputTooLarge |
             ErrorType::BadKeyType |
             ErrorType::ExpectedArrayComma |
             ErrorType::ExpectedObjectColon |
