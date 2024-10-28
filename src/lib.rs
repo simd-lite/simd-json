@@ -39,6 +39,7 @@ mod stringparse;
 
 use safer_unchecked::GetSaferUnchecked;
 use stage2::StackState;
+use tape::Value;
 
 mod impls;
 
@@ -719,6 +720,19 @@ impl<'de> Deserializer<'de> {
     #[must_use]
     pub fn into_tape(self) -> Tape<'de> {
         Tape(self.tape)
+    }
+
+    /// Gives a `Value` view of the tape in the Deserializer
+    #[must_use]
+    pub fn as_value(&self) -> Value<'_, 'de> {
+        // Skip initial zero
+        Value(&self.tape)
+    }
+
+    /// Resets the Deserializer tape index to 0
+    pub fn restart(&mut self) {
+        // Skip initial zero
+        self.idx = 0;
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
