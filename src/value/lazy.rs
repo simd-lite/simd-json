@@ -26,10 +26,12 @@ use crate::{borrowed, tape};
 use std::borrow::Cow;
 use std::fmt;
 
-mod array;
+/// Lazy implemntation of the array trait and associated functionality
+pub mod array;
 mod cmp;
 mod from;
-mod object;
+/// Lazy implementation of the object trait and associated functionality
+pub mod object;
 mod trait_impls;
 
 pub use array::Array;
