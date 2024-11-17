@@ -14,18 +14,22 @@ pub enum Object<'borrow, 'tape, 'input> {
     /// Value variant
     Value(&'borrow borrowed::Object<'input>),
 }
+/// Iterator over key valye paris in an object
 pub enum Iter<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::object::Iter<'tape, 'input>),
     /// Value variant
     Value(halfbrown::Iter<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
+
+/// Iterator over the keys of an object
 pub enum Keys<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::object::Keys<'tape, 'input>),
     /// Value variant
     Value(halfbrown::Keys<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
+/// Iterator over the values of an object
 pub enum Values<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::object::Values<'tape, 'input>),

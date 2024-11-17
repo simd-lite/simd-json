@@ -12,18 +12,21 @@ pub enum Array<'borrow, 'tape, 'input> {
     Value(&'borrow borrowed::Array<'input>),
 }
 
-pub enum ArrayIter<'borrow, 'tape, 'input> {
+/// Iterator over the values in an array
+pub enum Iter<'borrow, 'tape, 'input> {
+    /// Tape variant
     Tape(tape::array::Iter<'tape, 'input>),
+    /// Value variant
     Value(std::slice::Iter<'borrow, borrowed::Value<'input>>),
 }
 
-impl<'borrow, 'tape, 'input> Iterator for ArrayIter<'borrow, 'tape, 'input> {
+impl<'borrow, 'tape, 'input> Iterator for Iter<'borrow, 'tape, 'input> {
     type Item = Value<'borrow, 'tape, 'input>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            ArrayIter::Tape(t) => t.next().map(Value::Tape),
-            ArrayIter::Value(v) => v.next().map(Cow::Borrowed).map(Value::Value),
+            Iter::Tape(t) => t.next().map(Value::Tape),
+            Iter::Value(v) => v.next().map(Cow::Borrowed).map(Value::Value),
         }
     }
 }
@@ -43,10 +46,10 @@ impl<'borrow, 'tape, 'input> Array<'borrow, 'tape, 'input> {
     /// Iterates over the values paris
     #[allow(clippy::pedantic)] // we want into_iter_without_iter but that lint doesn't exist in older clippy
     #[must_use]
-    pub fn iter<'i>(&'i self) -> ArrayIter<'i, 'tape, 'input> {
+    pub fn iter<'i>(&'i self) -> Iter<'i, 'tape, 'input> {
         match self {
-            Array::Tape(t) => ArrayIter::Tape(t.iter()),
-            Array::Value(v) => ArrayIter::Value(v.iter()),
+            Array::Tape(t) => Iter::Tape(t.iter()),
+            Array::Value(v) => Iter::Value(v.iter()),
         }
     }
 

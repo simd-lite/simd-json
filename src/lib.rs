@@ -703,7 +703,7 @@ impl<'de> Deserializer<'de> {
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
-        Self::_find_structural_bits::<impls::neon::SimdInput>(input, structural_indexes)
+        unsafe { Self::_find_structural_bits::<impls::neon::SimdInput>(input, structural_indexes) }
     }
 
     #[cfg(all(target_feature = "simd128", not(feature = "portable")))]
@@ -851,7 +851,7 @@ impl<'de> Deserializer<'de> {
     /// where it's know the tape isn't finished.
     #[cfg_attr(not(feature = "no-inline"), inline)]
     pub unsafe fn next_(&mut self) -> Node<'de> {
-        let r = *self.tape.get_kinda_unchecked(self.idx);
+        let r = *unsafe { self.tape.get_kinda_unchecked(self.idx) };
         self.idx += 1;
         r
     }
@@ -868,7 +868,7 @@ impl<'de> Deserializer<'de> {
         structural_indexes.clear();
         structural_indexes.reserve(len / 8);
 
-        let mut utf8_validator = S::Utf8Validator::new();
+        let mut utf8_validator = unsafe { S::Utf8Validator::new() };
 
         // we have padded the input out to 64 byte multiple with the remainder being
         // zeros
@@ -904,10 +904,10 @@ impl<'de> Deserializer<'de> {
               __builtin_prefetch(buf + idx + 128);
             #endif
              */
-            let chunk = input.get_kinda_unchecked(idx..idx + 64);
-            utf8_validator.update_from_chunks(chunk);
+            let chunk = unsafe { input.get_kinda_unchecked(idx..idx + 64) };
+            unsafe { utf8_validator.update_from_chunks(chunk) };
 
-            let input = S::new(chunk);
+            let input = unsafe { S::new(chunk) };
             // detect odd sequences of backslashes
             let odd_ends: u64 =
                 input.find_odd_backslash_sequences(&mut prev_iter_ends_odd_backslash);
@@ -924,10 +924,10 @@ impl<'de> Deserializer<'de> {
 
             // take the previous iterations structural bits, not our current iteration,
             // and flatten
-            S::flatten_bits(structural_indexes, idx as u32, structurals);
+            unsafe { S::flatten_bits(structural_indexes, idx as u32, structurals) };
 
             let mut whitespace: u64 = 0;
-            input.find_whitespace_and_structurals(&mut whitespace, &mut structurals);
+            unsafe { input.find_whitespace_and_structurals(&mut whitespace, &mut structurals) };
 
             // fixup structurals to reflect quotes and add pseudo-structural characters
             structurals = S::finalize_structurals(
@@ -945,12 +945,14 @@ impl<'de> Deserializer<'de> {
         // risk invalidating the UTF-8 checks.
         if idx < len {
             let mut tmpbuf: [u8; SIMDINPUT_LENGTH] = [0x20; SIMDINPUT_LENGTH];
-            tmpbuf
-                .as_mut_ptr()
-                .copy_from(input.as_ptr().add(idx), len - idx);
-            utf8_validator.update_from_chunks(&tmpbuf);
+            unsafe {
+                tmpbuf
+                    .as_mut_ptr()
+                    .copy_from(input.as_ptr().add(idx), len - idx)
+            };
+            unsafe { utf8_validator.update_from_chunks(&tmpbuf) };
 
-            let input = S::new(&tmpbuf);
+            let input = unsafe { S::new(&tmpbuf) };
 
             // detect odd sequences of backslashes
             let odd_ends: u64 =
@@ -968,10 +970,10 @@ impl<'de> Deserializer<'de> {
 
             // take the previous iterations structural bits, not our current iteration,
             // and flatten
-            S::flatten_bits(structural_indexes, idx as u32, structurals);
+            unsafe { S::flatten_bits(structural_indexes, idx as u32, structurals) };
 
             let mut whitespace: u64 = 0;
-            input.find_whitespace_and_structurals(&mut whitespace, &mut structurals);
+            unsafe { input.find_whitespace_and_structurals(&mut whitespace, &mut structurals) };
 
             // fixup structurals to reflect quotes and add pseudo-structural characters
             structurals = S::finalize_structurals(
@@ -988,7 +990,7 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
         // finally, flatten out the remaining structurals from the last iteration
-        S::flatten_bits(structural_indexes, idx as u32, structurals);
+        unsafe { S::flatten_bits(structural_indexes, idx as u32, structurals) };
 
         // a valid JSON file cannot have zero structural indexes - we should have
         // found something (note that we compare to 1 as we always add the root!)
@@ -1000,7 +1002,7 @@ impl<'de> Deserializer<'de> {
             return Err(ErrorType::Syntax);
         }
 
-        if utf8_validator.finalize(None).is_err() {
+        if unsafe { utf8_validator.finalize(None).is_err() } {
             Err(ErrorType::InvalidUtf8)
         } else {
             Ok(())
