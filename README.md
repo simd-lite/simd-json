@@ -65,7 +65,6 @@ There are a few reasons for this:
   don't panic or crash the parser (they might and often error so - they are not valid JSON!)
 * Destructive Property based testing - make sure that no illegal byte sequences crash the parser in any way
 * Fuzzing - fuzz based on upstream & jsonorg simd pass/fail cases
-* Miri testing for UB
 
 This doesn't ensure complete safety nor is at a bulletproof guarantee, but it does go a long way
 to assert that the library is of high production quality and fit for purpose for practical industrial applications.
