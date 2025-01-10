@@ -18,7 +18,7 @@ getrandom = { version = "0.2", features = ["js"] }
 simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
 
 beef = { version = "0.5", optional = true }
-halfbrown = "0.2"
+halfbrown = "0.3"
 value-trait = { version = "0.10" }
 # ahash known key
 once_cell = { version = "1.17", optional = true }
