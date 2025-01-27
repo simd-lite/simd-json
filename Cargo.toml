@@ -12,7 +12,7 @@ documentation = "https://docs.rs/simd-json"
 rust-version = "1.64"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.3", features = ["js"] }
 
 [dependencies]
 simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
