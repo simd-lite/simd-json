@@ -10,4 +10,4 @@ wasmtest:
 	cargo clean --target-dir target
 	cargo build --tests --target wasm32-wasip1 --target-dir target
 	wasmtime run  target/wasm32-wasip1/debug/deps/simd_json*.wasm
-	wasmtime run --dir=.  target/wasm32-wasip1/debug/deps/jsonchecker*.wasm
+	wasmtime run --dir=. target/wasm32-wasip1/debug/deps/jsonchecker*.wasm
