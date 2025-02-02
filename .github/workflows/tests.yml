@@ -115,6 +115,8 @@ jobs:
 
   test-wasm:
     runs-on: ubuntu-latest
+    env:
+      WASMTIME_BACKTRACE_DETAILS: 1
     steps:
       - uses: actions/checkout@v3
 
