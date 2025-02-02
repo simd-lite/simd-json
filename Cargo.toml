@@ -36,6 +36,7 @@ jemallocator = { version = "0.5", optional = true }
 perfcnt = { version = "0.8", optional = true }
 
 ref-cast = "1.0"
+wasmtime = "4.0.1"
 
 [dev-dependencies]
 float-cmp = "0.10"
