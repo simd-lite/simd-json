@@ -6,7 +6,6 @@ on:
     branches:
       - main
 
-
 jobs:
   build-nightly:
     strategy:
@@ -16,65 +15,75 @@ jobs:
           - windows-latest
           - macOS-latest
         rustflags:
-          - ''
-          - '-C target-feature=-avx2'
-          - '-C target-feature=-avx2,-pclmulqdq'
+          - ""
+          - "-C target-feature=-avx2"
+          - "-C target-feature=-avx2,-pclmulqdq"
+          - "-C target-feature=-avx2,-pclmulqdq,-sse4.2"
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - uses: dtolnay/rust-toolchain@nightly
-      # with:
-      #   components: miri
+      - uses: dtolnay/rust-toolchain@nightly
+        # with:
+        #   components: miri
 
-    - name: Run tests (alloc)
-      env:
-        RUSTFLAGS: ${{ matrix.rustflags }}
-      run: cargo test --features alloc
-        
-    - name: Run tests 
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo test
+      - name: Run tests (alloc)
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+        run: cargo test --features alloc
 
-    - name: Run tests (no-default-features)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo test
+      - name: Run tests
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test
 
-    - name: Run tests (value-no-dup-keys)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo test --features value-no-dup-keys
+      - name: Run tests (no-default-features)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test
 
-    - name: Run tests (known-key)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo test --features known-key
+      - name: Run tests (value-no-dup-keys)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test --features value-no-dup-keys
 
-    - name: Run tests (128bit)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo test --features 128bit
+      - name: Run tests (known-key)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test --features known-key
 
-    - name: Run tests (beef)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo test --features beef
-    
-    - name: Run tests (arraybackend)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo test --features arraybackend
-    
-    - name: Run tests (approx-number-parsing)
-      env:
-        RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-      run: cargo test --features approx-number-parsing
+      - name: Run tests (128bit)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test --features 128bit
+
+      - name: Run tests (beef)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test --features beef
+
+      - name: Run tests (arraybackend)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test --features arraybackend
+
+      - name: Run tests (approx-number-parsing)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test --features approx-number-parsing
+
+      - name: Run tests (no-default-features)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test --no-default-features
+
+      - name: Run tests (no-default-features, just serde_impl)
+        env:
+          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
+        run: cargo test --no-default-features --features serde_impl
 
     # we can't use miri any more, something broke.
     # - name: Run miri
     #   env:
     #     RUSTFLAGS: ${{ matrix.rustflags }}
     #   run: cargo miri test ${{ matrix.features }}
-
