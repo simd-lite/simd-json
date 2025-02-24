@@ -566,7 +566,7 @@ mod test {
     fn minus_309() -> Result<(), crate::Error> {
         assert_eq!(
             to_value_from_str("-5.96916642387374e-309")?,
-            Static(StaticNode::from(-5.969_166_423_873_74e-_309))
+            Static(StaticNode::from(-5.969_166_423_873_74e-309))
         );
         Ok(())
     }
