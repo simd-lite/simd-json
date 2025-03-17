@@ -6,19 +6,19 @@ use super::{is_integer, is_not_structural_or_whitespace_or_exponent_or_decimal};
 #[cfg(feature = "swar-number-parsing")]
 use super::{is_made_of_eight_digits_fast, parse_eight_digits_unrolled};
 
+use crate::StaticNode;
 use crate::charutils::is_structural_or_whitespace;
 use crate::error::Error;
 use crate::safer_unchecked::GetSaferUnchecked;
-use crate::StaticNode;
 use crate::{Deserializer, ErrorType, Result};
 
 macro_rules! get {
-    ($buf:ident, $idx:expr) => {
+    ($buf:ident, $idx:expr_2021) => {
         unsafe { *$buf.get_kinda_unchecked($idx as usize) }
     };
 }
 macro_rules! err {
-    ($idx:ident, $num:expr) => {
+    ($idx:ident, $num:expr_2021) => {
         return Err(Error::new_c($idx, $num as char, ErrorType::InvalidNumber))
     };
 }
@@ -48,7 +48,7 @@ fn multiply_as_u128(a: u64, b: u64) -> (u64, u64) {
     (res as u64, (res >> 64) as u64)
 }
 
-impl<'de> Deserializer<'de> {
+impl Deserializer<'_> {
     #[allow(
         unused_unsafe,
         clippy::cast_possible_wrap,
@@ -399,9 +399,9 @@ fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
 mod test {
     #![allow(clippy::default_trait_access)]
     use crate::error::Error;
-    use crate::value::owned::to_value;
     use crate::value::owned::Value;
     use crate::value::owned::Value::Static;
+    use crate::value::owned::to_value;
     use value_trait::StaticNode::{self, I64, U64};
 
     fn to_value_from_str(buf: &str) -> Result<Value, Error> {

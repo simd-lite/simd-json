@@ -3,7 +3,6 @@ use crate::{BorrowedValue, StaticNode};
 
 impl From<crate::BorrowedValue<'_>> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(b: BorrowedValue<'_>) -> Self {
         match b {
             BorrowedValue::Static(s) => Self::from(s),
@@ -19,7 +18,6 @@ where
     Value: From<T>,
 {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(s: Option<T>) -> Self {
         s.map_or(Value::Static(StaticNode::Null), Value::from)
     }
@@ -27,7 +25,6 @@ where
 
 impl From<StaticNode> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(s: StaticNode) -> Self {
         Self::Static(s)
     }
@@ -36,7 +33,6 @@ impl From<StaticNode> for Value {
 
 impl From<&str> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(s: &str) -> Self {
         Self::String(s.to_owned())
     }
@@ -44,7 +40,6 @@ impl From<&str> for Value {
 
 impl<'value> From<std::borrow::Cow<'value, str>> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(c: std::borrow::Cow<'value, str>) -> Self {
         Self::String(c.to_string())
     }
@@ -53,7 +48,6 @@ impl<'value> From<std::borrow::Cow<'value, str>> for Value {
 #[cfg(feature = "beef")]
 impl<'value> From<beef::lean::Cow<'value, str>> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(c: beef::lean::Cow<'value, str>) -> Self {
         Self::String(c.to_string())
     }
@@ -61,7 +55,6 @@ impl<'value> From<beef::lean::Cow<'value, str>> for Value {
 
 impl From<String> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(s: String) -> Self {
         Self::String(s)
     }
@@ -69,7 +62,6 @@ impl From<String> for Value {
 
 impl From<&String> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(s: &String) -> Self {
         Self::String(s.clone())
     }
@@ -79,7 +71,6 @@ impl From<&String> for Value {
 
 impl From<bool> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(b: bool) -> Self {
         Self::Static(StaticNode::Bool(b))
     }
@@ -87,7 +78,6 @@ impl From<bool> for Value {
 
 impl From<()> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(_b: ()) -> Self {
         Self::Static(StaticNode::Null)
     }
@@ -96,7 +86,6 @@ impl From<()> for Value {
 /********* i_ **********/
 impl From<i8> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(i: i8) -> Self {
         Self::Static(StaticNode::I64(i64::from(i)))
     }
@@ -104,7 +93,6 @@ impl From<i8> for Value {
 
 impl From<i16> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(i: i16) -> Self {
         Self::Static(StaticNode::I64(i64::from(i)))
     }
@@ -112,7 +100,6 @@ impl From<i16> for Value {
 
 impl From<i32> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(i: i32) -> Self {
         Self::Static(StaticNode::I64(i64::from(i)))
     }
@@ -120,7 +107,6 @@ impl From<i32> for Value {
 
 impl From<i64> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(i: i64) -> Self {
         Self::Static(StaticNode::I64(i))
     }
@@ -128,7 +114,6 @@ impl From<i64> for Value {
 #[cfg(feature = "128bit")]
 impl From<i128> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(i: i128) -> Self {
         Self::Static(StaticNode::I128(i))
     }
@@ -137,7 +122,6 @@ impl From<i128> for Value {
 /********* u_ **********/
 impl From<u8> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(i: u8) -> Self {
         Self::Static(StaticNode::U64(u64::from(i)))
     }
@@ -145,7 +129,6 @@ impl From<u8> for Value {
 
 impl From<u16> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(i: u16) -> Self {
         Self::Static(StaticNode::U64(u64::from(i)))
     }
@@ -153,7 +136,6 @@ impl From<u16> for Value {
 
 impl From<u32> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(i: u32) -> Self {
         Self::Static(StaticNode::U64(u64::from(i)))
     }
@@ -161,7 +143,6 @@ impl From<u32> for Value {
 
 impl From<u64> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     #[allow(clippy::cast_possible_wrap)]
     fn from(i: u64) -> Self {
         Self::Static(StaticNode::U64(i))
@@ -171,7 +152,6 @@ impl From<u64> for Value {
 #[cfg(feature = "128bit")]
 impl From<u128> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(i: u128) -> Self {
         Self::Static(StaticNode::U128(i))
     }
@@ -179,7 +159,6 @@ impl From<u128> for Value {
 
 impl From<usize> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(i: usize) -> Self {
         Self::Static(StaticNode::U64(i as u64))
     }
@@ -188,7 +167,6 @@ impl From<usize> for Value {
 /********* f_ **********/
 impl From<f32> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(f: f32) -> Self {
         Self::Static(StaticNode::from(f64::from(f)))
     }
@@ -196,7 +174,6 @@ impl From<f32> for Value {
 
 impl From<f64> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(f: f64) -> Self {
         Self::Static(StaticNode::from(f))
     }
@@ -207,7 +184,6 @@ where
     Value: From<S>,
 {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(v: Vec<S>) -> Self {
         v.into_iter().collect()
     }
@@ -215,7 +191,6 @@ where
 
 impl<V: Into<Value>> FromIterator<V> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from_iter<I: IntoIterator<Item = V>>(iter: I) -> Self {
         Self::Array(Box::new(iter.into_iter().map(Into::into).collect()))
     }
@@ -223,7 +198,6 @@ impl<V: Into<Value>> FromIterator<V> for Value {
 
 impl<K: ToString, V: Into<Value>> FromIterator<(K, V)> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
         Self::Object(Box::new(
             iter.into_iter()
@@ -235,7 +209,6 @@ impl<K: ToString, V: Into<Value>> FromIterator<(K, V)> for Value {
 
 impl From<Object> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(v: Object) -> Self {
         Self::Object(Box::new(v))
     }
@@ -243,7 +216,6 @@ impl From<Object> for Value {
 
 impl From<std::collections::HashMap<String, Value>> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn from(v: std::collections::HashMap<String, Self>) -> Self {
         Self::from(v.into_iter().collect::<Object>())
     }

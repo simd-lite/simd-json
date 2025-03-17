@@ -11,8 +11,8 @@ mod se;
 mod value;
 pub use self::se::*;
 pub use self::value::*;
-use crate::{stry, Buffers, Deserializer, Error, ErrorType, Node, Result};
 use crate::{BorrowedValue, OwnedValue};
+use crate::{Buffers, Deserializer, Error, ErrorType, Node, Result, stry};
 use serde::de::DeserializeOwned;
 use serde_ext::Deserialize;
 use std::fmt;
@@ -148,7 +148,7 @@ where
     let mut data = Vec::new();
     if let Err(e) = rdr.read_to_end(&mut data) {
         return Err(Error::generic(ErrorType::Io(e)));
-    };
+    }
     let mut deserializer = stry!(Deserializer::from_slice(&mut data));
     T::deserialize(&mut deserializer)
 }
@@ -170,7 +170,7 @@ where
     let mut data = Vec::new();
     if let Err(e) = rdr.read_to_end(&mut data) {
         return Err(Error::generic(ErrorType::Io(e)));
-    };
+    }
     let mut deserializer = stry!(Deserializer::from_slice_with_buffers(&mut data, buffers));
     T::deserialize(&mut deserializer)
 }
@@ -407,7 +407,7 @@ impl TryInto<serde_json::Value> for OwnedValue {
     }
 }
 
-impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
+impl TryFrom<serde_json::Value> for BorrowedValue<'_> {
     type Error = SerdeConversionError;
     fn try_from(item: serde_json::Value) -> ConvertResult<Self> {
         use serde_json::Value;
@@ -430,7 +430,7 @@ impl<'value> TryFrom<serde_json::Value> for BorrowedValue<'value> {
     }
 }
 
-impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
+impl TryInto<serde_json::Value> for BorrowedValue<'_> {
     type Error = SerdeConversionError;
     fn try_into(self) -> ConvertResult<serde_json::Value> {
         use serde_json::Value;
@@ -478,12 +478,12 @@ impl<'value> TryInto<serde_json::Value> for BorrowedValue<'value> {
 mod test {
     #![allow(clippy::unwrap_used)]
     use crate::{
-        error::Error, json, BorrowedValue, Deserializer as SimdDeserializer, ErrorType, OwnedValue,
+        BorrowedValue, Deserializer as SimdDeserializer, ErrorType, OwnedValue, error::Error, json,
     };
     use float_cmp::assert_approx_eq;
-    use halfbrown::{hashmap, HashMap};
+    use halfbrown::{HashMap, hashmap};
     use serde::{Deserialize, Serialize};
-    use serde_json::{json as sjson, to_string as sto_string, Value as SerdeValue};
+    use serde_json::{Value as SerdeValue, json as sjson, to_string as sto_string};
     use std::collections::BTreeMap;
 
     #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -863,7 +863,7 @@ mod test {
     }
 
     macro_rules! parsing_error {
-        ($input:expr; $type:ty => $err:ident) => {{
+        ($input:expr_2021; $type:ty => $err:ident) => {{
             let mut json_str = $input.to_string();
             assert_eq!(
                 unsafe { crate::from_str::<$type>(&mut json_str) },
@@ -905,7 +905,7 @@ mod test {
     }
 
     macro_rules! ser_deser_map {
-        ($key:expr => $value:expr, $type:ty) => {
+        ($key:expr_2021 => $value:expr_2021, $type:ty) => {
             let input = hashmap! {$key => $value};
             let mut m_str = crate::to_string(&input).unwrap();
             assert_eq!(m_str, sto_string(&input).unwrap());

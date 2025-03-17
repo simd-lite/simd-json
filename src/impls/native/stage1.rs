@@ -1,6 +1,6 @@
 #![allow(clippy::cast_lossless, clippy::cast_sign_loss)]
 
-use crate::{static_cast_i32, Stage1Parse};
+use crate::{Stage1Parse, static_cast_i32};
 
 type V128 = [u8; 16];
 
@@ -190,11 +190,7 @@ fn u8x16_swizzle(a: V128, s: V128) -> [u8; 16] {
 // }
 
 fn bool_to_u8(b: bool) -> u8 {
-    if b {
-        0xFF
-    } else {
-        0x00
-    }
+    if b { 0xFF } else { 0x00 }
 }
 fn u8x16_le(a: V128, b: V128) -> V128 {
     [
@@ -297,11 +293,13 @@ impl Stage1Parse for SimdInput {
     type Utf8Validator = super::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = V128;
     unsafe fn new(ptr: &[u8]) -> Self {
-        SimdInput {
-            v0: *(ptr.as_ptr().cast::<V128>()),
-            v1: *(ptr.as_ptr().add(16).cast::<V128>()),
-            v2: *(ptr.as_ptr().add(32).cast::<V128>()),
-            v3: *(ptr.as_ptr().add(48).cast::<V128>()),
+        unsafe {
+            SimdInput {
+                v0: *(ptr.as_ptr().cast::<V128>()),
+                v1: *(ptr.as_ptr().add(16).cast::<V128>()),
+                v2: *(ptr.as_ptr().add(32).cast::<V128>()),
+                v3: *(ptr.as_ptr().add(48).cast::<V128>()),
+            }
         }
     }
 
@@ -430,12 +428,14 @@ impl Stage1Parse for SimdInput {
         let cnt: usize = bits.count_ones() as usize;
         let mut l = base.len();
         let idx_minus_64 = idx.wrapping_sub(64);
-        let idx_64_v: [i32; 4] = [
-            static_cast_i32!(idx_minus_64),
-            static_cast_i32!(idx_minus_64),
-            static_cast_i32!(idx_minus_64),
-            static_cast_i32!(idx_minus_64),
-        ];
+        let idx_64_v: [i32; 4] = unsafe {
+            [
+                static_cast_i32!(idx_minus_64),
+                static_cast_i32!(idx_minus_64),
+                static_cast_i32!(idx_minus_64),
+                static_cast_i32!(idx_minus_64),
+            ]
+        };
 
         // We're doing some trickery here.
         // We reserve 64 extra entries, because we've at most 64 bit to set
@@ -468,11 +468,11 @@ impl Stage1Parse for SimdInput {
                 idx_64_v[2] + v2,
                 idx_64_v[3] + v3,
             ];
-            write_fn(base.as_mut_ptr().add(l).cast::<[i32; 4]>(), v);
+            unsafe { write_fn(base.as_mut_ptr().add(l).cast::<[i32; 4]>(), v) };
             l += 4;
         }
         // We have written all the data
-        base.set_len(final_len);
+        unsafe { base.set_len(final_len) };
     }
 
     unsafe fn fill_s8(n: i8) -> V128 {

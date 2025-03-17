@@ -2,26 +2,26 @@
 name = "simd-json"
 version = "0.14.3"
 authors = ["Heinz N. Gies <heinz@licenser.net>", "Sunny Gleason"]
-edition = "2021"
+edition = "2024"
 exclude = ["data/*", "fuzz/*"]
 license = "Apache-2.0 OR MIT"
 description = "High performance JSON parser based on a port of simdjson"
 repository = "https://github.com/simd-lite/simd-json"
 readme = "README.md"
 documentation = "https://docs.rs/simd-json"
-rust-version = "1.64"
+rust-version = "1.85"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [dependencies]
 simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
 
+value-trait = { version = "0.11" }
 beef = { version = "0.5", optional = true }
-halfbrown = "0.2"
-value-trait = { version = "0.10" }
+halfbrown = "0.3"
 # ahash known key
-once_cell = { version = "1.17", optional = true }
+once_cell = { version = "1.21", optional = true }
 ahash = { version = "0.8", optional = true }
 
 # serde compatibilty

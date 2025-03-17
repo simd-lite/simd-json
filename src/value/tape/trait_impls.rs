@@ -5,6 +5,7 @@ use std::{
 };
 
 use value_trait::{
+    StaticNode, TryTypeError, ValueType,
     base::{TypedValue, ValueAsScalar, ValueIntoArray, ValueIntoObject, ValueIntoString, Writable},
     derived::{
         ValueObjectAccessAsScalar, ValueObjectAccessTryAsScalar, ValueTryAsScalar,
@@ -13,7 +14,6 @@ use value_trait::{
     generator::{
         BaseGenerator, DumpGenerator, PrettyGenerator, PrettyWriterGenerator, WriterGenerator,
     },
-    StaticNode, TryTypeError, ValueType,
 };
 
 use crate::Node;
@@ -21,7 +21,7 @@ use crate::Node;
 use super::{Array, Object, Value};
 
 // Custom functions
-impl<'tape, 'input> Value<'tape, 'input> {
+impl Value<'_, '_> {
     fn as_static(&self) -> Option<StaticNode> {
         match self.0.first()? {
             Node::Static(s) => Some(*s),
@@ -31,7 +31,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
 }
 
 // TypedContainerValue
-impl<'tape, 'input> Value<'tape, 'input> {
+impl Value<'_, '_> {
     /// returns true if the current value can be represented as an array
     #[must_use]
     pub fn is_array(&self) -> bool {
@@ -80,7 +80,7 @@ where
     }
 }
 
-impl<'tape, 'input> ValueIntoString for Value<'tape, 'input> {
+impl<'input> ValueIntoString for Value<'_, 'input> {
     type String = &'input str;
 
     fn into_string(self) -> Option<&'input str> {
@@ -94,7 +94,6 @@ impl<'tape, 'input> ValueIntoString for Value<'tape, 'input> {
 
 impl<'tape, 'input> ValueIntoArray for Value<'tape, 'input> {
     type Array = Array<'tape, 'input>;
-    #[must_use]
     fn into_array(self) -> Option<Self::Array> {
         if let Some(Node::Array { count, .. }) = self.0.first() {
             // we add one element as we want to keep the array header
@@ -107,7 +106,6 @@ impl<'tape, 'input> ValueIntoArray for Value<'tape, 'input> {
 }
 impl<'tape, 'input> ValueIntoObject for Value<'tape, 'input> {
     type Object = Object<'tape, 'input>;
-    #[must_use]
     fn into_object(self) -> Option<Self::Object> {
         if let Some(Node::Object { count, .. }) = self.0.first() {
             // we add one element as we want to keep the object header
@@ -119,9 +117,8 @@ impl<'tape, 'input> ValueIntoObject for Value<'tape, 'input> {
     }
 }
 
-impl<'tape, 'input> TypedValue for Value<'tape, 'input> {
+impl TypedValue for Value<'_, '_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn value_type(&self) -> ValueType {
         match self.0.first().expect("invalid tape value") {
             Node::Static(StaticNode::Null) => ValueType::Null,
@@ -229,7 +226,6 @@ impl<'tape, 'input> Value<'tape, 'input> {
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key
     /// it was asked for.
-    #[must_use]
     pub fn get<Q>(&self, k: &Q) -> Option<Value<'tape, 'input>>
     where
         str: Borrow<Q> + Hash + Eq,
@@ -415,7 +411,10 @@ impl<'tape, 'input> Value<'tape, 'input> {
         let mut idx = 1;
         while len > 0 {
             let Some(s) = self.0[idx].as_str() else {
-                unreachable!()
+                unreachable!(
+                    "get_array: object len not reached but no key found {} {}",
+                    len, idx
+                );
             };
             idx += 1;
             len -= 1;
@@ -441,7 +440,10 @@ impl<'tape, 'input> Value<'tape, 'input> {
         let mut idx = 1;
         while len > 0 {
             let Some(s) = self.0[idx].as_str() else {
-                unreachable!()
+                unreachable!(
+                    "get_object: object len not reached but no key found {} {}",
+                    len, idx
+                );
             };
             idx += 1;
             len -= 1;
@@ -471,7 +473,10 @@ impl<'tape, 'input> Value<'tape, 'input> {
         let mut idx = 1;
         while len > 0 {
             let Some(s) = self.0[idx].as_str() else {
-                unreachable!()
+                unreachable!(
+                    "try_get_array: object len not reached but no key found {} {}",
+                    len, idx
+                );
             };
             idx += 1;
             len -= 1;
@@ -500,7 +505,10 @@ impl<'tape, 'input> Value<'tape, 'input> {
         let mut idx = 1;
         while len > 0 {
             let Some(s) = self.0[idx].as_str() else {
-                unreachable!()
+                unreachable!(
+                    "try_get_object: object len not reached but no key found {} {}",
+                    len, idx
+                );
             };
             idx += 1;
             len -= 1;
@@ -516,7 +524,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     }
 }
 
-impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
+impl ValueObjectAccessTryAsScalar for Value<'_, '_> {
     type Key = str;
     fn try_get_bool<Q>(&self, k: &Q) -> Result<Option<bool>, TryTypeError>
     where
@@ -656,7 +664,7 @@ impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
     }
 }
 
-impl<'tape, 'input> Writable for Value<'tape, 'input> {
+impl Writable for Value<'_, '_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn encode(&self) -> String {
         let mut g = DumpGenerator::new();
@@ -702,11 +710,9 @@ trait Generator: BaseGenerator {
             stry!(self.write(b"{"));
 
             // We know this exists since it's not empty
-            let (key, value) = if let Some(v) = iter.next() {
-                v
-            } else {
+            let Some((key, value)) = iter.next() else {
                 // We check against size
-                unreachable!();
+                unreachable!("object is not empty but has no next");
             };
             self.indent();
             stry!(self.new_line());
@@ -743,19 +749,17 @@ trait Generator: BaseGenerator {
             Node::Static(StaticNode::Bool(true)) => self.write(b"true"),
             Node::Static(StaticNode::Bool(false)) => self.write(b"false"),
             Node::String(string) => self.write_string(string),
-            Node::Array { count, .. } => {
-                if count == 0 {
+            Node::Array { len, count } => {
+                if len == 0 {
                     self.write(b"[]")
                 } else {
                     let array = Array(&json.0[..=count]);
                     let mut iter = array.iter();
                     // We know we have one item
 
-                    let item = if let Some(v) = iter.next() {
-                        v
-                    } else {
+                    let Some(item) = iter.next() else {
                         // We check against size
-                        unreachable!();
+                        unreachable!("array is not empty but has no next");
                     };
                     stry!(self.write(b"["));
                     self.indent();
@@ -790,11 +794,9 @@ trait FastGenerator: BaseGenerator {
             stry!(self.write(b"{\""));
 
             // We know this exists since it's not empty
-            let (key, value) = if let Some(v) = iter.next() {
-                v
-            } else {
+            let Some((key, value)) = iter.next() else {
                 // We check against size
-                unreachable!();
+                unreachable!("object is not empty but has no next");
             };
             stry!(self.write_simple_str_content(key));
             stry!(self.write(b"\":"));
@@ -825,18 +827,16 @@ trait FastGenerator: BaseGenerator {
             Node::Static(StaticNode::Bool(true)) => self.write(b"true"),
             Node::Static(StaticNode::Bool(false)) => self.write(b"false"),
             Node::String(string) => self.write_string(string),
-            Node::Array { count, .. } => {
-                if count == 0 {
+            Node::Array { len, count } => {
+                if len == 0 {
                     self.write(b"[]")
                 } else {
                     let array = Array(&json.0[..=count]);
                     let mut iter = array.iter();
                     // We know we have one item
-                    let item = if let Some(v) = iter.next() {
-                        v
-                    } else {
+                    let Some(item) = iter.next() else {
                         // We check against size
-                        unreachable!();
+                        unreachable!("array is not empty but has no next");
                     };
 
                     stry!(self.write(b"["));
@@ -862,14 +862,14 @@ impl Generator for PrettyGenerator {
     type T = Vec<u8>;
 }
 
-impl<'writer, W> FastGenerator for WriterGenerator<'writer, W>
+impl<W> FastGenerator for WriterGenerator<'_, W>
 where
     W: Write,
 {
     type T = W;
 }
 
-impl<'writer, W> Generator for PrettyWriterGenerator<'writer, W>
+impl<W> Generator for PrettyWriterGenerator<'_, W>
 where
     W: Write,
 {

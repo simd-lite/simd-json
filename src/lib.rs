@@ -9,7 +9,10 @@
     clippy::pedantic,
     missing_docs
 )]
-#![allow(clippy::module_name_repetitions, renamed_and_removed_lints)]
+#![allow(
+    clippy::module_name_repetitions,
+    unused_unsafe // for nightly
+)]
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 
 #[cfg(feature = "serde_impl")]
@@ -72,7 +75,7 @@ mod known_key;
 pub use known_key::{Error as KnownKeyError, KnownKey};
 
 pub use crate::tape::{Node, Tape};
-use std::alloc::{alloc, handle_alloc_error, Layout};
+use std::alloc::{Layout, alloc, handle_alloc_error};
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
@@ -297,7 +300,7 @@ pub(crate) struct SillyWrapper<'de> {
     _marker: std::marker::PhantomData<&'de ()>,
 }
 
-impl<'de> From<*mut u8> for SillyWrapper<'de> {
+impl From<*mut u8> for SillyWrapper<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn from(input: *mut u8) -> Self {
         Self {
@@ -361,7 +364,7 @@ impl std::fmt::Display for Implementation {
     }
 }
 
-impl<'de> Deserializer<'de> {
+impl Deserializer<'_> {
     /// returns the algorithm / architecture used by the deserializer
     #[cfg(all(
         feature = "runtime-detection",
@@ -457,43 +460,47 @@ impl<'de> Deserializer<'de> {
     where
         'de: 'invoke,
     {
-        use std::sync::atomic::{AtomicPtr, Ordering};
+        unsafe {
+            use std::sync::atomic::{AtomicPtr, Ordering};
 
-        static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
+            static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
 
-        #[cfg_attr(not(feature = "no-inline"), inline)]
-        fn get_fastest_available_implementation() -> ParseStrFn {
-            if std::is_x86_feature_detected!("avx2") {
-                impls::avx2::parse_str
-            } else if std::is_x86_feature_detected!("sse4.2") {
-                impls::sse42::parse_str
-            } else {
-                #[cfg(feature = "portable")]
-                let r = impls::portable::parse_str;
-                #[cfg(not(feature = "portable"))]
-                let r = impls::native::parse_str;
-                r
+            #[cfg_attr(not(feature = "no-inline"), inline)]
+            fn get_fastest_available_implementation() -> ParseStrFn {
+                if std::is_x86_feature_detected!("avx2") {
+                    impls::avx2::parse_str
+                } else if std::is_x86_feature_detected!("sse4.2") {
+                    impls::sse42::parse_str
+                } else {
+                    #[cfg(feature = "portable")]
+                    let r = impls::portable::parse_str;
+                    #[cfg(not(feature = "portable"))]
+                    let r = impls::native::parse_str;
+                    r
+                }
             }
-        }
 
-        #[cfg_attr(not(feature = "no-inline"), inline)]
-        unsafe fn get_fastest<'invoke, 'de>(
-            input: SillyWrapper<'de>,
-            data: &'invoke [u8],
-            buffer: &'invoke mut [u8],
-            idx: usize,
-        ) -> core::result::Result<&'de str, error::Error>
-        where
-            'de: 'invoke,
-        {
-            let fun = get_fastest_available_implementation();
-            FN.store(fun as FnRaw, Ordering::Relaxed);
-            (fun)(input, data, buffer, idx)
-        }
+            #[cfg_attr(not(feature = "no-inline"), inline)]
+            unsafe fn get_fastest<'invoke, 'de>(
+                input: SillyWrapper<'de>,
+                data: &'invoke [u8],
+                buffer: &'invoke mut [u8],
+                idx: usize,
+            ) -> core::result::Result<&'de str, error::Error>
+            where
+                'de: 'invoke,
+            {
+                unsafe {
+                    let fun = get_fastest_available_implementation();
+                    FN.store(fun as FnRaw, Ordering::Relaxed);
+                    (fun)(input, data, buffer, idx)
+                }
+            }
 
-        let input: SillyWrapper<'de> = SillyWrapper::from(input);
-        let fun = FN.load(Ordering::Relaxed);
-        mem::transmute::<FnRaw, ParseStrFn>(fun)(input, data, buffer, idx)
+            let input: SillyWrapper<'de> = SillyWrapper::from(input);
+            let fun = FN.load(Ordering::Relaxed);
+            mem::transmute::<FnRaw, ParseStrFn>(fun)(input, data, buffer, idx)
+        }
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(not(any(
@@ -517,7 +524,7 @@ impl<'de> Deserializer<'de> {
         'de: 'invoke,
     {
         let input: SillyWrapper<'de> = SillyWrapper::from(input);
-        impls::native::parse_str(input, data, buffer, idx)
+        unsafe { impls::native::parse_str(input, data, buffer, idx) }
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(feature = "portable", not(feature = "runtime-detection")))]
@@ -575,7 +582,7 @@ impl<'de> Deserializer<'de> {
         buffer: &'invoke mut [u8],
         idx: usize,
     ) -> Result<&'de str> {
-        let input: SillyWrapper<'de> = SillyWrapper::from(input);
+        let input: SillyWrapper = SillyWrapper::from(input);
         impls::neon::parse_str(input, data, buffer, idx)
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -592,7 +599,7 @@ impl<'de> Deserializer<'de> {
 }
 
 /// architecture dependant `find_structural_bits`
-impl<'de> Deserializer<'de> {
+impl Deserializer<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(
         feature = "runtime-detection",
@@ -602,37 +609,41 @@ impl<'de> Deserializer<'de> {
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
-        use std::sync::atomic::{AtomicPtr, Ordering};
+        unsafe {
+            use std::sync::atomic::{AtomicPtr, Ordering};
 
-        static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
+            static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
 
-        #[cfg_attr(not(feature = "no-inline"), inline)]
-        fn get_fastest_available_implementation() -> FindStructuralBitsFn {
-            if std::is_x86_feature_detected!("avx2") {
-                Deserializer::_find_structural_bits::<impls::avx2::SimdInput>
-            } else if std::is_x86_feature_detected!("sse4.2") {
-                Deserializer::_find_structural_bits::<impls::sse42::SimdInput>
-            } else {
-                #[cfg(feature = "portable")]
-                let r = Deserializer::_find_structural_bits::<impls::portable::SimdInput>;
-                #[cfg(not(feature = "portable"))]
-                let r = Deserializer::_find_structural_bits::<impls::native::SimdInput>;
-                r
+            #[cfg_attr(not(feature = "no-inline"), inline)]
+            fn get_fastest_available_implementation() -> FindStructuralBitsFn {
+                if std::is_x86_feature_detected!("avx2") {
+                    Deserializer::_find_structural_bits::<impls::avx2::SimdInput>
+                } else if std::is_x86_feature_detected!("sse4.2") {
+                    Deserializer::_find_structural_bits::<impls::sse42::SimdInput>
+                } else {
+                    #[cfg(feature = "portable")]
+                    let r = Deserializer::_find_structural_bits::<impls::portable::SimdInput>;
+                    #[cfg(not(feature = "portable"))]
+                    let r = Deserializer::_find_structural_bits::<impls::native::SimdInput>;
+                    r
+                }
             }
-        }
 
-        #[cfg_attr(not(feature = "no-inline"), inline)]
-        unsafe fn get_fastest(
-            input: &[u8],
-            structural_indexes: &mut Vec<u32>,
-        ) -> core::result::Result<(), error::ErrorType> {
-            let fun = get_fastest_available_implementation();
-            FN.store(fun as FnRaw, Ordering::Relaxed);
-            (fun)(input, structural_indexes)
-        }
+            #[cfg_attr(not(feature = "no-inline"), inline)]
+            unsafe fn get_fastest(
+                input: &[u8],
+                structural_indexes: &mut Vec<u32>,
+            ) -> core::result::Result<(), error::ErrorType> {
+                unsafe {
+                    let fun = get_fastest_available_implementation();
+                    FN.store(fun as FnRaw, Ordering::Relaxed);
+                    (fun)(input, structural_indexes)
+                }
+            }
 
-        let fun = FN.load(Ordering::Relaxed);
-        mem::transmute::<FnRaw, FindStructuralBitsFn>(fun)(input, structural_indexes)
+            let fun = FN.load(Ordering::Relaxed);
+            mem::transmute::<FnRaw, FindStructuralBitsFn>(fun)(input, structural_indexes)
+        }
     }
 
     #[cfg(not(any(
@@ -658,7 +669,9 @@ impl<'de> Deserializer<'de> {
             Err(_) => return Err(ErrorType::InvalidUtf8),
         };
         #[cfg(not(feature = "portable"))]
-        Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
+        unsafe {
+            Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
+        }
     }
 
     #[cfg(all(feature = "portable", not(feature = "runtime-detection")))]
@@ -1029,22 +1042,22 @@ impl AlignedBuf {
     /// Creates a new buffer that is  aligned with the simd register size
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
-        let layout = match Layout::from_size_align(capacity, SIMDJSON_PADDING) {
-            Ok(layout) => layout,
-            Err(_) => Self::capacity_overflow(),
+        let Ok(layout) = Layout::from_size_align(capacity, SIMDJSON_PADDING) else {
+            Self::capacity_overflow()
         };
         if mem::size_of::<usize>() < 8 && capacity > isize::MAX as usize {
             Self::capacity_overflow()
         }
-        let inner = match unsafe { NonNull::new(alloc(layout)) } {
-            Some(ptr) => ptr,
-            None => handle_alloc_error(layout),
-        };
-        Self {
-            layout,
-            capacity,
-            len: 0,
-            inner,
+        unsafe {
+            let Some(inner) = NonNull::new(alloc(layout)) else {
+                handle_alloc_error(layout)
+            };
+            Self {
+                layout,
+                capacity,
+                len: 0,
+                inner,
+            }
         }
     }
 

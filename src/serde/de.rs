@@ -1,5 +1,5 @@
 use crate::serde_ext::de::IntoDeserializer;
-use crate::{stry, Deserializer, Error, ErrorType, Node, Result, StaticNode};
+use crate::{Deserializer, Error, ErrorType, Node, Result, StaticNode, stry};
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
 use std::str;
@@ -364,7 +364,7 @@ impl<'a, 'de> VariantAccess<'a, 'de> {
     }
 }
 
-impl<'de, 'a> de::EnumAccess<'de> for VariantAccess<'a, 'de> {
+impl<'de> de::EnumAccess<'de> for VariantAccess<'_, 'de> {
     type Error = Error;
     type Variant = Self;
 
@@ -377,7 +377,7 @@ impl<'de, 'a> de::EnumAccess<'de> for VariantAccess<'a, 'de> {
     }
 }
 
-impl<'de, 'a> de::VariantAccess<'de> for VariantAccess<'a, 'de> {
+impl<'de> de::VariantAccess<'de> for VariantAccess<'_, 'de> {
     type Error = Error;
 
     fn unit_variant(self) -> Result<()> {
@@ -422,7 +422,7 @@ impl<'a, 'de> CommaSeparated<'a, 'de> {
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
-impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
+impl<'de> SeqAccess<'de> for CommaSeparated<'_, 'de> {
     type Error = Error;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -445,7 +445,7 @@ impl<'de, 'a> SeqAccess<'de> for CommaSeparated<'a, 'de> {
 
 // `MapAccess` is provided to the `Visitor` to give it the ability to iterate
 // through entries of the map.
-impl<'de, 'a> MapAccess<'de> for CommaSeparated<'a, 'de> {
+impl<'de> MapAccess<'de> for CommaSeparated<'_, 'de> {
     type Error = Error;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -498,7 +498,7 @@ macro_rules! deserialize_integer_key {
     };
 }
 
-impl<'de, 'a> de::Deserializer<'de> for MapKey<'de, 'a> {
+impl<'de> de::Deserializer<'de> for MapKey<'de, '_> {
     type Error = Error;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]

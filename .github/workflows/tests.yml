@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.85
         with:
           components: llvm-tools-preview
 
@@ -112,44 +112,44 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.85
         with:
-          targets: wasm32-wasi
+          targets: wasm32-wasip1
 
       - name: Install wasmtime
         run: cargo install wasmtime-cli
 
       - name: Run tests
         run: |
-          cargo build --tests --target-dir target --target wasm32-wasi
-          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+          cargo build --tests --target-dir target --target wasm32-wasip1
+          wasmtime run target/wasm32-wasip1/debug/deps/simd_json*.wasm
 
       - name: Run tests (no-default-features)
         run: |
-          cargo build --tests --target-dir target --target wasm32-wasi --no-default-features
-          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+          cargo build --tests --target-dir target --target wasm32-wasip1 --no-default-features
+          wasmtime run target/wasm32-wasip1/debug/deps/simd_json*.wasm
 
       - name: Run tests (no-inline)
         run: |
-          cargo build --tests --target-dir target --target wasm32-wasi --features no-inline
-          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+          cargo build --tests --target-dir target --target wasm32-wasip1 --features no-inline
+          wasmtime run target/wasm32-wasip1/debug/deps/simd_json*.wasm
 
       - name: Run tests (value-no-dup-keys)
         run: |
-          cargo build --tests --target-dir target --target wasm32-wasi --features value-no-dup-keys
-          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+          cargo build --tests --target-dir target --target wasm32-wasip1 --features value-no-dup-keys
+          wasmtime run target/wasm32-wasip1/debug/deps/simd_json*.wasm
 
       - name: Run tests (128bit)
         run: |
-          cargo build --tests --target-dir target --target wasm32-wasi --features 128bit
-          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+          cargo build --tests --target-dir target --target wasm32-wasip1 --features 128bit
+          wasmtime run target/wasm32-wasip1/debug/deps/simd_json*.wasm
 
       - name: Run tests (beef)
         run: |
-          cargo build --tests --target-dir target --target wasm32-wasi --features beef
-          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+          cargo build --tests --target-dir target --target wasm32-wasip1 --features beef
+          wasmtime run target/wasm32-wasip1/debug/deps/simd_json*.wasm
 
       - name: Run tests (approx-number-parsing)
         run: |
-          cargo build --tests --target-dir target --target wasm32-wasi --features approx-number-parsing
-          wasmtime run target/wasm32-wasi/debug/deps/simd_json*.wasm
+          cargo build --tests --target-dir target --target wasm32-wasip1 --features approx-number-parsing
+          wasmtime run target/wasm32-wasip1/debug/deps/simd_json*.wasm

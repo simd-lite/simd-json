@@ -870,6 +870,18 @@ fn invalid_float() {
     assert!(to_owned_value(&mut s).is_err());
 }
 
+#[test]
+fn zero_element_touple() {
+    pub enum FullEnum {
+        EmptyTuple(),
+    }
+
+    assert_eq!(
+        serde::to_string(&FullEnum::EmptyTuple()),
+        r#"{"EmptyTuple":[]}"#
+    );
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 proptest! {
     #![proptest_config(ProptestConfig {

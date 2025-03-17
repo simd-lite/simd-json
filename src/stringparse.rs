@@ -71,14 +71,10 @@ pub(crate) fn get_unicode_codepoint(mut src_ptr: &[u8]) -> Result<(u32, usize), 
         if ((code_point | code_point_2) >> 16) != 0 {
             return Ok((0, src_offset));
         }
-        let c1 = if let Some(c) = code_point.checked_sub(0xd800) {
-            c
-        } else {
+        let Some(c1) = code_point.checked_sub(0xd800) else {
             return Err(ErrorType::InvalidUtf8);
         };
-        let c2 = if let Some(c) = code_point_2.checked_sub(0xdc00) {
-            c
-        } else {
+        let Some(c2) = code_point_2.checked_sub(0xdc00) else {
             return Err(ErrorType::InvalidUtf8);
         };
         code_point = ((c1 << 10) | c2) + 0x10000;

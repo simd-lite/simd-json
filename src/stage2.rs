@@ -26,9 +26,7 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
 }
 
 macro_rules! get {
-    ($a:expr, $i:expr) => {{
-        unsafe { $a.get_kinda_unchecked($i) }
-    }};
+    ($a:expr_2021, $i:expr_2021) => {{ unsafe { $a.get_kinda_unchecked($i) } }};
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -91,7 +89,12 @@ pub(crate) enum StackState {
 
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[allow(clippy::cognitive_complexity, clippy::too_many_lines, unused_unsafe)]
+    #[allow(
+        clippy::cognitive_complexity,
+        clippy::too_many_lines,
+        unused_unsafe,
+        clippy::needless_continue
+    )]
     pub(crate) fn build_tape(
         input: &'de mut [u8],
         input2: &[u8],
@@ -126,7 +129,7 @@ impl<'de> Deserializer<'de> {
         let mut state;
 
         macro_rules! s2try {
-            ($e:expr) => {
+            ($e:expr_2021) => {
                 match $e {
                     ::std::result::Result::Ok(val) => val,
                     ::std::result::Result::Err(err) => {
@@ -143,7 +146,7 @@ impl<'de> Deserializer<'de> {
         }
 
         macro_rules! insert_res {
-            ($t:expr) => {
+            ($t:expr_2021) => {
                 unsafe {
                     res_ptr.add(r_i).write($t);
                     r_i += 1;
@@ -171,8 +174,9 @@ impl<'de> Deserializer<'de> {
         }
 
         macro_rules! goto {
-            ($state:expr) => {{
+            ($state:expr_2021) => {{
                 state = $state;
+                #[allow(clippy::needless_continue)]
                 continue;
             }};
         }
@@ -277,7 +281,7 @@ impl<'de> Deserializer<'de> {
                     ErrorType::InternalError(InternalError::TapeError),
                 ));
             };
-            ($t:expr) => {
+            ($t:expr_2021) => {
                 // We need to ensure that rust doesn't
                 // try to free strings that we never
                 // allocated
@@ -498,8 +502,8 @@ impl<'de> Deserializer<'de> {
                                 *len = cnt;
                                 *end = r_i - last_start - 1;
                             }
-                            _ => unreachable!(),
-                        };
+                            _ => unreachable!("scop end needs to be an array or object"),
+                        }
                     }
                     unsafe {
                         match *stack_ptr.add(depth) {

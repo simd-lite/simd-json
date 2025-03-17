@@ -50,7 +50,6 @@
 /// o["key"][0].insert("other", "value");
 /// assert_eq!(o.encode(), r#"{"key":[{"other":"value"}]}"#);
 /// ```
-
 /// Borrowed values, using Cow's for strings using in situ parsing strategies wherever possible
 pub mod borrowed;
 /// Owned, lifetimeless version of the value for times when lifetimes are to be avoided
@@ -61,12 +60,12 @@ pub mod tape;
 pub mod lazy;
 
 pub use self::borrowed::{
-    to_value as to_borrowed_value, to_value_with_buffers as to_borrowed_value_with_buffers,
-    Value as BorrowedValue,
+    Value as BorrowedValue, to_value as to_borrowed_value,
+    to_value_with_buffers as to_borrowed_value_with_buffers,
 };
 pub use self::owned::{
-    to_value as to_owned_value, to_value_with_buffers as to_owned_value_with_buffers,
-    Value as OwnedValue,
+    Value as OwnedValue, to_value as to_owned_value,
+    to_value_with_buffers as to_owned_value_with_buffers,
 };
 use crate::{Buffers, Deserializer, Result};
 use halfbrown::HashMap;
@@ -188,11 +187,13 @@ where
         for _ in 0..len {
             if let Node::String(key) = unsafe { self.de.next_() } {
                 #[cfg(not(feature = "value-no-dup-keys"))]
-                res.insert_nocheck(key.into(), self.parse());
+                unsafe {
+                    res.insert_nocheck(key.into(), self.parse());
+                };
                 #[cfg(feature = "value-no-dup-keys")]
                 res.insert(key.into(), self.parse());
             } else {
-                unreachable!();
+                unreachable!("parse_map: key needs to be a string");
             }
         }
         Value::from(res)

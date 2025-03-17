@@ -1,9 +1,9 @@
+use crate::BorrowedValue as Value;
 use crate::cow::Cow;
 use crate::prelude::*;
-use crate::BorrowedValue as Value;
 use halfbrown::RawEntryMut;
 use std::fmt;
-use std::hash::{BuildHasher, Hash, Hasher};
+use std::hash::BuildHasher;
 
 use ahash::{AHasher, RandomState};
 use once_cell::sync::OnceCell;
@@ -59,10 +59,8 @@ where
     fn from(key: S) -> Self {
         let key = Cow::from(key);
         let hash_builder = NotSoRandomState::default();
-        let mut hasher = hash_builder.build_hasher();
-        key.hash(&mut hasher);
         Self {
-            hash: hasher.finish(),
+            hash: hash_builder.hash_one(&key),
             key,
         }
     }

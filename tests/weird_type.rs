@@ -11,7 +11,7 @@ mod field_serde {
 
     struct WeirdTypeVisitor;
 
-    impl<'de> Visitor<'de> for WeirdTypeVisitor {
+    impl Visitor<'_> for WeirdTypeVisitor {
         type Value = bool;
 
         fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {

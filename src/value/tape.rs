@@ -1,6 +1,6 @@
 /// A tape of a parsed json, all values are extracted and validated and
 /// can be used without further computation.
-use value_trait::{base::TypedValue as _, StaticNode, TryTypeError, ValueType};
+use value_trait::{StaticNode, TryTypeError, ValueType, base::TypedValue as _};
 
 pub(super) mod array;
 mod cmp;

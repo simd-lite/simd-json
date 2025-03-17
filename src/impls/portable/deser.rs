@@ -1,9 +1,9 @@
-use std::simd::{u8x32, SimdPartialEq, ToBitMask};
+use std::simd::{SimdPartialEq, ToBitMask, u8x32};
 
 use crate::{
-    safer_unchecked::GetSaferUnchecked,
-    stringparse::{handle_unicode_codepoint, ESCAPE_MAP},
     Deserializer, ErrorType, Result, SillyWrapper,
+    safer_unchecked::GetSaferUnchecked,
+    stringparse::{ESCAPE_MAP, handle_unicode_codepoint},
 };
 
 #[cfg_attr(not(feature = "no-inline"), inline)]

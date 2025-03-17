@@ -1,10 +1,10 @@
 use std::arch::wasm32::{u8x16_bitmask, u8x16_eq, u8x16_splat, v128, v128_load, v128_store};
 
 use crate::{
+    Deserializer, Result, SillyWrapper,
     error::ErrorType,
     safer_unchecked::GetSaferUnchecked,
-    stringparse::{handle_unicode_codepoint, ESCAPE_MAP},
-    Deserializer, Result, SillyWrapper,
+    stringparse::{ESCAPE_MAP, handle_unicode_codepoint},
 };
 
 #[target_feature(enable = "simd128")]

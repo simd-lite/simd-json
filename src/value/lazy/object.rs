@@ -7,7 +7,6 @@ use super::Value;
 use crate::{borrowed, tape};
 
 /// Wrapper around the tape that allows interacting with it via a `Object`-like API.
-
 pub enum Object<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::Object<'tape, 'input>),
@@ -38,7 +37,7 @@ pub enum Values<'borrow, 'tape, 'input> {
 }
 
 //value_trait::Object for
-impl<'borrow, 'tape, 'input> Object<'borrow, 'tape, 'input> {
+impl<'tape, 'input> Object<'_, 'tape, 'input> {
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key
     /// it was asked for.
@@ -120,7 +119,7 @@ impl<'borrow, 'tape, 'input> Iterator for Iter<'borrow, 'tape, 'input> {
     }
 }
 
-impl<'borrow, 'tape, 'input> Iterator for Keys<'borrow, 'tape, 'input> {
+impl<'borrow> Iterator for Keys<'borrow, '_, '_> {
     type Item = &'borrow str;
     fn next(&mut self) -> Option<Self::Item> {
         match self {

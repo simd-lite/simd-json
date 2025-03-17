@@ -22,7 +22,7 @@ impl<T> GetSaferUnchecked<T> for [T] {
         #[cfg(debug_assertions)]
         let r = &self[index];
         #[cfg(not(debug_assertions))]
-        let r = self.get_unchecked(index);
+        let r = unsafe { self.get_unchecked(index) };
         r
     }
 
@@ -34,7 +34,7 @@ impl<T> GetSaferUnchecked<T> for [T] {
         #[cfg(debug_assertions)]
         let r = &mut self[index];
         #[cfg(not(debug_assertions))]
-        let r = self.get_unchecked_mut(index);
+        let r = unsafe { self.get_unchecked_mut(index) };
         r
     }
 }

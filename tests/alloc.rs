@@ -1,16 +1,16 @@
 #[cfg(feature = "alloc")]
-use alloc_counter::{count_alloc, AllocCounterSystem};
+use alloc_counter::{AllocCounterSystem, count_alloc};
 
 #[cfg(feature = "alloc")]
 #[global_allocator]
 static A: AllocCounterSystem = AllocCounterSystem;
 
 macro_rules! test {
-    ($file:ident, $alloc:expr, $realloc:expr) => {
+    ($file:ident, $alloc:expr_2021, $realloc:expr_2021) => {
         #[cfg(feature = "alloc")]
         #[test]
         fn $file() {
-            use simd_json::{fill_tape, Buffers, Tape};
+            use simd_json::{Buffers, Tape, fill_tape};
             use std::fs::File;
             use std::io::Read;
             let mut v1 = Vec::new();

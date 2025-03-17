@@ -1,8 +1,7 @@
 use super::to_value;
 use crate::{
-    stry,
+    Error, ErrorType, ObjectHasher, Result, StaticNode, stry,
     value::owned::{Object, Value},
-    Error, ErrorType, ObjectHasher, Result, StaticNode,
 };
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,
@@ -180,7 +179,7 @@ impl serde::Serializer for Serializer {
         T: ?Sized + Serialize,
     {
         let mut values = Object::with_capacity_and_hasher(1, ObjectHasher::default());
-        values.insert_nocheck(variant.into(), stry!(to_value(value)));
+        unsafe { values.insert_nocheck(variant.into(), stry!(to_value(value))) };
         Ok(Value::from(values))
     }
 
@@ -335,7 +334,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
 
     fn end(self) -> Result<Value> {
         let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
-        object.insert_nocheck(self.name, Value::Array(Box::new(self.vec)));
+        unsafe { object.insert_nocheck(self.name, Value::Array(Box::new(self.vec))) };
         Ok(Value::from(object))
     }
 }
@@ -574,7 +573,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
 
     fn end(self) -> Result<Value> {
         let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
-        object.insert_nocheck(self.name, Value::from(self.map));
+        unsafe { object.insert_nocheck(self.name, Value::from(self.map)) };
         Ok(Value::from(object))
     }
 }

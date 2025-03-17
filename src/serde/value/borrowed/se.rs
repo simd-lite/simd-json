@@ -1,9 +1,9 @@
 use super::to_value;
 use crate::{
+    Error, ErrorType, Result,
     cow::Cow,
     stry,
     value::borrowed::{Object, Value},
-    Error, ErrorType, Result,
 };
 use crate::{ObjectHasher, StaticNode};
 use serde_ext::ser::{
@@ -13,7 +13,7 @@ use std::marker::PhantomData;
 
 type Impossible<T> = ser::Impossible<T, Error>;
 
-impl<'value> Serialize for Value<'value> {
+impl Serialize for Value<'_> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
@@ -53,7 +53,7 @@ pub struct Serializer<'se> {
     marker: PhantomData<&'se u8>,
 }
 
-impl<'se> Default for Serializer<'se> {
+impl Default for Serializer<'_> {
     fn default() -> Self {
         Self {
             marker: PhantomData,
@@ -194,7 +194,7 @@ impl<'se> serde::Serializer for Serializer<'se> {
     {
         let mut values = Object::with_capacity_and_hasher(1, ObjectHasher::default());
         let x = stry!(to_value(value));
-        values.insert_nocheck(variant.into(), x);
+        unsafe { values.insert_nocheck(variant.into(), x) };
         Ok(Value::from(values))
     }
 
@@ -349,7 +349,7 @@ impl<'se> serde::ser::SerializeTupleVariant for SerializeTupleVariant<'se> {
 
     fn end(self) -> Result<Value<'se>> {
         let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
-        object.insert_nocheck(self.name.into(), Value::Array(Box::new(self.vec)));
+        unsafe { object.insert_nocheck(self.name.into(), Value::Array(Box::new(self.vec))) };
 
         Ok(Value::Object(Box::new(object)))
     }
@@ -594,7 +594,7 @@ impl<'se> serde::ser::SerializeStructVariant for SerializeStructVariant<'se> {
 
     fn end(self) -> Result<Value<'se>> {
         let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
-        object.insert_nocheck(self.name.into(), self.map.into());
+        unsafe { object.insert_nocheck(self.name.into(), self.map.into()) };
         Ok(Value::Object(Box::new(object)))
     }
 }
@@ -603,7 +603,7 @@ impl<'se> serde::ser::SerializeStructVariant for SerializeStructVariant<'se> {
 mod test {
     #![allow(clippy::ignored_unit_patterns)]
     use super::Value;
-    use crate::{borrowed::Object, serde::from_slice, ObjectHasher};
+    use crate::{ObjectHasher, borrowed::Object, serde::from_slice};
     use serde::{Deserialize, Serialize};
     use value_trait::StaticNode;
 
