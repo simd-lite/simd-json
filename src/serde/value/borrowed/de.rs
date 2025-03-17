@@ -1,7 +1,7 @@
 // A lot of this logic is a re-implementation or copy of serde_json::Value
 use crate::Error;
 use crate::ObjectHasher;
-use crate::{cow::Cow, ErrorType};
+use crate::{ErrorType, cow::Cow};
 use crate::{
     prelude::*,
     serde::value::shared::MapKeyDeserializer,
@@ -81,11 +81,8 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
         let (variant, value) = match self {
             Value::Object(value) => {
                 let mut iter = value.into_iter();
-                let (variant, value) = match iter.next() {
-                    Some(v) => v,
-                    None => {
-                        return Err(crate::Deserializer::error(ErrorType::Eof));
-                    }
+                let Some((variant, value)) = iter.next() else {
+                    return Err(crate::Deserializer::error(ErrorType::Eof));
                 };
                 // enums are encoded in json as maps with a single key:value pair
                 if iter.next().is_some() {
@@ -199,11 +196,12 @@ impl<'de> MapAccess<'de> for ObjectAccess<'de> {
     where
         K: DeserializeSeed<'de>,
     {
-        if let Some((k, v)) = self.i.next() {
-            self.v = Some(v);
-            seed.deserialize(Value::String(k)).map(Some)
-        } else {
-            Ok(None)
+        match self.i.next() {
+            Some((k, v)) => {
+                self.v = Some(v);
+                seed.deserialize(Value::String(k)).map(Some)
+            }
+            _ => Ok(None),
         }
     }
 
@@ -687,11 +685,8 @@ impl<'de> de::Deserializer<'de> for &'de Value<'de> {
         let (variant, value) = match self {
             Value::Object(value) => {
                 let mut iter = value.iter();
-                let (variant, value) = match iter.next() {
-                    Some(v) => v,
-                    None => {
-                        return Err(crate::Deserializer::error(ErrorType::Eof));
-                    }
+                let Some((variant, value)) = iter.next() else {
+                    return Err(crate::Deserializer::error(ErrorType::Eof));
                 };
                 // enums are encoded in json as maps with a single key:value pair
                 if iter.next().is_some() {
@@ -879,7 +874,7 @@ mod test {
 
     #[test]
     fn deserialize() {
-        use halfbrown::{hashmap, HashMap};
+        use halfbrown::{HashMap, hashmap};
         #[derive(serde::Deserialize, Debug, PartialEq, Eq)]
         #[serde(rename_all = "lowercase")]
         pub enum Rotate {

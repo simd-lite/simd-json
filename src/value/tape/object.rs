@@ -4,7 +4,6 @@ use super::Value;
 use crate::Node;
 
 /// Wrapper around the tape that allows interacting with it via a `Object`-like API.
-
 pub struct Object<'tape, 'input>(pub(super) &'tape [Node<'input>]);
 
 pub struct Iter<'tape, 'input>(&'tape [Node<'input>]);
@@ -22,7 +21,7 @@ impl<'tape, 'input> Object<'tape, 'input> {
         str: Borrow<Q> + Hash + Eq,
         Q: ?Sized + Hash + Eq + Ord,
     {
-        let Node::Object { mut len, .. } = self.0.first()? else {
+        let &Node::Object { mut len, .. } = self.0.first()? else {
             return None;
         };
         let mut idx = 1;
@@ -95,7 +94,7 @@ impl<'tape, 'input> Iterator for Iter<'tape, 'input> {
     }
 }
 
-impl<'tape, 'input> Iterator for Keys<'tape, 'input> {
+impl<'input> Iterator for Keys<'_, 'input> {
     type Item = &'input str;
     fn next(&mut self) -> Option<Self::Item> {
         let (k, v) = self.0.split_first()?;

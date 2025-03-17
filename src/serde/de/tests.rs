@@ -1,6 +1,6 @@
 use serde::{
-    de::{Error as DeError, Visitor},
     Deserialize, Deserializer,
+    de::{Error as DeError, Visitor},
 };
 use std::fmt::{Formatter, Result as FmtResult};
 
@@ -67,7 +67,7 @@ impl<'de> Deserialize<'de> for AutoArchiveDuration {
 
 pub struct U16EnumVisitor;
 
-impl<'de> Visitor<'de> for U16EnumVisitor {
+impl Visitor<'_> for U16EnumVisitor {
     type Value = u16;
 
     fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {

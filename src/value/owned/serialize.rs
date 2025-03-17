@@ -60,11 +60,9 @@ trait Generator: BaseGenerator {
             stry!(self.write(b"{"));
 
             // We know this exists since it's not empty
-            let (key, value) = if let Some(v) = iter.next() {
-                v
-            } else {
+            let Some((key, value)) = iter.next() else {
                 // We check against size
-                unreachable!();
+                unreachable!("object is not empty but has no next");
             };
             self.indent();
             stry!(self.new_line());
@@ -107,11 +105,9 @@ trait Generator: BaseGenerator {
                     let mut iter = <[Value]>::iter(array);
                     // We know we have one item
 
-                    let item = if let Some(v) = iter.next() {
-                        v
-                    } else {
+                    let Some(item) = iter.next() else {
                         // We check against size
-                        unreachable!();
+                        unreachable!("array is not empty but has no next");
                     };
 
                     stry!(self.write(b"["));
@@ -148,11 +144,9 @@ trait FastGenerator: BaseGenerator {
             stry!(self.write(b"{\""));
 
             // We know this exists since it's not empty
-            let (key, value) = if let Some(v) = iter.next() {
-                v
-            } else {
+            let Some((key, value)) = iter.next() else {
                 // We check against size
-                unreachable!();
+                unreachable!("object is not empty but has no next");
             };
             stry!(self.write_simple_str_content(key));
             stry!(self.write(b"\":"));
@@ -189,11 +183,9 @@ trait FastGenerator: BaseGenerator {
                 } else {
                     let mut iter = <[Value]>::iter(array);
                     // We know we have one item
-                    let item = if let Some(v) = iter.next() {
-                        v
-                    } else {
+                    let Some(item) = iter.next() else {
                         // We check against size
-                        unreachable!();
+                        unreachable!("array is not empty but has no next");
                     };
 
                     stry!(self.write(b"["));
@@ -219,14 +211,14 @@ impl Generator for PrettyGenerator {
     type T = Vec<u8>;
 }
 
-impl<'writer, W> FastGenerator for WriterGenerator<'writer, W>
+impl<W> FastGenerator for WriterGenerator<'_, W>
 where
     W: Write,
 {
     type T = W;
 }
 
-impl<'writer, W> Generator for PrettyWriterGenerator<'writer, W>
+impl<W> Generator for PrettyWriterGenerator<'_, W>
 where
     W: Write,
 {

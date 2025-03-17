@@ -25,9 +25,9 @@ mod from;
 mod serialize;
 
 use super::ObjectHasher;
-use crate::{cow::Cow, safer_unchecked::GetSaferUnchecked as _};
-use crate::{prelude::*, Buffers};
+use crate::{Buffers, prelude::*};
 use crate::{Deserializer, Node, Result};
+use crate::{cow::Cow, safer_unchecked::GetSaferUnchecked as _};
 use halfbrown::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
@@ -161,17 +161,14 @@ impl<'value> Value<'value> {
 
 impl<'value> ValueBuilder<'value> for Value<'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn null() -> Self {
         Self::Static(StaticNode::Null)
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn array_with_capacity(capacity: usize) -> Self {
         Self::Array(Box::new(Vec::with_capacity(capacity)))
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn object_with_capacity(capacity: usize) -> Self {
         Self::Object(Box::new(Object::with_capacity_and_hasher(
             capacity,
@@ -183,7 +180,6 @@ impl<'value> ValueBuilder<'value> for Value<'value> {
 impl<'value> ValueAsMutArray for Value<'value> {
     type Array = Array<'value>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'value>>> {
         match self {
             Self::Array(a) => Some(a),
@@ -212,7 +208,6 @@ impl<'value> ValueAsMutObject for Value<'value> {
     ///
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_object_mut(&mut self) -> Option<&mut Object<'value>> {
         match self {
             Self::Object(m) => Some(m),
@@ -221,9 +216,8 @@ impl<'value> ValueAsMutObject for Value<'value> {
     }
 }
 
-impl<'value> TypedValue for Value<'value> {
+impl TypedValue for Value<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn value_type(&self) -> ValueType {
         match self {
             Self::Static(s) => s.value_type(),
@@ -233,57 +227,48 @@ impl<'value> TypedValue for Value<'value> {
         }
     }
 }
-impl<'value> ValueAsScalar for Value<'value> {
+impl ValueAsScalar for Value<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_null(&self) -> Option<()> {
         self.as_static()?.as_null()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_bool(&self) -> Option<bool> {
         self.as_static()?.as_bool()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_i64(&self) -> Option<i64> {
         self.as_static()?.as_i64()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_i128(&self) -> Option<i128> {
         self.as_static()?.as_i128()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_u64(&self) -> Option<u64> {
         self.as_static()?.as_u64()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_u128(&self) -> Option<u128> {
         self.as_static()?.as_u128()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_f64(&self) -> Option<f64> {
         self.as_static()?.as_f64()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn cast_f64(&self) -> Option<f64> {
         self.as_static()?.cast_f64()
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_str(&self) -> Option<&str> {
         use std::borrow::Borrow;
         match self {
@@ -296,7 +281,6 @@ impl<'value> ValueAsArray for Value<'value> {
     type Array = Array<'value>;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_array(&self) -> Option<&Vec<Value<'value>>> {
         match self {
             Self::Array(a) => Some(a),
@@ -309,7 +293,6 @@ impl<'value> ValueAsObject for Value<'value> {
     type Object = Object<'value>;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_object(&self) -> Option<&Object<'value>> {
         match self {
             Self::Object(m) => Some(m),
@@ -352,7 +335,7 @@ impl<'value> ValueIntoObject for Value<'value> {
 }
 
 #[cfg(not(tarpaulin_include))]
-impl<'value> fmt::Display for Value<'value> {
+impl fmt::Display for Value<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Static(s) => write!(f, "{s}"),
@@ -366,7 +349,6 @@ impl<'value> fmt::Display for Value<'value> {
 impl<'value> Index<&str> for Value<'value> {
     type Output = Value<'value>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn index(&self, index: &str) -> &Self::Output {
         self.get(index).expect("index out of bounds")
     }
@@ -375,31 +357,27 @@ impl<'value> Index<&str> for Value<'value> {
 impl<'value> Index<usize> for Value<'value> {
     type Output = Value<'value>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn index(&self, index: usize) -> &Self::Output {
         self.get_idx(index).expect("index out of bounds")
     }
 }
 
-impl<'value> IndexMut<&str> for Value<'value> {
+impl IndexMut<&str> for Value<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
         self.get_mut(index).expect("index out of bounds")
     }
 }
 
-impl<'value> IndexMut<usize> for Value<'value> {
+impl IndexMut<usize> for Value<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.get_idx_mut(index).expect("index out of bounds")
     }
 }
 
-impl<'value> Default for Value<'value> {
+impl Default for Value<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn default() -> Self {
         Self::Static(StaticNode::Null)
     }
@@ -447,11 +425,13 @@ impl<'de> BorrowDeserializer<'de> {
         for _ in 0..len {
             if let Node::String(key) = unsafe { self.0.next_() } {
                 #[cfg(not(feature = "value-no-dup-keys"))]
-                res.insert_nocheck(key.into(), self.parse());
+                unsafe {
+                    res.insert_nocheck(key.into(), self.parse());
+                };
                 #[cfg(feature = "value-no-dup-keys")]
                 res.insert(key.into(), self.parse());
             } else {
-                unreachable!();
+                unreachable!("parse_map: key not a string");
             }
         }
         Value::from(res)
@@ -507,11 +487,13 @@ impl<'tape, 'de> BorrowSliceDeserializer<'tape, 'de> {
         for _ in 0..len {
             if let Node::String(key) = unsafe { self.next_() } {
                 #[cfg(not(feature = "value-no-dup-keys"))]
-                res.insert_nocheck(key.into(), self.parse());
+                unsafe {
+                    res.insert_nocheck(key.into(), self.parse());
+                };
                 #[cfg(feature = "value-no-dup-keys")]
                 res.insert(key.into(), self.parse());
             } else {
-                unreachable!();
+                unreachable!("parse_map: key needs to be a string");
             }
         }
         Value::from(res)

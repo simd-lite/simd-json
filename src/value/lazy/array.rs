@@ -32,7 +32,7 @@ impl<'borrow, 'tape, 'input> Iterator for Iter<'borrow, 'tape, 'input> {
 }
 
 // value_trait::Array for
-impl<'borrow, 'tape, 'input> Array<'borrow, 'tape, 'input> {
+impl<'tape, 'input> Array<'_, 'tape, 'input> {
     /// Gets a ref to a value based on n index, returns `None` if the
     /// current Value isn't an Array or doesn't contain the index
     /// it was asked for.

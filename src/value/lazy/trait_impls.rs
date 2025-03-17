@@ -5,6 +5,7 @@ use std::{
 };
 
 use value_trait::{
+    TryTypeError, ValueBuilder, ValueType,
     base::{
         TypedValue, ValueAsArray as _, ValueAsMutArray, ValueAsMutObject, ValueAsObject as _,
         ValueAsScalar, ValueIntoString, Writable,
@@ -15,7 +16,6 @@ use value_trait::{
         ValueObjectAccessTryAsObject as _, ValueObjectAccessTryAsScalar, ValueObjectTryAccess,
         ValueTryAsScalar,
     },
-    TryTypeError, ValueBuilder, ValueType,
 };
 
 use crate::{borrowed, tape};
@@ -24,24 +24,21 @@ use super::{Array, Object, Value};
 
 impl<'value> ValueBuilder<'value> for Value<'static, 'static, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn null() -> Self {
         Value::Tape(tape::Value::null())
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn array_with_capacity(capacity: usize) -> Self {
         Value::Value(Cow::Owned(borrowed::Value::array_with_capacity(capacity)))
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn object_with_capacity(capacity: usize) -> Self {
         Value::Value(Cow::Owned(borrowed::Value::object_with_capacity(capacity)))
     }
 }
 
 // TypedContainerValue
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input>
+impl<'tape, 'input> Value<'_, 'tape, 'input>
 where
     'input: 'tape,
 {
@@ -58,9 +55,8 @@ where
     }
 }
 
-impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
+impl ValueAsScalar for Value<'_, '_, '_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_null(&self) -> Option<()> {
         match &self {
             Value::Tape(tape) => tape.as_null(),
@@ -69,7 +65,6 @@ impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_bool(&self) -> Option<bool> {
         match &self {
             Value::Tape(tape) => tape.as_bool(),
@@ -78,7 +73,6 @@ impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_i64(&self) -> Option<i64> {
         match &self {
             Value::Tape(tape) => tape.as_i64(),
@@ -87,7 +81,6 @@ impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_i128(&self) -> Option<i128> {
         match &self {
             Value::Tape(tape) => tape.as_i128(),
@@ -96,7 +89,6 @@ impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_u64(&self) -> Option<u64> {
         match &self {
             Value::Tape(tape) => tape.as_u64(),
@@ -105,7 +97,6 @@ impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_u128(&self) -> Option<u128> {
         match &self {
             Value::Tape(tape) => tape.as_u128(),
@@ -114,7 +105,6 @@ impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_f64(&self) -> Option<f64> {
         match &self {
             Value::Tape(tape) => tape.as_f64(),
@@ -123,7 +113,6 @@ impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn cast_f64(&self) -> Option<f64> {
         match &self {
             Value::Tape(tape) => tape.cast_f64(),
@@ -132,7 +121,6 @@ impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_str(&self) -> Option<&str> {
         match &self {
             Value::Tape(tape) => tape.as_str(),
@@ -141,7 +129,7 @@ impl<'borrow, 'tape, 'value> ValueAsScalar for Value<'borrow, 'tape, 'value> {
     }
 }
 
-impl<'borrow, 'tape, 'value> ValueIntoString for Value<'borrow, 'tape, 'value> {
+impl<'value> ValueIntoString for Value<'_, '_, 'value> {
     type String = Cow<'value, str>;
 
     fn into_string(self) -> Option<<Self as ValueIntoString>::String> {
@@ -171,7 +159,6 @@ impl<'borrow, 'tape, 'value> ValueIntoString for Value<'borrow, 'tape, 'value> {
 // impl<'tape, 'input> ValueIntoContainer for Value<'tape, 'input> {
 //     type Array = array::Array<'tape, 'input>;
 //     type Object = Object<'tape, 'input>;
-//     #[must_use]
 //     fn into_array(self) -> Option<Self::Array> {
 //         if let Some(Node::Array { count, .. }) = self.0.first() {
 //             // we add one element as we want to keep the array header
@@ -182,7 +169,6 @@ impl<'borrow, 'tape, 'value> ValueIntoString for Value<'borrow, 'tape, 'value> {
 //         }
 //     }
 
-//     #[must_use]
 //     fn into_object(self) -> Option<Self::Object> {
 //         if let Some(Node::Object { count, .. }) = self.0.first() {
 //             // we add one element as we want to keep the object header
@@ -194,9 +180,8 @@ impl<'borrow, 'tape, 'value> ValueIntoString for Value<'borrow, 'tape, 'value> {
 //     }
 // }
 
-impl<'borrow, 'tape, 'input> TypedValue for Value<'borrow, 'tape, 'input> {
+impl TypedValue for Value<'_, '_, '_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn value_type(&self) -> ValueType {
         match &self {
             Value::Tape(tape) => tape.value_type(),
@@ -206,7 +191,7 @@ impl<'borrow, 'tape, 'input> TypedValue for Value<'borrow, 'tape, 'input> {
 }
 
 // TryValueObjectAccess
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
+impl<'tape, 'input> Value<'_, 'tape, 'input> {
     // type Key = &str;
     // type Target = Value<'tape, 'input>;
 
@@ -228,7 +213,7 @@ impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
 }
 
 //TryValueArrayAccess
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input>
+impl<'tape, 'input> Value<'_, 'tape, 'input>
 where
     'input: 'tape,
 {
@@ -245,7 +230,7 @@ where
 }
 
 // impl<'tape, 'value> ValueAsContainer for Value<'tape, 'value> {
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input>
+impl<'tape, 'input> Value<'_, 'tape, 'input>
 where
     'input: 'tape,
 {
@@ -254,7 +239,6 @@ where
 
     /// Tries to represent the value as an array and returns a reference to it
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     pub fn as_array(&self) -> Option<Array<'_, 'tape, 'input>> {
         match self {
             Value::Tape(tape) => tape.as_array().map(Array::Tape),
@@ -264,7 +248,6 @@ where
 
     /// Tries to represent the value as an array and returns a reference to it
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     pub fn as_object(&self) -> Option<Object<'_, 'tape, 'input>> {
         match self {
             Value::Tape(tape) => tape.as_object().map(Object::Tape),
@@ -273,25 +256,23 @@ where
     }
 }
 
-impl<'borrow, 'tape, 'input> ValueAsMutArray for Value<'borrow, 'tape, 'input> {
+impl<'input> ValueAsMutArray for Value<'_, '_, 'input> {
     type Array = Vec<borrowed::Value<'input>>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_array_mut(&mut self) -> Option<&mut Vec<borrowed::Value<'input>>> {
         self.as_mut().as_array_mut()
     }
 }
-impl<'borrow, 'tape, 'input> ValueAsMutObject for Value<'borrow, 'tape, 'input> {
+impl<'input> ValueAsMutObject for Value<'_, '_, 'input> {
     type Object = super::borrowed::Object<'input>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
     fn as_object_mut(&mut self) -> Option<&mut super::borrowed::Object<'input>> {
         self.as_mut().as_object_mut()
     }
 }
 
 // ContainerValueTryAs (needed as we don't have ValueAsContainer)
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
+impl<'tape, 'input> Value<'_, 'tape, 'input> {
     /// Tries to represent the value as an array and returns a reference to it
     /// # Errors
     /// if the requested type doesn't match the actual type
@@ -313,7 +294,7 @@ impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
     }
 }
 // ValueObjectAccess (needed as we don't have ValueAsContainer ) and can't return references
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
+impl<'tape, 'input> Value<'_, 'tape, 'input> {
     /// Gets a ref to a value based on a key, returns `None` if the
     /// current Value isn't an Object or doesn't contain the key
     /// it was asked for.
@@ -346,13 +327,13 @@ impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
         let Some(o) = self.as_object() else {
             return false;
         };
-        let v = o.get(k).is_some();
-        v
+
+        o.get(k).is_some()
     }
 }
 
 // ValueArrayAccess (needed as we don't have ValueAsContainer)
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
+impl<'tape, 'input> Value<'_, 'tape, 'input> {
     /// Gets a ref to a value based on n index, returns `None` if the
     /// current Value isn't an Array or doesn't contain the index
     /// it was asked for.
@@ -370,7 +351,7 @@ impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
 }
 
 // impl<'tape, 'input> ValueObjectAccessAsScalar for Value<'tape, 'input>
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input>
+impl<'tape, 'input> Value<'_, 'tape, 'input>
 where
     'input: 'tape,
 {
@@ -542,7 +523,7 @@ where
 }
 
 // ValueObjectContainerAccess
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
+impl<'tape, 'input> Value<'_, 'tape, 'input> {
     /// Tries to get an element of an object as a array
     #[must_use]
     pub fn get_array<Q>(&self, k: &Q) -> Option<Array<'_, 'tape, 'input>>
@@ -572,7 +553,7 @@ impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
     }
 }
 // TryValueObjectContainerAccess
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
+impl<'tape, 'input> Value<'_, 'tape, 'input> {
     /// Tries to get an element of an object as an array, returns
     /// an error if it isn't a array
     /// # Errors
@@ -611,7 +592,7 @@ impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
 }
 
 // impl<'tape, 'input> ValueObjectAccessTryAsScalar for Value<'tape, 'input> {
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
+impl Value<'_, '_, '_> {
     /// Tries to get an element of an object as a bool, returns
     /// an error if it isn't bool
     /// # Errors
@@ -825,7 +806,7 @@ impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
     }
 }
 
-impl<'borrow, 'tape, 'input> Writable for Value<'borrow, 'tape, 'input> {
+impl Writable for Value<'_, '_, '_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn encode(&self) -> String {
         match self {

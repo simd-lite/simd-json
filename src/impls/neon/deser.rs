@@ -1,10 +1,10 @@
-use crate::error::ErrorType;
-use crate::impls::neon::stage1::bit_mask;
-use crate::safer_unchecked::GetSaferUnchecked;
-use crate::stringparse::{handle_unicode_codepoint, ESCAPE_MAP};
 use crate::Deserializer;
 use crate::Result;
 use crate::SillyWrapper;
+use crate::error::ErrorType;
+use crate::impls::neon::stage1::bit_mask;
+use crate::safer_unchecked::GetSaferUnchecked;
+use crate::stringparse::{ESCAPE_MAP, handle_unicode_codepoint};
 
 use std::arch::aarch64::{
     uint8x16_t, vandq_u8, vceqq_u8, vgetq_lane_u32, vld1q_u8, vmovq_n_u8, vpaddq_u8,
@@ -168,17 +168,16 @@ pub(crate) fn parse_str<'invoke, 'de>(
                 // within the unicode codepoint handling code.
                 src_i += bs_dist as usize;
                 dst_i += bs_dist as usize;
-                let (o, s) = if let Ok(r) =
+                let Ok((o, s)) =
                     handle_unicode_codepoint(unsafe { src.get_kinda_unchecked(src_i..) }, unsafe {
                         buffer.get_kinda_unchecked_mut(dst_i..)
-                    }) {
-                    r
-                } else {
+                    })
+                else {
                     return Err(Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint));
                 };
                 if o == 0 {
                     return Err(Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint));
-                };
+                }
                 // We moved o steps forward at the destination and 6 on the source
                 src_i += s;
                 dst_i += o;

@@ -10,7 +10,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 #[cfg(feature = "bench-serde")]
 use serde_json;
 
-use criterion::{criterion_group, BatchSize, Criterion, Throughput};
+use criterion::{BatchSize, Criterion, Throughput, criterion_group};
 use simd_json::Buffers;
 
 use std::fs::File;

@@ -105,7 +105,6 @@ impl From<std::io::Error> for Error {
 
 #[cfg(not(tarpaulin_include))]
 impl PartialEq for ErrorType {
-    #[must_use]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Io(_), Self::Io(_))

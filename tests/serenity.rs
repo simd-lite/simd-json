@@ -17,7 +17,7 @@ mod test {
 
         struct SnowflakeVisitor;
 
-        impl<'de> Visitor<'de> for SnowflakeVisitor {
+        impl Visitor<'_> for SnowflakeVisitor {
             type Value = u64;
 
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

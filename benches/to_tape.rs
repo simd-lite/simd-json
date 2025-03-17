@@ -8,7 +8,7 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 #[cfg(feature = "bench-serde")]
 use serde_json;
 
-use criterion::{criterion_group, Criterion};
+use criterion::{Criterion, criterion_group};
 
 #[cfg(feature = "bench-serde")]
 fn serde_from_slice(data: &[u8]) {

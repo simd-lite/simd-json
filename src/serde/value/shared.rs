@@ -1,5 +1,5 @@
-use crate::cow::Cow;
 use crate::Error;
+use crate::cow::Cow;
 use serde::de::{Unexpected, Visitor};
 use serde::forward_to_deserialize_any;
 use serde_ext::de::{self, IntoDeserializer};

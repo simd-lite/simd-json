@@ -65,7 +65,7 @@ pub fn hex_to_u32_nocheck(src: &[u8]) -> u32 {
             i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(2) as usize));
         let v4: i32 =
             i32::from(*DIGITTOVAL.get_kinda_unchecked(*src.get_kinda_unchecked(3) as usize));
-        (v1 << 12 | v2 << 8 | v3 << 4 | v4) as u32
+        ((v1 << 12) | (v2 << 8) | (v3 << 4) | v4) as u32
     }
 }
 

@@ -55,14 +55,13 @@ impl Default for Value<'static, 'static, '_> {
     }
 }
 
-impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
+impl<'tape, 'input> Value<'_, 'tape, 'input> {
     /// turns the lazy value into a borrowed value
     #[must_use]
     pub fn into_value(self) -> borrowed::Value<'input> {
         match self {
             Value::Tape(tape) => {
-                let value = super::borrowed::BorrowSliceDeserializer::from_tape(tape.0).parse();
-                value
+                super::borrowed::BorrowSliceDeserializer::from_tape(tape.0).parse()
             }
             Value::Value(value) => value.into_owned(),
         }
@@ -123,13 +122,13 @@ impl<'borrow, 'tape, 'input> Value<'borrow, 'tape, 'input> {
         if let Value::Value(value) = self {
             value.to_mut()
         } else {
-            unreachable!()
+            unreachable!("can't mut a tape");
         }
     }
 }
 
 #[cfg(not(tarpaulin_include))]
-impl<'borrow, 'tape, 'value> fmt::Display for Value<'borrow, 'tape, 'value> {
+impl fmt::Display for Value<'_, '_, '_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
             Value::Tape(tape) => write!(f, "{tape:?}"),

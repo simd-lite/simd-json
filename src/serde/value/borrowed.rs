@@ -24,7 +24,6 @@ where
 /// # Errors
 ///
 /// Will return `Err` if `value` can not be deserialized
-
 pub fn from_value<'de, T>(value: BorrowedValue<'de>) -> Result<T>
 where
     T: Deserialize<'de>,
