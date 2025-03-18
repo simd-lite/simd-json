@@ -1,4 +1,4 @@
-use crate::{impls, Deserializer, Stage1Parse, SIMDJSON_PADDING};
+use crate::{Deserializer, SIMDJSON_PADDING, Stage1Parse, impls};
 
 fn test_find_structural_bits<S: Stage1Parse>(input_str: &str, expected: &[u32]) {
     let mut input = input_str.as_bytes().to_vec();
