@@ -3,18 +3,100 @@
     clippy::non_ascii_literal,
     clippy::ignored_unit_patterns
 )]
-#[cfg(not(target_arch = "wasm32"))]
-use crate::{deserialize, OwnedValue};
 use crate::{
-    owned::{to_value, Object, Value},
+    Deserializer,
+    owned::{Object, Value, to_value},
     prelude::*,
     serde::from_slice,
     to_borrowed_value, to_owned_value,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{OwnedValue, deserialize};
 use halfbrown::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 use serde::Deserialize;
+use serde_ext::Serialize;
+
+static JSON: &str = r#"{
+    "code": 200,
+    "success": true,
+    "payload": {
+        "features": [
+            "serde",
+            "json"
+        ]
+    }
+}"#;
+
+#[derive(Deserialize, PartialEq, Debug)]
+struct TestPayload {
+    features: Vec<String>,
+}
+
+#[derive(Deserialize, PartialEq, Debug)]
+struct TestEnvelope {
+    code: usize,
+    success: bool,
+    payload: TestPayload,
+}
+
+#[test]
+fn test_deser_to_value() {
+    let mut json = JSON.as_bytes().to_vec();
+    let d = Deserializer::from_slice(&mut json).expect("Invalid JSON");
+
+    let original_index = d.idx;
+    let original_nodes = d.tape.len();
+
+    let v = d.as_value();
+
+    assert!(v.contains_key("payload"), "Failed to find payload key");
+    let v = v.get("payload").expect("Can't get payload");
+    assert!(v.is_object(), "payload not recognized as object: {v:?}");
+    assert!(v.contains_key("features"), "Failed to find features key");
+    let v = v.get("features").expect("can't get features");
+    assert!(v.is_array(), "features not recognized as array: {v:?}");
+
+    // proving that value peeking doesn't affect the deserializer
+
+    assert_eq!(
+        original_index, d.idx,
+        "Deserializer has been internally modified"
+    );
+    assert_eq!(
+        original_nodes,
+        d.tape.len(),
+        "Deserializer has been internally modified"
+    );
+}
+
+#[test]
+fn test_deser_restart() {
+    let mut json = JSON.as_bytes().to_vec();
+    let mut d = Deserializer::from_slice(&mut json).expect("Invalid JSON");
+
+    let original_index = d.idx;
+    let original_nodes = d.tape.len();
+
+    let test1 = TestEnvelope::deserialize(&mut d).expect("Deserialization failed");
+
+    assert!(
+        original_index != d.idx,
+        "Deserializer has NOT been internally modified"
+    );
+    assert_eq!(
+        original_nodes,
+        d.tape.len(),
+        "Deserializer nodes are NOT intact"
+    );
+
+    d.restart();
+
+    let test2 = TestEnvelope::deserialize(&mut d).expect("Deserialization failed");
+
+    assert_eq!(test2, test1, "Deserializer is not idempotent");
+}
 
 #[test]
 fn empty() {
@@ -675,7 +757,9 @@ fn obj4() {
 
 #[test]
 fn vecvec() {
-    let mut d = String::from("[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]], [[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]");
+    let mut d = String::from(
+        "[[[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]], [[-65.613616999999977,43.420273000000009], [-65.613616999999977,43.420273000000009]]]",
+    );
     let d = unsafe { d.as_bytes_mut() };
     let v_serde: Vec<Vec<(f32, f32)>> = serde_json::from_slice(d).expect("serde_json");
     let v_simd: Vec<Vec<(f32, f32)>> = from_slice(d).expect("simd_json");
@@ -872,13 +956,29 @@ fn invalid_float() {
 
 #[test]
 fn zero_element_touple() {
+    #[derive(Serialize, Deserialize, PartialEq, Debug)]
     pub enum FullEnum {
+        DoubeEmptyTuple(u8, u8),
+        SingeEmptyTuple(u8),
         EmptyTuple(),
+        Nothing,
     }
 
     assert_eq!(
-        serde::to_string(&FullEnum::EmptyTuple()),
+        crate::serde::to_string(&FullEnum::DoubeEmptyTuple(42, 23)).expect("serde"),
+        r#"{"DoubeEmptyTuple":[42,23]}"#
+    );
+    assert_eq!(
+        crate::serde::to_string(&FullEnum::SingeEmptyTuple(42)).expect("serde"),
+        r#"{"SingeEmptyTuple":42}"#
+    );
+    assert_eq!(
+        crate::serde::to_string(&FullEnum::EmptyTuple()).expect("serde"),
         r#"{"EmptyTuple":[]}"#
+    );
+    assert_eq!(
+        crate::serde::to_string(&FullEnum::Nothing).expect("serde"),
+        r#""Nothing""#
     );
 }
 

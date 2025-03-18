@@ -22,6 +22,10 @@ extern crate serde as serde_ext;
 /// serde related helper functions
 pub mod serde;
 
+#[cfg(test)]
+/// serde related helper functions
+pub mod tests;
+
 use crate::error::InternalError;
 #[cfg(feature = "serde_impl")]
 pub use crate::serde::{
@@ -1100,92 +1104,5 @@ impl Deref for AlignedBuf {
 impl DerefMut for AlignedBuf {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { std::slice::from_raw_parts_mut(self.inner.as_ptr(), self.len) }
-    }
-}
-
-#[cfg(feature = "serde_impl")] //since the tested features are there to help work better with serde ...
-#[cfg(test)]
-mod tests {
-    use crate::Deserializer;
-    use serde_ext::Deserialize;
-
-    static JSON: &str = r#"{
-        "code": 200,
-        "success": true,
-        "payload": {
-            "features": [
-                "serde",
-                "json"
-            ]
-        }
-    }"#;
-
-    #[derive(Deserialize, PartialEq, Debug)]
-    struct TestPayload {
-        features: Vec<String>,
-    }
-
-    #[derive(Deserialize, PartialEq, Debug)]
-    struct TestEnvelope {
-        code: usize,
-        success: bool,
-        payload: TestPayload,
-    }
-
-    #[test]
-    fn test_deser_to_value() {
-        let mut json = JSON.as_bytes().to_vec();
-        let d = Deserializer::from_slice(&mut json).expect("Invalid JSON");
-
-        let original_index = d.idx;
-        let original_nodes = d.tape.len();
-
-        let v = d.as_value();
-
-        assert!(v.contains_key("payload"), "Failed to find payload key");
-        let v = v.get("payload").expect("Can't get payload");
-        assert!(v.is_object(), "payload not recognized as object: {v:?}");
-        assert!(v.contains_key("features"), "Failed to find features key");
-        let v = v.get("features").expect("can't get features");
-        assert!(v.is_array(), "features not recognized as array: {v:?}");
-
-        // proving that value peeking doesn't affect the deserializer
-
-        assert_eq!(
-            original_index, d.idx,
-            "Deserializer has been internally modified"
-        );
-        assert_eq!(
-            original_nodes,
-            d.tape.len(),
-            "Deserializer has been internally modified"
-        );
-    }
-
-    #[test]
-    fn test_deser_restart() {
-        let mut json = JSON.as_bytes().to_vec();
-        let mut d = Deserializer::from_slice(&mut json).expect("Invalid JSON");
-
-        let original_index = d.idx;
-        let original_nodes = d.tape.len();
-
-        let test1 = TestEnvelope::deserialize(&mut d).expect("Deserialization failed");
-
-        assert!(
-            original_index != d.idx,
-            "Deserializer has NOT been internally modified"
-        );
-        assert_eq!(
-            original_nodes,
-            d.tape.len(),
-            "Deserializer nodes are NOT intact"
-        );
-
-        d.restart();
-
-        let test2 = TestEnvelope::deserialize(&mut d).expect("Deserialization failed");
-
-        assert_eq!(test2, test1, "Deserializer is not idempotent");
     }
 }
