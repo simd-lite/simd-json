@@ -191,7 +191,7 @@ where
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn end(self) -> Result<Self::Ok, Self::Error> {
         if self.first {
-            Ok(())
+            iomap!(self.s.write(b"}"))
         } else {
             iomap!(self.s.write(b"]}"))
         }

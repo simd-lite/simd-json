@@ -7,7 +7,7 @@ mod impls;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::to_borrowed_value;
-use crate::{owned::Value, tape::Node, to_owned_value, Deserializer};
+use crate::{Deserializer, owned::Value, tape::Node, to_owned_value};
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 use value_trait::prelude::*;
@@ -26,7 +26,7 @@ fn alligned_number_parse() {
 #[test]
 fn test_send_sync() {
     struct TestStruct<T: Sync + Send>(T);
-    #[allow(clippy::let_underscore_drop)] // test
+    #[allow(let_underscore_drop)] // test
     let _: TestStruct<_> = TestStruct(super::AlignedBuf::with_capacity(0));
 }
 
