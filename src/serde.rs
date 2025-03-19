@@ -135,6 +135,13 @@ where
 
 /// parses a Reader using a serde deserializer.
 ///
+/// # Warning
+///     
+/// Since simd-json does not support streaming and requires mutability of the data, this function
+/// will read the entire reader into memory before parsing it.
+///
+/// You might do better using `from_slice` and managing the read buffer yourself.
+///
 /// # Errors
 ///
 /// Will return `Err` if an IO error is encountered while reading
