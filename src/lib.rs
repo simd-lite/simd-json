@@ -44,6 +44,7 @@ mod numberparse;
 mod safer_unchecked;
 mod stringparse;
 
+use macros::static_cast_u64;
 use safer_unchecked::GetSaferUnchecked;
 use stage2::StackState;
 use tape::Value;
@@ -54,9 +55,9 @@ mod impls;
 pub mod cow;
 
 /// The maximum padding size required by any SIMD implementation
-pub const SIMDJSON_PADDING: usize = 32; // take upper limit mem::size_of::<__m256i>()
+pub(crate) const SIMDJSON_PADDING: usize = 32; // take upper limit mem::size_of::<__m256i>()
 /// It's 64 for all (Is this correct?)
-pub const SIMDINPUT_LENGTH: usize = 64;
+pub(crate) const SIMDINPUT_LENGTH: usize = 64;
 
 mod stage2;
 /// simd-json JSON-DOM value

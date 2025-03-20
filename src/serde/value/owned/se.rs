@@ -1,6 +1,7 @@
 use super::to_value;
 use crate::{
-    Error, ErrorType, ObjectHasher, Result, StaticNode, stry,
+    Error, ErrorType, ObjectHasher, Result, StaticNode,
+    macros::stry,
     value::owned::{Object, Value},
 };
 use serde_ext::ser::{

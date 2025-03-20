@@ -1,5 +1,5 @@
 use crate::serde_ext::de::IntoDeserializer;
-use crate::{Deserializer, Error, ErrorType, Node, Result, StaticNode, stry};
+use crate::{Deserializer, Error, ErrorType, Node, Result, StaticNode, macros::stry};
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
 use std::str;

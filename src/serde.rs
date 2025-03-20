@@ -12,7 +12,7 @@ mod value;
 pub use self::se::*;
 pub use self::value::*;
 use crate::{BorrowedValue, OwnedValue};
-use crate::{Buffers, Deserializer, Error, ErrorType, Node, Result, stry};
+use crate::{Buffers, Deserializer, Error, ErrorType, Node, Result, macros::stry};
 use serde::de::DeserializeOwned;
 use serde_ext::Deserialize;
 use std::fmt;

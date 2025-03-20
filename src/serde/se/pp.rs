@@ -1,4 +1,4 @@
-use crate::{Error, ErrorType, stry};
+use crate::{Error, ErrorType, macros::stry};
 use serde_ext::ser;
 use std::io::Write;
 use std::str;

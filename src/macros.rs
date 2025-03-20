@@ -1191,48 +1191,16 @@ macro_rules! json_unexpected {
     () => {};
 }
 
-/// possible compiler hint that a branch is likely
-#[cfg(feature = "hints")]
-#[macro_export]
-macro_rules! likely {
-    ($e:expr) => {
-        ::std::intrinsics::likely($e)
-    };
-}
-
 /// possible compiler hint that a branch is unlikely
 #[cfg(feature = "hints")]
-#[macro_export]
 macro_rules! unlikely {
     ($e:expr) => {{ ::std::intrinsics::unlikely($e) }};
 }
 
-/// possible compiler hint that a branch is likely
-///
-/// Technique borrowed from here: <https://github.com/rust-lang/hashbrown/pull/209>
-#[cfg(not(feature = "hints"))]
-#[macro_export]
-macro_rules! likely {
-    ($e:expr_2021) => {{
-        #[inline]
-        #[cold]
-        fn cold() {}
-
-        let cond = $e;
-
-        if !cond {
-            cold();
-        }
-
-        cond
-    }};
-}
-
 /// possible compiler hint that a branch is unlikely
 ///
 /// Technique borrowed from here: <https://github.com/rust-lang/hashbrown/pull/209>
 #[cfg(not(feature = "hints"))]
-#[macro_export]
 macro_rules! unlikely {
     ($e:expr_2021) => {{
         #[inline]
@@ -1249,61 +1217,60 @@ macro_rules! unlikely {
     }};
 }
 
-/// static cast to an i8
-#[macro_export]
-macro_rules! static_cast_i8 {
-    ($v:expr_2021) => {
-        ::std::transmute::<_, i8>($v)
-    };
-}
+pub(crate) use unlikely;
 
 /// static cast to an i32
-#[macro_export]
+#[allow(unused_macros)]
 macro_rules! static_cast_i32 {
     ($v:expr_2021) => {
         ::std::mem::transmute::<u32, i32>($v)
     };
 }
+#[allow(unused_imports)]
+pub(crate) use static_cast_i32;
 
 /// static cast to an u32
-#[macro_export]
+#[allow(unused_macros)]
 macro_rules! static_cast_u32 {
     ($v:expr_2021) => {
         // #[allow(clippy::missing_transmute_annotations)]
         ::std::mem::transmute::<i32, u32>($v)
     };
 }
+#[allow(unused_imports)]
+pub(crate) use static_cast_u32;
 
 /// static cast to an i64
-#[macro_export]
 macro_rules! static_cast_i64 {
     ($v:expr_2021) => {
         ::std::mem::transmute::<u64, i64>($v)
     };
 }
+pub(crate) use static_cast_i64;
 
 /// static cast to an i64
-#[macro_export]
+#[cfg(all(feature = "approx-number-parsing", feature = "i128"))]
 macro_rules! static_cast_i128 {
     ($v:expr_2021) => {
         ::std::mem::transmute::<_, i128>($v)
     };
 }
+#[cfg(all(feature = "approx-number-parsing", feature = "i128"))]
+pub(crate) use static_cast_i128;
 
 /// static cast to an u64
-#[macro_export]
 macro_rules! static_cast_u64 {
     ($v:expr_2021) => {
         ::std::mem::transmute::<i64, u64>($v)
     };
 }
+pub(crate) use static_cast_u64;
 
 /// Custom `try!` macro that does no `From` conversions
 ///
 /// FROM serde-json
 /// We only use our own error type; no need for From conversions provided by the
 /// standard library's try! macro. This reduces lines of LLVM IR by 4%.
-#[macro_export]
 macro_rules! stry {
     ($e:expr_2021) => {
         match $e {
@@ -1312,6 +1279,8 @@ macro_rules! stry {
         }
     };
 }
+#[allow(unused_imports)]
+pub(crate) use stry;
 
 #[cfg(test)]
 mod test {
