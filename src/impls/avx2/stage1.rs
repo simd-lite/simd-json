@@ -1,5 +1,8 @@
 #![allow(dead_code)]
-use crate::{Stage1Parse, static_cast_i32, static_cast_i64, static_cast_u32};
+use crate::{
+    Stage1Parse,
+    macros::{static_cast_i32, static_cast_i64, static_cast_u32},
+};
 #[cfg(target_arch = "x86")]
 use std::arch::x86 as arch;
 

@@ -2,7 +2,7 @@ use super::to_value;
 use crate::{
     Error, ErrorType, Result,
     cow::Cow,
-    stry,
+    macros::stry,
     value::borrowed::{Object, Value},
 };
 use crate::{ObjectHasher, StaticNode};

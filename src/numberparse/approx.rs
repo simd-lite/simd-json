@@ -4,6 +4,7 @@ use super::{
 };
 use crate::StaticNode;
 use crate::charutils::is_structural_or_whitespace;
+use crate::macros::{static_cast_i64, unlikely};
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::{Deserializer, ErrorType, Result};
 

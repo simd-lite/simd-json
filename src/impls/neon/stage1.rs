@@ -1,4 +1,4 @@
-use crate::{Stage1Parse, static_cast_i32};
+use crate::Stage1Parse;
 use std::arch::aarch64::{
     int8x16_t, int32x4_t, uint8x16_t, vaddq_s32, vandq_u8, vceqq_u8, vcleq_u8, vdupq_n_s8,
     vgetq_lane_u64, vld1q_u8, vmovq_n_u8, vpaddq_u8, vqtbl1q_u8, vreinterpretq_u8_s8,

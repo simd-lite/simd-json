@@ -12,6 +12,7 @@ use arch::{
 use crate::{
     Deserializer, Result, SillyWrapper,
     error::ErrorType,
+    macros::static_cast_u32,
     safer_unchecked::GetSaferUnchecked,
     stringparse::{ESCAPE_MAP, handle_unicode_codepoint},
 };

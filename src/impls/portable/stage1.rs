@@ -1,6 +1,6 @@
 use std::simd::{ToBitMask, prelude::*};
 
-use crate::{Stage1Parse, static_cast_i32};
+use crate::{Stage1Parse, macros::static_cast_i32};
 #[derive(Debug)]
 pub(crate) struct SimdInput {
     v: u8x64,
