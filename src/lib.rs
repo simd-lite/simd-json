@@ -559,7 +559,7 @@ impl<'de> Deserializer<'de> {
         idx: usize,
     ) -> Result<&'de str> {
         let input: SillyWrapper<'de> = SillyWrapper::from(input);
-        impls::avx2::parse_str(input, data, buffer, idx)
+        unsafe { impls::avx2::parse_str(input, data, buffer, idx) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -576,7 +576,7 @@ impl<'de> Deserializer<'de> {
         idx: usize,
     ) -> Result<&'de str> {
         let input: SillyWrapper<'de> = SillyWrapper::from(input);
-        impls::sse42::parse_str(input, data, buffer, idx)
+        unsafe { impls::sse42::parse_str(input, data, buffer, idx) }
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -685,7 +685,9 @@ impl Deserializer<'_> {
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
-        Self::_find_structural_bits::<impls::portable::SimdInput>(input, structural_indexes)
+        unsafe {
+            Self::_find_structural_bits::<impls::portable::SimdInput>(input, structural_indexes)
+        }
     }
 
     #[cfg(all(
@@ -698,7 +700,7 @@ impl Deserializer<'_> {
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
-        Self::_find_structural_bits::<impls::avx2::SimdInput>(input, structural_indexes)
+        unsafe { Self::_find_structural_bits::<impls::avx2::SimdInput>(input, structural_indexes) }
     }
 
     #[cfg(all(
@@ -712,7 +714,7 @@ impl Deserializer<'_> {
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
-        Self::_find_structural_bits::<impls::sse42::SimdInput>(input, structural_indexes)
+        unsafe { Self::_find_structural_bits::<impls::sse42::SimdInput>(input, structural_indexes) }
     }
 
     #[cfg(all(target_arch = "aarch64", not(feature = "portable")))]
@@ -730,7 +732,9 @@ impl Deserializer<'_> {
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
     ) -> std::result::Result<(), ErrorType> {
-        Self::_find_structural_bits::<impls::simd128::SimdInput>(input, structural_indexes)
+        unsafe {
+            Self::_find_structural_bits::<impls::simd128::SimdInput>(input, structural_indexes)
+        }
     }
 }
 
