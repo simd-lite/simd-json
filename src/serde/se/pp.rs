@@ -256,7 +256,6 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn serialize_str(self, value: &str) -> Result<(), Self::Error> {
-        dbg!(value);
         self.s.serialize_str(value)
     }
 
