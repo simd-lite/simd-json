@@ -40,9 +40,8 @@ the `simd128` instruction set when available. When no supported SIMD instruction
 fallback implementation, but this is significantly slower.
 
 ### Allocator
-For best performance, we highly suggest using [mimalloc](https://crates.io/crates/mimalloc) or [jemalloc](https://crates.io/crates/jemalloc) instead of the system allocator used by
-default. Another recent allocator that works well (but we have yet to test it in production) is [snmalloc](https://github.com/microsoft/snmalloc).
-
+For best performance, we highly suggest using [snmalloc](https://github.com/microsoft/snmalloc), [mimalloc](https://crates.io/crates/mimalloc) or [jemalloc](https://crates.io/crates/jemalloc)
+instead of the system default allocator.
 
 ## Safety
 
