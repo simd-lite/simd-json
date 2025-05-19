@@ -44,7 +44,7 @@ core_affinity = { version = "0.8" }
 
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-criterion = { version = "0.5" }
+criterion = { version = "0.6" }
 proptest = "1.0"
 
 [lib]
