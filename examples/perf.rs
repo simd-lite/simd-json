@@ -1,6 +1,6 @@
 use std::env;
 
-#[cfg(feature = "perf")]
+#[cfg(all(feature = "perf", target_arch = "x86_64", target_os = "linux"))]
 mod int {
     const ROUNDS: usize = 2000;
     const WARMUP: usize = 200;
@@ -216,10 +216,14 @@ mod int {
     }
 }
 
-#[cfg(not(feature = "perf"))]
+#[cfg(not(all(feature = "perf", target_arch = "x86_64", target_os = "linux")))]
 mod int {
     pub fn bench(_name: &str, _baseline: bool) {
-        println!("Perf requires linux to run and the perf feature to be enabled")
+        if std::env::consts::ARCH != "x86_64" {
+            println!("This Perf example only supports x86_64 for now.");
+        } else if std::env::consts::OS != "linux" {
+            println!("Perf requires linux to run and the perf feature to be enabled");
+        }
     }
 }
 
