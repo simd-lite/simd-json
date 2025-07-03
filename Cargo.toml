@@ -1,6 +1,6 @@
 [package]
 name = "simd-json"
-version = "0.15.1"
+version = "0.16.0"
 authors = ["Heinz N. Gies <heinz@licenser.net>", "Sunny Gleason"]
 edition = "2024"
 exclude = ["data/*", "fuzz/*"]
@@ -9,7 +9,7 @@ description = "High performance JSON parser based on a port of simdjson"
 repository = "https://github.com/simd-lite/simd-json"
 readme = "README.md"
 documentation = "https://docs.rs/simd-json"
-rust-version = "1.85"
+rust-version = "1.88"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }
