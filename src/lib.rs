@@ -12,7 +12,6 @@
 #![allow(
     clippy::module_name_repetitions,
     unused_unsafe, // for nightly
-    unnecessary_transmutes
 )]
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 

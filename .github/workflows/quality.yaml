@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: dtolnay/rust-toolchain@1.85 # do clippy chekcs with the minimum supported version
+      - uses: dtolnay/rust-toolchain@1.88 # do clippy chekcs with the minimum supported version
         with:
           components: rustfmt, clippy
 

@@ -1223,7 +1223,7 @@ pub(crate) use unlikely;
 #[allow(unused_macros)]
 macro_rules! static_cast_i32 {
     ($v:expr_2021) => {
-        ::std::mem::transmute::<u32, i32>($v)
+        u32::cast_signed($v)
     };
 }
 #[allow(unused_imports)]
@@ -1243,7 +1243,7 @@ pub(crate) use static_cast_u32;
 /// static cast to an i64
 macro_rules! static_cast_i64 {
     ($v:expr_2021) => {
-        ::std::mem::transmute::<u64, i64>($v)
+        u64::cast_signed($v)
     };
 }
 pub(crate) use static_cast_i64;
@@ -1261,7 +1261,7 @@ pub(crate) use static_cast_i128;
 /// static cast to an u64
 macro_rules! static_cast_u64 {
     ($v:expr_2021) => {
-        ::std::mem::transmute::<i64, u64>($v)
+        i64::cast_unsigned($v)
     };
 }
 pub(crate) use static_cast_u64;
