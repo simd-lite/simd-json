@@ -11,9 +11,6 @@ readme = "README.md"
 documentation = "https://docs.rs/simd-json"
 rust-version = "1.88"
 
-[target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { version = "0.3", features = ["wasm_js"] }
-
 [dependencies]
 simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
 
