@@ -1234,7 +1234,7 @@ pub(crate) use static_cast_i32;
 macro_rules! static_cast_u32 {
     ($v:expr_2021) => {
         // #[allow(clippy::missing_transmute_annotations)]
-        ::std::mem::transmute::<i32, u32>($v)
+        i32::cast_unsigned($v)
     };
 }
 #[allow(unused_imports)]
