@@ -5,14 +5,18 @@ jobs:
     name: run benchmark
     runs-on: ubuntu-latest
     permissions:
-        contents: write
-        pull-requests: write
-        repository-projects: write    
+      contents: write
+      pull-requests: write
+      repository-projects: write
     steps:
       - uses: actions/checkout@v3
+
+      - name: Check Rust Version
+        run: rustc --version
+
       - uses: boa-dev/criterion-compare-action@v3 # https://github.com/marketplace/actions/criterion-compare-prs
         env:
-            RUSTFLAGS: "-C target-cpu=native"
+          RUSTFLAGS: "-C target-cpu=native"
         with:
           # Optional. Compare only this benchmark target
           benchName: "to_tape"
