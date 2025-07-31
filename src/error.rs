@@ -158,15 +158,15 @@ pub struct Error {
     /// Current character
     character: Option<char>,
     /// Type of error
-    error: ErrorType,
+    err_type: ErrorType,
 }
 
 impl Error {
-    pub(crate) fn new(index: usize, character: Option<char>, error: ErrorType) -> Self {
+    pub(crate) fn new(index: usize, character: Option<char>, err_type: ErrorType) -> Self {
         Self {
             index,
             character,
-            error,
+            err_type,
         }
     }
     pub(crate) fn new_c(index: usize, character: char, error: ErrorType) -> Self {
@@ -179,7 +179,7 @@ impl Error {
         Self {
             index: 0,
             character: None,
-            error: t,
+            err_type: t,
         }
     }
 
@@ -198,7 +198,7 @@ impl Error {
     /// Returns the type of error that occurred.
     #[must_use]
     pub fn error(&self) -> &ErrorType {
-        &self.error
+        &self.err_type
     }
 
     // These make it a bit easier to fit into a serde_json context
@@ -209,7 +209,7 @@ impl Error {
     #[must_use]
     pub fn is_io(&self) -> bool {
         // We have to include InternalError _somewhere_
-        match &self.error {
+        match &self.err_type {
             ErrorType::Io(_) | ErrorType::InputTooLarge => true,
             ErrorType::InternalError(e) if !matches!(e, crate::InternalError::TapeError) => true,
             _ => false,
@@ -219,7 +219,7 @@ impl Error {
     /// Indicates if the error that occurred was an early EOF
     #[must_use]
     pub fn is_eof(&self) -> bool {
-        matches!(self.error, ErrorType::Eof)
+        matches!(self.err_type, ErrorType::Eof)
     }
 
     /// Indicates if the error that occurred was due to a data shape error
@@ -234,7 +234,7 @@ impl Error {
     pub fn is_syntax(&self) -> bool {
         // Lazy? maybe but if it aint something else...
         matches!(
-            self.error,
+            self.err_type,
             ErrorType::InternalError(crate::InternalError::TapeError) | //This seems to get thrown on some syntax errors
             ErrorType::BadKeyType |
             ErrorType::ExpectedArrayComma |
@@ -268,9 +268,9 @@ impl std::error::Error for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(c) = self.character {
-            write!(f, "{:?} at character {} ('{c}')", self.error, self.index)
+            write!(f, "{:?} at character {} ('{c}')", self.err_type, self.index)
         } else {
-            write!(f, "{:?} at character {}", self.error, self.index)
+            write!(f, "{:?} at character {}", self.err_type, self.index)
         }
     }
 }
