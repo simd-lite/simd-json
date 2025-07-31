@@ -46,7 +46,7 @@ pub type Array<'value> = Vec<Value<'value>>;
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
-pub fn to_value(s: &mut [u8]) -> Result<Value> {
+pub fn to_value(s: &mut [u8]) -> Result<Value<'_>> {
     match Deserializer::from_slice(s) {
         Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),

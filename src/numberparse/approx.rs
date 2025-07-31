@@ -532,7 +532,7 @@ impl Deserializer<'_> {
 
                 let mut d1: f64 = i as f64;
                 d1 *= unsafe { POWER_OF_TEN.get_kinda_unchecked((323 + exponent) as usize) };
-                StaticNode::from(if negative { d1 * -1.0 } else { d1 })
+                StaticNode::from(if negative { -d1 } else { d1 })
             }
         } else {
             if unlikely!(byte_count >= 18) {
