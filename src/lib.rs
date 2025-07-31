@@ -916,7 +916,7 @@ impl<'de> Deserializer<'de> {
         // expensive carryless multiply in the previous step with this work
         let mut structurals: u64 = 0;
 
-        let lenminus64: usize = if len < 64 { 0 } else { len - 64 };
+        let lenminus64: usize = len.saturating_sub(64);
         let mut idx: usize = 0;
         let mut error_mask: u64 = 0; // for unescaped characters within strings (ASCII code points < 0x20)
 
