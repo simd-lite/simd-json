@@ -123,7 +123,7 @@ impl Buffers {
 ///
 /// Will return `Err` if `s` is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn to_tape(s: &mut [u8]) -> Result<Tape> {
+pub fn to_tape(s: &mut [u8]) -> Result<Tape<'_>> {
     Deserializer::from_slice(s).map(Deserializer::into_tape)
 }
 

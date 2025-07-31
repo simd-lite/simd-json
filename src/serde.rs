@@ -136,7 +136,7 @@ where
 /// parses a Reader using a serde deserializer.
 ///
 /// # Warning
-///     
+///
 /// Since simd-json does not support streaming and requires mutability of the data, this function
 /// will read the entire reader into memory before parsing it.
 ///
@@ -208,7 +208,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn peek(&self) -> Result<Node> {
+    fn peek(&self) -> Result<Node<'de>> {
         self.tape
             .get(self.idx)
             .copied()
