@@ -166,7 +166,7 @@ fn silly_float1() {
 }
 
 #[test]
-#[ignore]
+#[ignore = "serde is less precise on this test"]
 fn silly_float2() {
     let v = Value::from(-6.990_585_694_841_803e305);
     let s = v.encode();
