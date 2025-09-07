@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::{
-    Stage1Parse,
+    SIMDINPUT_LENGTH, Stage1Parse,
     macros::{static_cast_i32, static_cast_i64, static_cast_u32},
 };
 #[cfg(target_arch = "x86")]
@@ -11,9 +11,9 @@ use std::arch::x86_64 as arch;
 
 use arch::{
     __m256i, _mm_clmulepi64_si128, _mm_set_epi64x, _mm_set1_epi8, _mm256_add_epi32,
-    _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_loadu_si256, _mm256_max_epu8, _mm256_movemask_epi8,
-    _mm256_set_epi32, _mm256_set1_epi8, _mm256_setr_epi8, _mm256_setzero_si256,
-    _mm256_shuffle_epi8, _mm256_srli_epi32, _mm256_storeu_si256,
+    _mm256_and_si256, _mm256_cmpeq_epi8, _mm256_load_si256, _mm256_loadu_si256, _mm256_max_epu8,
+    _mm256_movemask_epi8, _mm256_set_epi32, _mm256_set1_epi8, _mm256_setr_epi8,
+    _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_srli_epi32, _mm256_storeu_si256,
 };
 
 macro_rules! low_nibble_mask {
@@ -44,14 +44,14 @@ impl Stage1Parse for SimdInput {
     type Utf8Validator = simdutf8::basic::imp::x86::avx2::ChunkedUtf8ValidatorImp;
     type SimdRepresentation = __m256i;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    // _mm256_loadu_si256 does not need alignment
+    // _mm256_loadu_si256 does not need alignment we allign our input so we can use _mm256_loadu_si256
     #[allow(clippy::cast_ptr_alignment)]
     #[target_feature(enable = "avx2")]
-    unsafe fn new(ptr: &[u8]) -> Self {
+    unsafe fn new(ptr: [u8; SIMDINPUT_LENGTH]) -> Self {
         unsafe {
             Self {
-                v0: _mm256_loadu_si256(ptr.as_ptr().cast::<__m256i>()),
-                v1: _mm256_loadu_si256(ptr.as_ptr().add(32).cast::<__m256i>()),
+                v0: _mm256_load_si256(ptr.as_ptr().cast::<__m256i>()),
+                v1: _mm256_load_si256(ptr.as_ptr().add(32).cast::<__m256i>()),
             }
         }
     }

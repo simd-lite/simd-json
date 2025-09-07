@@ -586,7 +586,7 @@ fn float1() {
 }
 
 // We ignore this since serde is less precise on this test
-#[ignore]
+#[ignore = "serde is less precise on this test"]
 #[test]
 fn float2() {
     let mut d = String::from("-4.5512678569607477e306");
