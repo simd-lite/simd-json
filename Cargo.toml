@@ -16,7 +16,7 @@ simdutf8 = { version = "0.1.4", features = ["public_imp", "aarch64_neon"] }
 
 value-trait = { version = "0.11" }
 beef = { version = "0.5", optional = true }
-halfbrown = "0.3"
+halfbrown = "0.4"
 # ahash known key
 once_cell = { version = "1.21", optional = true }
 ahash = { version = "0.8", optional = true }
