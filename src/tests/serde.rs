@@ -585,8 +585,7 @@ fn float1() {
     assert_eq!(v_simd, v_serde);
 }
 
-// We ignore this since serde is less precise on this test
-#[ignore]
+#[ignore = "We ignore this since serde is less precise on this test"]
 #[test]
 fn float2() {
     let mut d = String::from("-4.5512678569607477e306");
