@@ -1248,16 +1248,6 @@ macro_rules! static_cast_i64 {
 }
 pub(crate) use static_cast_i64;
 
-/// static cast to an i64
-#[cfg(all(feature = "approx-number-parsing", feature = "i128"))]
-macro_rules! static_cast_i128 {
-    ($v:expr_2021) => {
-        ::std::mem::transmute::<_, i128>($v)
-    };
-}
-#[cfg(all(feature = "approx-number-parsing", feature = "i128"))]
-pub(crate) use static_cast_i128;
-
 /// static cast to an u64
 macro_rules! static_cast_u64 {
     ($v:expr_2021) => {

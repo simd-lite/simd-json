@@ -336,7 +336,7 @@ impl Deserializer<'_> {
                 ErrorType::InvalidNumber,
             ))
         } else if negative {
-            let i = unsafe { static_cast_i128!(i.wrapping_neg()) };
+            let i: i128 = i.wrapping_neg().cast_signed();
             if let Ok(i) = i64::try_from(i) {
                 Ok(StaticNode::I64(i))
             } else {

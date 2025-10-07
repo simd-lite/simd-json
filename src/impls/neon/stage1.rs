@@ -204,7 +204,7 @@ impl Stage1Parse for SimdInput {
             base.reserve(64);
             let final_len = l + cnt;
 
-            let is_unaligned = l % 4 != 0;
+            let is_unaligned = !l.is_multiple_of(4);
             let write_fn = if is_unaligned {
                 std::ptr::write_unaligned
             } else {
