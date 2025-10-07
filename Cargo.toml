@@ -1,6 +1,6 @@
 [package]
 name = "simd-json"
-version = "0.16.0"
+version = "0.17.0"
 authors = ["Heinz N. Gies <heinz@licenser.net>", "Sunny Gleason"]
 edition = "2024"
 exclude = ["data/*", "fuzz/*", "fuzz.sh"]
