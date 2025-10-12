@@ -1,5 +1,5 @@
 use super::{Object, Value};
-use crate::{BorrowedValue, StaticNode};
+use crate::{BorrowedValue, ObjectHasher, StaticNode};
 
 impl From<crate::BorrowedValue<'_>> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -199,11 +199,13 @@ impl<V: Into<Value>> FromIterator<V> for Value {
 impl<K: ToString, V: Into<Value>> FromIterator<(K, V)> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
-        Self::Object(Box::new(
-            iter.into_iter()
-                .map(|(k, v)| (k.to_string(), Into::into(v)))
-                .collect(),
-        ))
+        let iter = iter.into_iter();
+        let (lower, _) = iter.size_hint();
+        let mut map = Object::with_capacity_and_hasher(lower, ObjectHasher::default());
+        for (k, v) in iter {
+            map.insert(k.to_string(), v.into());
+        }
+        Self::Object(Box::new(map))
     }
 }
 
@@ -218,5 +220,16 @@ impl From<std::collections::HashMap<String, Value>> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn from(v: std::collections::HashMap<String, Self>) -> Self {
         Self::from(v.into_iter().collect::<Object>())
+    }
+}
+
+#[cfg(feature = "preserve_order")]
+impl<K, S> From<indexmap::IndexMap<K, Value, S>> for Value
+where
+    K: Into<String>,
+    S: std::hash::BuildHasher,
+{
+    fn from(v: indexmap::IndexMap<K, Value, S>) -> Self {
+        Self::Object(Box::new(v.into_iter().map(|(k, v)| (k.into(), v)).collect()))
     }
 }

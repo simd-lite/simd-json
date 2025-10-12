@@ -1,10 +1,11 @@
 // A lot of this logic is a re-implementation or copy of serde_json::Value
-use crate::ErrorType;
-use crate::{Error, ObjectHasher};
+use crate::Error;
+use crate::ObjectHasher;
+use crate::{ErrorType, cow::Cow};
 use crate::{
     prelude::*,
     serde::value::shared::MapKeyDeserializer,
-    value::owned::{Object, Value},
+    value::borrowed::ordered::{Object, Value},
 };
 use serde_ext::{
     de::{
@@ -15,7 +16,7 @@ use serde_ext::{
 };
 use std::fmt;
 
-impl<'de> de::Deserializer<'de> for Value {
+impl<'de> de::Deserializer<'de> for Value<'de> {
     type Error = Error;
 
     // Look at the input data to decide what Serde data model type to
@@ -36,12 +37,22 @@ impl<'de> de::Deserializer<'de> for Value {
             Value::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
             #[allow(clippy::useless_conversion)] // .into() required by ordered-float
             Value::Static(StaticNode::F64(n)) => visitor.visit_f64(n.into()),
-            Value::String(s) => visitor.visit_string(s),
+            #[cfg(feature = "beef")]
+            Value::String(s) => {
+                if s.is_borrowed() {
+                    visitor.visit_borrowed_str(s.unwrap_borrowed())
+                } else {
+                    visitor.visit_string(s.into_owned())
+                }
+            }
+            #[cfg(not(feature = "beef"))]
+            Value::String(s) => match s {
+                Cow::Borrowed(s) => visitor.visit_borrowed_str(s),
+                Cow::Owned(s) => visitor.visit_string(s),
+            },
+
             Value::Array(a) => visitor.visit_seq(Array(a.into_iter())),
-            Value::Object(o) => visitor.visit_map(ObjectAccess {
-                i: o.into_iter(),
-                v: None,
-            }),
+            Value::Object(o) => visitor.visit_map(ObjectAccess::new(o.into_iter())),
         }
     }
 
@@ -56,6 +67,7 @@ impl<'de> de::Deserializer<'de> for Value {
             visitor.visit_some(self)
         }
     }
+
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_enum<V>(
         self,
@@ -130,11 +142,11 @@ impl<'de> de::Deserializer<'de> for Value {
     }
 }
 
-struct Array(std::vec::IntoIter<Value>);
+struct Array<'de>(std::vec::IntoIter<Value<'de>>);
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
-impl<'de> SeqAccess<'de> for Array {
+impl<'de> SeqAccess<'de> for Array<'de> {
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
@@ -147,7 +159,7 @@ impl<'de> SeqAccess<'de> for Array {
     }
 }
 
-struct ArrayRef<'de>(std::slice::Iter<'de, Value>);
+struct ArrayRef<'de>(std::slice::Iter<'de, Value<'de>>);
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
@@ -164,20 +176,20 @@ impl<'de> SeqAccess<'de> for ArrayRef<'de> {
     }
 }
 
-struct ObjectAccess<const N: usize = 32> {
-    i: halfbrown::IntoIter<String, Value, N>,
-    v: Option<Value>,
+struct ObjectAccess<'de> {
+    i: indexmap::map::IntoIter<Cow<'de, str>, Value<'de>>,
+    v: Option<Value<'de>>,
 }
 
-impl<const N: usize> ObjectAccess<N> {
-    fn new(i: halfbrown::IntoIter<String, Value, N>) -> Self {
+impl<'de> ObjectAccess<'de> {
+    fn new(i: indexmap::map::IntoIter<Cow<'de, str>, Value<'de>>) -> Self {
         Self { i, v: None }
     }
 }
 
 // `MapAccess` is provided to the `Visitor` to give it the ability to iterate
 // through entries of the map.
-impl<'de> MapAccess<'de> for ObjectAccess {
+impl<'de> MapAccess<'de> for ObjectAccess<'de> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
@@ -205,12 +217,12 @@ impl<'de> MapAccess<'de> for ObjectAccess {
 }
 
 struct ObjectRefAccess<'de> {
-    i: halfbrown::Iter<'de, String, Value>,
-    v: Option<&'de Value>,
+    i: indexmap::map::Iter<'de, Cow<'de, str>, Value<'de>>,
+    v: Option<&'de Value<'de>>,
 }
 
 impl<'de> ObjectRefAccess<'de> {
-    fn new(i: halfbrown::Iter<'de, String, Value>) -> Self {
+    fn new(i: indexmap::map::Iter<'de, Cow<'de, str>, Value<'de>>) -> Self {
         Self { i, v: None }
     }
 }
@@ -226,7 +238,8 @@ impl<'de> MapAccess<'de> for ObjectRefAccess<'de> {
     {
         if let Some((k, v)) = self.i.next() {
             self.v = Some(v);
-            seed.deserialize(MapKeyDeserializer::borrowed(k)).map(Some)
+            let s: &str = k;
+            seed.deserialize(MapKeyDeserializer::borrowed(s)).map(Some)
         } else {
             Ok(None)
         }
@@ -243,8 +256,8 @@ impl<'de> MapAccess<'de> for ObjectRefAccess<'de> {
     }
 }
 
-impl<'de> Deserialize<'de> for Value {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+impl<'de> Deserialize<'de> for Value<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Value<'de>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -255,10 +268,10 @@ impl<'de> Deserialize<'de> for Value {
 struct ValueVisitor;
 
 impl<'de> Visitor<'de> for ValueVisitor {
-    type Value = Value;
+    type Value = Value<'de>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a JSONesque value")
+        formatter.write_str("an JSONesque value")
     }
 
     /****************** unit ******************/
@@ -379,6 +392,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         Ok(Value::Static(StaticNode::U128(value)))
     }
+
     /****************** f64 ******************/
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -419,7 +433,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::String(value.to_owned()))
+        Ok(Value::String(value.to_owned().into()))
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -427,7 +441,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: de::Error,
     {
-        Ok(Value::String(value))
+        Ok(Value::String(value.into()))
     }
 
     /****************** byte stuff ******************/
@@ -459,7 +473,6 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
      */
     /****************** nexted stuff ******************/
-
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
@@ -468,9 +481,9 @@ impl<'de> Visitor<'de> for ValueVisitor {
         let size = map.size_hint().unwrap_or_default();
 
         let mut m = Object::with_capacity_and_hasher(size, ObjectHasher::default());
-        while let Some(k) = map.next_key()? {
+        while let Some(k) = map.next_key::<&str>()? {
             let v = map.next_value()?;
-            m.insert(k, v);
+            m.insert(k.into(), v);
         }
         Ok(Value::from(m))
     }
@@ -490,16 +503,16 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 }
 
-struct EnumDeserializer {
-    variant: String,
-    value: Option<Value>,
+struct EnumDeserializer<'de> {
+    variant: Cow<'de, str>,
+    value: Option<Value<'de>>,
 }
 
-impl<'de> EnumAccess<'de> for EnumDeserializer {
+impl<'de> EnumAccess<'de> for EnumDeserializer<'de> {
     type Error = Error;
-    type Variant = VariantDeserializer;
+    type Variant = VariantDeserializer<'de>;
 
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, VariantDeserializer), Error>
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, VariantDeserializer<'de>), Error>
     where
         V: DeserializeSeed<'de>,
     {
@@ -509,7 +522,7 @@ impl<'de> EnumAccess<'de> for EnumDeserializer {
     }
 }
 
-impl IntoDeserializer<'_, Error> for Value {
+impl<'de> IntoDeserializer<'de, Error> for Value<'de> {
     type Deserializer = Self;
 
     fn into_deserializer(self) -> Self::Deserializer {
@@ -517,11 +530,11 @@ impl IntoDeserializer<'_, Error> for Value {
     }
 }
 
-struct VariantDeserializer {
-    value: Option<Value>,
+struct VariantDeserializer<'de> {
+    value: Option<Value<'de>>,
 }
 
-impl<'de> VariantAccess<'de> for VariantDeserializer {
+impl<'de> VariantAccess<'de> for VariantDeserializer<'de> {
     type Error = Error;
 
     fn unit_variant(self) -> Result<(), Error> {
@@ -589,7 +602,7 @@ impl<'de> VariantAccess<'de> for VariantDeserializer {
     }
 }
 
-impl<'de> de::Deserializer<'de> for &'de Value {
+impl<'de> de::Deserializer<'de> for &'de Value<'de> {
     type Error = Error;
 
     // Look at the input data to decide what Serde data model type to
@@ -627,7 +640,6 @@ impl<'de> de::Deserializer<'de> for &'de Value {
             visitor.visit_some(self)
         }
     }
-
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn deserialize_newtype_struct<V>(
         self,
@@ -703,14 +715,15 @@ impl<'de> de::Deserializer<'de> for &'de Value {
 }
 
 struct EnumRefDeserializer<'de> {
-    variant: &'de str,
-    value: Option<&'de Value>,
+    variant: &'de Cow<'de, str>,
+    value: Option<&'de Value<'de>>,
 }
 
 impl<'de> EnumAccess<'de> for EnumRefDeserializer<'de> {
     type Error = Error;
     type Variant = VariantRefDeserializer<'de>;
 
+    #[cfg(feature = "beef")]
     fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Error>
     where
         V: DeserializeSeed<'de>,
@@ -719,9 +732,19 @@ impl<'de> EnumAccess<'de> for EnumRefDeserializer<'de> {
         let visitor = VariantRefDeserializer { value: self.value };
         seed.deserialize(variant).map(|v| (v, visitor))
     }
+    #[cfg(not(feature = "beef"))]
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        let var: &str = self.variant;
+        let variant = var.into_deserializer();
+        let visitor = VariantRefDeserializer { value: self.value };
+        seed.deserialize(variant).map(|v| (v, visitor))
+    }
 }
 struct VariantRefDeserializer<'de> {
-    value: Option<&'de Value>,
+    value: Option<&'de Value<'de>>,
 }
 
 impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
@@ -794,8 +817,9 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
 
 #[cfg(test)]
 mod test {
-    use crate::{json, owned, prelude::*};
     use serde::Deserialize;
+
+    use crate::{borrowed, json, prelude::*};
 
     #[test]
     fn option_field_absent_owned() {
@@ -806,8 +830,9 @@ mod test {
             pub friends: Vec<String>,
         }
         let mut raw_json = r#"{"name":"bob","friends":[]}"#.to_string();
-        let result: Result<Person, _> = crate::to_owned_value(unsafe { raw_json.as_bytes_mut() })
-            .and_then(super::super::from_value);
+        let result: Result<Person, _> =
+            crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() })
+                .and_then(crate::serde::value::borrowed::from_value);
         assert_eq!(
             result,
             Ok(Person {
@@ -831,17 +856,19 @@ mod test {
             pub friends: Vec<String>,
             pub pos: Point,
         }
+
         let mut raw_json =
-            r#"{"name":"bob","middle_name": "frank", "friends":[], "pos": [1,2]}"#.to_string();
-        let result: Result<Person, _> = crate::to_owned_value(unsafe { raw_json.as_bytes_mut() })
-            .and_then(super::super::from_value);
+            r#"{"name":"bob","middle_name": "frank", "friends":[], "pos":[0,1]}"#.to_string();
+        let result: Result<Person, _> =
+            crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() })
+                .and_then(crate::serde::value::borrowed::from_value);
         assert_eq!(
             result,
             Ok(Person {
                 name: "bob".to_string(),
                 middle_name: Some("frank".to_string()),
                 friends: vec![],
-                pos: Point { x: 1, y: 2 }
+                pos: Point { x: 0, y: 1 },
             })
         );
     }
@@ -880,10 +907,9 @@ mod test {
 
         let mut raw_json =
             r#"{"name":"bob","middle_name": "frank", "friends":[], "pos": [-1, 2, -3.25, "up"], "age": 123}"#.to_string();
-        let serde_result: Person = serde_json::from_str(&raw_json).expect("serde_json::from_str");
         let value =
-            crate::to_owned_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
-        let result: Person = super::super::from_refvalue(&value).expect("from_refvalue");
+            crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
+        let result: Person = crate::serde::value::borrowed::from_refvalue(&value).expect("from_refvalue");
         let expected = Person {
             name: "bob".to_string(),
             middle_name: Some("frank".to_string()),
@@ -897,12 +923,11 @@ mod test {
             age: 123,
         };
         assert_eq!(result, expected);
-        assert_eq!(result, serde_result);
 
         let mut raw_json = r#"{"key":{"subkey": "value"}, "vec":[[null], [1]]}"#.to_string();
         let value =
-            crate::to_owned_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
-        let result: TestStruct = super::super::from_refvalue(&value).expect("from_refvalue");
+            crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
+        let result: TestStruct = crate::serde::value::borrowed::from_refvalue(&value).expect("from_refvalue");
         let expected = TestStruct {
             key: hashmap!("subkey".to_string() => "value".to_string()),
             vec: vec![vec![None], vec![Some(1)]],
@@ -914,33 +939,63 @@ mod test {
     #[test]
     fn deserialize_128bit() {
         let value = i64::MIN as i128 - 1;
-        let int128 = crate::OwnedValue::Static(crate::StaticNode::I128(value));
-        let res: i128 = super::super::from_refvalue(&int128).expect("from_refvalue");
+        let int128 = crate::BorrowedValue::Static(crate::StaticNode::I128(value));
+        let res: i128 = crate::serde::value::borrowed::from_refvalue(&int128).expect("from_refvalue");
         assert_eq!(value, res);
 
         let value = u64::MAX as u128;
-        let int128 = crate::OwnedValue::Static(crate::StaticNode::U128(value));
-        let res: u128 = super::super::from_refvalue(&int128).expect("from_refvalue");
+        let int128 = crate::BorrowedValue::Static(crate::StaticNode::U128(value));
+        let res: u128 = crate::serde::value::borrowed::from_refvalue(&int128).expect("from_refvalue");
         assert_eq!(value, res);
     }
+
     #[test]
     fn variant() {
-        struct NameAndConfig {
+        struct NameAndConfig<'v> {
             name: String,
-            config: Option<owned::Value>,
+            config: Option<borrowed::Value<'v>>,
         }
-        impl<'v> serde::Deserialize<'v> for NameAndConfig {
+        impl<'v> serde::Deserialize<'v> for NameAndConfig<'v> {
             fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
             where
                 D: serde::Deserializer<'v>,
             {
                 #[derive(Deserialize)]
-                #[serde(untagged)]
-                enum Variants {
+                // This is ugly but it's needed for `serde::Deserialize` to not explode on lifetimes
+                // An error like this is otherwise produced:
+                //     error: lifetime may not live long enough
+                //     --> src/serde/value/borrowed/de.rs:960:25
+                //      |
+                //  953 |                 #[derive(Deserialize)]
+                //      |                          ----------- lifetime `'de` defined here
+                //  ...
+                //  956 |                 enum Variants<'v> {
+                //      |                               -- lifetime `'v` defined here
+                //  ...
+                //  960 |                         config: Option<borrowed::Value<'v>>,
+                //      |                         ^^^^^^ requires that `'de` must outlive `'v`
+                //      |
+                //      = help: consider adding the following bound: `'de: 'v`
+
+                //  error: lifetime may not live long enough
+                //     --> src/serde/value/borrowed/de.rs:960:25
+                //      |
+                //  953 |                 #[derive(Deserialize)]
+                //      |                          ----------- lifetime `'de` defined here
+                //  ...
+                //  956 |                 enum Variants<'v> {
+                //      |                               -- lifetime `'v` defined here
+                //  ...
+                //  960 |                         config: Option<borrowed::Value<'v>>,
+                //      |                         ^^^^^^ requires that `'v` must outlive `'de`
+                //      |
+                //      = help: consider adding the following bound: `'v: 'de`
+                #[serde(bound(deserialize = "'de: 'v, 'v: 'de"), untagged)]
+                enum Variants<'v> {
                     Name(String),
                     NameAndConfig {
                         name: String,
-                        config: Option<owned::Value>,
+                        config: Option<borrowed::Value<'v>>,
                     },
                 }
 

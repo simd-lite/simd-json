@@ -194,7 +194,12 @@ impl<'se> serde::Serializer for Serializer<'se> {
     {
         let mut values = Object::with_capacity_and_hasher(1, ObjectHasher::default());
         let x = stry!(to_value(value));
-        unsafe { values.insert_nocheck(variant.into(), x) };
+        #[cfg(not(feature = "preserve_order"))]
+        unsafe {
+            values.insert_nocheck(variant.into(), x);
+        };
+        #[cfg(feature = "preserve_order")]
+        values.insert(variant.into(), x);
         Ok(Value::from(values))
     }
 
@@ -349,7 +354,12 @@ impl<'se> serde::ser::SerializeTupleVariant for SerializeTupleVariant<'se> {
 
     fn end(self) -> Result<Value<'se>> {
         let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
-        unsafe { object.insert_nocheck(self.name.into(), Value::Array(Box::new(self.vec))) };
+        #[cfg(not(feature = "preserve_order"))]
+        unsafe {
+            object.insert_nocheck(self.name.into(), Value::Array(Box::new(self.vec)))
+        };
+        #[cfg(feature = "preserve_order")]
+        object.insert(self.name.into(), Value::Array(Box::new(self.vec)));
 
         Ok(Value::Object(Box::new(object)))
     }
@@ -594,7 +604,12 @@ impl<'se> serde::ser::SerializeStructVariant for SerializeStructVariant<'se> {
 
     fn end(self) -> Result<Value<'se>> {
         let mut object = Object::with_capacity_and_hasher(1, ObjectHasher::default());
-        unsafe { object.insert_nocheck(self.name.into(), self.map.into()) };
+        #[cfg(not(feature = "preserve_order"))]
+        unsafe {
+            object.insert_nocheck(self.name.into(), self.map.into())
+        };
+        #[cfg(feature = "preserve_order")]
+        object.insert(self.name.into(), self.map.into());
         Ok(Value::Object(Box::new(object)))
     }
 }

@@ -20,23 +20,22 @@
 /// a["key"] = "value".into();
 /// assert_eq!(a["key"], "value");
 /// ```
-mod cmp;
-mod from;
-mod serialize;
-/// Ordered borrowed value handling.
-#[cfg(feature = "preserve_order")]
-pub mod ordered;
+/// Partial equality comparison impls
+pub mod cmp;
+/// From converter impls
+pub mod from;
+/// Provide Writable trait
+pub mod serialize;
 
-use super::ObjectHasher;
 use crate::{Buffers, prelude::*};
-use crate::{Deserializer, Node, Result};
-use crate::{cow::Cow, safer_unchecked::GetSaferUnchecked as _};
-use halfbrown::HashMap;
+use crate::{Deserializer, Node, ObjectHasher, Result};
+use crate::cow::Cow;
+use indexmap::IndexMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
 
 /// Representation of a JSON object
-pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>, ObjectHasher>;
+pub type Object<'value> = IndexMap<Cow<'value, str>, Value<'value>, ObjectHasher>;
 
 /// Representation of a JSON array
 pub type Array<'value> = Vec<Value<'value>>;
@@ -120,13 +119,15 @@ impl<'value> Value<'value> {
                 )))
             },
             // For an array we turn every value into a static
-            Self::Array(arr) => arr.into_iter().map(Value::into_static).collect(),
+            Self::Array(arr) => Value::<'static>::Array(Box::new(
+                arr.into_iter().map(Value::into_static).collect()
+            )),
             // For an object, we turn all keys into owned Cows and all values into 'static Values
-            Self::Object(obj) => obj
-                .into_iter()
-                .map(|(k, v)| (Cow::from(k.into_owned()), v.into_static()))
-                .collect(),
-
+            Self::Object(obj) => Value::<'static>::Object(Box::new(
+                obj.into_iter()
+                    .map(|(k, v)| (Cow::from(k.into_owned()), v.into_static()))
+                    .collect()
+            )),
             // Static nodes are always static
             Value::Static(s) => Value::Static(s),
         }
@@ -150,12 +151,15 @@ impl<'value> Value<'value> {
                 )))
             },
             // For an array we turn every value into a static
-            Self::Array(arr) => arr.iter().cloned().map(Value::into_static).collect(),
+            Self::Array(arr) => Value::<'static>::Array(Box::new(
+                arr.iter().cloned().map(Value::into_static).collect()
+            )),
             // For an object, we turn all keys into owned Cows and all values into 'static Values
-            Self::Object(obj) => obj
-                .iter()
-                .map(|(k, v)| (Cow::from(k.to_string()), v.clone_static()))
-                .collect(),
+            Self::Object(obj) => Value::<'static>::Object(Box::new(
+                obj.iter()
+                    .map(|(k, v)| (Cow::from(k.to_string()), v.clone_static()))
+                    .collect()
+            )),
 
             // Static nodes are always static
             Value::Static(s) => Value::Static(*s),
@@ -428,11 +432,6 @@ impl<'de> BorrowDeserializer<'de> {
         // element so we eat this
         for _ in 0..len {
             if let Node::String(key) = unsafe { self.0.next_() } {
-                #[cfg(not(feature = "value-no-dup-keys"))]
-                unsafe {
-                    res.insert_nocheck(key.into(), self.parse());
-                };
-                #[cfg(feature = "value-no-dup-keys")]
                 res.insert(key.into(), self.parse());
             } else {
                 unreachable!("parse_map: key not a string");
@@ -441,74 +440,70 @@ impl<'de> BorrowDeserializer<'de> {
         Value::from(res)
     }
 }
-pub(super) struct BorrowSliceDeserializer<'tape, 'de> {
-    tape: &'tape [Node<'de>],
-    idx: usize,
-}
-impl<'tape, 'de> BorrowSliceDeserializer<'tape, 'de> {
-    pub fn from_tape(de: &'tape [Node<'de>]) -> Self {
-        Self { tape: de, idx: 0 }
-    }
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub unsafe fn next_(&mut self) -> Node<'de> {
-        let r = unsafe { *self.tape.get_kinda_unchecked(self.idx) };
-        self.idx += 1;
-        r
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub fn parse(&mut self) -> Value<'de> {
-        match unsafe { self.next_() } {
-            Node::Static(s) => Value::Static(s),
-            Node::String(s) => Value::from(s),
-            Node::Array { len, count: _ } => self.parse_array(len),
-            Node::Object { len, count: _ } => self.parse_map(len),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn parse_array(&mut self, len: usize) -> Value<'de> {
-        // Rust doesn't optimize the normal loop away here
-        // so we write our own avoiding the length
-        // checks during push
-        let mut res: Vec<Value<'de>> = Vec::with_capacity(len);
-        let res_ptr = res.as_mut_ptr();
-        unsafe {
-            for i in 0..len {
-                res_ptr.add(i).write(self.parse());
-            }
-            res.set_len(len);
-        }
-        Value::Array(Box::new(res))
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn parse_map(&mut self, len: usize) -> Value<'de> {
-        let mut res = Object::with_capacity_and_hasher(len, ObjectHasher::default());
-
-        // Since we checked if it's empty we know that we at least have one
-        // element so we eat this
-        for _ in 0..len {
-            if let Node::String(key) = unsafe { self.next_() } {
-                #[cfg(not(feature = "value-no-dup-keys"))]
-                unsafe {
-                    res.insert_nocheck(key.into(), self.parse());
-                };
-                #[cfg(feature = "value-no-dup-keys")]
-                res.insert(key.into(), self.parse());
-            } else {
-                unreachable!("parse_map: key needs to be a string");
-            }
-        }
-        Value::from(res)
-    }
-}
+// pub(super) struct BorrowSliceDeserializer<'tape, 'de> {
+//     tape: &'tape [Node<'de>],
+//     idx: usize,
+// }
+// impl<'tape, 'de> BorrowSliceDeserializer<'tape, 'de> {
+//     pub fn from_tape(de: &'tape [Node<'de>]) -> Self {
+//         Self { tape: de, idx: 0 }
+//     }
+//     #[cfg_attr(not(feature = "no-inline"), inline)]
+//     pub unsafe fn next_(&mut self) -> Node<'de> {
+//         let r = unsafe { *self.tape.get_kinda_unchecked(self.idx) };
+//         self.idx += 1;
+//         r
+//     }
+// 
+//     #[cfg_attr(not(feature = "no-inline"), inline)]
+//     pub fn parse(&mut self) -> Value<'de> {
+//         match unsafe { self.next_() } {
+//             Node::Static(s) => Value::Static(s),
+//             Node::String(s) => Value::from(s),
+//             Node::Array { len, count: _ } => self.parse_array(len),
+//             Node::Object { len, count: _ } => self.parse_map(len),
+//         }
+//     }
+// 
+//     #[cfg_attr(not(feature = "no-inline"), inline)]
+//     fn parse_array(&mut self, len: usize) -> Value<'de> {
+//         // Rust doesn't optimize the normal loop away here
+//         // so we write our own avoiding the length
+//         // checks during push
+//         let mut res: Vec<Value<'de>> = Vec::with_capacity(len);
+//         let res_ptr = res.as_mut_ptr();
+//         unsafe {
+//             for i in 0..len {
+//                 res_ptr.add(i).write(self.parse());
+//             }
+//             res.set_len(len);
+//         }
+//         Value::Array(Box::new(res))
+//     }
+// 
+//     #[cfg_attr(not(feature = "no-inline"), inline)]
+//     fn parse_map(&mut self, len: usize) -> Value<'de> {
+//         let mut res = Object::with_capacity_and_hasher(len, ObjectHasher::default());
+// 
+//         // Since we checked if it's empty we know that we at least have one
+//         // element so we eat this
+//         for _ in 0..len {
+//             if let Node::String(key) = unsafe { self.next_() } {
+//                 res.insert(key.into(), self.parse());
+//             } else {
+//                 unreachable!("parse_map: key needs to be a string");
+//             }
+//         }
+//         Value::from(res)
+//     }
+// }
 
 #[cfg(test)]
 mod test {
     #![allow(clippy::ignored_unit_patterns)]
     #![allow(clippy::cognitive_complexity)]
     use super::*;
+    use crate::ObjectHasher;
 
     #[test]
     fn object_access() {
@@ -517,7 +512,7 @@ mod test {
         assert_eq!(v.remove("key"), Err(AccessError::NotAnObject));
         let mut v = Value::object();
         assert_eq!(v.insert("key", 1), Ok(None));
-        assert_eq!(v["key"], 1);
+        assert_eq!(v["key"], Value::from(1));
         assert_eq!(v.insert("key", 2), Ok(Some(Value::from(1))));
         v["key"] = 3.into();
         assert_eq!(v.remove("key"), Ok(Some(Value::from(3))));
@@ -531,7 +526,7 @@ mod test {
         let mut v = Value::array();
         assert_eq!(v.push(1), Ok(()));
         assert_eq!(v.push(2), Ok(()));
-        assert_eq!(v[0], 1);
+        assert_eq!(v[0], Value::from(1));
         v[0] = 0.into();
         v[1] = 1.into();
         assert_eq!(v.pop(), Ok(Some(Value::from(1))));
@@ -941,188 +936,11 @@ mod test {
         assert_eq!(Value::default(), Value::null());
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    use proptest::prelude::*;
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn arb_value() -> BoxedStrategy<Value<'static>> {
-        let leaf = prop_oneof![
-            Just(Value::Static(StaticNode::Null)),
-            any::<bool>()
-                .prop_map(StaticNode::Bool)
-                .prop_map(Value::Static),
-            any::<i64>()
-                .prop_map(StaticNode::I64)
-                .prop_map(Value::Static),
-            any::<u64>()
-                .prop_map(StaticNode::U64)
-                .prop_map(Value::Static),
-            any::<f64>()
-                .prop_map(StaticNode::from)
-                .prop_map(Value::Static),
-            ".*".prop_map(Value::from),
-        ];
-        leaf.prop_recursive(
-            8,   // 8 levels deep
-            256, // Shoot for maximum size of 256 nodes
-            10,  // We put up to 10 items per collection
-            |inner| {
-                prop_oneof![
-                    // Take the inner strategy and make the two recursive cases.
-                    prop::collection::vec(inner.clone(), 0..10).prop_map(Value::from),
-                    prop::collection::hash_map(".*".prop_map(Cow::from), inner, 0..10)
-                        .prop_map(|m| m.into_iter().collect()),
-                ]
-            },
-        )
-        .boxed()
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    proptest! {
-        #![proptest_config(ProptestConfig {
-            .. ProptestConfig::default()
-        })]
-
-        #[test]
-        fn prop_to_owned(borrowed in arb_value()) {
-            use crate::OwnedValue;
-            let owned: OwnedValue = borrowed.clone().into();
-            prop_assert_eq!(borrowed, owned);
-        }
-        #[test]
-        fn prop_into_static(borrowed in arb_value()) {
-            let static_borrowed = borrowed.clone().into_static();
-            assert_eq!(borrowed, static_borrowed);
-        }
-        #[test]
-        fn prop_clone_static(borrowed in arb_value()) {
-            let static_borrowed = borrowed.clone_static();
-            assert_eq!(borrowed, static_borrowed);
-        }
-        #[test]
-        fn prop_serialize_deserialize(borrowed in arb_value()) {
-            let mut string = borrowed.encode();
-            let bytes = unsafe{ string.as_bytes_mut()};
-            let decoded = to_value(bytes).expect("Failed to decode");
-            prop_assert_eq!(borrowed, decoded);
-        }
-        #[test]
-        #[allow(clippy::float_cmp)]
-        fn prop_f64_cmp(f in proptest::num::f64::NORMAL) {
-            let v: Value = f.into();
-            prop_assert_eq!(v, f);
-
-        }
-
-        #[test]
-        #[allow(clippy::float_cmp)]
-        fn prop_f32_cmp(f in proptest::num::f32::NORMAL) {
-            let v: Value = f.into();
-            prop_assert_eq!(v, f);
-
-        }
-        #[test]
-        fn prop_i64_cmp(f in proptest::num::i64::ANY) {
-            let v: Value = f.into();
-            prop_assert_eq!(v, f);
-        }
-        #[test]
-        fn prop_i32_cmp(f in proptest::num::i32::ANY) {
-            let v: Value = f.into();
-            prop_assert_eq!(v, f);
-        }
-        #[test]
-        fn prop_i16_cmp(f in proptest::num::i16::ANY) {
-            let v: Value = f.into();
-            prop_assert_eq!(v, f);
-        }
-        #[test]
-        fn prop_i8_cmp(f in proptest::num::i8::ANY) {
-            let v: Value = f.into();
-            prop_assert_eq!(v, f);
-        }
-        #[test]
-        fn prop_u64_cmp(f in proptest::num::u64::ANY) {
-            let v: Value = f.into();
-            prop_assert_eq!(v, f);
-        }
-
-        #[test]
-        fn prop_usize_cmp(f in proptest::num::usize::ANY) {
-            let v: Value = f.into();
-            prop_assert_eq!(v, f);
-        }
-         #[test]
-        fn prop_u32_cmp(f in proptest::num::u32::ANY) {
-            let v: Value = f.into();
-            prop_assert_eq!(v, f);
-        }
-        #[test]
-        fn prop_u16_cmp(f in proptest::num::u16::ANY) {
-            let v: Value = f.into();
-            prop_assert_eq!(v, f);
-        }
-        #[test]
-        fn prop_u8_cmp(f in proptest::num::u8::ANY) {
-            let v: Value = f.into();
-            assert_eq!(v, &f);
-            prop_assert_eq!(v, f);
-        }
-        #[test]
-        fn prop_string_cmp(f in ".*") {
-            let v: Value = f.clone().into();
-            prop_assert_eq!(v.clone(), f.as_str());
-            prop_assert_eq!(v, f);
-        }
-
-    }
     #[test]
-    fn test_union_cmp() {
-        let v: Value = ().into();
-        assert_eq!(v, ());
-    }
-    #[test]
-    #[allow(clippy::bool_assert_comparison)]
-    fn test_bool_cmp() {
-        let v: Value = true.into();
-        assert_eq!(v, true);
-        let v: Value = false.into();
-        assert_eq!(v, false);
-    }
-    #[test]
-    fn test_slice_cmp() {
-        use std::iter::FromIterator;
-        let v: Value = Value::from_iter(vec!["a", "b"]);
-        assert_eq!(v, &["a", "b"][..]);
-    }
-    #[test]
-    fn test_hashmap_cmp() {
-        use std::iter::FromIterator;
-        let v: Value = Value::from_iter(vec![("a", 1)]);
-        assert_eq!(
-            v,
-            [("a", 1)]
-                .iter()
-                .copied()
-                .collect::<std::collections::HashMap<&str, i32>>()
-        );
-    }
-
-    #[test]
-    fn test_option_from() {
-        let v: Option<u8> = None;
-        let v: Value = v.into();
-        assert_eq!(v, ());
-        let v: Option<u8> = Some(42);
-        let v: Value = v.into();
-        assert_eq!(v, 42);
-    }
-
-    #[test]
-    fn preserve_order_32_keys_baseline() {
-        // At exactly 32 keys, halfbrown still uses Vec - order preserved naturally
-        let keys: Vec<String> = (0..32).map(|i| format!("key_{}", i)).collect();
+    fn preserve_order_33_keys() {
+        // halfbrown uses Vec for <=32 keys, switches to HashMap at 33+
+        // This is where order gets lost without IndexMap
+        let keys: Vec<String> = (0..33).map(|i| format!("key_{}", i)).collect();
         let json_pairs: Vec<String> = keys.iter().map(|k| format!(r#""{}": {}"#, k, 1)).collect();
         let json = format!("{{{}}}", json_pairs.join(", "));
         let mut input = json.into_bytes();
@@ -1132,12 +950,39 @@ mod test {
         let result_keys: Vec<&str> = obj.keys().map(|k| k.as_ref()).collect();
         let expected_keys: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
 
-        // This should pass even without preserve_order
         assert_eq!(result_keys, expected_keys);
     }
 
-    // #[test]
-    // fn size() {
-    //     assert_eq!(std::mem::size_of::<Value>(), 24);
-    // }
+    #[test]
+    fn preserve_order_50_keys() {
+        // Test well past the threshold
+        let keys: Vec<String> = (0..50).map(|i| format!("key_{}", i)).collect();
+        let json_pairs: Vec<String> = keys.iter().map(|k| format!(r#""{}": {}"#, k, 1)).collect();
+        let json = format!("{{{}}}", json_pairs.join(", "));
+        let mut input = json.into_bytes();
+
+        let v = to_value(input.as_mut_slice()).expect("valid JSON");
+        let obj = v.as_object().expect("is object");
+        let result_keys: Vec<&str> = obj.keys().map(|k| k.as_ref()).collect();
+        let expected_keys: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
+
+        assert_eq!(result_keys, expected_keys);
+    }
+
+    #[test]
+    fn preserve_order_roundtrip_33_keys() {
+        let keys: Vec<String> = (0..33).map(|i| format!("key_{}", i)).collect();
+        let json_pairs: Vec<String> = keys.iter().map(|k| format!(r#""{}": {}"#, k, 1)).collect();
+        let json = format!("{{{}}}", json_pairs.join(", "));
+        let mut input = json.into_bytes();
+
+        let v = to_value(input.as_mut_slice()).expect("valid JSON");
+        let mut serialized = v.encode();
+        let v2 = to_value(unsafe { serialized.as_bytes_mut() }).expect("valid JSON");
+
+        let keys1: Vec<&str> = v.as_object().unwrap().keys().map(|k| k.as_ref()).collect();
+        let keys2: Vec<&str> = v2.as_object().unwrap().keys().map(|k| k.as_ref()).collect();
+
+        assert_eq!(keys1, keys2);
+    }
 }

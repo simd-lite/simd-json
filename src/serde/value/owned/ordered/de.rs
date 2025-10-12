@@ -4,7 +4,7 @@ use crate::{Error, ObjectHasher};
 use crate::{
     prelude::*,
     serde::value::shared::MapKeyDeserializer,
-    value::owned::{Object, Value},
+    value::owned::ordered::{Object, Value},
 };
 use serde_ext::{
     de::{
@@ -164,13 +164,13 @@ impl<'de> SeqAccess<'de> for ArrayRef<'de> {
     }
 }
 
-struct ObjectAccess<const N: usize = 32> {
-    i: halfbrown::IntoIter<String, Value, N>,
+struct ObjectAccess {
+    i: indexmap::map::IntoIter<String, Value>,
     v: Option<Value>,
 }
 
-impl<const N: usize> ObjectAccess<N> {
-    fn new(i: halfbrown::IntoIter<String, Value, N>) -> Self {
+impl ObjectAccess {
+    fn new(i: indexmap::map::IntoIter<String, Value>) -> Self {
         Self { i, v: None }
     }
 }
@@ -205,12 +205,12 @@ impl<'de> MapAccess<'de> for ObjectAccess {
 }
 
 struct ObjectRefAccess<'de> {
-    i: halfbrown::Iter<'de, String, Value>,
+    i: indexmap::map::Iter<'de, String, Value>,
     v: Option<&'de Value>,
 }
 
 impl<'de> ObjectRefAccess<'de> {
-    fn new(i: halfbrown::Iter<'de, String, Value>) -> Self {
+    fn new(i: indexmap::map::Iter<'de, String, Value>) -> Self {
         Self { i, v: None }
     }
 }
@@ -807,7 +807,7 @@ mod test {
         }
         let mut raw_json = r#"{"name":"bob","friends":[]}"#.to_string();
         let result: Result<Person, _> = crate::to_owned_value(unsafe { raw_json.as_bytes_mut() })
-            .and_then(super::super::from_value);
+            .and_then(crate::serde::value::owned::from_value);
         assert_eq!(
             result,
             Ok(Person {
@@ -834,7 +834,7 @@ mod test {
         let mut raw_json =
             r#"{"name":"bob","middle_name": "frank", "friends":[], "pos": [1,2]}"#.to_string();
         let result: Result<Person, _> = crate::to_owned_value(unsafe { raw_json.as_bytes_mut() })
-            .and_then(super::super::from_value);
+            .and_then(crate::serde::value::owned::from_value);
         assert_eq!(
             result,
             Ok(Person {
@@ -883,7 +883,7 @@ mod test {
         let serde_result: Person = serde_json::from_str(&raw_json).expect("serde_json::from_str");
         let value =
             crate::to_owned_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
-        let result: Person = super::super::from_refvalue(&value).expect("from_refvalue");
+        let result: Person = crate::serde::value::owned::from_refvalue(&value).expect("from_refvalue");
         let expected = Person {
             name: "bob".to_string(),
             middle_name: Some("frank".to_string()),
@@ -902,7 +902,7 @@ mod test {
         let mut raw_json = r#"{"key":{"subkey": "value"}, "vec":[[null], [1]]}"#.to_string();
         let value =
             crate::to_owned_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
-        let result: TestStruct = super::super::from_refvalue(&value).expect("from_refvalue");
+        let result: TestStruct = crate::serde::value::owned::from_refvalue(&value).expect("from_refvalue");
         let expected = TestStruct {
             key: hashmap!("subkey".to_string() => "value".to_string()),
             vec: vec![vec![None], vec![Some(1)]],
@@ -915,12 +915,12 @@ mod test {
     fn deserialize_128bit() {
         let value = i64::MIN as i128 - 1;
         let int128 = crate::OwnedValue::Static(crate::StaticNode::I128(value));
-        let res: i128 = super::super::from_refvalue(&int128).expect("from_refvalue");
+        let res: i128 = crate::serde::value::owned::from_refvalue(&int128).expect("from_refvalue");
         assert_eq!(value, res);
 
         let value = u64::MAX as u128;
         let int128 = crate::OwnedValue::Static(crate::StaticNode::U128(value));
-        let res: u128 = super::super::from_refvalue(&int128).expect("from_refvalue");
+        let res: u128 = crate::serde::value::owned::from_refvalue(&int128).expect("from_refvalue");
         assert_eq!(value, res);
     }
     #[test]

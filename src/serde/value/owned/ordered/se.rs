@@ -2,7 +2,7 @@ use super::to_value;
 use crate::{
     Error, ErrorType, ObjectHasher, Result, StaticNode,
     macros::stry,
-    value::owned::{Object, Value},
+    value::owned::ordered::{Object, Value},
 };
 use serde_ext::ser::{
     self, Serialize, SerializeMap as SerializeMapTrait, SerializeSeq as SerializeSeqTrait,

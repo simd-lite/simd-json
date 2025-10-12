@@ -1,6 +1,5 @@
 use super::{Object, Value};
-use crate::OwnedValue;
-use crate::StaticNode;
+use crate::{ObjectHasher, OwnedValue, StaticNode};
 use crate::cow::Cow;
 
 impl From<OwnedValue> for Value<'_> {
@@ -202,11 +201,13 @@ impl<'value, K: Into<Cow<'value, str>>, V: Into<Value<'value>>> FromIterator<(K,
 {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
-        Value::Object(Box::new(
-            iter.into_iter()
-                .map(|(k, v)| (Into::into(k), Into::into(v)))
-                .collect(),
-        ))
+        let iter = iter.into_iter();
+        let (lower, _) = iter.size_hint();
+        let mut map = Object::with_capacity_and_hasher(lower, ObjectHasher::default());
+        for (k, v) in iter {
+            map.insert(k.into(), v.into());
+        }
+        Value::Object(Box::new(map))
     }
 }
 
@@ -214,5 +215,16 @@ impl<'value> From<Object<'value>> for Value<'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn from(v: Object<'value>) -> Self {
         Self::Object(Box::new(v))
+    }
+}
+
+#[cfg(feature = "preserve_order")]
+impl<'value, K, S> From<indexmap::IndexMap<K, Value<'value>, S>> for Value<'value>
+where
+    K: Into<Cow<'value, str>>,
+    S: std::hash::BuildHasher,
+{
+    fn from(v: indexmap::IndexMap<K, Value<'value>, S>) -> Self {
+        Self::Object(Box::new(v.into_iter().map(|(k, v)| (k.into(), v)).collect()))
     }
 }

@@ -1,9 +1,8 @@
-/// A dom object that references the raw input data to avoid allocations
-/// it trades having lifetimes for a gain in performance.
-///
+/// A lifetime less DOM implementation. It uses strings to make te
+/// structure fully owned, avoiding lifetimes at the cost of performance.
 /// Access via array indexes is possible:
 /// ```rust
-/// use simd_json::{BorrowedValue, json};
+/// use simd_json::{OwnedValue, json};
 /// use simd_json::prelude::*;
 /// let mut a = json!([1, 2, 3]);
 /// assert_eq!(a[1], 2);
@@ -13,46 +12,43 @@
 ///
 /// Access via object keys is possible as well:
 /// ```rust
-/// use simd_json::{BorrowedValue, json};
+/// use simd_json::{OwnedValue, json};
 /// use simd_json::prelude::*;
 /// let mut a = json!({"key": "not the value"});
 /// assert_eq!(a["key"], "not the value");
 /// a["key"] = "value".into();
 /// assert_eq!(a["key"], "value");
 /// ```
-mod cmp;
-mod from;
-mod serialize;
-/// Ordered borrowed value handling.
-#[cfg(feature = "preserve_order")]
-pub mod ordered;
+/// Partial equality comparison impls
+pub mod cmp;
+/// From converter impls
+pub mod from;
+/// Provide Writable trait
+pub mod serialize;
 
 use super::ObjectHasher;
 use crate::{Buffers, prelude::*};
 use crate::{Deserializer, Node, Result};
-use crate::{cow::Cow, safer_unchecked::GetSaferUnchecked as _};
-use halfbrown::HashMap;
+use indexmap::IndexMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
 
 /// Representation of a JSON object
-pub type Object<'value> = HashMap<Cow<'value, str>, Value<'value>, ObjectHasher>;
-
-/// Representation of a JSON array
-pub type Array<'value> = Vec<Value<'value>>;
+pub type Object = IndexMap<String, Value, ObjectHasher>;
 
 /// Parses a slice of bytes into a Value dom.
 ///
 /// This function will rewrite the slice to de-escape strings.
-/// As we reference parts of the input slice the resulting dom
-/// has the same lifetime as the slice it was created from.
+/// We do not keep any references to the raw data but re-allocate
+/// owned memory wherever required thus returning a value without
+/// a lifetime.
 ///
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
-pub fn to_value(s: &mut [u8]) -> Result<Value<'_>> {
+pub fn to_value(s: &mut [u8]) -> Result<Value> {
     match Deserializer::from_slice(s) {
-        Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
+        Ok(de) => Ok(OwnedDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
     }
 }
@@ -60,110 +56,49 @@ pub fn to_value(s: &mut [u8]) -> Result<Value<'_>> {
 /// Parses a slice of bytes into a Value dom.
 ///
 /// This function will rewrite the slice to de-escape strings.
-/// As we reference parts of the input slice the resulting dom
-/// has the same lifetime as the slice it was created from.
+/// We do not keep any references to the raw data but re-allocate
+/// owned memory wherever required thus returning a value without
+/// a lifetime.
 ///
 /// Passes in reusable buffers to reduce allocations.
 ///
-///  # Errors
+/// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
-pub fn to_value_with_buffers<'value>(
-    s: &'value mut [u8],
-    buffers: &mut Buffers,
-) -> Result<Value<'value>> {
+pub fn to_value_with_buffers(s: &mut [u8], buffers: &mut Buffers) -> Result<Value> {
     match Deserializer::from_slice_with_buffers(s, buffers) {
-        Ok(de) => Ok(BorrowDeserializer::from_deserializer(de).parse()),
+        Ok(de) => Ok(OwnedDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
     }
 }
 
-/// Borrowed JSON-DOM Value, consider using the `ValueTrait`
-/// to access its content
+/// Owned JSON-DOM Value, consider using the `ValueTrait`
+/// to access it's content.
+/// This is slower then the `OrderedBorrowedValue` as a tradeoff
+/// for getting rid of lifetimes.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "ordered-float", derive(Eq))]
-pub enum Value<'value> {
+pub enum Value {
     /// Static values
     Static(StaticNode),
     /// string type
-    String(Cow<'value, str>),
+    String(String),
     /// array type
-    Array(Box<Vec<Value<'value>>>),
+    Array(Box<Vec<Value>>),
     /// object type
-    Object(Box<Object<'value>>),
+    Object(Box<Object>),
 }
 
-impl<'value> Value<'value> {
+impl Value {
     fn as_static(&self) -> Option<StaticNode> {
         match self {
-            Self::Static(s) => Some(*s),
+            Value::Static(s) => Some(*s),
             _ => None,
         }
     }
-
-    /// Enforces static lifetime on a borrowed value, this will
-    /// force all strings to become owned COW's, the same applies for
-    /// Object keys.
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    pub fn into_static(self) -> Value<'static> {
-        match self {
-            // Ensure strings are static by turing the cow into a 'static
-            // This cow has static lifetime as it's owned, this information however is lost
-            // by the borrow checker so we need to transmute it to static.
-            // This invariant is guaranteed by the implementation of the cow, cloning an owned
-            // value will produce a owned value again see:
-            // https://docs.rs/beef/0.4.4/src/beef/generic.rs.html#379-391
-            Self::String(s) => unsafe {
-                std::mem::transmute::<Value<'value>, Value<'static>>(Self::String(Cow::from(
-                    s.into_owned(),
-                )))
-            },
-            // For an array we turn every value into a static
-            Self::Array(arr) => arr.into_iter().map(Value::into_static).collect(),
-            // For an object, we turn all keys into owned Cows and all values into 'static Values
-            Self::Object(obj) => obj
-                .into_iter()
-                .map(|(k, v)| (Cow::from(k.into_owned()), v.into_static()))
-                .collect(),
-
-            // Static nodes are always static
-            Value::Static(s) => Value::Static(s),
-        }
-    }
-
-    /// Clones the current value and enforces a static lifetime, it works the same
-    /// as `into_static` but includes cloning logic
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    pub fn clone_static(&self) -> Value<'static> {
-        match self {
-            // Ensure strings are static by turing the cow into a 'static
-            // This cow has static lifetime as it's owned, this information however is lost
-            // by the borrow checker so we need to transmute it to static.
-            // This invariant is guaranteed by the implementation of the cow, cloning an owned
-            // value will produce a owned value again see:
-            // https://docs.rs/beef/0.4.4/src/beef/generic.rs.html#379-391
-            Self::String(s) => unsafe {
-                std::mem::transmute::<Value<'value>, Value<'static>>(Self::String(Cow::from(
-                    s.to_string(),
-                )))
-            },
-            // For an array we turn every value into a static
-            Self::Array(arr) => arr.iter().cloned().map(Value::into_static).collect(),
-            // For an object, we turn all keys into owned Cows and all values into 'static Values
-            Self::Object(obj) => obj
-                .iter()
-                .map(|(k, v)| (Cow::from(k.to_string()), v.clone_static()))
-                .collect(),
-
-            // Static nodes are always static
-            Value::Static(s) => Value::Static(*s),
-        }
-    }
 }
 
-impl<'value> ValueBuilder<'value> for Value<'value> {
+impl ValueBuilder<'_> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn null() -> Self {
         Self::Static(StaticNode::Null)
@@ -181,38 +116,20 @@ impl<'value> ValueBuilder<'value> for Value<'value> {
     }
 }
 
-impl<'value> ValueAsMutArray for Value<'value> {
-    type Array = Array<'value>;
+impl ValueAsMutArray for Value {
+    type Array = Vec<Self>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn as_array_mut(&mut self) -> Option<&mut Vec<Value<'value>>> {
+    fn as_array_mut(&mut self) -> Option<&mut Vec<Self>> {
         match self {
             Self::Array(a) => Some(a),
             _ => None,
         }
     }
 }
-impl<'value> ValueAsMutObject for Value<'value> {
-    type Object = Object<'value>;
-    /// Get mutable access to a map.
-    ///
-    /// ```rust
-    /// use simd_json::*;
-    /// use value_trait::prelude::*;
-    ///
-    /// let mut object: BorrowedValue = json!({
-    ///   "answer": 23,
-    ///   "key": 7
-    /// }).into();
-    /// assert_eq!(object["answer"], 23);
-    ///
-    /// if let Some(inner) = object.as_object_mut() {
-    ///   inner.insert("value".into(), BorrowedValue::from(json!({"nested": 42})));
-    /// }
-    /// assert_eq!(object["value"], json!({"nested": 42}));
-    ///
-    /// ```
+impl ValueAsMutObject for Value {
+    type Object = Object;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn as_object_mut(&mut self) -> Option<&mut Object<'value>> {
+    fn as_object_mut(&mut self) -> Option<&mut Object> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -220,7 +137,7 @@ impl<'value> ValueAsMutObject for Value<'value> {
     }
 }
 
-impl TypedValue for Value<'_> {
+impl TypedValue for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn value_type(&self) -> ValueType {
         match self {
@@ -231,12 +148,11 @@ impl TypedValue for Value<'_> {
         }
     }
 }
-impl ValueAsScalar for Value<'_> {
+impl ValueAsScalar for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn as_null(&self) -> Option<()> {
         self.as_static()?.as_null()
     }
-
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn as_bool(&self) -> Option<bool> {
         self.as_static()?.as_bool()
@@ -274,30 +190,27 @@ impl ValueAsScalar for Value<'_> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn as_str(&self) -> Option<&str> {
-        use std::borrow::Borrow;
         match self {
-            Self::String(s) => Some(s.borrow()),
+            Self::String(s) => Some(s.as_str()),
             _ => None,
         }
     }
 }
-impl<'value> ValueAsArray for Value<'value> {
-    type Array = Array<'value>;
-
+impl ValueAsArray for Value {
+    type Array = Vec<Self>;
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn as_array(&self) -> Option<&Vec<Value<'value>>> {
+    fn as_array(&self) -> Option<&Vec<Self>> {
         match self {
             Self::Array(a) => Some(a),
             _ => None,
         }
     }
 }
-
-impl<'value> ValueAsObject for Value<'value> {
-    type Object = Object<'value>;
+impl ValueAsObject for Value {
+    type Object = Object;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn as_object(&self) -> Option<&Object<'value>> {
+    fn as_object(&self) -> Option<&Object> {
         match self {
             Self::Object(m) => Some(m),
             _ => None,
@@ -305,32 +218,30 @@ impl<'value> ValueAsObject for Value<'value> {
     }
 }
 
-impl<'value> ValueIntoString for Value<'value> {
-    type String = Cow<'value, str>;
+impl ValueIntoString for Value {
+    type String = String;
 
-    fn into_string(self) -> Option<<Self as ValueIntoString>::String> {
+    fn into_string(self) -> Option<<Value as ValueIntoString>::String> {
         match self {
             Self::String(s) => Some(s),
             _ => None,
         }
     }
 }
+impl ValueIntoArray for Value {
+    type Array = Vec<Self>;
 
-impl<'value> ValueIntoArray for Value<'value> {
-    type Array = Array<'value>;
-
-    fn into_array(self) -> Option<<Self as ValueIntoArray>::Array> {
+    fn into_array(self) -> Option<<Value as ValueIntoArray>::Array> {
         match self {
             Self::Array(a) => Some(*a),
             _ => None,
         }
     }
 }
+impl ValueIntoObject for Value {
+    type Object = Object;
 
-impl<'value> ValueIntoObject for Value<'value> {
-    type Object = Object<'value>;
-
-    fn into_object(self) -> Option<<Self as ValueIntoObject>::Object> {
+    fn into_object(self) -> Option<<Value as ValueIntoObject>::Object> {
         match self {
             Self::Object(a) => Some(*a),
             _ => None,
@@ -339,10 +250,10 @@ impl<'value> ValueIntoObject for Value<'value> {
 }
 
 #[cfg(not(tarpaulin_include))]
-impl fmt::Display for Value<'_> {
+impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Static(s) => write!(f, "{s}"),
+            Self::Static(s) => s.fmt(f),
             Self::String(s) => write!(f, "{s}"),
             Self::Array(a) => write!(f, "{a:?}"),
             Self::Object(o) => write!(f, "{o:?}"),
@@ -350,53 +261,54 @@ impl fmt::Display for Value<'_> {
     }
 }
 
-impl<'value> Index<&str> for Value<'value> {
-    type Output = Value<'value>;
+impl Index<&str> for Value {
+    type Output = Self;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn index(&self, index: &str) -> &Self::Output {
         self.get(index).expect("index out of bounds")
     }
 }
 
-impl<'value> Index<usize> for Value<'value> {
-    type Output = Value<'value>;
+impl Index<usize> for Value {
+    type Output = Self;
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn index(&self, index: usize) -> &Self::Output {
         self.get_idx(index).expect("index out of bounds")
     }
 }
 
-impl IndexMut<&str> for Value<'_> {
+impl IndexMut<&str> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
         self.get_mut(index).expect("index out of bounds")
     }
 }
 
-impl IndexMut<usize> for Value<'_> {
+impl IndexMut<usize> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.get_idx_mut(index).expect("index out of bounds")
     }
 }
 
-impl Default for Value<'_> {
+impl Default for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn default() -> Self {
         Self::Static(StaticNode::Null)
     }
 }
 
-pub(super) struct BorrowDeserializer<'de>(Deserializer<'de>);
+struct OwnedDeserializer<'de> {
+    de: Deserializer<'de>,
+}
 
-impl<'de> BorrowDeserializer<'de> {
+impl<'de> OwnedDeserializer<'de> {
     pub fn from_deserializer(de: Deserializer<'de>) -> Self {
-        Self(de)
+        Self { de }
     }
-
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub fn parse(&mut self) -> Value<'de> {
-        match unsafe { self.0.next_() } {
+    pub fn parse(&mut self) -> Value {
+        match unsafe { self.de.next_() } {
             Node::Static(s) => Value::Static(s),
             Node::String(s) => Value::from(s),
             Node::Array { len, count: _ } => self.parse_array(len),
@@ -405,11 +317,11 @@ impl<'de> BorrowDeserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn parse_array(&mut self, len: usize) -> Value<'de> {
+    fn parse_array(&mut self, len: usize) -> Value {
         // Rust doesn't optimize the normal loop away here
         // so we write our own avoiding the length
         // checks during push
-        let mut res: Vec<Value<'de>> = Vec::with_capacity(len);
+        let mut res: Vec<Value> = Vec::with_capacity(len);
         let res_ptr = res.as_mut_ptr();
         unsafe {
             for i in 0..len {
@@ -421,80 +333,11 @@ impl<'de> BorrowDeserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn parse_map(&mut self, len: usize) -> Value<'de> {
+    fn parse_map(&mut self, len: usize) -> Value {
         let mut res = Object::with_capacity_and_hasher(len, ObjectHasher::default());
 
-        // Since we checked if it's empty we know that we at least have one
-        // element so we eat this
         for _ in 0..len {
-            if let Node::String(key) = unsafe { self.0.next_() } {
-                #[cfg(not(feature = "value-no-dup-keys"))]
-                unsafe {
-                    res.insert_nocheck(key.into(), self.parse());
-                };
-                #[cfg(feature = "value-no-dup-keys")]
-                res.insert(key.into(), self.parse());
-            } else {
-                unreachable!("parse_map: key not a string");
-            }
-        }
-        Value::from(res)
-    }
-}
-pub(super) struct BorrowSliceDeserializer<'tape, 'de> {
-    tape: &'tape [Node<'de>],
-    idx: usize,
-}
-impl<'tape, 'de> BorrowSliceDeserializer<'tape, 'de> {
-    pub fn from_tape(de: &'tape [Node<'de>]) -> Self {
-        Self { tape: de, idx: 0 }
-    }
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub unsafe fn next_(&mut self) -> Node<'de> {
-        let r = unsafe { *self.tape.get_kinda_unchecked(self.idx) };
-        self.idx += 1;
-        r
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub fn parse(&mut self) -> Value<'de> {
-        match unsafe { self.next_() } {
-            Node::Static(s) => Value::Static(s),
-            Node::String(s) => Value::from(s),
-            Node::Array { len, count: _ } => self.parse_array(len),
-            Node::Object { len, count: _ } => self.parse_map(len),
-        }
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn parse_array(&mut self, len: usize) -> Value<'de> {
-        // Rust doesn't optimize the normal loop away here
-        // so we write our own avoiding the length
-        // checks during push
-        let mut res: Vec<Value<'de>> = Vec::with_capacity(len);
-        let res_ptr = res.as_mut_ptr();
-        unsafe {
-            for i in 0..len {
-                res_ptr.add(i).write(self.parse());
-            }
-            res.set_len(len);
-        }
-        Value::Array(Box::new(res))
-    }
-
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn parse_map(&mut self, len: usize) -> Value<'de> {
-        let mut res = Object::with_capacity_and_hasher(len, ObjectHasher::default());
-
-        // Since we checked if it's empty we know that we at least have one
-        // element so we eat this
-        for _ in 0..len {
-            if let Node::String(key) = unsafe { self.next_() } {
-                #[cfg(not(feature = "value-no-dup-keys"))]
-                unsafe {
-                    res.insert_nocheck(key.into(), self.parse());
-                };
-                #[cfg(feature = "value-no-dup-keys")]
+            if let Node::String(key) = unsafe { self.de.next_() } {
                 res.insert(key.into(), self.parse());
             } else {
                 unreachable!("parse_map: key needs to be a string");
@@ -506,8 +349,7 @@ impl<'tape, 'de> BorrowSliceDeserializer<'tape, 'de> {
 
 #[cfg(test)]
 mod test {
-    #![allow(clippy::ignored_unit_patterns)]
-    #![allow(clippy::cognitive_complexity)]
+    #![allow(clippy::cognitive_complexity, clippy::ignored_unit_patterns)]
     use super::*;
 
     #[test]
@@ -517,7 +359,7 @@ mod test {
         assert_eq!(v.remove("key"), Err(AccessError::NotAnObject));
         let mut v = Value::object();
         assert_eq!(v.insert("key", 1), Ok(None));
-        assert_eq!(v["key"], 1);
+        assert_eq!(v["key"], Value::from(1));
         assert_eq!(v.insert("key", 2), Ok(Some(Value::from(1))));
         v["key"] = 3.into();
         assert_eq!(v.remove("key"), Ok(Some(Value::from(3))));
@@ -531,7 +373,7 @@ mod test {
         let mut v = Value::array();
         assert_eq!(v.push(1), Ok(()));
         assert_eq!(v.push(2), Ok(()));
-        assert_eq!(v[0], 1);
+        assert_eq!(v[0], Value::from(1));
         v[0] = 0.into();
         v[1] = 1.into();
         assert_eq!(v.pop(), Ok(Some(Value::from(1))));
@@ -571,7 +413,6 @@ mod test {
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
     }
-
     #[test]
     fn conversions_i64() {
         let v = Value::from(i64::MAX);
@@ -740,7 +581,6 @@ mod test {
         assert!(!v.is_f32());
         assert!(v.is_f64_castable());
     }
-
     #[test]
     fn conversions_u64() {
         let v = Value::from(u64::MIN);
@@ -888,6 +728,7 @@ mod test {
         }
         let v = Value::from("no i64");
         assert!(!v.is_i64());
+        #[cfg(feature = "128bit")]
         assert!(!v.is_i128());
     }
 
@@ -920,7 +761,7 @@ mod test {
 
     #[test]
     fn conversions_object() {
-        let v = Value::from(Object::with_capacity_and_hasher(1, ObjectHasher::default()));
+        let v = Value::from(Object::with_capacity_and_hasher(0, ObjectHasher::default()));
         assert!(v.is_object());
         assert_eq!(v.value_type(), ValueType::Object);
         let v = Value::from("no object");
@@ -943,9 +784,8 @@ mod test {
 
     #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
-
     #[cfg(not(target_arch = "wasm32"))]
-    fn arb_value() -> BoxedStrategy<Value<'static>> {
+    fn arb_value() -> BoxedStrategy<Value> {
         let leaf = prop_oneof![
             Just(Value::Static(StaticNode::Null)),
             any::<bool>()
@@ -953,9 +793,6 @@ mod test {
                 .prop_map(Value::Static),
             any::<i64>()
                 .prop_map(StaticNode::I64)
-                .prop_map(Value::Static),
-            any::<u64>()
-                .prop_map(StaticNode::U64)
                 .prop_map(Value::Static),
             any::<f64>()
                 .prop_map(StaticNode::from)
@@ -970,7 +807,7 @@ mod test {
                 prop_oneof![
                     // Take the inner strategy and make the two recursive cases.
                     prop::collection::vec(inner.clone(), 0..10).prop_map(Value::from),
-                    prop::collection::hash_map(".*".prop_map(Cow::from), inner, 0..10)
+                    prop::collection::hash_map(".*", inner, 0..10)
                         .prop_map(|m| m.into_iter().collect()),
                 ]
             },
@@ -985,27 +822,18 @@ mod test {
         })]
 
         #[test]
-        fn prop_to_owned(borrowed in arb_value()) {
-            use crate::OwnedValue;
-            let owned: OwnedValue = borrowed.clone().into();
-            prop_assert_eq!(borrowed, owned);
+        fn prop_to_owned(owned in arb_value()) {
+            use crate::OrderedBorrowedValue;
+            let borrowed: OrderedBorrowedValue = owned.clone().into();
+            prop_assert_eq!(owned, borrowed);
         }
+
         #[test]
-        fn prop_into_static(borrowed in arb_value()) {
-            let static_borrowed = borrowed.clone().into_static();
-            assert_eq!(borrowed, static_borrowed);
-        }
-        #[test]
-        fn prop_clone_static(borrowed in arb_value()) {
-            let static_borrowed = borrowed.clone_static();
-            assert_eq!(borrowed, static_borrowed);
-        }
-        #[test]
-        fn prop_serialize_deserialize(borrowed in arb_value()) {
-            let mut string = borrowed.encode();
+        fn prop_serialize_deserialize(owned in arb_value()) {
+            let mut string = owned.encode();
             let bytes = unsafe{ string.as_bytes_mut()};
             let decoded = to_value(bytes).expect("Failed to decode");
-            prop_assert_eq!(borrowed, decoded);
+            prop_assert_eq!(owned, decoded);
         }
         #[test]
         #[allow(clippy::float_cmp)]
@@ -1066,13 +894,13 @@ mod test {
         #[test]
         fn prop_u8_cmp(f in proptest::num::u8::ANY) {
             let v: Value = f.into();
-            assert_eq!(v, &f);
+            prop_assert_eq!(v.clone(), Value::from(*&f));
             prop_assert_eq!(v, f);
         }
         #[test]
         fn prop_string_cmp(f in ".*") {
             let v: Value = f.clone().into();
-            prop_assert_eq!(v.clone(), f.as_str());
+            prop_assert_eq!(v.clone(), Value::from(f.as_str()));
             prop_assert_eq!(v, f);
         }
 
@@ -1108,7 +936,6 @@ mod test {
                 .collect::<std::collections::HashMap<&str, i32>>()
         );
     }
-
     #[test]
     fn test_option_from() {
         let v: Option<u8> = None;
@@ -1121,7 +948,6 @@ mod test {
 
     #[test]
     fn preserve_order_32_keys_baseline() {
-        // At exactly 32 keys, halfbrown still uses Vec - order preserved naturally
         let keys: Vec<String> = (0..32).map(|i| format!("key_{}", i)).collect();
         let json_pairs: Vec<String> = keys.iter().map(|k| format!(r#""{}": {}"#, k, 1)).collect();
         let json = format!("{{{}}}", json_pairs.join(", "));
@@ -1129,15 +955,59 @@ mod test {
 
         let v = to_value(input.as_mut_slice()).expect("valid JSON");
         let obj = v.as_object().expect("is object");
-        let result_keys: Vec<&str> = obj.keys().map(|k| k.as_ref()).collect();
+        let result_keys: Vec<&str> = obj.keys().map(|s| s.as_str()).collect();
         let expected_keys: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
 
-        // This should pass even without preserve_order
         assert_eq!(result_keys, expected_keys);
     }
 
-    // #[test]
-    // fn size() {
-    //     assert_eq!(std::mem::size_of::<Value>(), 24);
-    // }
+    #[cfg(feature = "preserve_order")]
+    #[test]
+    fn preserve_order_33_keys() {
+        let keys: Vec<String> = (0..33).map(|i| format!("key_{}", i)).collect();
+        let json_pairs: Vec<String> = keys.iter().map(|k| format!(r#""{}": {}"#, k, 1)).collect();
+        let json = format!("{{{}}}", json_pairs.join(", "));
+        let mut input = json.into_bytes();
+
+        let v = to_value(input.as_mut_slice()).expect("valid JSON");
+        let obj = v.as_object().expect("is object");
+        let result_keys: Vec<&str> = obj.keys().map(|s| s.as_str()).collect();
+        let expected_keys: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
+
+        assert_eq!(result_keys, expected_keys);
+    }
+
+    #[cfg(feature = "preserve_order")]
+    #[test]
+    fn preserve_order_50_keys() {
+        let keys: Vec<String> = (0..50).map(|i| format!("key_{}", i)).collect();
+        let json_pairs: Vec<String> = keys.iter().map(|k| format!(r#""{}": {}"#, k, 1)).collect();
+        let json = format!("{{{}}}", json_pairs.join(", "));
+        let mut input = json.into_bytes();
+
+        let v = to_value(input.as_mut_slice()).expect("valid JSON");
+        let obj = v.as_object().expect("is object");
+        let result_keys: Vec<&str> = obj.keys().map(|s| s.as_str()).collect();
+        let expected_keys: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
+
+        assert_eq!(result_keys, expected_keys);
+    }
+
+    #[cfg(feature = "preserve_order")]
+    #[test]
+    fn preserve_order_roundtrip_33_keys() {
+        let keys: Vec<String> = (0..33).map(|i| format!("key_{}", i)).collect();
+        let json_pairs: Vec<String> = keys.iter().map(|k| format!(r#""{}": {}"#, k, 1)).collect();
+        let json = format!("{{{}}}", json_pairs.join(", "));
+        let mut input = json.into_bytes();
+
+        let v = to_value(input.as_mut_slice()).expect("valid JSON");
+        let mut serialized = v.encode();
+        let v2 = to_value(unsafe { serialized.as_bytes_mut() }).expect("valid JSON");
+
+        let keys1: Vec<&str> = v.as_object().unwrap().keys().map(|s| s.as_str()).collect();
+        let keys2: Vec<&str> = v2.as_object().unwrap().keys().map(|s| s.as_str()).collect();
+
+        assert_eq!(keys1, keys2);
+    }
 }

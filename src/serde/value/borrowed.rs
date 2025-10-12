@@ -1,5 +1,7 @@
 mod de;
 mod se;
+#[cfg(feature = "preserve_order")]
+pub mod ordered;
 
 use crate::{BorrowedValue, Result};
 use serde_ext::de::Deserialize;
