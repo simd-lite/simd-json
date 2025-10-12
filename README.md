@@ -43,6 +43,10 @@ fallback implementation, but this is significantly slower.
 For best performance, we highly suggest using [snmalloc](https://github.com/microsoft/snmalloc), [mimalloc](https://crates.io/crates/mimalloc) or [jemalloc](https://crates.io/crates/jemalloc)
 instead of the system default allocator.
 
+### Endianness
+This crate only works on little endian platforms. It DOES NOT WORK on big endian platforms (e.g. s390x, big-endian ARM, MIPS, etc.)
+See https://doc.rust-lang.org/nightly/rustc/platform-support.html for a complete list.
+
 ## Safety
 
 `simd-json` uses **a lot** of unsafe code.
