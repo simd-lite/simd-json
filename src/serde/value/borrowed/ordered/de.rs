@@ -832,7 +832,7 @@ mod test {
         let mut raw_json = r#"{"name":"bob","friends":[]}"#.to_string();
         let result: Result<Person, _> =
             crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() })
-                .and_then(crate::serde::value::borrowed::from_value);
+                .and_then(crate::serde::value::borrowed::ordered::from_value);
         assert_eq!(
             result,
             Ok(Person {
@@ -861,7 +861,7 @@ mod test {
             r#"{"name":"bob","middle_name": "frank", "friends":[], "pos":[0,1]}"#.to_string();
         let result: Result<Person, _> =
             crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() })
-                .and_then(crate::serde::value::borrowed::from_value);
+                .and_then(crate::serde::value::borrowed::ordered::from_value);
         assert_eq!(
             result,
             Ok(Person {
@@ -909,7 +909,7 @@ mod test {
             r#"{"name":"bob","middle_name": "frank", "friends":[], "pos": [-1, 2, -3.25, "up"], "age": 123}"#.to_string();
         let value =
             crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
-        let result: Person = crate::serde::value::borrowed::from_refvalue(&value).expect("from_refvalue");
+        let result: Person = crate::serde::value::borrowed::ordered::from_refvalue(&value).expect("from_refvalue");
         let expected = Person {
             name: "bob".to_string(),
             middle_name: Some("frank".to_string()),
@@ -927,7 +927,7 @@ mod test {
         let mut raw_json = r#"{"key":{"subkey": "value"}, "vec":[[null], [1]]}"#.to_string();
         let value =
             crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
-        let result: TestStruct = crate::serde::value::borrowed::from_refvalue(&value).expect("from_refvalue");
+        let result: TestStruct = crate::serde::value::borrowed::ordered::from_refvalue(&value).expect("from_refvalue");
         let expected = TestStruct {
             key: hashmap!("subkey".to_string() => "value".to_string()),
             vec: vec![vec![None], vec![Some(1)]],
@@ -940,12 +940,12 @@ mod test {
     fn deserialize_128bit() {
         let value = i64::MIN as i128 - 1;
         let int128 = crate::BorrowedValue::Static(crate::StaticNode::I128(value));
-        let res: i128 = crate::serde::value::borrowed::from_refvalue(&int128).expect("from_refvalue");
+        let res: i128 = crate::serde::value::borrowed::ordered::from_refvalue(&int128).expect("from_refvalue");
         assert_eq!(value, res);
 
         let value = u64::MAX as u128;
         let int128 = crate::BorrowedValue::Static(crate::StaticNode::U128(value));
-        let res: u128 = crate::serde::value::borrowed::from_refvalue(&int128).expect("from_refvalue");
+        let res: u128 = crate::serde::value::borrowed::ordered::from_refvalue(&int128).expect("from_refvalue");
         assert_eq!(value, res);
     }
 
@@ -953,7 +953,7 @@ mod test {
     fn variant() {
         struct NameAndConfig<'v> {
             name: String,
-            config: Option<borrowed::Value<'v>>,
+            config: Option<borrowed::ordered::Value<'v>>,
         }
         impl<'v> serde::Deserialize<'v> for NameAndConfig<'v> {
             fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
@@ -972,7 +972,7 @@ mod test {
                 //  956 |                 enum Variants<'v> {
                 //      |                               -- lifetime `'v` defined here
                 //  ...
-                //  960 |                         config: Option<borrowed::Value<'v>>,
+                //  960 |                         config: Option<borrowed::ordered::Value<'v>>,
                 //      |                         ^^^^^^ requires that `'de` must outlive `'v`
                 //      |
                 //      = help: consider adding the following bound: `'de: 'v`
@@ -986,7 +986,7 @@ mod test {
                 //  956 |                 enum Variants<'v> {
                 //      |                               -- lifetime `'v` defined here
                 //  ...
-                //  960 |                         config: Option<borrowed::Value<'v>>,
+                //  960 |                         config: Option<borrowed::ordered::Value<'v>>,
                 //      |                         ^^^^^^ requires that `'v` must outlive `'de`
                 //      |
                 //      = help: consider adding the following bound: `'v: 'de`
@@ -995,7 +995,7 @@ mod test {
                     Name(String),
                     NameAndConfig {
                         name: String,
-                        config: Option<borrowed::Value<'v>>,
+                        config: Option<borrowed::ordered::Value<'v>>,
                     },
                 }
 
