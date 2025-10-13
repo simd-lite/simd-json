@@ -831,7 +831,7 @@ mod test {
         }
         let mut raw_json = r#"{"name":"bob","friends":[]}"#.to_string();
         let result: Result<Person, _> =
-            crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() })
+            crate::to_ordered_borrowed_value(unsafe { raw_json.as_bytes_mut() })
                 .and_then(crate::serde::value::borrowed::ordered::from_value);
         assert_eq!(
             result,
@@ -860,7 +860,7 @@ mod test {
         let mut raw_json =
             r#"{"name":"bob","middle_name": "frank", "friends":[], "pos":[0,1]}"#.to_string();
         let result: Result<Person, _> =
-            crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() })
+            crate::to_ordered_borrowed_value(unsafe { raw_json.as_bytes_mut() })
                 .and_then(crate::serde::value::borrowed::ordered::from_value);
         assert_eq!(
             result,
@@ -908,7 +908,7 @@ mod test {
         let mut raw_json =
             r#"{"name":"bob","middle_name": "frank", "friends":[], "pos": [-1, 2, -3.25, "up"], "age": 123}"#.to_string();
         let value =
-            crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
+            crate::to_ordered_borrowed_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
         let result: Person = crate::serde::value::borrowed::ordered::from_refvalue(&value).expect("from_refvalue");
         let expected = Person {
             name: "bob".to_string(),
@@ -926,7 +926,7 @@ mod test {
 
         let mut raw_json = r#"{"key":{"subkey": "value"}, "vec":[[null], [1]]}"#.to_string();
         let value =
-            crate::to_borrowed_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
+            crate::to_ordered_borrowed_value(unsafe { raw_json.as_bytes_mut() }).expect("to_owned_value");
         let result: TestStruct = crate::serde::value::borrowed::ordered::from_refvalue(&value).expect("from_refvalue");
         let expected = TestStruct {
             key: hashmap!("subkey".to_string() => "value".to_string()),

@@ -91,11 +91,8 @@ pub use value_trait::*;
 #[cfg(feature = "known-key")]
 pub type ObjectHasher = crate::known_key::NotSoRandomState;
 /// Hasher used for objects
-#[cfg(all(not(feature = "known-key"), not(feature = "preserve_order")))]
+#[cfg(not(feature = "known-key"))]
 pub type ObjectHasher = halfbrown::DefaultHashBuilder;
-/// Hasher used for objects
-#[cfg(all(not(feature = "known-key"), feature = "preserve_order"))]
-pub type ObjectHasher = std::hash::RandomState;
 
 /// Hashmap used for objects
 #[cfg(not(feature = "preserve_order"))]
