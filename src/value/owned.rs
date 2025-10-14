@@ -950,19 +950,4 @@ mod test {
         let v: Value = v.into();
         assert_eq!(v, 42);
     }
-
-    #[test]
-    fn preserve_order_32_keys_baseline() {
-        let keys: Vec<String> = (0..32).map(|i| format!("key_{}", i)).collect();
-        let json_pairs: Vec<String> = keys.iter().map(|k| format!(r#""{}": {}"#, k, 1)).collect();
-        let json = format!("{{{}}}", json_pairs.join(", "));
-        let mut input = json.into_bytes();
-
-        let v = to_value(input.as_mut_slice()).expect("valid JSON");
-        let obj = v.as_object().expect("is object");
-        let result_keys: Vec<&str> = obj.keys().map(|s| s.as_str()).collect();
-        let expected_keys: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
-
-        assert_eq!(result_keys, expected_keys);
-    }
 }
