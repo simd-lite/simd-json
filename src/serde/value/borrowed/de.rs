@@ -220,6 +220,7 @@ struct ObjectRefAccess<'de> {
     i: halfbrown::Iter<'de, Cow<'de, str>, Value<'de>>,
     v: Option<&'de Value<'de>>,
 }
+
 impl<'de> ObjectRefAccess<'de> {
     fn new(i: halfbrown::Iter<'de, Cow<'de, str>, Value<'de>>) -> Self {
         Self { i, v: None }

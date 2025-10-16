@@ -22,6 +22,9 @@
 mod cmp;
 mod from;
 mod serialize;
+/// Ordered owned value handling.
+#[cfg(feature = "preserve_order")]
+pub mod ordered;
 
 use super::ObjectHasher;
 use crate::{Buffers, prelude::*};

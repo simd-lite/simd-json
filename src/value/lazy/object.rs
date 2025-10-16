@@ -19,6 +19,9 @@ pub enum Iter<'borrow, 'tape, 'input> {
     Tape(tape::object::Iter<'tape, 'input>),
     /// Value variant
     Value(halfbrown::Iter<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
+    // /// Value variant
+    // #[cfg(feature = "preserve_order")]
+    // Value(indexmap::map::Iter<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
 
 /// Iterator over the keys of an object
@@ -27,6 +30,9 @@ pub enum Keys<'borrow, 'tape, 'input> {
     Tape(tape::object::Keys<'tape, 'input>),
     /// Value variant
     Value(halfbrown::Keys<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
+    // /// Value variant
+    // #[cfg(feature = "preserve_order")]
+    // Value(indexmap::map::Keys<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
 /// Iterator over the values of an object
 pub enum Values<'borrow, 'tape, 'input> {
@@ -34,6 +40,9 @@ pub enum Values<'borrow, 'tape, 'input> {
     Tape(tape::object::Values<'tape, 'input>),
     /// Value variant
     Value(halfbrown::Values<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
+    // /// Value variant
+    // #[cfg(feature = "preserve_order")]
+    // Value(indexmap::map::Values<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
 }
 
 //value_trait::Object for

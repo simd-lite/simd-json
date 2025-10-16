@@ -7,7 +7,7 @@ mod impls;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::to_borrowed_value;
-use crate::{Deserializer, owned::Value, tape::Node, to_owned_value};
+use crate::{cow::Cow, Deserializer, owned::Value, tape::Node, to_owned_value};
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 use value_trait::prelude::*;
@@ -253,10 +253,12 @@ proptest! {
         { // we can't do 128 bit w/ serde
             use crate::{deserialize, BorrowedValue, OwnedValue};
             let mut e = encoded.clone();
-            let res: OwnedValue = deserialize(&mut e).expect("can't convert");
+            // TODO: can this turbofish be avoided?
+            let res: OwnedValue = deserialize::<OwnedValue, String>(&mut e).expect("can't convert");
             assert_eq!(val, res);
             let mut e = encoded;
-            let res: BorrowedValue = deserialize(&mut e).expect("can't convert");
+            // TODO: can this turbofish be avoided?
+            let res: BorrowedValue = deserialize::<BorrowedValue, Cow<'_, str>>(&mut e).expect("can't convert");
             assert_eq!(val, res);
         }
     }

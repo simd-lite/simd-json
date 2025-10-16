@@ -1,20 +1,18 @@
 mod de;
 mod se;
-#[cfg(feature = "preserve_order")]
-pub mod ordered;
 
-use crate::OwnedValue;
+use crate::value::owned::ordered::Value;
 use crate::Result;
-use serde_ext::de::DeserializeOwned;
 use serde_ext::ser::Serialize;
+use serde_ext::de::DeserializeOwned;
 
 /// Tries to convert a struct that implements serde's serialize into
-/// an `OwnedValue`
+/// an ordered `OwnedValue`
 ///
 /// # Errors
 ///
-/// Will return `Err` if value fails to be turned into a owned value
-pub fn to_value<T>(value: T) -> Result<OwnedValue>
+/// Will return `Err` if value fails to be turned into an owned ordered value
+pub fn to_value<T>(value: T) -> Result<Value>
 where
     T: Serialize,
 {
@@ -27,7 +25,7 @@ where
 /// # Errors
 ///
 /// Will return `Err` if `value` fails to be deserialized
-pub fn from_value<T>(value: OwnedValue) -> Result<T>
+pub fn from_value<T>(value: Value) -> Result<T>
 where
     T: DeserializeOwned,
 {
@@ -40,7 +38,7 @@ where
 /// # Errors
 ///
 /// Will return `Err` if `value` fails to be deserialized
-pub fn from_refvalue<T>(value: &OwnedValue) -> Result<T>
+pub fn from_refvalue<T>(value: &Value) -> Result<T>
 where
     T: DeserializeOwned,
 {

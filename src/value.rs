@@ -63,12 +63,25 @@ pub use self::borrowed::{
     Value as BorrowedValue, to_value as to_borrowed_value,
     to_value_with_buffers as to_borrowed_value_with_buffers,
 };
+#[cfg(feature = "preserve_order")]
+pub use self::borrowed::ordered::{
+    Value as OrderedBorrowedValue, to_value as to_ordered_borrowed_value,
+    to_value_with_buffers as to_ordered_borrowed_value_with_buffers,
+};
 pub use self::owned::{
     Value as OwnedValue, to_value as to_owned_value,
     to_value_with_buffers as to_owned_value_with_buffers,
 };
+#[cfg(feature = "preserve_order")]
+pub use self::owned::ordered::{
+    Value as OrderedOwnedValue, to_value as to_ordered_owned_value,
+    to_value_with_buffers as to_ordered_owned_value_with_buffers,
+};
 use crate::{Buffers, Deserializer, Result};
+#[cfg(not(feature = "preserve_order"))]
 use halfbrown::HashMap;
+#[cfg(feature = "preserve_order")]
+use indexmap::IndexMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use tape::Node;
@@ -81,6 +94,13 @@ pub type ObjectHasher = crate::known_key::NotSoRandomState;
 #[cfg(not(feature = "known-key"))]
 pub type ObjectHasher = halfbrown::DefaultHashBuilder;
 
+/// Hashmap used for objects
+#[cfg(not(feature = "preserve_order"))]
+type ObjectMap<K, V> = HashMap<K, V, ObjectHasher>;
+/// Hashmap used for objects
+#[cfg(feature = "preserve_order")]
+type ObjectMap<K, V> = IndexMap<K, V, ObjectHasher>;
+
 /// Parses a slice of bytes into a Value dom.
 ///
 /// This function will rewrite the slice to de-escape strings.
@@ -92,7 +112,7 @@ pub type ObjectHasher = halfbrown::DefaultHashBuilder;
 /// Will return `Err` if `s` is invalid JSON.
 pub fn deserialize<'de, Value, Key>(s: &'de mut [u8]) -> Result<Value>
 where
-    Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
+    Value: ValueBuilder<'de> + From<Vec<Value>> + From<ObjectMap<Key, Value>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     match Deserializer::from_slice(s) {
@@ -117,7 +137,7 @@ pub fn deserialize_with_buffers<'de, Value, Key>(
     buffers: &mut Buffers,
 ) -> Result<Value>
 where
-    Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
+    Value: ValueBuilder<'de> + From<Vec<Value>> + From<ObjectMap<Key, Value>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     match Deserializer::from_slice_with_buffers(s, buffers) {
@@ -128,7 +148,7 @@ where
 
 struct ValueDeserializer<'de, Value, Key>
 where
-    Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
+    Value: ValueBuilder<'de> + From<Vec<Value>> + From<ObjectMap<Key, Value>> + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
     de: Deserializer<'de>,
@@ -140,7 +160,7 @@ where
     Value: ValueBuilder<'de>
         + From<&'de str>
         + From<Vec<Value>>
-        + From<HashMap<Key, Value, ObjectHasher>>
+        + From<ObjectMap<Key, Value>>
         + 'de,
     Key: Hash + Eq + From<&'de str>,
 {
@@ -179,18 +199,18 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn parse_map(&mut self, len: usize) -> Value {
-        let mut res: HashMap<Key, Value, ObjectHasher> =
-            HashMap::with_capacity_and_hasher(len, ObjectHasher::default());
+        let mut res: ObjectMap<Key, Value> =
+            ObjectMap::with_capacity_and_hasher(len, ObjectHasher::default());
 
         // Since we checked if it's empty we know that we at least have one
         // element so we eat this
         for _ in 0..len {
             if let Node::String(key) = unsafe { self.de.next_() } {
-                #[cfg(not(feature = "value-no-dup-keys"))]
+                #[cfg(all(not(feature = "value-no-dup-keys"), not(feature = "preserve_order")))]
                 unsafe {
                     res.insert_nocheck(key.into(), self.parse());
                 };
-                #[cfg(feature = "value-no-dup-keys")]
+                #[cfg(any(feature = "value-no-dup-keys", feature = "preserve_order"))]
                 res.insert(key.into(), self.parse());
             } else {
                 unreachable!("parse_map: key needs to be a string");

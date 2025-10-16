@@ -1008,7 +1008,9 @@ proptest! {
             let v_simd_owned = to_owned_value(d2).expect("to_owned_value failed");
             let v_simd_borrowed = to_borrowed_value(d3).expect("to_borrowed_value failed");
             assert_eq!(v_simd_borrowed, v_simd_owned);
-            let v_deserialize: OwnedValue = deserialize(d4).expect("deserialize failed");
+            // TODO: revert this to `deserialize(d4)...` see thread at:
+            // https://github.com/simd-lite/simd-json/pull/436/files#r2428840193
+            let v_deserialize: OwnedValue = deserialize::<OwnedValue, String>(d4).expect("deserialize failed");
             assert_eq!(v_deserialize, v_simd_owned);
         }
 
