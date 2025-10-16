@@ -253,9 +253,11 @@ proptest! {
         { // we can't do 128 bit w/ serde
             use crate::{deserialize, BorrowedValue, OwnedValue};
             let mut e = encoded.clone();
+            // TODO: can this turbofish be avoided?
             let res: OwnedValue = deserialize::<OwnedValue, String>(&mut e).expect("can't convert");
             assert_eq!(val, res);
             let mut e = encoded;
+            // TODO: can this turbofish be avoided?
             let res: BorrowedValue = deserialize::<BorrowedValue, Cow<'_, str>>(&mut e).expect("can't convert");
             assert_eq!(val, res);
         }
