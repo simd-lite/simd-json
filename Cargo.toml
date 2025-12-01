@@ -18,7 +18,6 @@ value-trait = { version = "0.12" }
 beef = { version = "0.5", optional = true }
 halfbrown = "0.4"
 # ahash known key
-once_cell = { version = "1.21", optional = true }
 ahash = { version = "0.8", optional = true }
 
 # serde compatibilty
@@ -73,7 +72,7 @@ value-no-dup-keys = []
 # used for enabeling known keys in favour of a slower
 # hasher that is not protected against hash collision
 # attacks
-known-key = ["once_cell", "ahash"]
+known-key = ["ahash"]
 
 # use 8 number at once parsing strategy
 swar-number-parsing = []

@@ -2,12 +2,11 @@ use crate::BorrowedValue as Value;
 use crate::cow::Cow;
 use crate::prelude::*;
 use halfbrown::RawEntryMut;
-use std::fmt;
 use std::hash::BuildHasher;
+use std::{fmt, sync::OnceLock};
 
 use ahash::{AHasher, RandomState};
-use once_cell::sync::OnceCell;
-static NOT_RANDOM: OnceCell<RandomState> = OnceCell::new();
+static NOT_RANDOM: OnceLock<RandomState> = OnceLock::new();
 
 /// `AHash` `BuildHasher` that uses a startup initialized random state for known keys
 #[derive(Clone)]
