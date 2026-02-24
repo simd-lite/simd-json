@@ -606,6 +606,27 @@ impl<'de> Deserializer<'de> {
 /// architecture dependant `find_structural_bits`
 impl Deserializer<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    /// Native fallback that pre-validates UTF-8 before finding structural bits,
+    /// since the native `ChunkedUtf8ValidatorImp` is a no-op.
+    #[cfg(all(
+        feature = "runtime-detection",
+        any(target_arch = "x86_64", target_arch = "x86"),
+        not(feature = "portable"),
+    ))]
+    pub(crate) unsafe fn find_structural_bits_native(
+        input: &[u8],
+        structural_indexes: &mut Vec<u32>,
+    ) -> std::result::Result<(), ErrorType> {
+        match core::str::from_utf8(input) {
+            Ok(_) => (),
+            Err(_) => return Err(ErrorType::InvalidUtf8),
+        };
+        unsafe {
+            Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(
         feature = "runtime-detection",
         any(target_arch = "x86_64", target_arch = "x86"),
@@ -629,7 +650,7 @@ impl Deserializer<'_> {
                     #[cfg(feature = "portable")]
                     let r = Deserializer::_find_structural_bits::<impls::portable::SimdInput>;
                     #[cfg(not(feature = "portable"))]
-                    let r = Deserializer::_find_structural_bits::<impls::native::SimdInput>;
+                    let r = Deserializer::find_structural_bits_native;
                     r
                 }
             }
