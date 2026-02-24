@@ -111,6 +111,7 @@ impl<'de> Deserializer<'de> {
         stack.clear();
         stack.reserve(structural_indexes.len());
 
+        let input_ptr = input.as_mut_ptr();
         let res_ptr = res.as_mut_ptr();
         let stack_ptr = stack.as_mut_ptr();
 
@@ -185,7 +186,7 @@ impl<'de> Deserializer<'de> {
         macro_rules! insert_str {
             () => {
                 insert_res!(Node::String(s2try!(Self::parse_str_(
-                    input.as_mut_ptr(),
+                    input_ptr,
                     &input2,
                     buffer,
                     idx
