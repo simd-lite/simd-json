@@ -111,6 +111,9 @@ impl<'de> Deserializer<'de> {
         stack.clear();
         stack.reserve(structural_indexes.len());
 
+        // Safety: Must NOT advance input pointer as part of logic, since we only get the pointer once.
+        // Use idx in order to advance through the input.
+        let input_ptr = input.as_mut_ptr();
         let res_ptr = res.as_mut_ptr();
         let stack_ptr = stack.as_mut_ptr();
 
@@ -185,10 +188,7 @@ impl<'de> Deserializer<'de> {
         macro_rules! insert_str {
             () => {
                 insert_res!(Node::String(s2try!(Self::parse_str_(
-                    input.as_mut_ptr(),
-                    &input2,
-                    buffer,
-                    idx
+                    input_ptr, &input2, buffer, idx
                 ))));
             };
         }
