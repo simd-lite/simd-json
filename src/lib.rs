@@ -102,6 +102,21 @@ impl Default for Buffers {
 }
 
 impl Buffers {
+    /// Borrow the byte offsets of every JSON structural character produced by
+    /// stage-1 SIMD scanning.  Populated as a side effect of any parse path
+    /// that takes `&mut Buffers` (`to_tape_with_buffers`,
+    /// `Deserializer::from_slice_with_buffers`, etc.).
+    ///
+    /// The returned slice is valid until the next parse call that reuses
+    /// these buffers.  Useful for downstream tooling that wants to align
+    /// its own column indices against simd-json's structural decisions
+    /// without running stage-1 a second time.
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[must_use]
+    pub fn structural_indexes(&self) -> &[u32] {
+        &self.structural_indexes
+    }
+
     /// Create new buffer for input length.
     /// If this is too small a new buffer will be allocated, if needed during parsing.
     #[cfg_attr(not(feature = "no-inline"), inline)]
