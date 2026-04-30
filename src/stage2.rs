@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 use crate::charutils::is_not_structural_or_whitespace;
-use crate::macros::unlikely;
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::value::tape::Node;
 use crate::{Deserializer, Error, ErrorType, InternalError, Result};

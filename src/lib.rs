@@ -44,7 +44,6 @@ mod numberparse;
 mod safer_unchecked;
 mod stringparse;
 
-use macros::static_cast_u64;
 use safer_unchecked::GetSaferUnchecked;
 use stage2::StackState;
 use tape::Value;
@@ -1052,7 +1051,8 @@ impl AlignedBuf {
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         if capacity == 0 {
-            let layout = Layout::from_size_align(0, SIMDJSON_PADDING).unwrap();
+            let layout = Layout::from_size_align(0, SIMDJSON_PADDING)
+                .expect("Layout for size 0 should always be valid");
             return Self {
                 layout,
                 capacity: 0,

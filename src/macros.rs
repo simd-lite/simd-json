@@ -1217,6 +1217,7 @@ macro_rules! unlikely {
     }};
 }
 
+#[allow(unused_imports)]
 pub(crate) use unlikely;
 
 /// static cast to an i32
@@ -1254,6 +1255,7 @@ macro_rules! static_cast_u64 {
         i64::cast_unsigned($v)
     };
 }
+#[allow(unused_imports)]
 pub(crate) use static_cast_u64;
 
 /// Custom `try!` macro that does no `From` conversions
