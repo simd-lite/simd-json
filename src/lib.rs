@@ -44,7 +44,6 @@ mod numberparse;
 mod safer_unchecked;
 mod stringparse;
 
-use macros::static_cast_u64;
 use safer_unchecked::GetSaferUnchecked;
 use stage2::StackState;
 use tape::Value;
@@ -1051,6 +1050,16 @@ impl AlignedBuf {
     /// Creates a new buffer that is  aligned with the simd register size
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
+        if capacity == 0 {
+            let layout = Layout::from_size_align(0, SIMDJSON_PADDING)
+                .expect("Layout for size 0 should always be valid");
+            return Self {
+                layout,
+                capacity: 0,
+                len: 0,
+                inner: NonNull::dangling(),
+            };
+        }
         let Ok(layout) = Layout::from_size_align(capacity, SIMDJSON_PADDING) else {
             Self::capacity_overflow()
         };
@@ -1092,8 +1101,10 @@ impl AlignedBuf {
 }
 impl Drop for AlignedBuf {
     fn drop(&mut self) {
-        unsafe {
-            dealloc(self.inner.as_ptr(), self.layout);
+        if self.capacity > 0 {
+            unsafe {
+                dealloc(self.inner.as_ptr(), self.layout);
+            }
         }
     }
 }

@@ -125,7 +125,7 @@ jobs:
           targets: wasm32-wasip1
 
       - name: Install wasmtime
-        run: cargo install wasmtime-cli
+        run: cargo install wasmtime-cli --version 38.0.4
 
       - name: Run tests
         run: |
