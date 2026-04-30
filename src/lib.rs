@@ -619,7 +619,7 @@ impl Deserializer<'_> {
         match core::str::from_utf8(input) {
             Ok(_) => (),
             Err(_) => return Err(ErrorType::InvalidUtf8),
-        };
+        }
         unsafe {
             Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
         }
