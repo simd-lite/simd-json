@@ -85,4 +85,7 @@ jobs:
       - name: Run miri
         env:
          RUSTFLAGS: ${{ matrix.rustflags }}
-        run: cargo miri test ${{ matrix.features }}
+          # We can choose to run proptest tests in miri, but they are very slow, so we skip them for now.
+          # Can revisit this later.
+         # PROPTEST_CASES: "4"
+        run: cargo miri test ${{ matrix.features }} -- --skip prop_
