@@ -1247,6 +1247,7 @@ macro_rules! static_cast_i64 {
         u64::cast_signed($v)
     };
 }
+#[allow(unused_imports)]
 pub(crate) use static_cast_i64;
 
 /// static cast to an u64
