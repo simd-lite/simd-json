@@ -75,14 +75,15 @@ fn is_made_of_eight_digits_fast(chars: [u8; 8]) -> bool {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[cfg(all(
     any(target_arch = "x86", target_arch = "x86_64"),
-    feature = "swar-number-parsing"
+    feature = "swar-number-parsing",
 ))]
+#[target_feature(enable = "ssse3")]
 #[allow(
     clippy::cast_sign_loss,
     clippy::cast_possible_wrap,
     clippy::cast_ptr_alignment
 )]
-fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
+unsafe fn parse_eight_digits_ssse3(chars: &[u8]) -> u32 {
     unsafe {
         // this actually computes *16* values so we are being wasteful.
         let ascii0: __m128i = _mm_set1_epi8(b'0' as i8);
@@ -109,15 +110,24 @@ fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
 }
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
-#[cfg(all(
-    not(any(target_arch = "x86", target_arch = "x86_64")),
-    feature = "swar-number-parsing"
-))]
+#[cfg(feature = "swar-number-parsing")]
 #[allow(clippy::cast_ptr_alignment)]
-fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
+fn parse_eight_digits_swar(chars: &[u8]) -> u32 {
     let val = unsafe { chars.as_ptr().cast::<u64>().read_unaligned() }; //    memcpy(&val, chars, sizeof(u64));
     let val = (val & 0x0F0F_0F0F_0F0F_0F0F).wrapping_mul(2561) >> 8;
     let val = (val & 0x00FF_00FF_00FF_00FF).wrapping_mul(6_553_601) >> 16;
 
     ((val & 0x0000_FFFF_0000_FFFF).wrapping_mul(42_949_672_960_001) >> 32) as u32
+}
+
+#[cfg(feature = "swar-number-parsing")]
+#[cfg_attr(not(feature = "no-inline"), inline)]
+fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if std::is_x86_feature_detected!("ssse3") {
+            return unsafe { parse_eight_digits_ssse3(chars) };
+        }
+    }
+    parse_eight_digits_swar(chars)
 }
