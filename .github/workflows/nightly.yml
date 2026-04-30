@@ -24,8 +24,8 @@ jobs:
       - uses: actions/checkout@v3
 
       - uses: dtolnay/rust-toolchain@nightly
-        # with:
-        #   components: miri
+        with:
+          components: miri
 
       - name: Run tests (alloc)
         env:
