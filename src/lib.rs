@@ -44,7 +44,6 @@ mod numberparse;
 mod safer_unchecked;
 mod stringparse;
 
-use macros::static_cast_u64;
 use safer_unchecked::GetSaferUnchecked;
 use stage2::StackState;
 use tape::Value;
@@ -606,6 +605,27 @@ impl<'de> Deserializer<'de> {
 /// architecture dependant `find_structural_bits`
 impl Deserializer<'_> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
+    /// Native fallback that pre-validates UTF-8 before finding structural bits,
+    /// since the native `ChunkedUtf8ValidatorImp` is a no-op.
+    #[cfg(all(
+        feature = "runtime-detection",
+        any(target_arch = "x86_64", target_arch = "x86"),
+        not(feature = "portable"),
+    ))]
+    pub(crate) unsafe fn find_structural_bits_native(
+        input: &[u8],
+        structural_indexes: &mut Vec<u32>,
+    ) -> std::result::Result<(), ErrorType> {
+        match core::str::from_utf8(input) {
+            Ok(_) => (),
+            Err(_) => return Err(ErrorType::InvalidUtf8),
+        }
+        unsafe {
+            Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(
         feature = "runtime-detection",
         any(target_arch = "x86_64", target_arch = "x86"),
@@ -629,7 +649,7 @@ impl Deserializer<'_> {
                     #[cfg(feature = "portable")]
                     let r = Deserializer::_find_structural_bits::<impls::portable::SimdInput>;
                     #[cfg(not(feature = "portable"))]
-                    let r = Deserializer::_find_structural_bits::<impls::native::SimdInput>;
+                    let r = Deserializer::find_structural_bits_native;
                     r
                 }
             }
@@ -1051,6 +1071,16 @@ impl AlignedBuf {
     /// Creates a new buffer that is  aligned with the simd register size
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
+        if capacity == 0 {
+            let layout = Layout::from_size_align(0, SIMDJSON_PADDING)
+                .expect("Layout for size 0 should always be valid");
+            return Self {
+                layout,
+                capacity: 0,
+                len: 0,
+                inner: NonNull::dangling(),
+            };
+        }
         let Ok(layout) = Layout::from_size_align(capacity, SIMDJSON_PADDING) else {
             Self::capacity_overflow()
         };
@@ -1092,8 +1122,10 @@ impl AlignedBuf {
 }
 impl Drop for AlignedBuf {
     fn drop(&mut self) {
-        unsafe {
-            dealloc(self.inner.as_ptr(), self.layout);
+        if self.capacity > 0 {
+            unsafe {
+                dealloc(self.inner.as_ptr(), self.layout);
+            }
         }
     }
 }
