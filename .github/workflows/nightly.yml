@@ -82,8 +82,7 @@ jobs:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
         run: cargo test --no-default-features --features serde_impl
 
-    # we can't use miri any more, something broke.
-    # - name: Run miri
-    #   env:
-    #     RUSTFLAGS: ${{ matrix.rustflags }}
-    #   run: cargo miri test ${{ matrix.features }}
+      - name: Run miri
+        env:
+         RUSTFLAGS: ${{ matrix.rustflags }}
+        run: cargo miri test ${{ matrix.features }}
