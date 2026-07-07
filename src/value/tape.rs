@@ -195,7 +195,6 @@ impl<'input> Node<'input> {
 mod test {
     #![allow(clippy::cognitive_complexity)]
     use super::StaticNode as Value;
-    use super::*;
     use crate::prelude::*;
 
     #[test]
