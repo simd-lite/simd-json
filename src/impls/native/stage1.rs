@@ -445,13 +445,6 @@ impl Stage1Parse for SimdInput {
         base.reserve(64);
         let final_len = l + cnt;
 
-        let is_unaligned = !l.is_multiple_of(4);
-        let write_fn = if is_unaligned {
-            std::ptr::write_unaligned
-        } else {
-            std::ptr::write
-        };
-
         while bits != 0 {
             let v0 = bits.trailing_zeros() as i32;
             bits &= bits.wrapping_sub(1);
@@ -468,7 +461,7 @@ impl Stage1Parse for SimdInput {
                 idx_64_v[2] + v2,
                 idx_64_v[3] + v3,
             ];
-            unsafe { write_fn(base.as_mut_ptr().add(l).cast::<[i32; 4]>(), v) };
+            unsafe { std::ptr::write_unaligned(base.as_mut_ptr().add(l).cast::<[i32; 4]>(), v) };
             l += 4;
         }
         // We have written all the data
