@@ -9,6 +9,8 @@ use super::{is_made_of_eight_digits_fast, parse_eight_digits_unrolled};
 use crate::StaticNode;
 use crate::charutils::is_structural_or_whitespace;
 use crate::error::Error;
+#[allow(unused_imports)]
+use crate::macros::{static_cast_i64, unlikely};
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::{Deserializer, ErrorType, Result};
 
@@ -164,11 +166,11 @@ impl Deserializer<'_> {
         }
         if is_float {
             if unlikely!(digit_count >= 19) {
-                let start_digits = get!(buf, start) as usize;
+                let orig_start = start;
                 while get!(buf, start) == b'0' || get!(buf, start) == b'.' {
                     start += 1;
                 }
-                digit_count = digit_count.wrapping_sub(start.wrapping_sub(start_digits));
+                digit_count = digit_count.wrapping_sub(start.wrapping_sub(orig_start));
                 if digit_count >= 19 {
                     return f64_from_parts_slow(
                         unsafe { buf.get_kinda_unchecked(start_idx..idx) },

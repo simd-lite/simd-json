@@ -44,6 +44,8 @@ mod numberparse;
 mod safer_unchecked;
 mod stringparse;
 
+#[allow(unused_imports)]
+use macros::static_cast_u64;
 use safer_unchecked::GetSaferUnchecked;
 use stage2::StackState;
 use tape::Value;
