@@ -58,7 +58,7 @@ impl Stage1Parse for SimdInput {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    #[target_feature(enable = "avx2")]
+    #[target_feature(enable = "avx2", enable = "pclmulqdq")]
     #[cfg(target_arch = "x86_64")]
     unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
         unsafe {
