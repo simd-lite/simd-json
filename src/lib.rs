@@ -659,7 +659,7 @@ impl Deserializer<'_> {
             // The wrappers below carry the ISA's `target_feature` so that LLVM can inline
             // the `#[target_feature]`-annotated SIMD primitives into the stage-1 loop;
             // without them every primitive stays an outlined call per 64-byte block.
-            #[target_feature(enable = "avx2")]
+            #[target_feature(enable = "avx2", enable = "pclmulqdq")]
             unsafe fn find_structural_bits_avx2(
                 input: &[u8],
                 structural_indexes: &mut Vec<u32>,
@@ -687,7 +687,9 @@ impl Deserializer<'_> {
 
             #[cfg_attr(not(feature = "no-inline"), inline)]
             fn get_fastest_available_implementation() -> FindStructuralBitsFn {
-                if std::is_x86_feature_detected!("avx2") {
+                if std::is_x86_feature_detected!("avx2")
+                    && std::is_x86_feature_detected!("pclmulqdq")
+                {
                     find_structural_bits_avx2
                 } else if std::is_x86_feature_detected!("sse4.2") {
                     find_structural_bits_sse42
