@@ -636,7 +636,7 @@ impl Deserializer<'_> {
         match core::str::from_utf8(input) {
             Ok(_) => (),
             Err(_) => return Err(ErrorType::InvalidUtf8),
-        };
+        }
         unsafe {
             Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
         }
@@ -656,12 +656,41 @@ impl Deserializer<'_> {
 
             static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
 
+            // The wrappers below carry the ISA's `target_feature` so that LLVM can inline
+            // the `#[target_feature]`-annotated SIMD primitives into the stage-1 loop;
+            // without them every primitive stays an outlined call per 64-byte block.
+            #[target_feature(enable = "avx2")]
+            unsafe fn find_structural_bits_avx2(
+                input: &[u8],
+                structural_indexes: &mut Vec<u32>,
+            ) -> core::result::Result<(), error::ErrorType> {
+                unsafe {
+                    Deserializer::_find_structural_bits::<impls::avx2::SimdInput>(
+                        input,
+                        structural_indexes,
+                    )
+                }
+            }
+
+            #[target_feature(enable = "sse4.2")]
+            unsafe fn find_structural_bits_sse42(
+                input: &[u8],
+                structural_indexes: &mut Vec<u32>,
+            ) -> core::result::Result<(), error::ErrorType> {
+                unsafe {
+                    Deserializer::_find_structural_bits::<impls::sse42::SimdInput>(
+                        input,
+                        structural_indexes,
+                    )
+                }
+            }
+
             #[cfg_attr(not(feature = "no-inline"), inline)]
             fn get_fastest_available_implementation() -> FindStructuralBitsFn {
                 if std::is_x86_feature_detected!("avx2") {
-                    Deserializer::_find_structural_bits::<impls::avx2::SimdInput>
+                    find_structural_bits_avx2
                 } else if std::is_x86_feature_detected!("sse4.2") {
-                    Deserializer::_find_structural_bits::<impls::sse42::SimdInput>
+                    find_structural_bits_sse42
                 } else {
                     #[cfg(feature = "portable")]
                     let r = Deserializer::_find_structural_bits::<impls::portable::SimdInput>;
