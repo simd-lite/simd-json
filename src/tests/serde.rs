@@ -605,6 +605,35 @@ fn float3() {
     assert_eq!(v_simd, v_serde);
 }
 
+// https://github.com/simd-lite/simd-json/issues/455
+// Float parsing was corrupted when a long decimal number extended >= 13 bytes
+// past a 64-byte SIMD chunk boundary.
+#[test]
+fn float_across_chunk_boundary() {
+    // "3077999.0000000000000000" (24 bytes) starts at byte offset 56;
+    // 8 bytes are in chunk 0, the remaining 16 spill into chunk 1.
+    let json: &[u8] =
+        br#"{"asks":[{"price":3077990.0,"amount":0.111111},{"price":3077999.0000000000000000,"amount":0.5}]}"#;
+    assert_eq!(&json[56..80], b"3077999.0000000000000000");
+    let mut d = json.to_vec();
+    let v_serde: serde_json::Value = serde_json::from_slice(json).expect("serde_json");
+    let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
+    assert_eq!(v_simd, v_serde);
+
+    // Sweep the number start offset within the 64-byte chunk to cover every
+    // possible boundary split of the 24-byte number.
+    for pad in 0..64 {
+        let json = format!(
+            r#"{{"pad":"{}","price":3077999.0000000000000000,"amount":0.5}}"#,
+            "x".repeat(pad)
+        );
+        let mut d = json.clone().into_bytes();
+        let v_serde: serde_json::Value = serde_json::from_str(&json).expect("serde_json");
+        let v_simd: serde_json::Value = from_slice(&mut d).expect("simd_json");
+        assert_eq!(v_simd, v_serde, "mismatch at pad {pad}");
+    }
+}
+
 #[test]
 fn map0() {
     let mut d = String::from(r#"{"snot": "badger"}"#);
