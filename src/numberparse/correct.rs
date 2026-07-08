@@ -51,6 +51,7 @@ fn multiply_as_u128(a: u64, b: u64) -> (u64, u64) {
 }
 
 impl Deserializer<'_> {
+    #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(
         unused_unsafe,
         clippy::cast_possible_wrap,
@@ -79,6 +80,11 @@ impl Deserializer<'_> {
             }
             num = u64::from(get!(buf, idx) - b'0');
             idx += 1;
+            // an 8-digit SWAR block loop here (like the fraction
+            // path below) was tried and measured a net loss: float-heavy data
+            // (canada.json) pays the failed block check on every 1-3-digit
+            // integer part (+3.8%), while long-id data (twitter) only gained
+            // ~0.7%.
             while is_integer(get!(buf, idx)) {
                 num = 10_u64
                     .wrapping_mul(num)
@@ -121,7 +127,11 @@ impl Deserializer<'_> {
             }
             exponent = first_after_period.wrapping_sub(idx as i64);
         }
-        let mut digit_count = idx - start_idx - 1;
+        // Number of digit-ish characters, excluding the sign: previously
+        // the '-' was counted, pushing 18-digit negative integers (which fit
+        // an i64 comfortably: < 10^18 <= i64::MAX) onto the cold
+        // `parse_large_integer` path.
+        let mut digit_count = idx - start_idx - 1 - usize::from(negative);
         match get!(buf, idx) {
             b'e' | b'E' => {
                 is_float = true;
@@ -561,6 +571,43 @@ mod test {
         assert!(matches!(to_value_from_str("1")?, Static(U64(1))));
         assert_eq!(to_value_from_str("-1")?, Static(I64(-1)));
         assert_eq!(to_value_from_str("257")?, Static(U64(257)));
+        Ok(())
+    }
+
+    #[test]
+    fn long_int_boundaries() -> Result<(), crate::Error> {
+        // 18-digit negative: fast path (digit_count no longer counts the sign)
+        assert_eq!(
+            to_value_from_str("-999999999999999999")?,
+            Static(I64(-999_999_999_999_999_999))
+        );
+        // 19-digit negatives: cold path, incl. i64::MIN and overflow
+        assert_eq!(
+            to_value_from_str("-9223372036854775807")?,
+            Static(I64(-9_223_372_036_854_775_807))
+        );
+        assert_eq!(
+            to_value_from_str("-9223372036854775808")?,
+            Static(I64(i64::MIN))
+        );
+        #[cfg(not(any(feature = "128bit", feature = "big-int-as-float")))]
+        assert!(to_value_from_str("-9223372036854775809").is_err());
+        // 8-digit-block integer path: 9/16/17/19/20 digits (positive)
+        assert_eq!(to_value_from_str("123456789")?, Static(U64(123_456_789)));
+        assert_eq!(
+            to_value_from_str("1234567890123456")?,
+            Static(U64(1_234_567_890_123_456))
+        );
+        assert_eq!(
+            to_value_from_str("12345678901234567")?,
+            Static(U64(12_345_678_901_234_567))
+        );
+        assert_eq!(
+            to_value_from_str("18446744073709551615")?,
+            Static(U64(u64::MAX))
+        );
+        #[cfg(not(any(feature = "128bit", feature = "big-int-as-float")))]
+        assert!(to_value_from_str("18446744073709551616").is_err());
         Ok(())
     }
 
