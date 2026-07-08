@@ -467,11 +467,36 @@ impl Deserializer<'_> {
 }
 
 impl<'de> Deserializer<'de> {
+    /// Resolves the fastest available `parse_str` implementation once; callers
+    /// (stage 2) hoist this out of the per-string hot path so each JSON string
+    /// costs a plain indirect call instead of detection + dispatch (T6).
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(
         feature = "runtime-detection",
         any(target_arch = "x86_64", target_arch = "x86"),
     ))]
+    pub(crate) fn parse_str_fn() -> ParseStrFn {
+        if std::is_x86_feature_detected!("avx2") {
+            impls::avx2::parse_str
+        } else if std::is_x86_feature_detected!("sse4.2") {
+            impls::sse42::parse_str
+        } else {
+            #[cfg(feature = "portable")]
+            let r = impls::portable::parse_str;
+            #[cfg(not(feature = "portable"))]
+            let r = impls::native::parse_str;
+            r
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg(all(
+        feature = "runtime-detection",
+        any(target_arch = "x86_64", target_arch = "x86"),
+    ))]
+    // stage 2 uses `parse_str_fn()` directly (resolved once per document);
+    // this remains for tests and external-ish callers.
+    #[allow(dead_code)]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -481,47 +506,8 @@ impl<'de> Deserializer<'de> {
     where
         'de: 'invoke,
     {
-        unsafe {
-            use std::sync::atomic::{AtomicPtr, Ordering};
-
-            static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
-
-            #[cfg_attr(not(feature = "no-inline"), inline)]
-            fn get_fastest_available_implementation() -> ParseStrFn {
-                if std::is_x86_feature_detected!("avx2") {
-                    impls::avx2::parse_str
-                } else if std::is_x86_feature_detected!("sse4.2") {
-                    impls::sse42::parse_str
-                } else {
-                    #[cfg(feature = "portable")]
-                    let r = impls::portable::parse_str;
-                    #[cfg(not(feature = "portable"))]
-                    let r = impls::native::parse_str;
-                    r
-                }
-            }
-
-            #[cfg_attr(not(feature = "no-inline"), inline)]
-            unsafe fn get_fastest<'invoke, 'de>(
-                input: SillyWrapper<'de>,
-                data: &'invoke [u8],
-                buffer: &'invoke mut [u8],
-                idx: usize,
-            ) -> core::result::Result<&'de str, error::Error>
-            where
-                'de: 'invoke,
-            {
-                unsafe {
-                    let fun = get_fastest_available_implementation();
-                    FN.store(fun as FnRaw, Ordering::Relaxed);
-                    (fun)(input, data, buffer, idx)
-                }
-            }
-
-            let input: SillyWrapper<'de> = SillyWrapper::from(input);
-            let fun = FN.load(Ordering::Relaxed);
-            mem::transmute::<FnRaw, ParseStrFn>(fun)(input, data, buffer, idx)
-        }
+        let input: SillyWrapper<'de> = SillyWrapper::from(input);
+        unsafe { (Self::parse_str_fn())(input, data, buffer, idx) }
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(not(any(
@@ -740,7 +726,7 @@ impl Deserializer<'_> {
         match core::str::from_utf8(input) {
             Ok(_) => (),
             Err(_) => return Err(ErrorType::InvalidUtf8),
-        };
+        }
         #[cfg(not(feature = "portable"))]
         unsafe {
             Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)
