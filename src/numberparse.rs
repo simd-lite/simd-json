@@ -6,14 +6,23 @@ mod approx;
 
 use crate::safer_unchecked::GetSaferUnchecked;
 
-#[cfg(all(target_arch = "x86", feature = "swar-number-parsing"))]
+#[cfg(all(
+    target_arch = "x86",
+    target_feature = "ssse3",
+    feature = "swar-number-parsing"
+))]
 use std::arch::x86 as arch;
 
-#[cfg(all(target_arch = "x86_64", feature = "swar-number-parsing"))]
+#[cfg(all(
+    target_arch = "x86_64",
+    target_feature = "ssse3",
+    feature = "swar-number-parsing"
+))]
 use std::arch::x86_64 as arch;
 
 #[cfg(all(
     any(target_arch = "x86", target_arch = "x86_64"),
+    target_feature = "ssse3",
     feature = "swar-number-parsing"
 ))]
 use arch::{
@@ -75,6 +84,7 @@ fn is_made_of_eight_digits_fast(chars: [u8; 8]) -> bool {
 #[cfg_attr(not(feature = "no-inline"), inline)]
 #[cfg(all(
     any(target_arch = "x86", target_arch = "x86_64"),
+    target_feature = "ssse3",
     feature = "swar-number-parsing",
 ))]
 #[target_feature(enable = "ssse3")]
@@ -123,11 +133,17 @@ fn parse_eight_digits_swar(chars: &[u8]) -> u32 {
 #[cfg(feature = "swar-number-parsing")]
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn parse_eight_digits_unrolled(chars: &[u8]) -> u32 {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    // Only use the SSSE3 version when the feature is statically available:
+    // a per-call `is_x86_feature_detected!` check costs more than the SWAR
+    // fallback (cached-atomic load + two outlined `target_feature` calls per
+    // 8-digit group).
+    #[cfg(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        target_feature = "ssse3"
+    ))]
     {
-        if std::is_x86_feature_detected!("ssse3") {
-            return unsafe { parse_eight_digits_ssse3(chars) };
-        }
+        return unsafe { parse_eight_digits_ssse3(chars) };
     }
+    #[allow(unreachable_code)]
     parse_eight_digits_swar(chars)
 }
