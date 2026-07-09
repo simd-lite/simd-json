@@ -24,6 +24,28 @@ fn alligned_number_parse() {
 }
 
 #[test]
+fn null_in_json() {
+    let mut source = Vec::from(b"[-2374611873366417043\0]".as_slice());
+    let res = crate::to_borrowed_value(&mut source);
+    assert!(res.is_err());
+    let mut source = Vec::from(b"[\"snot\"\0]".as_slice());
+    let res = crate::to_borrowed_value(&mut source);
+    assert!(res.is_err());
+    let mut source = Vec::from(b"[-1.5e3\0]".as_slice());
+    let res = crate::to_borrowed_value(&mut source);
+    assert!(res.is_err());
+    let mut source = Vec::from(b"-1.5e3\0".as_slice());
+    let res = crate::to_borrowed_value(&mut source);
+    assert!(res.is_err());
+    let mut source = Vec::from(b"[\0]".as_slice());
+    let res = crate::to_borrowed_value(&mut source);
+    assert!(res.is_err());
+    let mut source = Vec::from(b"\0".as_slice());
+    let res = crate::to_borrowed_value(&mut source);
+    assert!(res.is_err());
+}
+
+#[test]
 fn test_send_sync() {
     struct TestStruct<T: Sync + Send>(T);
     #[allow(let_underscore_drop)] // test

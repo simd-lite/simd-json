@@ -849,7 +849,7 @@ impl<'de> Deserializer<'de> {
         buffer: &mut Buffers,
         tape: &mut Vec<Node<'de>>,
     ) -> Result<()> {
-        const LOTS_OF_ZOERS: [u8; SIMDINPUT_LENGTH] = [0; SIMDINPUT_LENGTH];
+        const LOTS_OF_SPACES: [u8; SIMDINPUT_LENGTH] = [b' '; SIMDINPUT_LENGTH];
         let len = input.len();
         let simd_safe_len = len + SIMDINPUT_LENGTH;
 
@@ -875,11 +875,11 @@ impl<'de> Deserializer<'de> {
                 .copy_from_nonoverlapping(input.as_ptr(), len);
 
             // initialize all remaining bytes
-            // this also ensures we have a 0 to terminate the buffer
+            // this also ensures we have whitespace to terminate the buffer
             input_buffer
                 .as_mut_ptr()
                 .add(len)
-                .copy_from_nonoverlapping(LOTS_OF_ZOERS.as_ptr(), SIMDINPUT_LENGTH);
+                .copy_from_nonoverlapping(LOTS_OF_SPACES.as_ptr(), SIMDINPUT_LENGTH);
 
             // safety: all bytes are initialized
             input_buffer.set_len(simd_safe_len);

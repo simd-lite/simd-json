@@ -174,6 +174,13 @@ impl Deserializer<'_> {
             }
             _ => {}
         }
+        // The byte terminating the number must be structural-or-whitespace.
+        // Checked here, before dispatching, so it also covers the cold
+        // `parse_large_integer` and `f64_from_parts_slow` paths below, which
+        // do not re-validate the terminator themselves.
+        if is_structural_or_whitespace(get!(buf, idx)) == 0 {
+            err!(idx, get!(buf, idx))
+        }
         if is_float {
             if unlikely!(digit_count >= 19) {
                 let orig_start = start;
@@ -188,9 +195,6 @@ impl Deserializer<'_> {
                     );
                 }
             }
-            if is_structural_or_whitespace(get!(buf, idx)) == 0 {
-                err!(idx, get!(buf, idx))
-            }
             f64_from_parts(
                 !negative,
                 num,
@@ -200,8 +204,6 @@ impl Deserializer<'_> {
             )
         } else if unlikely!(digit_count >= 18) {
             parse_large_integer(start_idx, buf, negative, idx)
-        } else if is_structural_or_whitespace(get!(buf, idx)) == 0 {
-            err!(idx, get!(buf, idx))
         } else {
             Ok(if negative {
                 StaticNode::I64(unsafe { static_cast_i64!(num.wrapping_neg()) })
@@ -493,9 +495,10 @@ mod test {
 
     #[test]
     fn int_trailing_invalid() {
-        // todo: these should fail but is not distinguished from trailing padding
-        assert!(to_value_from_str("123\x00").is_ok());
-        assert!(to_value_from_str("[123\x00]").is_ok());
+        // An embedded NUL after the digits is not a valid terminator and must be
+        // rejected.
+        assert!(to_value_from_str("123\x00").is_err());
+        assert!(to_value_from_str("[123\x00]").is_err());
     }
 
     #[test]
