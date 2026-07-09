@@ -123,7 +123,10 @@ unsafe fn parse_eight_digits_ssse3(chars: &[u8]) -> u32 {
 #[cfg(feature = "swar-number-parsing")]
 #[allow(clippy::cast_ptr_alignment)]
 fn parse_eight_digits_swar(chars: &[u8]) -> u32 {
-    let val = unsafe { chars.as_ptr().cast::<u64>().read_unaligned() }; //    memcpy(&val, chars, sizeof(u64));
+    // The SWAR reduction below assumes the eight digit bytes are laid out
+    // least-significant-first, so interpret the input little-endian on every
+    // target (a no-op on little-endian, a byte swap on big-endian like s390x).
+    let val = u64::from_le(unsafe { chars.as_ptr().cast::<u64>().read_unaligned() });
     let val = (val & 0x0F0F_0F0F_0F0F_0F0F).wrapping_mul(2561) >> 8;
     let val = (val & 0x00FF_00FF_00FF_00FF).wrapping_mul(6_553_601) >> 16;
 
