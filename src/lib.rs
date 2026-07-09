@@ -103,6 +103,21 @@ impl Default for Buffers {
 }
 
 impl Buffers {
+    /// Borrow the byte offsets of every JSON structural character produced by
+    /// stage-1 SIMD scanning.  Populated as a side effect of any parse path
+    /// that takes `&mut Buffers` (`to_tape_with_buffers`,
+    /// `Deserializer::from_slice_with_buffers`, etc.).
+    ///
+    /// The returned slice is valid until the next parse call that reuses
+    /// these buffers.  Useful for downstream tooling that wants to align
+    /// its own column indices against simd-json's structural decisions
+    /// without running stage-1 a second time.
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[must_use]
+    pub fn structural_indexes(&self) -> &[u32] {
+        &self.structural_indexes
+    }
+
     /// Create new buffer for input length.
     /// If this is too small a new buffer will be allocated, if needed during parsing.
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -452,11 +467,36 @@ impl Deserializer<'_> {
 }
 
 impl<'de> Deserializer<'de> {
+    /// Resolves the fastest available `parse_str` implementation once; callers
+    /// (stage 2) hoist this out of the per-string hot path so each JSON string
+    /// costs a plain indirect call instead of detection + dispatch (T6).
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(all(
         feature = "runtime-detection",
         any(target_arch = "x86_64", target_arch = "x86"),
     ))]
+    pub(crate) fn parse_str_fn() -> ParseStrFn {
+        if std::is_x86_feature_detected!("avx2") {
+            impls::avx2::parse_str
+        } else if std::is_x86_feature_detected!("sse4.2") {
+            impls::sse42::parse_str
+        } else {
+            #[cfg(feature = "portable")]
+            let r = impls::portable::parse_str;
+            #[cfg(not(feature = "portable"))]
+            let r = impls::native::parse_str;
+            r
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cfg(all(
+        feature = "runtime-detection",
+        any(target_arch = "x86_64", target_arch = "x86"),
+    ))]
+    // stage 2 uses `parse_str_fn()` directly (resolved once per document);
+    // this remains for tests and external-ish callers.
+    #[allow(dead_code)]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
@@ -466,47 +506,8 @@ impl<'de> Deserializer<'de> {
     where
         'de: 'invoke,
     {
-        unsafe {
-            use std::sync::atomic::{AtomicPtr, Ordering};
-
-            static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
-
-            #[cfg_attr(not(feature = "no-inline"), inline)]
-            fn get_fastest_available_implementation() -> ParseStrFn {
-                if std::is_x86_feature_detected!("avx2") {
-                    impls::avx2::parse_str
-                } else if std::is_x86_feature_detected!("sse4.2") {
-                    impls::sse42::parse_str
-                } else {
-                    #[cfg(feature = "portable")]
-                    let r = impls::portable::parse_str;
-                    #[cfg(not(feature = "portable"))]
-                    let r = impls::native::parse_str;
-                    r
-                }
-            }
-
-            #[cfg_attr(not(feature = "no-inline"), inline)]
-            unsafe fn get_fastest<'invoke, 'de>(
-                input: SillyWrapper<'de>,
-                data: &'invoke [u8],
-                buffer: &'invoke mut [u8],
-                idx: usize,
-            ) -> core::result::Result<&'de str, error::Error>
-            where
-                'de: 'invoke,
-            {
-                unsafe {
-                    let fun = get_fastest_available_implementation();
-                    FN.store(fun as FnRaw, Ordering::Relaxed);
-                    (fun)(input, data, buffer, idx)
-                }
-            }
-
-            let input: SillyWrapper<'de> = SillyWrapper::from(input);
-            let fun = FN.load(Ordering::Relaxed);
-            mem::transmute::<FnRaw, ParseStrFn>(fun)(input, data, buffer, idx)
-        }
+        let input: SillyWrapper<'de> = SillyWrapper::from(input);
+        unsafe { (Self::parse_str_fn())(input, data, buffer, idx) }
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[cfg(not(any(
@@ -641,12 +642,43 @@ impl Deserializer<'_> {
 
             static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
 
+            // The wrappers below carry the ISA's `target_feature` so that LLVM can inline
+            // the `#[target_feature]`-annotated SIMD primitives into the stage-1 loop;
+            // without them every primitive stays an outlined call per 64-byte block.
+            #[target_feature(enable = "avx2", enable = "pclmulqdq")]
+            unsafe fn find_structural_bits_avx2(
+                input: &[u8],
+                structural_indexes: &mut Vec<u32>,
+            ) -> core::result::Result<(), error::ErrorType> {
+                unsafe {
+                    Deserializer::_find_structural_bits::<impls::avx2::SimdInput>(
+                        input,
+                        structural_indexes,
+                    )
+                }
+            }
+
+            #[target_feature(enable = "sse4.2")]
+            unsafe fn find_structural_bits_sse42(
+                input: &[u8],
+                structural_indexes: &mut Vec<u32>,
+            ) -> core::result::Result<(), error::ErrorType> {
+                unsafe {
+                    Deserializer::_find_structural_bits::<impls::sse42::SimdInput>(
+                        input,
+                        structural_indexes,
+                    )
+                }
+            }
+
             #[cfg_attr(not(feature = "no-inline"), inline)]
             fn get_fastest_available_implementation() -> FindStructuralBitsFn {
-                if std::is_x86_feature_detected!("avx2") {
-                    Deserializer::_find_structural_bits::<impls::avx2::SimdInput>
+                if std::is_x86_feature_detected!("avx2")
+                    && std::is_x86_feature_detected!("pclmulqdq")
+                {
+                    find_structural_bits_avx2
                 } else if std::is_x86_feature_detected!("sse4.2") {
-                    Deserializer::_find_structural_bits::<impls::sse42::SimdInput>
+                    find_structural_bits_sse42
                 } else {
                     #[cfg(feature = "portable")]
                     let r = Deserializer::_find_structural_bits::<impls::portable::SimdInput>;
@@ -694,7 +726,7 @@ impl Deserializer<'_> {
         match core::str::from_utf8(input) {
             Ok(_) => (),
             Err(_) => return Err(ErrorType::InvalidUtf8),
-        };
+        }
         #[cfg(not(feature = "portable"))]
         unsafe {
             Self::_find_structural_bits::<impls::native::SimdInput>(input, structural_indexes)

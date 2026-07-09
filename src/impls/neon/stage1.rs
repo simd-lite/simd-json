@@ -1,8 +1,8 @@
 use crate::Stage1Parse;
 use std::arch::aarch64::{
     int8x16_t, int32x4_t, uint8x16_t, vaddq_s32, vandq_u8, vceqq_u8, vcleq_u8, vdupq_n_s8,
-    vgetq_lane_u64, vld1q_u8, vmovq_n_u8, vpaddq_u8, vqtbl1q_u8, vreinterpretq_u8_s8,
-    vreinterpretq_u64_u8, vshrq_n_u8, vtstq_u8,
+    vget_lane_u64, vld4q_u8, vmovq_n_u8, vqtbl1q_u8, vreinterpret_u64_u8, vreinterpretq_u8_s8,
+    vreinterpretq_u16_u8, vshrn_n_u16, vshrq_n_u8, vsriq_n_u8, vtstq_u8,
 };
 use std::mem;
 
@@ -17,6 +17,14 @@ pub(crate) unsafe fn bit_mask() -> uint8x16_t {
     }
 }
 
+/// Computes a 64-bit movemask (one bit per byte) from four comparison-result
+/// vectors (bytes must be 0x00 or 0xFF).
+///
+/// The inputs are expected in *deinterleaved* `vld4q_u8` order (lane `j` of
+/// `pK` corresponds to input byte `4 * j + K`); the shift-right-insert chain
+/// plus `shrn #4` then reassembles the linear bit order. This idiom compiles
+/// to 4x `sri` + `shrn` + `fmov` instead of the shuffle soup LLVM generates
+/// for the pairwise-add version.
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub unsafe fn neon_movemask_bulk(
     p0: uint8x16_t,
@@ -25,18 +33,17 @@ pub unsafe fn neon_movemask_bulk(
     p3: uint8x16_t,
 ) -> u64 {
     unsafe {
-        let bit_mask = bit_mask();
-
-        let t0 = vandq_u8(p0, bit_mask);
-        let t1 = vandq_u8(p1, bit_mask);
-        let t2 = vandq_u8(p2, bit_mask);
-        let t3 = vandq_u8(p3, bit_mask);
-        let sum0 = vpaddq_u8(t0, t1);
-        let sum1 = vpaddq_u8(t2, t3);
-        let sum0 = vpaddq_u8(sum0, sum1);
-        let sum0 = vpaddq_u8(sum0, sum0);
-
-        vgetq_lane_u64(vreinterpretq_u64_u8(sum0), 0)
+        // byte: [ m1 | m0 >> 1 ]  (m0 fills bits 0..=6)
+        let t0 = vsriq_n_u8::<1>(p1, p0);
+        // byte: [ m3 | m2 >> 1 ]
+        let t1 = vsriq_n_u8::<1>(p3, p2);
+        // byte: [ m3 m2 m1 | m0 >> 2 ]
+        let t2 = vsriq_n_u8::<2>(t1, t0);
+        // byte: [ m3 m2 m1 m0 | m3 m2 m1 m0 ]
+        let t3 = vsriq_n_u8::<4>(t2, t2);
+        // take bits 4..=11 of each u16 lane: 8 consecutive input-byte masks per byte
+        let t4 = vshrn_n_u16::<4>(vreinterpretq_u16_u8(t3));
+        vget_lane_u64::<0>(vreinterpret_u64_u8(t4))
     }
 }
 
@@ -47,6 +54,9 @@ pub unsafe fn neon_movemask_bulk(
 
 #[derive(Debug)]
 pub(crate) struct SimdInput {
+    // Deinterleaved `vld4q_u8` layout: lane `j` of `vK` is input byte `4 * j + K`.
+    // All consumers operate elementwise; `neon_movemask_bulk` relies on this
+    // layout to produce linearly ordered bitmasks.
     v0: uint8x16_t,
     v1: uint8x16_t,
     v2: uint8x16_t,
@@ -59,11 +69,12 @@ impl Stage1Parse for SimdInput {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     unsafe fn new(ptr: &[u8]) -> Self {
         unsafe {
+            let x = vld4q_u8(ptr.as_ptr());
             Self {
-                v0: vld1q_u8(ptr.as_ptr().cast::<u8>()),
-                v1: vld1q_u8(ptr.as_ptr().add(16).cast::<u8>()),
-                v2: vld1q_u8(ptr.as_ptr().add(32).cast::<u8>()),
-                v3: vld1q_u8(ptr.as_ptr().add(48).cast::<u8>()),
+                v0: x.0,
+                v1: x.1,
+                v2: x.2,
+                v3: x.3,
             }
         }
     }
@@ -204,13 +215,6 @@ impl Stage1Parse for SimdInput {
             base.reserve(64);
             let final_len = l + cnt;
 
-            let is_unaligned = !l.is_multiple_of(4);
-            let write_fn = if is_unaligned {
-                std::ptr::write_unaligned
-            } else {
-                std::ptr::write
-            };
-
             while bits != 0 {
                 let v0 = bits.trailing_zeros() as i32;
                 bits &= bits.wrapping_sub(1);
@@ -223,7 +227,7 @@ impl Stage1Parse for SimdInput {
 
                 let v: int32x4_t = mem::transmute([v0, v1, v2, v3]);
                 let v: int32x4_t = vaddq_s32(idx_64_v, v);
-                write_fn(base.as_mut_ptr().add(l).cast::<int32x4_t>(), v);
+                std::ptr::write_unaligned(base.as_mut_ptr().add(l).cast::<int32x4_t>(), v);
                 l += 4;
             }
             // We have written all the data

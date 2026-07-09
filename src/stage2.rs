@@ -115,6 +115,13 @@ impl<'de> Deserializer<'de> {
         // Safety: Must NOT advance input pointer as part of logic, since we only get the pointer once.
         // Use idx in order to advance through the input.
         let input_ptr = input.as_mut_ptr();
+        // Resolve the per-ISA `parse_str` implementation once per document
+        // instead of once per string (T6).
+        #[cfg(all(
+            feature = "runtime-detection",
+            any(target_arch = "x86_64", target_arch = "x86"),
+        ))]
+        let parse_str_fn = Self::parse_str_fn();
         let res_ptr = res.as_mut_ptr();
         let stack_ptr = stack.as_mut_ptr();
 
@@ -187,11 +194,21 @@ impl<'de> Deserializer<'de> {
         }
 
         macro_rules! insert_str {
-            () => {
-                insert_res!(Node::String(s2try!(Self::parse_str_(
-                    input_ptr, &input2, buffer, idx
-                ))));
-            };
+            () => {{
+                #[cfg(all(
+                    feature = "runtime-detection",
+                    any(target_arch = "x86_64", target_arch = "x86"),
+                ))]
+                let s = s2try!(unsafe {
+                    parse_str_fn(crate::SillyWrapper::from(input_ptr), &input2, buffer, idx)
+                });
+                #[cfg(not(all(
+                    feature = "runtime-detection",
+                    any(target_arch = "x86_64", target_arch = "x86"),
+                )))]
+                let s = s2try!(unsafe { Self::parse_str_(input_ptr, &input2, buffer, idx) });
+                insert_res!(Node::String(s));
+            }};
         }
 
         // The continue cases are the most frequently called onces it's

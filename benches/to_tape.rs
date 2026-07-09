@@ -50,10 +50,10 @@ macro_rules! bench_file {
             //     )
             // });
             group.bench_with_input("simd_json::to_tape_with_buffers", &vec, |b, data| {
-                b.iter_batched(
+                b.iter_batched_ref(
                     || data.clone(),
-                    |mut bytes| {
-                        simd_json::to_tape_with_buffers(&mut bytes, &mut buffers).unwrap();
+                    |bytes| {
+                        simd_json::to_tape_with_buffers(bytes, &mut buffers).unwrap();
                     },
                     BatchSize::SmallInput,
                 )
@@ -65,7 +65,15 @@ macro_rules! bench_file {
 #[allow(unused_macros)]
 macro_rules! bench_file_skip {
     ($name:ident) => {
-        fn $name(_c: &mut Criterion) {}
+        fn $name(_c: &mut Criterion) {
+            eprintln!(concat!(
+                "WARNING: skipping benchmark '",
+                stringify!($name),
+                "': feature `bench-",
+                stringify!($name),
+                "` not enabled (use `--features bench-all`)"
+            ));
+        }
     };
 }
 
