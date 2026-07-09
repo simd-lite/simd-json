@@ -41,6 +41,16 @@ struct TestEnvelope {
     payload: TestPayload,
 }
 
+#[cfg(feature = "big-int-as-float")]
+#[test]
+fn min_i64_minus_one() {
+    let mut d = String::from(r#"{"my_value": -9223372036854775809}"#);
+    let d = unsafe { d.as_bytes_mut() };
+    let v_serde: serde_json::Value = serde_json::from_slice(d).expect("serde_json failed");
+    let v_simd: serde_json::Value = from_slice(d).expect("simd_json failed");
+    assert_eq!(v_simd, v_serde);
+}
+
 #[test]
 fn test_deser_to_value() {
     let mut json = JSON.as_bytes().to_vec();

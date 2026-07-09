@@ -249,7 +249,10 @@ fn parse_large_integer(
     }
     match (negative, num) {
         (true, 9_223_372_036_854_775_808) => Ok(StaticNode::I64(i64::MIN)),
-        (true, 9_223_372_036_854_775_809..=u64::MAX) => err!(idx, get!(buf, idx)),
+        (true, 9_223_372_036_854_775_809..=u64::MAX) => {
+            check_overflow!(true, buf, idx, start_idx, end_index);
+            err!(idx, get!(buf, idx))
+        }
         (true, 0..=9_223_372_036_854_775_807) => Ok(StaticNode::I64(-(num as i64))),
         (false, _) => Ok(StaticNode::U64(num)),
     }
@@ -631,7 +634,7 @@ mod test {
     fn huge_int() -> Result<(), crate::Error> {
         assert_eq!(
             to_value_from_str("999999999999999999999999999999")?,
-            StaticNode::from(999999999999999999999999999999f64)
+            Value::from(StaticNode::from(999999999999999999999999999999f64))
         );
         Ok(())
     }

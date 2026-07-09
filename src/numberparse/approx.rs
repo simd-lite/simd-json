@@ -424,6 +424,7 @@ impl Deserializer<'_> {
                 byte_count += 1;
                 i = i.wrapping_mul(10).wrapping_add(u64::from(digit));
             } else {
+                dbg!();
                 return Err(Self::error_c(
                     idx + byte_count,
                     d as char,
