@@ -466,6 +466,9 @@ impl<'de> MapAccess<'de> for CommaSeparated<'_, 'de> {
     where
         V: DeserializeSeed<'de>,
     {
+        if self.de.idx >= self.de.tape.len() {
+            return Err(Deserializer::error(ErrorType::Eof));
+        }
         // read the value
         seed.deserialize(&mut *self.de)
     }

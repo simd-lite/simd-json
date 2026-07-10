@@ -1109,3 +1109,43 @@ proptest! {
 
     }
 }
+
+// Regression test for the `next_value_seed` unchecked-index hole: a safe,
+// hand-written `Visitor` that calls `next_value_seed` more often than the map
+// has entries (without calling `next_key_seed`) must get an error back — not
+// drive the tape index out of bounds (debug: index panic, release: UB through
+// `get_unchecked`).
+#[test]
+fn overdriven_next_value_seed_errors_instead_of_oob() {
+    use serde_ext::de::{self, MapAccess, Visitor};
+    use std::fmt;
+
+    struct Evil;
+    impl<'de> de::Deserialize<'de> for Evil {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: de::Deserializer<'de>,
+        {
+            struct EvilVisitor;
+            impl<'de> Visitor<'de> for EvilVisitor {
+                type Value = Evil;
+                fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    f.write_str("a map")
+                }
+                fn visit_map<A>(self, mut map: A) -> Result<Evil, A::Error>
+                where
+                    A: MapAccess<'de>,
+                {
+                    for _ in 0..1024 {
+                        map.next_value::<u64>()?;
+                    }
+                    Ok(Evil)
+                }
+            }
+            deserializer.deserialize_map(EvilVisitor)
+        }
+    }
+
+    let mut input = b"{}".to_vec();
+    assert!(from_slice::<Evil>(&mut input).is_err());
+}
