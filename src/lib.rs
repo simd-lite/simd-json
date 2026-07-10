@@ -949,7 +949,7 @@ impl<'de> Deserializer<'de> {
         let mut utf8_validator = unsafe { S::Utf8Validator::new() };
 
         // we have padded the input out to 64 byte multiple with the remainder being
-        // zeros
+        // spaces
 
         // persistent state across loop
         // does the last iteration end with an odd-length sequence of backslashes?
