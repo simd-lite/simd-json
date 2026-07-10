@@ -812,12 +812,14 @@ impl<'de> Deserializer<'de> {
         self.idx = 0;
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cold]
+    #[inline(never)]
     fn error(error: ErrorType) -> Error {
         Error::new(0, None, error)
     }
 
-    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[cold]
+    #[inline(never)]
     fn error_c(idx: usize, c: char, error: ErrorType) -> Error {
         Error::new(idx, Some(c), error)
     }

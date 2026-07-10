@@ -235,7 +235,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
     }
 
     /// Checks if a Value contains a given key. This will return
-    /// flase if Value isn't an object  
+    /// flase if Value isn't an object
     #[must_use]
     pub fn contains_key(&self, k: &str) -> bool {
         self.as_object().and_then(|a| a.get(k)).is_some()
@@ -422,7 +422,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
             let s: &Q = s.borrow();
             if s == k {
                 let count: usize = self.0[idx].array_count().ok()?;
-                return Some(Array(&self.0[idx..idx + count]));
+                return Some(Array(&self.0[idx..=idx + count]));
             }
             idx += count;
         }
@@ -451,7 +451,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
             let s: &Q = s.borrow();
             if s == k {
                 let count: usize = self.0[idx].object_count().ok()?;
-                return Some(Object(&self.0[idx..idx + count]));
+                return Some(Object(&self.0[idx..=idx + count]));
             }
             idx += count;
         }
@@ -484,7 +484,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
             let s: &Q = s.borrow();
             if s == k {
                 let count: usize = self.0[idx].array_count()?;
-                return Ok(Some(Array(&self.0[idx..idx + count])));
+                return Ok(Some(Array(&self.0[idx..=idx + count])));
             }
             idx += count;
         }
@@ -516,7 +516,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
             let s: &Q = s.borrow();
             if s == k {
                 let count: usize = self.0[idx].object_count()?;
-                return Ok(Some(Object(&self.0[idx..idx + count])));
+                return Ok(Some(Object(&self.0[idx..=idx + count])));
             }
             idx += count;
         }
@@ -874,4 +874,68 @@ where
     W: Write,
 {
     type T = W;
+}
+
+#[cfg(test)]
+mod test {
+    use crate::to_tape;
+    use value_trait::base::ValueAsScalar;
+
+    // Regression tests for the nested-accessor off-by-one: `get_array`, `get_object`,
+    // `try_get_array`, and `try_get_object` slice the tape with the header-exclusive
+    // `count`, dropping the container's last element.
+
+    #[test]
+    fn get_array_includes_last_element() -> crate::Result<()> {
+        let mut input = b"{\"snot\": [1, 2, 3]}".to_vec();
+        let t = to_tape(input.as_mut_slice())?;
+        let v = t.as_value();
+        let a = v.get_array("snot").expect("is an array");
+        assert_eq!(a.len(), 3);
+        assert_eq!(a.iter().count(), 3);
+        assert_eq!(a.get(2).and_then(|v| v.as_u64()), Some(3));
+        Ok(())
+    }
+
+    #[test]
+    fn get_object_includes_last_element() -> crate::Result<()> {
+        let mut input = b"{\"snot\": {\"x\": 1, \"y\": 2}}".to_vec();
+        let t = to_tape(input.as_mut_slice())?;
+        let v = t.as_value();
+        let o = v.get_object("snot").expect("is an object");
+        assert_eq!(o.len(), 2);
+        assert_eq!(o.iter().count(), 2);
+        assert_eq!(o.get("y").and_then(|v| v.as_u64()), Some(2));
+        Ok(())
+    }
+
+    #[test]
+    fn try_get_array_includes_last_element() -> crate::Result<()> {
+        let mut input = b"{\"snot\": [1, 2, 3]}".to_vec();
+        let t = to_tape(input.as_mut_slice())?;
+        let v = t.as_value();
+        let a = v
+            .try_get_array("snot")
+            .expect("is an array")
+            .expect("is present");
+        assert_eq!(a.len(), 3);
+        assert_eq!(a.iter().count(), 3);
+        assert_eq!(a.get(2).and_then(|v| v.as_u64()), Some(3));
+        Ok(())
+    }
+
+    #[test]
+    fn try_get_object_includes_last_element() -> crate::Result<()> {
+        let mut input = b"{\"snot\": {\"x\": 1, \"y\": 2}}".to_vec();
+        let t = to_tape(input.as_mut_slice())?;
+        let v = t.as_value();
+        let o = v
+            .try_get_object("snot")
+            .expect("is an object")
+            .expect("is present");
+        assert_eq!(o.len(), 2);
+        assert_eq!(o.iter().count(), 2);
+        assert_eq!(o.get("y").and_then(|v| v.as_u64()), Some(2));
+        Ok(())
+    }
 }

@@ -162,6 +162,8 @@ pub struct Error {
 }
 
 impl Error {
+    #[cold]
+    #[inline(never)]
     pub(crate) fn new(index: usize, character: Option<char>, err_type: ErrorType) -> Self {
         Self {
             index,
@@ -169,12 +171,16 @@ impl Error {
             err_type,
         }
     }
+    #[cold]
+    #[inline(never)]
     pub(crate) fn new_c(index: usize, character: char, error: ErrorType) -> Self {
         Self::new(index, Some(character), error)
     }
 
     /// Create a generic error
     #[must_use = "Error creation"]
+    #[cold]
+    #[inline(never)]
     pub fn generic(t: ErrorType) -> Self {
         Self {
             index: 0,
