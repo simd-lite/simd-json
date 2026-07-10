@@ -515,21 +515,27 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::Syntax);
                     }
                     depth -= 1;
+                    // Every `goto!(ScopeEnd)` sets `c` to the closing byte:
+                    // `}` for objects, `]` for arrays. That provably matches the
+                    // container header written at `last_start`, so write the whole
+                    // node blindly (lowers to a csel) instead of reloading the tag,
+                    // matching it, and keeping a branch-to-panic in the hot loop.
+                    let len = cnt;
+                    let count = r_i - last_start - 1;
+                    debug_assert!(
+                        matches!(
+                            (c, unsafe { *res_ptr.add(last_start) }),
+                            (b'}', Node::Object { .. }) | (b']', Node::Array { .. })
+                        ),
+                        "scope end needs to be an array or object matching `c`"
+                    );
+                    let node = if c == b'}' {
+                        Node::Object { len, count }
+                    } else {
+                        Node::Array { len, count }
+                    };
                     unsafe {
-                        match *res_ptr.add(last_start) {
-                            Node::Array {
-                                ref mut len,
-                                count: ref mut end,
-                            }
-                            | Node::Object {
-                                ref mut len,
-                                count: ref mut end,
-                            } => {
-                                *len = cnt;
-                                *end = r_i - last_start - 1;
-                            }
-                            _ => unreachable!("scop end needs to be an array or object"),
-                        }
+                        res_ptr.add(last_start).write(node);
                     }
                     unsafe {
                         match *stack_ptr.add(depth) {
