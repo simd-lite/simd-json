@@ -495,10 +495,63 @@ mod test {
 
     #[test]
     fn int_trailing_invalid() {
-        // An embedded NUL after the digits is not a valid terminator and must be
-        // rejected.
+        // The byte terminating an integer must be structural-or-whitespace. An
+        // embedded NUL, a trailing letter or a digit separator are none of those
+        // and must be rejected.
         assert!(to_value_from_str("123\x00").is_err());
         assert!(to_value_from_str("[123\x00]").is_err());
+        assert!(to_value_from_str("123a").is_err());
+        assert!(to_value_from_str("1a").is_err());
+        assert!(to_value_from_str("[123a]").is_err());
+        assert!(to_value_from_str("[1a]").is_err());
+        // digit separators (e.g. Rust's `1_000`) are not valid JSON
+        assert!(to_value_from_str("1_000").is_err());
+    }
+
+    #[test]
+    fn int_leading_zero() {
+        // JSON forbids leading zeroes: a `0` may only be followed by a
+        // structural/whitespace/exponent/decimal byte, never another digit.
+        assert!(to_value_from_str("01").is_err());
+        assert!(to_value_from_str("00").is_err());
+        assert!(to_value_from_str("012").is_err());
+        assert!(to_value_from_str("0123").is_err());
+        assert!(to_value_from_str("-01").is_err());
+        assert!(to_value_from_str("-00").is_err());
+        assert!(to_value_from_str("[01]").is_err());
+        assert!(to_value_from_str("[-01]").is_err());
+    }
+
+    #[test]
+    fn int_zero_prefix() {
+        // A `0` followed by a base prefix (hex/binary/octal) is not valid JSON.
+        assert!(to_value_from_str("0x1").is_err());
+        assert!(to_value_from_str("0X1").is_err());
+        assert!(to_value_from_str("0b1").is_err());
+        assert!(to_value_from_str("0o1").is_err());
+        assert!(to_value_from_str("[0x1]").is_err());
+    }
+
+    #[test]
+    fn int_bare_sign() {
+        // A `-` must be followed by a digit.
+        assert!(to_value_from_str("-").is_err());
+        assert!(to_value_from_str("-x").is_err());
+        assert!(to_value_from_str("-e5").is_err());
+        assert!(to_value_from_str("-.5").is_err());
+    }
+
+    #[test]
+    fn int_bad_exponent() {
+        // An integer carrying an exponent marker still needs at least one
+        // exponent digit; a bare sign after `e`/`E` is not enough.
+        assert!(to_value_from_str("1e").is_err());
+        assert!(to_value_from_str("2E").is_err());
+        assert!(to_value_from_str("1e+").is_err());
+        assert!(to_value_from_str("1e-").is_err());
+        assert!(to_value_from_str("9e+").is_err());
+        assert!(to_value_from_str("[1e]").is_err());
+        assert!(to_value_from_str("[9e-]").is_err());
     }
 
     #[test]
