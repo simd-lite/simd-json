@@ -174,6 +174,13 @@ impl Deserializer<'_> {
             }
             _ => {}
         }
+        // The byte terminating the number must be structural-or-whitespace.
+        // Checked here, before dispatching, so it also covers the cold
+        // `parse_large_integer` and `f64_from_parts_slow` paths below, which
+        // do not re-validate the terminator themselves.
+        if is_structural_or_whitespace(get!(buf, idx)) == 0 {
+            err!(idx, get!(buf, idx))
+        }
         if is_float {
             if unlikely!(digit_count >= 19) {
                 let orig_start = start;
@@ -188,9 +195,6 @@ impl Deserializer<'_> {
                     );
                 }
             }
-            if is_structural_or_whitespace(get!(buf, idx)) == 0 {
-                err!(idx, get!(buf, idx))
-            }
             f64_from_parts(
                 !negative,
                 num,
@@ -200,8 +204,6 @@ impl Deserializer<'_> {
             )
         } else if unlikely!(digit_count >= 18) {
             parse_large_integer(start_idx, buf, negative, idx)
-        } else if is_structural_or_whitespace(get!(buf, idx)) == 0 {
-            err!(idx, get!(buf, idx))
         } else {
             Ok(if negative {
                 StaticNode::I64(unsafe { static_cast_i64!(num.wrapping_neg()) })
@@ -249,7 +251,10 @@ fn parse_large_integer(
     }
     match (negative, num) {
         (true, 9_223_372_036_854_775_808) => Ok(StaticNode::I64(i64::MIN)),
-        (true, 9_223_372_036_854_775_809..=u64::MAX) => err!(idx, get!(buf, idx)),
+        (true, 9_223_372_036_854_775_809..=u64::MAX) => {
+            check_overflow!(true, buf, idx, start_idx, end_index);
+            err!(idx, get!(buf, idx))
+        }
         (true, 0..=9_223_372_036_854_775_807) => Ok(StaticNode::I64(-(num as i64))),
         (false, _) => Ok(StaticNode::U64(num)),
     }
@@ -490,9 +495,63 @@ mod test {
 
     #[test]
     fn int_trailing_invalid() {
-        // todo: these should fail but is not distinguished from trailing padding
-        assert!(to_value_from_str("123\x00").is_ok());
-        assert!(to_value_from_str("[123\x00]").is_ok());
+        // The byte terminating an integer must be structural-or-whitespace. An
+        // embedded NUL, a trailing letter or a digit separator are none of those
+        // and must be rejected.
+        assert!(to_value_from_str("123\x00").is_err());
+        assert!(to_value_from_str("[123\x00]").is_err());
+        assert!(to_value_from_str("123a").is_err());
+        assert!(to_value_from_str("1a").is_err());
+        assert!(to_value_from_str("[123a]").is_err());
+        assert!(to_value_from_str("[1a]").is_err());
+        // digit separators (e.g. Rust's `1_000`) are not valid JSON
+        assert!(to_value_from_str("1_000").is_err());
+    }
+
+    #[test]
+    fn int_leading_zero() {
+        // JSON forbids leading zeroes: a `0` may only be followed by a
+        // structural/whitespace/exponent/decimal byte, never another digit.
+        assert!(to_value_from_str("01").is_err());
+        assert!(to_value_from_str("00").is_err());
+        assert!(to_value_from_str("012").is_err());
+        assert!(to_value_from_str("0123").is_err());
+        assert!(to_value_from_str("-01").is_err());
+        assert!(to_value_from_str("-00").is_err());
+        assert!(to_value_from_str("[01]").is_err());
+        assert!(to_value_from_str("[-01]").is_err());
+    }
+
+    #[test]
+    fn int_zero_prefix() {
+        // A `0` followed by a base prefix (hex/binary/octal) is not valid JSON.
+        assert!(to_value_from_str("0x1").is_err());
+        assert!(to_value_from_str("0X1").is_err());
+        assert!(to_value_from_str("0b1").is_err());
+        assert!(to_value_from_str("0o1").is_err());
+        assert!(to_value_from_str("[0x1]").is_err());
+    }
+
+    #[test]
+    fn int_bare_sign() {
+        // A `-` must be followed by a digit.
+        assert!(to_value_from_str("-").is_err());
+        assert!(to_value_from_str("-x").is_err());
+        assert!(to_value_from_str("-e5").is_err());
+        assert!(to_value_from_str("-.5").is_err());
+    }
+
+    #[test]
+    fn int_bad_exponent() {
+        // An integer carrying an exponent marker still needs at least one
+        // exponent digit; a bare sign after `e`/`E` is not enough.
+        assert!(to_value_from_str("1e").is_err());
+        assert!(to_value_from_str("2E").is_err());
+        assert!(to_value_from_str("1e+").is_err());
+        assert!(to_value_from_str("1e-").is_err());
+        assert!(to_value_from_str("9e+").is_err());
+        assert!(to_value_from_str("[1e]").is_err());
+        assert!(to_value_from_str("[9e-]").is_err());
     }
 
     #[test]
@@ -631,7 +690,7 @@ mod test {
     fn huge_int() -> Result<(), crate::Error> {
         assert_eq!(
             to_value_from_str("999999999999999999999999999999")?,
-            StaticNode::from(999999999999999999999999999999f64)
+            Value::from(StaticNode::from(999999999999999999999999999999f64))
         );
         Ok(())
     }

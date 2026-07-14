@@ -19,7 +19,10 @@ pub fn is_valid_true_atom(loc: &[u8]) -> bool {
         const TV: u64 = 0x00_00_00_00_65_75_72_74;
         const MASK4: u64 = 0x00_00_00_00_ff_ff_ff_ff;
 
-        let locval: u64 = loc.as_ptr().cast::<u64>().read_unaligned();
+        // The comparison constant is laid out in little-endian byte order, so we
+        // must interpret the input bytes little-endian on every target (a no-op
+        // on little-endian hosts, a byte swap on big-endian ones like s390x).
+        let locval: u64 = u64::from_le(loc.as_ptr().cast::<u64>().read_unaligned());
 
         error = (locval & MASK4) ^ TV;
         error |= u64::from(is_not_structural_or_whitespace(*loc.get_kinda_unchecked(4)));
@@ -43,7 +46,9 @@ pub fn is_valid_false_atom(loc: &[u8]) -> bool {
     //let fv: u64 = *(b"false   ".as_ptr() as *const u64);
     // this is the same:
 
-    let locval: u64 = unsafe { loc.as_ptr().cast::<u64>().read_unaligned() };
+    // Force little-endian interpretation so the little-endian `FV` constant
+    // matches on big-endian targets (see `is_valid_true_atom`).
+    let locval: u64 = u64::from_le(unsafe { loc.as_ptr().cast::<u64>().read_unaligned() });
 
     // FIXME the original code looks like this:
     // error = ((locval & mask5) ^ fv) as u32;
@@ -68,7 +73,9 @@ pub fn is_valid_null_atom(loc: &[u8]) -> bool {
     // TODO is this expensive?
     let mut error: u64;
 
-    let locval: u64 = unsafe { loc.as_ptr().cast::<u64>().read_unaligned() };
+    // Force little-endian interpretation so the little-endian `NV` constant
+    // matches on big-endian targets (see `is_valid_true_atom`).
+    let locval: u64 = u64::from_le(unsafe { loc.as_ptr().cast::<u64>().read_unaligned() });
 
     error = (locval & MASK4) ^ NV;
     error |= u64::from(is_not_structural_or_whitespace(*get!(loc, 4)));

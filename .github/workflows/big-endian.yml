@@ -1,0 +1,34 @@
+name: Big Endian (s390x)
+
+# The regular test matrix only runs on little-endian hosts (x86_64 / aarch64).
+# simd-json's `native` backend reinterprets byte buffers as `u64` in a couple of
+# hot paths (atom checks, SWAR number parsing), so a big-endian target is the
+# only way to catch endianness regressions there. s390x is big-endian and is
+# exercised here under QEMU via `cross`. Kept on a weekly schedule because the
+# emulated run is slow and these code paths change rarely.
+
+on:
+  schedule:
+    # Mondays at 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  s390x:
+    name: Test on s390x (big-endian)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@1.88
+
+      - name: Install cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Run tests on s390x (default features)
+        run: cross test --target s390x-unknown-linux-gnu --lib
+
+      - name: Run tests on s390x (no-default-features)
+        run: cross test --target s390x-unknown-linux-gnu --lib --no-default-features
