@@ -749,4 +749,30 @@ mod test {
         assert!(to_value_from_str("[1e]").is_err());
         assert!(to_value_from_str("[9e-]").is_err());
     }
+
+    #[test]
+    fn long_int_boundaries() -> Result<(), crate::Error> {
+        // 18/19-digit integers take the cold `parse_large_integer` path; check
+        // its success boundaries and the Overflow errors just past them.
+        assert_eq!(
+            to_value_from_str("-999999999999999999")?,
+            -999_999_999_999_999_999_i64
+        );
+        assert_eq!(
+            to_value_from_str("-9223372036854775807")?,
+            -9_223_372_036_854_775_807_i64
+        );
+        assert_eq!(to_value_from_str("-9223372036854775808")?, i64::MIN);
+        assert_eq!(to_value_from_str("18446744073709551615")?, u64::MAX);
+        // Without a wider integer target, values past i64::MIN / u64::MAX overflow.
+        // `128bit` widens the target and `big-int-as-float` reinterprets them, so
+        // the error only holds when neither is enabled.
+        #[cfg(not(any(feature = "128bit", feature = "big-int-as-float")))]
+        {
+            assert!(to_value_from_str("-9223372036854775809").is_err());
+            assert!(to_value_from_str("18446744073709551616").is_err());
+            assert!(to_value_from_str("99999999999999999999").is_err());
+        }
+        Ok(())
+    }
 }
