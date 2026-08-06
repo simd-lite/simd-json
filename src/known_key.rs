@@ -393,12 +393,77 @@ impl<'key> KnownKey<'key> {
             }
         }
     }
+
+    /// Looks up this key in an `OwnedValue`, returns None if the key wasn't present or target isn't an object
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[must_use]
+    pub fn lookup_owned<'target>(
+        &self,
+        target: &'target crate::OwnedValue,
+    ) -> Option<&'target crate::OwnedValue> {
+        target.as_object().and_then(|m| self.map_lookup_owned(m))
+    }
+
+    /// Looks up this key in an `OwnedObject`, returns None if the key wasn't present
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[must_use]
+    pub fn map_lookup_owned<'target>(
+        &self,
+        map: &'target crate::owned::Object,
+    ) -> Option<&'target crate::OwnedValue> {
+        map.raw_entry()
+            .from_key_hashed_nocheck(self.hash, self.key.as_ref())
+            .map(|kv| kv.1)
+    }
+
+    /// Looks up this key in a mutable `OwnedValue`, returns None if the key wasn't present or target isn't an object
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    pub fn lookup_owned_mut<'target>(
+        &self,
+        target: &'target mut crate::OwnedValue,
+    ) -> Option<&'target mut crate::OwnedValue> {
+        target.as_object_mut().and_then(|m| self.map_lookup_owned_mut(m))
+    }
+
+    /// Looks up this key in a mutable `OwnedObject`, returns None if the key wasn't present
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    pub fn map_lookup_owned_mut<'target>(
+        &self,
+        map: &'target mut crate::owned::Object,
+    ) -> Option<&'target mut crate::OwnedValue> {
+        match map
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(self.hash, self.key.as_ref())
+        {
+            RawEntryMut::Occupied(e) => Some(e.into_mut()),
+            RawEntryMut::Vacant(_e) => None,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unnecessary_operation, clippy::non_ascii_literal)]
     use super::*;
+
+    #[test]
+    fn known_key_owned() {
+        use crate::OwnedValue;
+        let mut v = OwnedValue::object();
+        v.try_insert("key", 1);
+        let key1 = KnownKey::from("key");
+        let key2 = KnownKey::from("cake");
+
+        assert!(key1.lookup_owned(&OwnedValue::null()).is_none());
+        assert!(key2.lookup_owned(&OwnedValue::null()).is_none());
+        assert_eq!(key1.lookup_owned(&v).unwrap().as_u8(), Some(1));
+        assert!(key2.lookup_owned(&v).is_none());
+
+        if let Some(val) = key1.lookup_owned_mut(&mut v) {
+            *val = OwnedValue::from(42);
+        }
+        assert_eq!(key1.lookup_owned(&v).unwrap().as_u8(), Some(42));
+    }
 
     #[test]
     fn known_key() {
