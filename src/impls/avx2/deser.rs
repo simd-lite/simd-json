@@ -10,7 +10,7 @@ use arch::{
 };
 
 use crate::{
-    Deserializer, Result, SillyWrapper,
+    Deserializer, InputView, Result, SillyWrapper,
     error::ErrorType,
     macros::static_cast_u32,
     safer_unchecked::GetSaferUnchecked,
@@ -24,10 +24,10 @@ use crate::{
     clippy::too_many_lines
 )]
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub(crate) unsafe fn parse_str<'invoke, 'de>(
+pub(crate) unsafe fn parse_str<'de>(
     input: SillyWrapper<'de>,
-    data: &'invoke [u8],
-    buffer: &'invoke mut [u8],
+    data: InputView,
+    buffer: &mut [u8],
     mut idx: usize,
 ) -> Result<&'de str> {
     unsafe {
@@ -42,7 +42,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
         // This is safe since we check sub's length in the range access above and only
         // create sub sliced form sub to `sub.len()`.
 
-        let src: &[u8] = data.get_kinda_unchecked(idx..);
+        let src: &[u8] = data.tail(idx);
         let mut src_i: usize = 0;
         let mut len = src_i;
         loop {

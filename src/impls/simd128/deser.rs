@@ -1,7 +1,7 @@
 use std::arch::wasm32::{u8x16_bitmask, u8x16_eq, u8x16_splat, v128, v128_load, v128_store};
 
 use crate::{
-    Deserializer, Result, SillyWrapper,
+    Deserializer, InputView, Result, SillyWrapper,
     error::ErrorType,
     safer_unchecked::GetSaferUnchecked,
     stringparse::{ESCAPE_MAP, handle_unicode_codepoint},
@@ -14,10 +14,10 @@ use crate::{
     clippy::too_many_lines
 )]
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub(crate) fn parse_str<'invoke, 'de>(
+pub(crate) fn parse_str<'de>(
     input: SillyWrapper<'de>,
-    data: &'invoke [u8],
-    buffer: &'invoke mut [u8],
+    data: InputView,
+    buffer: &mut [u8],
     mut idx: usize,
 ) -> Result<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
@@ -29,7 +29,7 @@ pub(crate) fn parse_str<'invoke, 'de>(
     // This is safe since we check sub's length in the range access above and only
     // create sub sliced form sub to `sub.len()`.
 
-    let src = unsafe { data.get_kinda_unchecked(idx..) };
+    let src = unsafe { data.tail(idx) };
     let mut src_i = 0;
     let mut len = src_i;
     loop {

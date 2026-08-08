@@ -1,4 +1,5 @@
 use crate::Deserializer;
+use crate::InputView;
 use crate::Result;
 use crate::SillyWrapper;
 use crate::error::ErrorType;
@@ -42,10 +43,10 @@ fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
 
 #[allow(clippy::if_not_else, clippy::too_many_lines)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub(crate) fn parse_str<'invoke, 'de>(
+pub(crate) fn parse_str<'de>(
     input: SillyWrapper<'de>,
-    data: &'invoke [u8],
-    buffer: &'invoke mut [u8],
+    data: InputView,
+    buffer: &mut [u8],
     mut idx: usize,
 ) -> Result<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
@@ -59,7 +60,7 @@ pub(crate) fn parse_str<'invoke, 'de>(
     // This is safe since we check sub's length in the range access above and only
     // create sub sliced form sub to `sub.len()`.
 
-    let src: &[u8] = unsafe { data.get_kinda_unchecked(idx..) };
+    let src: &[u8] = unsafe { data.tail(idx) };
     let mut src_i: usize = 0;
     let mut len = src_i;
     loop {

@@ -5,7 +5,7 @@ use std::arch::x86 as arch;
 use std::arch::x86_64 as arch;
 
 use crate::{
-    Deserializer, Result, SillyWrapper,
+    Deserializer, InputView, Result, SillyWrapper,
     error::ErrorType,
     safer_unchecked::GetSaferUnchecked,
     stringparse::{ESCAPE_MAP, handle_unicode_codepoint},
@@ -17,10 +17,10 @@ use arch::{
 #[target_feature(enable = "sse4.2")]
 #[allow(clippy::if_not_else, clippy::cast_possible_wrap)]
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub(crate) unsafe fn parse_str<'invoke, 'de>(
+pub(crate) unsafe fn parse_str<'de>(
     input: SillyWrapper<'de>,
-    data: &'invoke [u8],
-    buffer: &'invoke mut [u8],
+    data: InputView,
+    buffer: &mut [u8],
     mut idx: usize,
 ) -> Result<&'de str> {
     unsafe {
@@ -33,7 +33,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
         // This is safe since we check sub's length in the range access above and only
         // create sub sliced form sub to `sub.len()`.
 
-        let src: &[u8] = data.get_kinda_unchecked(idx..);
+        let src: &[u8] = data.tail(idx);
         let mut src_i: usize = 0;
         let mut len = src_i;
         loop {
