@@ -177,6 +177,38 @@ pub fn fill_tape<'de>(s: &'de mut [u8], buffers: &mut Buffers, tape: &mut Tape<'
     Deserializer::fill_tape(s, buffers, &mut tape.0)
 }
 
+/// Padding bytes callers must provide beyond the logical input for
+/// [`fill_tape_padded`].
+pub const INPUT_PADDING: usize = SIMDINPUT_LENGTH;
+
+/// Fills an already existing tape from a caller-padded input, skipping the padded copy
+/// of the input that [`fill_tape`] makes into its internal buffer.
+///
+/// `s[..len]` is the logical JSON document and `s[len..]` is the padding, which must be
+/// at least [`INPUT_PADDING`] initialized bytes. A root-level number or atom is
+/// terminated by the byte that follows it, so `s[len]` must be structural or whitespace;
+/// filling the padding with `b' '` satisfies that, as [`fill_tape`] does internally. The
+/// remaining padding bytes only absorb SIMD over-reads and their content is irrelevant.
+///
+/// # Errors
+///
+/// Will return `Err` if `s[..len]` is invalid JSON.
+///
+/// # Safety
+///
+/// The caller must guarantee `s.len() >= len + INPUT_PADDING`. Like [`fill_tape`], string
+/// unescaping writes in place within the logical input.
+#[cfg_attr(not(feature = "no-inline"), inline)]
+pub unsafe fn fill_tape_padded<'de>(
+    s: &'de mut [u8],
+    len: usize,
+    buffers: &mut Buffers,
+    tape: &mut Tape<'de>,
+) -> Result<()> {
+    tape.0.clear();
+    unsafe { Deserializer::fill_tape_padded(s, len, buffers, &mut tape.0) }
+}
+
 pub(crate) trait Stage1Parse {
     type Utf8Validator: ChunkedUtf8Validator;
     type SimdRepresentation;
@@ -346,6 +378,51 @@ impl From<*mut u8> for SillyWrapper<'_> {
     }
 }
 
+/// Read-only stage-2 view of the (padded) input, carried as a raw pointer.
+///
+/// In the padded path ([`fill_tape_padded`]) this aliases the buffer string
+/// unescaping writes through the sibling `input` pointer. A `&[u8]` argument
+/// spanning those bytes would be UB the moment a write lands during its call
+/// (borrow-model protectors on reference arguments; LLVM marks them
+/// `noalias readonly`), so reads go through this view instead, materializing
+/// only transient slices that are dead before any write to their range.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct InputView {
+    pub(crate) ptr: *const u8,
+    pub(crate) len: usize,
+}
+
+impl InputView {
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    pub(crate) fn from_slice(s: &[u8]) -> Self {
+        Self {
+            ptr: s.as_ptr(),
+            len: s.len(),
+        }
+    }
+
+    /// # Safety
+    ///
+    /// `idx` must be in bounds of the view.
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    pub(crate) unsafe fn byte(self, idx: usize) -> u8 {
+        debug_assert!(idx < self.len);
+        unsafe { self.ptr.add(idx).read() }
+    }
+
+    /// Transient shared slice of `[idx..len)`.
+    ///
+    /// # Safety
+    ///
+    /// `idx <= len`, and the returned slice must be dead before the next write
+    /// through the aliasing `input` pointer touches its range.
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    pub(crate) unsafe fn tail<'a>(self, idx: usize) -> &'a [u8] {
+        debug_assert!(idx <= self.len);
+        unsafe { core::slice::from_raw_parts(self.ptr.add(idx), self.len - idx) }
+    }
+}
+
 #[cfg(all(
     feature = "runtime-detection",
     any(target_arch = "x86_64", target_arch = "x86"),
@@ -357,7 +434,7 @@ type FnRaw = *mut ();
 ))]
 type ParseStrFn = for<'invoke, 'de> unsafe fn(
     SillyWrapper<'de>,
-    &'invoke [u8],
+    InputView,
     &'invoke mut [MaybeUninit<u8>],
     usize,
 ) -> std::result::Result<&'de str, error::Error>;
@@ -514,7 +591,7 @@ impl<'de> Deserializer<'de> {
     #[allow(dead_code)]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
-        data: &'invoke [u8],
+        data: InputView,
         buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str>
@@ -538,7 +615,7 @@ impl<'de> Deserializer<'de> {
     )))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
-        data: &'invoke [u8],
+        data: InputView,
         buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str>
@@ -552,7 +629,7 @@ impl<'de> Deserializer<'de> {
     #[cfg(all(feature = "portable", not(feature = "runtime-detection")))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
-        data: &'invoke [u8],
+        data: InputView,
         buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str>
@@ -571,7 +648,7 @@ impl<'de> Deserializer<'de> {
     ))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
-        data: &'invoke [u8],
+        data: InputView,
         buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str> {
@@ -588,7 +665,7 @@ impl<'de> Deserializer<'de> {
     ))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
-        data: &'invoke [u8],
+        data: InputView,
         buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str> {
@@ -600,7 +677,7 @@ impl<'de> Deserializer<'de> {
     #[cfg(all(target_arch = "aarch64", not(feature = "portable")))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
-        data: &'invoke [u8],
+        data: InputView,
         buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str> {
@@ -611,7 +688,7 @@ impl<'de> Deserializer<'de> {
     #[cfg(all(target_feature = "simd128", not(feature = "portable")))]
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
-        data: &'invoke [u8],
+        data: InputView,
         buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str> {
@@ -901,15 +978,64 @@ impl<'de> Deserializer<'de> {
                 .map_err(Error::generic)?;
         };
 
-        Self::build_tape(
-            input,
-            input_buffer,
-            buffer.string_buffer.spare_capacity_mut(),
-            &buffer.structural_indexes,
-            &mut buffer.stage2_stack,
-            buffer.max_depth,
-            tape,
-        )
+        // SAFETY: the pointer spans the caller's exclusive borrow of `input`, which is
+        // not used again; reads go through `input_buffer`, a disjoint padded copy.
+        unsafe {
+            Self::build_tape(
+                input.as_mut_ptr(),
+                InputView::from_slice(input_buffer),
+                buffer.string_buffer.spare_capacity_mut(),
+                &buffer.structural_indexes,
+                &mut buffer.stage2_stack,
+                buffer.max_depth,
+                tape,
+            )
+        }
+    }
+
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    unsafe fn fill_tape_padded(
+        input: &'de mut [u8],
+        len: usize,
+        buffer: &mut Buffers,
+        tape: &mut Vec<Node<'de>>,
+    ) -> Result<()> {
+        debug_assert!(input.len() >= len + SIMDINPUT_LENGTH);
+        if len > u32::MAX as usize {
+            return Err(Self::error(ErrorType::InputTooLarge));
+        }
+
+        buffer.string_buffer.clear();
+        buffer.string_buffer.reserve(len + SIMDJSON_PADDING);
+
+        // The caller-provided padding plays the role fill_tape's internal copy plays: a
+        // region parse_str can over-read with SIMD loads. Unlike fill_tape, reads and
+        // writes share this one buffer, so stage 2 reads through a raw-pointer InputView
+        // (see its doc); no reference into the buffer is live once unescaping writes
+        // start. The stage-1 slice below is dead before the first write.
+        let ptr = input.as_mut_ptr();
+        let input2 = InputView {
+            ptr,
+            len: input.len(),
+        };
+
+        unsafe {
+            let head: &[u8] = core::slice::from_raw_parts(ptr, len);
+            Self::find_structural_bits(head, &mut buffer.structural_indexes)
+                .map_err(Error::generic)?;
+        };
+
+        unsafe {
+            Self::build_tape(
+                ptr,
+                input2,
+                buffer.string_buffer.spare_capacity_mut(),
+                &buffer.structural_indexes,
+                &mut buffer.stage2_stack,
+                buffer.max_depth,
+                tape,
+            )
+        }
     }
 
     /// Creates a serializer from a mutable slice of bytes using a temporary

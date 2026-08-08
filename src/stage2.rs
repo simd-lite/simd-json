@@ -6,7 +6,7 @@ use crate::charutils::is_not_structural_or_whitespace;
 use crate::macros::unlikely;
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::value::tape::Node;
-use crate::{Deserializer, Error, ErrorType, InternalError, Result};
+use crate::{Deserializer, Error, ErrorType, InputView, InternalError, Result};
 use value_trait::StaticNode;
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -106,9 +106,16 @@ impl<'de> Deserializer<'de> {
         unused_unsafe,
         clippy::needless_continue
     )]
-    pub(crate) fn build_tape(
-        input: &'de mut [u8],
-        input2: &[u8],
+    /// # Safety
+    ///
+    /// `input` must be valid for writes over the parsed document (string unescaping
+    /// writes through it in place) and must not be aliased by a live `&mut`; reads go
+    /// only through `input2`, which either views a disjoint padded copy of the input
+    /// ([`Deserializer::fill_tape`]) or aliases `input` itself
+    /// ([`Deserializer::fill_tape_padded`]).
+    pub(crate) unsafe fn build_tape(
+        input: *mut u8,
+        input2: InputView,
         buffer: &mut [MaybeUninit<u8>],
         structural_indexes: &[u32],
         stack: &mut Vec<StackState>,
@@ -126,7 +133,7 @@ impl<'de> Deserializer<'de> {
 
         // Safety: Must NOT advance input pointer as part of logic, since we only get the pointer once.
         // Use idx in order to advance through the input.
-        let input_ptr = input.as_mut_ptr();
+        let input_ptr = input;
         // Resolve the per-ISA `parse_str` implementation once per document
         // instead of once per string (T6).
         #[cfg(all(
@@ -190,7 +197,7 @@ impl<'de> Deserializer<'de> {
                 if i < structural_indexes.len() {
                     idx = *get!(structural_indexes, i) as usize;
                     i += 1;
-                    c = *get!(input2, idx);
+                    c = unsafe { input2.byte(idx) };
                 } else {
                     fail!(ErrorType::Syntax);
                 }
@@ -212,13 +219,13 @@ impl<'de> Deserializer<'de> {
                     any(target_arch = "x86_64", target_arch = "x86"),
                 ))]
                 let s = s2try!(unsafe {
-                    parse_str_fn(crate::SillyWrapper::from(input_ptr), &input2, buffer, idx)
+                    parse_str_fn(crate::SillyWrapper::from(input_ptr), input2, buffer, idx)
                 });
                 #[cfg(not(all(
                     feature = "runtime-detection",
                     any(target_arch = "x86_64", target_arch = "x86"),
                 )))]
-                let s = s2try!(unsafe { Self::parse_str_(input_ptr, &input2, buffer, idx) });
+                let s = s2try!(unsafe { Self::parse_str_(input_ptr, input2, buffer, idx) });
                 insert_res!(Node::String(s));
             }};
         }
@@ -382,7 +389,7 @@ impl<'de> Deserializer<'de> {
             }
             b't' => {
                 unsafe {
-                    if !is_valid_true_atom(get!(input2, idx..)) {
+                    if !is_valid_true_atom(unsafe { input2.tail(idx) }) {
                         fail!(ErrorType::ExpectedTrue);
                     }
                 };
@@ -394,7 +401,7 @@ impl<'de> Deserializer<'de> {
             }
             b'f' => {
                 unsafe {
-                    if !is_valid_false_atom(get!(input2, idx..)) {
+                    if !is_valid_false_atom(unsafe { input2.tail(idx) }) {
                         fail!(ErrorType::ExpectedFalse);
                     }
                 };
@@ -406,7 +413,7 @@ impl<'de> Deserializer<'de> {
             }
             b'n' => {
                 unsafe {
-                    if !is_valid_null_atom(get!(input2, idx..)) {
+                    if !is_valid_null_atom(unsafe { input2.tail(idx) }) {
                         fail!(ErrorType::ExpectedNull);
                     }
                 };
@@ -424,7 +431,11 @@ impl<'de> Deserializer<'de> {
                 fail!(ErrorType::TrailingData);
             }
             b'-' => {
-                insert_res!(Node::Static(s2try!(Self::parse_number(idx, input2, true))));
+                insert_res!(Node::Static(s2try!(Self::parse_number(
+                    idx,
+                    unsafe { input2.tail(0) },
+                    true
+                ))));
 
                 if i == structural_indexes.len() {
                     success!();
@@ -432,7 +443,11 @@ impl<'de> Deserializer<'de> {
                 fail!(ErrorType::TrailingData);
             }
             b'0'..=b'9' => {
-                insert_res!(Node::Static(s2try!(Self::parse_number(idx, input2, false))));
+                insert_res!(Node::Static(s2try!(Self::parse_number(
+                    idx,
+                    unsafe { input2.tail(0) },
+                    false
+                ))));
 
                 if i == structural_indexes.len() {
                     success!();
@@ -461,35 +476,39 @@ impl<'de> Deserializer<'de> {
                         }
                         b't' => {
                             insert_res!(Node::Static(StaticNode::Bool(true)));
-                            if !is_valid_true_atom(get!(input2, idx..)) {
+                            if !is_valid_true_atom(unsafe { input2.tail(idx) }) {
                                 fail!(ErrorType::ExpectedTrue);
                             }
                             object_continue!();
                         }
                         b'f' => {
                             insert_res!(Node::Static(StaticNode::Bool(false)));
-                            if !is_valid_false_atom(get!(input2, idx..)) {
+                            if !is_valid_false_atom(unsafe { input2.tail(idx) }) {
                                 fail!(ErrorType::ExpectedFalse);
                             }
                             object_continue!();
                         }
                         b'n' => {
                             insert_res!(Node::Static(StaticNode::Null));
-                            if !is_valid_null_atom(get!(input2, idx..)) {
+                            if !is_valid_null_atom(unsafe { input2.tail(idx) }) {
                                 fail!(ErrorType::ExpectedNull);
                             }
                             object_continue!();
                         }
                         b'-' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number(
-                                idx, input2, true
+                                idx,
+                                unsafe { input2.tail(0) },
+                                true,
                             ))));
 
                             object_continue!();
                         }
                         b'0'..=b'9' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number(
-                                idx, input2, false
+                                idx,
+                                unsafe { input2.tail(0) },
+                                false,
                             ))));
 
                             object_continue!();
@@ -592,35 +611,39 @@ impl<'de> Deserializer<'de> {
                         }
                         b't' => {
                             insert_res!(Node::Static(StaticNode::Bool(true)));
-                            if !is_valid_true_atom(get!(input2, idx..)) {
+                            if !is_valid_true_atom(unsafe { input2.tail(idx) }) {
                                 fail!(ErrorType::ExpectedTrue);
                             }
                             array_continue!();
                         }
                         b'f' => {
                             insert_res!(Node::Static(StaticNode::Bool(false)));
-                            if !is_valid_false_atom(get!(input2, idx..)) {
+                            if !is_valid_false_atom(unsafe { input2.tail(idx) }) {
                                 fail!(ErrorType::ExpectedFalse);
                             }
                             array_continue!();
                         }
                         b'n' => {
                             insert_res!(Node::Static(StaticNode::Null));
-                            if !is_valid_null_atom(get!(input2, idx..)) {
+                            if !is_valid_null_atom(unsafe { input2.tail(idx) }) {
                                 fail!(ErrorType::ExpectedNull);
                             }
                             array_continue!();
                         }
                         b'-' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number(
-                                idx, input2, true
+                                idx,
+                                unsafe { input2.tail(0) },
+                                true,
                             ))));
 
                             array_continue!();
                         }
                         b'0'..=b'9' => {
                             insert_res!(Node::Static(s2try!(Self::parse_number(
-                                idx, input2, false
+                                idx,
+                                unsafe { input2.tail(0) },
+                                false,
                             ))));
 
                             array_continue!();
@@ -740,7 +763,12 @@ mod test {
         let mut buffer = Vec::with_capacity(1024);
 
         let s = unsafe {
-            Deserializer::parse_str_(input.as_mut_ptr(), &input2, buffer.spare_capacity_mut(), 0)?
+            Deserializer::parse_str_(
+                input.as_mut_ptr(),
+                InputView::from_slice(&input2),
+                buffer.spare_capacity_mut(),
+                0,
+            )?
         };
         assert_eq!(r#"{"arg":"test"}"#, s);
         Ok(())
