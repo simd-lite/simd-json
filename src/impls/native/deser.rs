@@ -1,32 +1,35 @@
 use std::mem::MaybeUninit;
 
 use crate::{
-    Deserializer, ErrorType, Result, SillyWrapper,
+    Deserializer, ErrorType, InputView, Result, SillyWrapper,
     safer_unchecked::GetSaferUnchecked,
     stringparse::{ESCAPE_MAP, get_unicode_codepoint},
 };
 
+// `data` may alias the buffer written through `input` (the padded path), so reads
+// interleaved with the escape writes below go through the raw pointer; the only
+// slices materialized are transient and dead before the writes that follow them.
 #[allow(clippy::cast_possible_truncation)]
-pub(crate) unsafe fn parse_str<'invoke, 'de>(
+pub(crate) unsafe fn parse_str<'de>(
     input: SillyWrapper<'de>,
-    data: &'invoke [u8],
-    _buffer: &'invoke mut [MaybeUninit<u8>],
+    data: InputView,
+    _buffer: &mut [MaybeUninit<u8>],
     idx: usize,
 ) -> Result<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
 
     let input = input.input;
     // skip leading `"`
-    let src: &[u8] = unsafe { data.get_kinda_unchecked(idx + 1..) };
+    let src: *const u8 = unsafe { data.ptr.add(idx + 1) };
     let input = unsafe { input.add(idx + 1) };
 
     let mut src_i = 0;
-    let mut b = unsafe { *src.get_kinda_unchecked(src_i) };
+    let mut b = unsafe { src.add(src_i).read() };
 
     // quickly skip all the "good stuff"
     while b != b'"' && b != b'\\' {
         src_i += 1;
-        b = unsafe { *src.get_kinda_unchecked(src_i) };
+        b = unsafe { src.add(src_i).read() };
     }
     if b == b'"' {
         let v = unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(input, src_i)) };
@@ -39,13 +42,13 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
     while b != b'"' {
         if b == b'\\' {
             // don't advance i yet
-            let escape_char = unsafe { *src.get_kinda_unchecked(src_i + 1) };
+            let escape_char = unsafe { src.add(src_i + 1).read() };
             if escape_char == b'u' {
                 // got to reduce by 1 since we have to include the '\\' for get_unicode_codepoint
-                let (cp, src_offset) =
-                    unsafe { get_unicode_codepoint(src.get_kinda_unchecked(src_i..)) }.map_err(
-                        |_| Deserializer::error_c(idx + 1 + src_i, 'u', InvalidUnicodeCodepoint),
-                    )?;
+                let (cp, src_offset) = unsafe { get_unicode_codepoint(data.tail(idx + 1 + src_i)) }
+                    .map_err(|_| {
+                        Deserializer::error_c(idx + 1 + src_i, 'u', InvalidUnicodeCodepoint)
+                    })?;
 
                 // from  codepoint_to_utf8 since we write directly to input
                 unsafe {
@@ -103,7 +106,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
             dst_i += 1;
         }
         src_i += 1;
-        b = unsafe { *src.get_kinda_unchecked(src_i) };
+        b = unsafe { src.add(src_i).read() };
     }
     unsafe {
         Ok(std::str::from_utf8_unchecked(std::slice::from_raw_parts(
@@ -125,7 +128,7 @@ mod test {
         let r = unsafe {
             super::parse_str(
                 input.as_mut_ptr().into(),
-                &input2,
+                crate::InputView::from_slice(&input2),
                 buffer.spare_capacity_mut(),
                 0,
             )?
