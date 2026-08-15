@@ -260,4 +260,81 @@ mod test {
 
         Ok(())
     }
+
+    #[test]
+    fn try_get_lengths() -> crate::Result<()> {
+        // Regression test for a case where 'try_get' functions dropped the last element.
+        let mut input = br#"{"array":["a","b","c"],"object":{"x":1,"y":2,"z":3}}"#.to_vec();
+        let t = to_tape(input.as_mut_slice())?;
+        let v = t.as_value();
+
+        // get_array
+        let array = v.get_array("array").expect("is an array");
+        assert_eq!(array.len(), 3);
+        let array_items: Vec<_> = array
+            .iter()
+            .map(|v| v.as_str().expect("string").to_owned())
+            .collect();
+        assert_eq!(array_items, &["a", "b", "c"]);
+
+        // try_get_array
+        let try_array = v
+            .try_get_array("array")
+            .expect("array type")
+            .expect("is an array");
+        assert_eq!(try_array.len(), 3);
+        let try_array_items: Vec<_> = try_array
+            .iter()
+            .map(|v| v.as_str().expect("string").to_owned())
+            .collect();
+        assert_eq!(try_array_items, &["a", "b", "c"]);
+
+        // get_object
+        let object = v.get_object("object").expect("is an object");
+        assert_eq!(object.len(), 3);
+        let object_keys: Vec<_> = object.keys().collect();
+        assert_eq!(object_keys, &["x", "y", "z"]);
+
+        // try_get_object
+        let try_object = v
+            .try_get_object("object")
+            .expect("object type")
+            .expect("is an object");
+        assert_eq!(try_object.len(), 3);
+        let try_object_keys: Vec<_> = try_object.keys().collect();
+        assert_eq!(try_object_keys, &["x", "y", "z"]);
+
+        // Test with empty containers.
+        let mut input = br#"{"array":[],"object":{}}"#.to_vec();
+        let t = to_tape(input.as_mut_slice())?;
+        let v = t.as_value();
+
+        // get_array
+        let array = v.get_array("array").expect("is an array");
+        assert_eq!(array.len(), 0);
+        assert_eq!(array.iter().count(), 0);
+
+        // try_get_array
+        let try_array = v
+            .try_get_array("array")
+            .expect("array type")
+            .expect("is an array");
+        assert_eq!(try_array.len(), 0);
+        assert_eq!(try_array.iter().count(), 0);
+
+        // get_object
+        let object = v.get_object("object").expect("is an object");
+        assert_eq!(object.len(), 0);
+        assert_eq!(object.keys().count(), 0);
+
+        // try_get_object
+        let try_object = v
+            .try_get_object("object")
+            .expect("object type")
+            .expect("is an object");
+        assert_eq!(try_object.len(), 0);
+        assert_eq!(try_object.keys().count(), 0);
+
+        Ok(())
+    }
 }

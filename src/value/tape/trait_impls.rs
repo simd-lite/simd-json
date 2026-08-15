@@ -421,7 +421,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
             let count = self.0[idx].count();
             let s: &Q = s.borrow();
             if s == k {
-                let count: usize = self.0[idx].array_count().ok()?;
+                let count: usize = self.0[idx].array_count().ok()? + 1;
                 return Some(Array(&self.0[idx..idx + count]));
             }
             idx += count;
@@ -450,7 +450,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
             let count = self.0[idx].count();
             let s: &Q = s.borrow();
             if s == k {
-                let count: usize = self.0[idx].object_count().ok()?;
+                let count: usize = self.0[idx].object_count().ok()? + 1;
                 return Some(Object(&self.0[idx..idx + count]));
             }
             idx += count;
@@ -483,7 +483,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
             let count = self.0[idx].count();
             let s: &Q = s.borrow();
             if s == k {
-                let count: usize = self.0[idx].array_count()?;
+                let count: usize = self.0[idx].array_count()? + 1;
                 return Ok(Some(Array(&self.0[idx..idx + count])));
             }
             idx += count;
@@ -515,7 +515,7 @@ impl<'tape, 'input> Value<'tape, 'input> {
             let count = self.0[idx].count();
             let s: &Q = s.borrow();
             if s == k {
-                let count: usize = self.0[idx].object_count()?;
+                let count: usize = self.0[idx].object_count()? + 1;
                 return Ok(Some(Object(&self.0[idx..idx + count])));
             }
             idx += count;
