@@ -20,10 +20,6 @@ path = ".."
 members = ["."]
 
 [[bin]]
-name = "fuzz_target_1"
-path = "fuzz_targets/fuzz_target_1.rs"
-
-[[bin]]
 name = "passing"
 path = "fuzz_targets/passing.rs"
 

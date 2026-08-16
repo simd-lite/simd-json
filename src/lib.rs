@@ -60,6 +60,10 @@ pub(crate) const SIMDJSON_PADDING: usize = 32; // take upper limit mem::size_of:
 /// It's 64 for all (Is this correct?)
 pub(crate) const SIMDINPUT_LENGTH: usize = 64;
 
+/// The default maximum nesting depth of objects and arrays, mirroring
+/// simdjson's `DEFAULT_MAX_DEPTH`.
+pub const DEFAULT_MAX_DEPTH: usize = 1024;
+
 mod stage2;
 /// simd-json JSON-DOM value
 pub mod value;
@@ -93,6 +97,7 @@ pub struct Buffers {
     structural_indexes: Vec<u32>,
     input_buffer: AlignedBuf,
     stage2_stack: Vec<StackState>,
+    max_depth: usize,
 }
 
 impl Default for Buffers {
@@ -123,6 +128,14 @@ impl Buffers {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
     pub fn new(input_len: usize) -> Self {
+        Self::with_max_depth(input_len, DEFAULT_MAX_DEPTH)
+    }
+
+    /// Create new buffer for input length with a custom maximum nesting depth.
+    /// If this is too small a new buffer will be allocated, if needed during parsing.
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    #[must_use]
+    pub fn with_max_depth(input_len: usize, max_depth: usize) -> Self {
         // this is a heuristic, it will likely be higher but it will avoid some reallocations hopefully
         let heuristic_index_cout = input_len / 128;
         Self {
@@ -130,6 +143,7 @@ impl Buffers {
             structural_indexes: Vec::with_capacity(heuristic_index_cout),
             input_buffer: AlignedBuf::with_capacity(input_len + SIMDJSON_PADDING * 2),
             stage2_stack: Vec::with_capacity(heuristic_index_cout),
+            max_depth,
         }
     }
 }
@@ -896,6 +910,7 @@ impl<'de> Deserializer<'de> {
             &mut buffer.string_buffer,
             &buffer.structural_indexes,
             &mut buffer.stage2_stack,
+            buffer.max_depth,
             tape,
         )
     }

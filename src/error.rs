@@ -86,6 +86,8 @@ pub enum ErrorType {
     ExpectedObjectKey,
     /// Overflow of a limited buffer
     Overflow,
+    /// The structure depth exceeds the limit (`1024` by default).
+    DepthLimitExceeded,
     /// No SIMD support detected during runtime
     SimdUnsupported,
     /// IO error
@@ -143,7 +145,10 @@ impl PartialEq for ErrorType {
             | (Self::ExpectedArrayContent, Self::ExpectedArrayContent)
             | (Self::ExpectedObjectContent, Self::ExpectedObjectContent)
             | (Self::ExpectedObjectKey, Self::ExpectedObjectKey)
-            | (Self::Overflow, Self::Overflow) => true,
+            | (Self::Overflow, Self::Overflow)
+            | (Self::DepthLimitExceeded, Self::DepthLimitExceeded)
+            | (Self::InputTooLarge, Self::InputTooLarge)
+            | (Self::SimdUnsupported, Self::SimdUnsupported) => true,
             (Self::Serde(s1), Self::Serde(s2)) => s1 == s2,
             (Self::InternalError(e1), Self::InternalError(e2)) => e1 == e2,
             _ => false,
