@@ -56,7 +56,7 @@ mod impls;
 pub mod cow;
 
 /// The maximum padding size required by any SIMD implementation
-pub(crate) const SIMDJSON_PADDING: usize = 32; // take upper limit mem::size_of::<__m256i>()
+pub(crate) const SIMDJSON_PADDING: usize = 64; // take upper limit mem::size_of::<__m512i>()
 /// It's 64 for all (Is this correct?)
 pub(crate) const SIMDINPUT_LENGTH: usize = 64;
 
@@ -366,6 +366,8 @@ pub enum Implementation {
     SSE42,
     /// AVX2 implementation
     AVX2,
+    /// AVX512BW implementation
+    AVX512BW,
     /// ARM NEON implementation
     NEON,
     /// WEBASM SIMD128 implementation
@@ -379,6 +381,7 @@ impl std::fmt::Display for Implementation {
             Implementation::StdSimd => write!(f, "std::simd"),
             Implementation::SSE42 => write!(f, "SSE42"),
             Implementation::AVX2 => write!(f, "AVX2"),
+            Implementation::AVX512BW => write!(f, "AVX512BW"),
             Implementation::NEON => write!(f, "NEON"),
             Implementation::SIMD128 => write!(f, "SIMD128"),
         }
@@ -393,7 +396,9 @@ impl Deserializer<'_> {
     ))]
     #[must_use]
     pub fn algorithm() -> Implementation {
-        if std::is_x86_feature_detected!("avx2") {
+        if std::is_x86_feature_detected!("avx512bw") {
+            Implementation::AVX512BW
+        } else if std::is_x86_feature_detected!("avx2") {
             Implementation::AVX2
         } else if std::is_x86_feature_detected!("sse4.2") {
             Implementation::SSE42
@@ -476,6 +481,11 @@ impl<'de> Deserializer<'de> {
         any(target_arch = "x86_64", target_arch = "x86"),
     ))]
     pub(crate) fn parse_str_fn() -> ParseStrFn {
+        #[cfg(target_arch = "x86_64")]
+        if std::is_x86_feature_detected!("avx512bw") {
+            return impls::avx512bw::parse_str;
+        }
+
         if std::is_x86_feature_detected!("avx2") {
             impls::avx2::parse_str
         } else if std::is_x86_feature_detected!("sse4.2") {
@@ -645,6 +655,20 @@ impl Deserializer<'_> {
             // The wrappers below carry the ISA's `target_feature` so that LLVM can inline
             // the `#[target_feature]`-annotated SIMD primitives into the stage-1 loop;
             // without them every primitive stays an outlined call per 64-byte block.
+            #[cfg(target_arch = "x86_64")]
+            #[target_feature(enable = "avx512bw", enable = "pclmulqdq")]
+            unsafe fn find_structural_bits_avx512bw(
+                input: &[u8],
+                structural_indexes: &mut Vec<u32>,
+            ) -> core::result::Result<(), error::ErrorType> {
+                unsafe {
+                    Deserializer::_find_structural_bits::<impls::avx512bw::SimdInput>(
+                        input,
+                        structural_indexes,
+                    )
+                }
+            }
+
             #[target_feature(enable = "avx2", enable = "pclmulqdq")]
             unsafe fn find_structural_bits_avx2(
                 input: &[u8],
@@ -673,6 +697,13 @@ impl Deserializer<'_> {
 
             #[cfg_attr(not(feature = "no-inline"), inline)]
             fn get_fastest_available_implementation() -> FindStructuralBitsFn {
+                #[cfg(target_arch = "x86_64")]
+                if std::is_x86_feature_detected!("avx512bw")
+                    && std::is_x86_feature_detected!("pclmulqdq")
+                {
+                    return find_structural_bits_avx512bw;
+                }
+
                 if std::is_x86_feature_detected!("avx2")
                     && std::is_x86_feature_detected!("pclmulqdq")
                 {
