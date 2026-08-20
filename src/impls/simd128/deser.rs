@@ -1,4 +1,5 @@
 use std::arch::wasm32::{u8x16_bitmask, u8x16_eq, u8x16_splat, v128, v128_load, v128_store};
+use std::mem::MaybeUninit;
 
 use crate::{
     Deserializer, Result, SillyWrapper,
@@ -17,7 +18,7 @@ use crate::{
 pub(crate) fn parse_str<'invoke, 'de>(
     input: SillyWrapper<'de>,
     data: &'invoke [u8],
-    buffer: &'invoke mut [u8],
+    buffer: &'invoke mut [MaybeUninit<u8>],
     mut idx: usize,
 ) -> Result<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
@@ -115,7 +116,7 @@ pub(crate) fn parse_str<'invoke, 'de>(
             unsafe {
                 input
                     .add(idx + len)
-                    .copy_from_nonoverlapping(buffer.as_ptr(), dst_i);
+                    .copy_from_nonoverlapping(buffer.as_ptr().cast::<u8>(), dst_i);
                 let v = std::str::from_utf8_unchecked(std::slice::from_raw_parts(
                     input.add(idx),
                     len + dst_i,
@@ -164,7 +165,9 @@ pub(crate) fn parse_str<'invoke, 'de>(
                     ));
                 }
                 unsafe {
-                    *buffer.get_kinda_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
+                    buffer
+                        .get_kinda_unchecked_mut(dst_i + bs_dist as usize)
+                        .write(escape_result);
                 }
                 src_i += bs_dist as usize + 2;
                 dst_i += bs_dist as usize + 1;

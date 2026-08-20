@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use std::ops::Range;
 
 use crate::charutils::{codepoint_to_utf8, hex_to_u32_nocheck};
@@ -31,7 +32,7 @@ const LOW_SURROGATES: Range<u32> = 0xdc00..0xe000;
 #[allow(dead_code)]
 pub(crate) fn handle_unicode_codepoint(
     src_ptr: &[u8],
-    dst_ptr: &mut [u8],
+    dst_ptr: &mut [MaybeUninit<u8>],
 ) -> Result<(usize, usize), ErrorType> {
     let (code_point, src_offset) = get_unicode_codepoint(src_ptr)?;
     let offset: usize = codepoint_to_utf8(code_point, dst_ptr);

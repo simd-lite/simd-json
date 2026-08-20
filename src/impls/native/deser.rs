@@ -1,3 +1,5 @@
+use std::mem::MaybeUninit;
+
 use crate::{
     Deserializer, ErrorType, Result, SillyWrapper,
     safer_unchecked::GetSaferUnchecked,
@@ -8,7 +10,7 @@ use crate::{
 pub(crate) unsafe fn parse_str<'invoke, 'de>(
     input: SillyWrapper<'de>,
     data: &'invoke [u8],
-    _buffer: &'invoke mut [u8],
+    _buffer: &'invoke mut [MaybeUninit<u8>],
     idx: usize,
 ) -> Result<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
@@ -118,10 +120,15 @@ mod test {
         let mut input = input.to_vec();
         let mut input2 = input.clone();
         input2.append(vec![0; SIMDJSON_PADDING * 2].as_mut());
-        let mut buffer = vec![0; 1024];
+        let mut buffer = Vec::with_capacity(1024);
 
         let r = unsafe {
-            super::parse_str(input.as_mut_ptr().into(), &input2, buffer.as_mut_slice(), 0)?
+            super::parse_str(
+                input.as_mut_ptr().into(),
+                &input2,
+                buffer.spare_capacity_mut(),
+                0,
+            )?
         };
         Ok(String::from(r))
     }
