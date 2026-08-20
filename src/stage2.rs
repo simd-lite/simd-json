@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+use std::mem::MaybeUninit;
+
 use crate::charutils::is_not_structural_or_whitespace;
 #[allow(unused_imports)]
 use crate::macros::unlikely;
@@ -107,7 +109,7 @@ impl<'de> Deserializer<'de> {
     pub(crate) fn build_tape(
         input: &'de mut [u8],
         input2: &[u8],
-        buffer: &mut [u8],
+        buffer: &mut [MaybeUninit<u8>],
         structural_indexes: &[u32],
         stack: &mut Vec<StackState>,
         max_depth: usize,
@@ -735,10 +737,10 @@ mod test {
         let mut input = Vec::from(&br#""{\"arg\":\"test\"}""#[..]);
         let mut input2 = input.clone();
         input2.append(vec![0; SIMDJSON_PADDING * 2].as_mut());
-        let mut buffer = vec![0; 1024];
+        let mut buffer = Vec::with_capacity(1024);
 
         let s = unsafe {
-            Deserializer::parse_str_(input.as_mut_ptr(), &input2, buffer.as_mut_slice(), 0)?
+            Deserializer::parse_str_(input.as_mut_ptr(), &input2, buffer.spare_capacity_mut(), 0)?
         };
         assert_eq!(r#"{"arg":"test"}"#, s);
         Ok(())

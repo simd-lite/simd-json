@@ -10,6 +10,7 @@ use std::arch::aarch64::{
     uint8x16_t, vandq_u8, vceqq_u8, vgetq_lane_u32, vld1q_u8, vmovq_n_u8, vpaddq_u8,
     vreinterpretq_u32_u8,
 };
+use std::mem::MaybeUninit;
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
 fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
@@ -45,7 +46,7 @@ fn find_bs_bits_and_quote_bits(v0: uint8x16_t, v1: uint8x16_t) -> (u32, u32) {
 pub(crate) fn parse_str<'invoke, 'de>(
     input: SillyWrapper<'de>,
     data: &'invoke [u8],
-    buffer: &'invoke mut [u8],
+    buffer: &'invoke mut [MaybeUninit<u8>],
     mut idx: usize,
 ) -> Result<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
@@ -121,9 +122,12 @@ pub(crate) fn parse_str<'invoke, 'de>(
         };
 
         unsafe {
+            // TODO: this should use `write_copy_of_slice` on Rust 1.93+
             buffer
                 .get_kinda_unchecked_mut(dst_i..dst_i + 32)
-                .copy_from_slice(src.get_kinda_unchecked(src_i..src_i + 32));
+                .as_mut_ptr()
+                .cast::<u8>()
+                .copy_from_nonoverlapping(src.get_kinda_unchecked(src_i..src_i + 32).as_ptr(), 32);
         }
 
         // store to dest unconditionally - we can overwrite the bits we don't like
@@ -147,7 +151,7 @@ pub(crate) fn parse_str<'invoke, 'de>(
             unsafe {
                 input
                     .add(idx + len)
-                    .copy_from_nonoverlapping(buffer.as_ptr(), dst_i);
+                    .copy_from_nonoverlapping(buffer.as_ptr().cast::<u8>(), dst_i);
                 let v = std::str::from_utf8_unchecked(std::slice::from_raw_parts(
                     input.add(idx),
                     len + dst_i,
@@ -196,7 +200,9 @@ pub(crate) fn parse_str<'invoke, 'de>(
                     ));
                 }
                 unsafe {
-                    *buffer.get_kinda_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
+                    buffer
+                        .get_kinda_unchecked_mut(dst_i + bs_dist as usize)
+                        .write(escape_result);
                 }
                 src_i += bs_dist as usize + 2;
                 dst_i += bs_dist as usize + 1;

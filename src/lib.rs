@@ -68,6 +68,7 @@ mod stage2;
 /// simd-json JSON-DOM value
 pub mod value;
 
+use std::mem::MaybeUninit;
 use std::{alloc::dealloc, mem};
 pub use value_trait::StaticNode;
 
@@ -357,7 +358,7 @@ type FnRaw = *mut ();
 type ParseStrFn = for<'invoke, 'de> unsafe fn(
     SillyWrapper<'de>,
     &'invoke [u8],
-    &'invoke mut [u8],
+    &'invoke mut [MaybeUninit<u8>],
     usize,
 ) -> std::result::Result<&'de str, error::Error>;
 #[cfg(all(
@@ -514,7 +515,7 @@ impl<'de> Deserializer<'de> {
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
+        buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str>
     where
@@ -538,7 +539,7 @@ impl<'de> Deserializer<'de> {
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
+        buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str>
     where
@@ -552,7 +553,7 @@ impl<'de> Deserializer<'de> {
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
+        buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str>
     where
@@ -571,7 +572,7 @@ impl<'de> Deserializer<'de> {
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
+        buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str> {
         let input: SillyWrapper<'de> = SillyWrapper::from(input);
@@ -588,7 +589,7 @@ impl<'de> Deserializer<'de> {
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
+        buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str> {
         let input: SillyWrapper<'de> = SillyWrapper::from(input);
@@ -600,7 +601,7 @@ impl<'de> Deserializer<'de> {
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
+        buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str> {
         let input: SillyWrapper = SillyWrapper::from(input);
@@ -611,7 +612,7 @@ impl<'de> Deserializer<'de> {
     pub(crate) unsafe fn parse_str_<'invoke>(
         input: *mut u8,
         data: &'invoke [u8],
-        buffer: &'invoke mut [u8],
+        buffer: &'invoke mut [MaybeUninit<u8>],
         idx: usize,
     ) -> Result<&'de str> {
         let input: SillyWrapper<'de> = SillyWrapper::from(input);
@@ -876,10 +877,6 @@ impl<'de> Deserializer<'de> {
         buffer.string_buffer.clear();
         buffer.string_buffer.reserve(len + SIMDJSON_PADDING);
 
-        unsafe {
-            buffer.string_buffer.set_len(len + SIMDJSON_PADDING);
-        };
-
         let input_buffer = &mut buffer.input_buffer;
         if input_buffer.capacity() < simd_safe_len {
             *input_buffer = AlignedBuf::with_capacity(simd_safe_len);
@@ -907,7 +904,7 @@ impl<'de> Deserializer<'de> {
         Self::build_tape(
             input,
             input_buffer,
-            &mut buffer.string_buffer,
+            buffer.string_buffer.spare_capacity_mut(),
             &buffer.structural_indexes,
             &mut buffer.stage2_stack,
             buffer.max_depth,
