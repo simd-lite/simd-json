@@ -59,7 +59,8 @@ pub(crate) fn get_unicode_codepoint(mut src_ptr: &[u8]) -> Result<(u32, usize), 
         if (unsafe { *src_ptr.get_kinda_unchecked(0) } != b'\\')
             || unsafe { *src_ptr.get_kinda_unchecked(1) } != b'u'
         {
-            return Ok((0, src_offset));
+            // A high surrogate must be followed by a `\u` low surrogate.
+            return Err(ErrorType::InvalidUnicodeCodepoint);
         }
 
         let code_point_2: u32 = hex_to_u32_nocheck(unsafe { src_ptr.get_kinda_unchecked(2..) });
@@ -70,7 +71,8 @@ pub(crate) fn get_unicode_codepoint(mut src_ptr: &[u8]) -> Result<(u32, usize), 
         // this check catches both the case of the first code point being invalid
         // or the second code point being invalid.
         if ((code_point | code_point_2) >> 16) != 0 {
-            return Ok((0, src_offset));
+            // One of the two escapes has invalid hex digits.
+            return Err(ErrorType::InvalidUnicodeCodepoint);
         }
         let Some(c1) = code_point.checked_sub(0xd800) else {
             return Err(ErrorType::InvalidUtf8);
