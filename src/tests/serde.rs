@@ -1243,3 +1243,60 @@ fn value_fixed_length_sequences_reject_extra_elements() {
     );
     assert!(from_owned_value::<(u8, u8, u8, u8)>(o).is_err());
 }
+
+#[test]
+fn value_struct_variant_from_sequence() {
+    // A struct variant written as a sequence deserializes from text; from a Value it failed with
+    // Unexpected(Object, Array).
+    use crate::serde::{
+        from_borrowed_value, from_owned_value, from_refborrowed_value, from_refowned_value,
+    };
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum E {
+        S { a: u8, b: String },
+    }
+    let expected = E::S {
+        a: 5,
+        b: "k".to_string(),
+    };
+    let mut d = br#"{"S":[5,"k"]}"#.to_vec();
+    assert_eq!(
+        from_slice::<E>(&mut d).ok(),
+        Some(E::S {
+            a: 5,
+            b: "k".to_string()
+        })
+    );
+    let mut d = br#"{"S":[5,"k"]}"#.to_vec();
+    let o = to_owned_value(&mut d).expect("valid");
+    assert_eq!(
+        from_owned_value::<E>(o.clone()).ok(),
+        Some(E::S {
+            a: 5,
+            b: "k".to_string()
+        })
+    );
+    assert_eq!(
+        from_refowned_value::<E>(&o).ok(),
+        Some(E::S {
+            a: 5,
+            b: "k".to_string()
+        })
+    );
+    let mut d = br#"{"S":[5,"k"]}"#.to_vec();
+    let b = to_borrowed_value(&mut d).expect("valid");
+    assert_eq!(
+        from_borrowed_value::<E>(b.clone()).ok(),
+        Some(E::S {
+            a: 5,
+            b: "k".to_string()
+        })
+    );
+    assert_eq!(from_refborrowed_value::<E>(&b).ok(), Some(expected));
+    for bad in [&br#"{"S":[5]}"#[..], br#"{"S":[5,"k",1]}"#] {
+        let mut d = bad.to_vec();
+        let o = to_owned_value(&mut d).expect("valid");
+        assert!(from_owned_value::<E>(o.clone()).is_err());
+        assert!(from_refowned_value::<E>(&o).is_err());
+    }
+}

@@ -607,6 +607,8 @@ impl<'de> VariantAccess<'de> for VariantDeserializer {
     {
         match self.value {
             Some(Value::Object(o)) => visitor.visit_map(ObjectAccess::new(o.into_iter())),
+            // a struct variant may be written as a sequence, as when deserializing from text
+            Some(Value::Array(a)) => visit_array(Array(a.into_iter()), visitor),
             Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
                 Some(ValueType::Object),
                 Some(other.value_type()),
@@ -810,6 +812,8 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
     {
         match self.value {
             Some(Value::Object(o)) => visitor.visit_map(ObjectRefAccess::new(o.iter())),
+            // a struct variant may be written as a sequence, as when deserializing from text
+            Some(Value::Array(a)) => visit_array(ArrayRef(a.as_slice().iter()), visitor),
             Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
                 Some(ValueType::Object),
                 Some(other.value_type()),
