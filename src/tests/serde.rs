@@ -1327,3 +1327,47 @@ fn value_tuple_variant_from_sequence() {
     assert!(from_borrowed_value::<E>(b.clone()).is_err());
     assert!(from_refborrowed_value::<E>(&b).is_err());
 }
+
+#[test]
+fn fixed_length_sequences_reject_extra_elements() {
+    // A tuple, array or tuple struct reads only as many elements as it has. The rest of the
+    // array used to stay on the tape and be read as the values after it: `[[1,2,3],4]` as
+    // `((u8, u8), u8)` gave `((1, 2), 3)`. Extra elements are an error, as in serde_json.
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Pair(u8, u8);
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Named {
+        a: u8,
+    }
+
+    let mut d = b"[[1,2,3],4]".to_vec();
+    assert!(from_slice::<((u8, u8), u8)>(&mut d).is_err());
+    let mut d = b"[1,[2,99,98],3]".to_vec();
+    assert!(from_slice::<(u8, (u8,), u8)>(&mut d).is_err());
+    let mut d = b"[[1,2,[9,9]],[4,5]]".to_vec();
+    assert!(from_slice::<Vec<(u8, u8)>>(&mut d).is_err());
+    let mut d = b"[1,2,3]".to_vec();
+    assert!(from_slice::<[u8; 2]>(&mut d).is_err());
+    let mut d = b"[1,2,3]".to_vec();
+    assert!(from_slice::<Pair>(&mut d).is_err());
+    let mut d = b"[1,2]".to_vec();
+    assert!(from_slice::<Named>(&mut d).is_err());
+    let mut d = br#"{"a":[1,2,3],"b":[4,5]}"#.to_vec();
+    assert!(from_slice::<std::collections::BTreeMap<String, (u8, u8)>>(&mut d).is_err());
+
+    // exact lengths, and sequences of any length, are unchanged
+    let mut d = b"[[1,2],3]".to_vec();
+    assert_eq!(from_slice::<((u8, u8), u8)>(&mut d).ok(), Some(((1, 2), 3)));
+    let mut d = b"[1,2]".to_vec();
+    assert_eq!(from_slice::<Pair>(&mut d).ok(), Some(Pair(1, 2)));
+    let mut d = b"[1]".to_vec();
+    assert_eq!(from_slice::<Named>(&mut d).ok(), Some(Named { a: 1 }));
+    let mut d = b"[[1,2,3],[4]]".to_vec();
+    assert_eq!(
+        from_slice::<Vec<Vec<u8>>>(&mut d).ok(),
+        Some(vec![vec![1, 2, 3], vec![4]])
+    );
+    // fewer elements is still an error
+    let mut d = b"[1]".to_vec();
+    assert!(from_slice::<(u8, u8)>(&mut d).is_err());
+}

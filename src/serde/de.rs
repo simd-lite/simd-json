@@ -30,8 +30,8 @@ where
             Node::Static(StaticNode::U64(n)) => visitor.visit_u64(n),
             #[cfg(feature = "128bit")]
             Node::Static(StaticNode::U128(n)) => visitor.visit_u128(n),
-            Node::Array { len, count: _ } => visitor.visit_seq(CommaSeparated::new(self, len)),
-            Node::Object { len, count: _ } => visitor.visit_map(CommaSeparated::new(self, len)),
+            Node::Array { len, count: _ } => visit_array(self, len, visitor),
+            Node::Object { len, count: _ } => visit_object(self, len, visitor),
         }
     }
 
@@ -237,7 +237,7 @@ where
         // Parse the opening bracket of the sequence.
         if let Ok(Node::Array { len, count: _ }) = self.next() {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_seq(CommaSeparated::new(self, len))
+            visit_array(self, len, visitor)
         } else {
             Err(Deserializer::error(ErrorType::ExpectedArray))
         }
@@ -300,7 +300,7 @@ where
         // Parse the opening bracket of the sequence.
         if let Ok(Node::Object { len, count: _ }) = self.next() {
             // Give the visitor access to each element of the sequence.
-            visitor.visit_map(CommaSeparated::new(self, len))
+            visit_object(self, len, visitor)
         } else {
             Err(Deserializer::error(ErrorType::ExpectedMap))
         }
@@ -318,8 +318,8 @@ where
     {
         match self.next() {
             // Give the visitor access to each element of the sequence.
-            Ok(Node::Object { len, count: _ }) => visitor.visit_map(CommaSeparated::new(self, len)),
-            Ok(Node::Array { len, count: _ }) => visitor.visit_seq(CommaSeparated::new(self, len)),
+            Ok(Node::Object { len, count: _ }) => visit_object(self, len, visitor),
+            Ok(Node::Array { len, count: _ }) => visit_array(self, len, visitor),
             _ => Err(Deserializer::error(ErrorType::ExpectedMap)),
         }
     }
@@ -403,6 +403,37 @@ impl<'de> de::VariantAccess<'de> for VariantAccess<'_, 'de> {
         V: de::Visitor<'de>,
     {
         de::Deserializer::deserialize_struct(self.de, "", fields, visitor)
+    }
+}
+
+/// Hands the `len` elements of an array to `visitor`. A visitor of fixed length (tuple, array,
+/// tuple struct, struct from an array) stops asking for elements once it has enough; the elements
+/// it left unread would stay on the tape and be read as the values that follow, so they are an
+/// error, as in `serde_json` ("trailing characters") and `serde::de::value::SeqDeserializer`.
+fn visit_array<'de, V>(de: &mut Deserializer<'de>, len: usize, visitor: V) -> Result<V::Value>
+where
+    V: Visitor<'de>,
+{
+    let mut seq = CommaSeparated::new(de, len);
+    let value = stry!(visitor.visit_seq(&mut seq));
+    if seq.len == 0 {
+        Ok(value)
+    } else {
+        Err(de::Error::invalid_length(len, &"fewer elements in array"))
+    }
+}
+
+/// Like [`visit_array`], for the `len` members of an object.
+fn visit_object<'de, V>(de: &mut Deserializer<'de>, len: usize, visitor: V) -> Result<V::Value>
+where
+    V: Visitor<'de>,
+{
+    let mut map = CommaSeparated::new(de, len);
+    let value = stry!(visitor.visit_map(&mut map));
+    if map.len == 0 {
+        Ok(value)
+    } else {
+        Err(de::Error::invalid_length(len, &"fewer elements in map"))
     }
 }
 
