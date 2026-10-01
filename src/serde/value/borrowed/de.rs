@@ -51,7 +51,7 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
                 Cow::Owned(s) => visitor.visit_string(s),
             },
 
-            Value::Array(a) => visitor.visit_seq(Array(a.into_iter())),
+            Value::Array(a) => visit_array(Array(a.into_iter()), visitor),
             Value::Object(o) => visitor.visit_map(ObjectAccess::new(o.into_iter())),
         }
     }
@@ -126,7 +126,7 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
     {
         match self {
             // Give the visitor access to each element of the sequence.
-            Value::Array(a) => visitor.visit_seq(Array(a.into_iter())),
+            Value::Array(a) => visit_array(Array(a.into_iter()), visitor),
             Value::Object(o) => visitor.visit_map(ObjectAccess::new(o.into_iter())),
             other => Err(crate::Deserializer::error(ErrorType::Unexpected(
                 Some(ValueType::Object),
@@ -142,7 +142,33 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
     }
 }
 
+/// Number of array elements not yet handed out.
+trait Remaining {
+    fn remaining(&self) -> usize;
+}
+
+/// Hands the array to `visitor`; elements a fixed-length visitor (tuple, array, tuple struct) did
+/// not read are an error, as with the text deserializer and serde's `SeqDeserializer`.
+fn visit_array<'de, A, V>(mut seq: A, visitor: V) -> Result<V::Value, Error>
+where
+    A: SeqAccess<'de, Error = Error> + Remaining,
+    V: Visitor<'de>,
+{
+    let len = seq.remaining();
+    let value = visitor.visit_seq(&mut seq)?;
+    if seq.remaining() == 0 {
+        Ok(value)
+    } else {
+        Err(de::Error::invalid_length(len, &"fewer elements in array"))
+    }
+}
+
 struct Array<'de>(std::vec::IntoIter<Value<'de>>);
+impl Remaining for Array<'_> {
+    fn remaining(&self) -> usize {
+        self.0.len()
+    }
+}
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
@@ -160,6 +186,11 @@ impl<'de> SeqAccess<'de> for Array<'de> {
 }
 
 struct ArrayRef<'de>(std::slice::Iter<'de, Value<'de>>);
+impl Remaining for ArrayRef<'_> {
+    fn remaining(&self) -> usize {
+        self.0.len()
+    }
+}
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
@@ -565,7 +596,7 @@ impl<'de> VariantAccess<'de> for VariantDeserializer<'de> {
                 if v.is_empty() {
                     visitor.visit_unit()
                 } else {
-                    visitor.visit_seq(Array(v.into_iter()))
+                    visit_array(Array(v.into_iter()), visitor)
                 }
             }
             Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
@@ -623,7 +654,7 @@ impl<'de> de::Deserializer<'de> for &'de Value<'de> {
             #[allow(clippy::useless_conversion)] // .into() required by ordered-float
             Value::Static(StaticNode::F64(n)) => visitor.visit_f64((*n).into()),
             Value::String(s) => visitor.visit_borrowed_str(s),
-            Value::Array(a) => visitor.visit_seq(ArrayRef(a.as_slice().iter())),
+            Value::Array(a) => visit_array(ArrayRef(a.as_slice().iter()), visitor),
             Value::Object(o) => visitor.visit_map(ObjectRefAccess::new(o.iter())),
         }
     }
@@ -663,7 +694,7 @@ impl<'de> de::Deserializer<'de> for &'de Value<'de> {
     {
         match self {
             // Give the visitor access to each element of the sequence.
-            Value::Array(a) => visitor.visit_seq(ArrayRef(a.as_slice().iter())),
+            Value::Array(a) => visit_array(ArrayRef(a.as_slice().iter()), visitor),
             Value::Object(o) => visitor.visit_map(ObjectRefAccess::new(o.iter())),
             other => Err(crate::Deserializer::error(ErrorType::Unexpected(
                 Some(ValueType::Object),
@@ -778,7 +809,7 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
                 if v.is_empty() {
                     visitor.visit_unit()
                 } else {
-                    visitor.visit_seq(ArrayRef(v.as_slice().iter()))
+                    visit_array(ArrayRef(v.as_slice().iter()), visitor)
                 }
             }
             Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
