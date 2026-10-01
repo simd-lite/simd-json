@@ -234,12 +234,14 @@ where
     }
     #[cfg_attr(not(feature = "no-inline"), inline)]
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        if self.first {
-            Ok(())
-        } else {
+        // close the array of fields (`serialize_seq` wrote `[`, or `[]` for no fields), then the
+        // object `{"Variant": ...}` opened by `serialize_tuple_variant`
+        if !self.first {
             self.s.dedent();
-            iomap!(self.s.new_line().and_then(|()| self.s.write(b"}")))
+            iomap!(self.s.new_line().and_then(|()| self.s.write(b"]")))?;
         }
+        self.s.dedent();
+        iomap!(self.s.new_line().and_then(|()| self.s.write(b"}")))
     }
 }
 
@@ -903,6 +905,33 @@ mod test {
         assert_eq!(
             "{\n  \"Id\": {\n    \"mid\": 0\n  }\n}",
             crate::to_string_pretty(&Segment::Id { mid: 0 }).expect("to_string_pretty")
+        );
+    }
+
+    #[test]
+    fn pretty_print_tuple_variant() {
+        // The array of a tuple variant was closed with `}` and the enclosing object was never
+        // closed: `{"C": [1, "s" }`, not JSON.
+        #[derive(Clone, Debug, PartialEq, serde::Serialize)]
+        enum E {
+            C(i64, String),
+            Z(),
+        }
+
+        assert_eq!(
+            "{\n  \"C\": [\n    1,\n    \"s\"\n  ]\n}",
+            crate::to_string_pretty(&E::C(1, "s".into())).expect("to_string_pretty")
+        );
+        assert_eq!(
+            "{\n  \"Z\": []\n}",
+            crate::to_string_pretty(&E::Z()).expect("to_string_pretty")
+        );
+        // and nested in an array, which must still parse and match serde_json
+        let v = vec![E::C(1, "a".into()), E::C(2, "b".into())];
+        let pretty = crate::to_string_pretty(&v).expect("to_string_pretty");
+        assert_eq!(
+            pretty,
+            serde_json::to_string_pretty(&v).expect("serde_json")
         );
     }
 
