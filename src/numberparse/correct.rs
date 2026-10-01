@@ -164,10 +164,13 @@ impl Deserializer<'_> {
                     idx += 1;
                 }
                 while is_integer(get!(buf, idx)) {
-                    if exp_number > 0x0001_0000_0000 {
-                        err!(idx, get!(buf, idx))
+                    // Any exponent this large is far outside the f64 range: the number is
+                    // 0 or infinite whatever further digits follow, so stop growing it
+                    // (no overflow) but keep consuming digits. RFC 8259 puts no limit on
+                    // the exponent; `0e99999999999` and `1e-99999999999` are zero.
+                    if exp_number <= 0x0001_0000_0000 {
+                        exp_number = 10 * exp_number + i64::from(get!(buf, idx) - b'0');
                     }
-                    exp_number = 10 * exp_number + i64::from(get!(buf, idx) - b'0');
                     idx += 1;
                 }
                 exponent += if neg_exp { -exp_number } else { exp_number };
@@ -198,7 +201,8 @@ impl Deserializer<'_> {
             f64_from_parts(
                 !negative,
                 num,
-                exponent as i32,
+                // saturate, never wrap: a wrapped exponent would give a wrong finite value
+                i32::try_from(exponent).unwrap_or(if exponent < 0 { i32::MIN } else { i32::MAX }),
                 unsafe { buf.get_kinda_unchecked(start_idx..idx) },
                 start_idx,
             )
@@ -596,6 +600,51 @@ mod test {
         assert!(to_value_from_str("1e1000").is_err());
         assert!(to_value_from_str("100000000000000000000000000000000000000000000e309").is_err());
         assert!(to_value_from_str("100000000000000000000000000000000000000000000e1000").is_err());
+    }
+
+    #[test]
+    fn huge_exponent() -> Result<(), crate::Error> {
+        // RFC 8259 §6 puts no limit on the exponent. A zero significand or an exponent far
+        // below the f64 range is zero, however many exponent digits there are.
+        for (input, expected) in [
+            ("0e99999999999", 0.0),
+            ("-0e99999999999", -0.0),
+            ("0E4294967297", 0.0),
+            ("2e-44444044280", 0.0),
+            ("1e-99999999999", 0.0),
+            ("-1e-99999999999", -0.0),
+            ("1e-4294967295", 0.0),
+            ("1.5e-8589934592", 0.0),
+            ("0.1e-9223372036854775808", 0.0),
+        ] {
+            let v = to_value_from_str(input)?;
+            let Static(StaticNode::F64(f)) = v else {
+                panic!("{input} parsed as {v:?}");
+            };
+            assert_eq!(
+                f.to_bits(),
+                f64::to_bits(expected),
+                "{input} parsed as {f:?}"
+            );
+        }
+        assert_eq!(
+            to_value_from_str("[1e-99999999999,2]")?,
+            crate::OwnedValue::Array(Box::new(vec![
+                Static(StaticNode::from(0.0)),
+                Static(U64(2))
+            ]))
+        );
+        // ... and anything far above it is out of range (an error, as for 1e309), never a
+        // wrapped-around finite value.
+        for input in [
+            "1e4294967296",
+            "1e4294967295",
+            "1e2147483648",
+            "1e99999999999",
+        ] {
+            assert!(to_value_from_str(input).is_err(), "{input}");
+        }
+        Ok(())
     }
 
     #[test]
