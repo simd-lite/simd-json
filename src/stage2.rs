@@ -110,14 +110,17 @@ impl<'de> Deserializer<'de> {
         buffer: &mut [u8],
         structural_indexes: &[u32],
         stack: &mut Vec<StackState>,
+        max_depth: usize,
         res: &mut Vec<Node<'de>>,
     ) -> Result<()> {
         res.clear();
         res.reserve(structural_indexes.len());
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
         // a invalid json might exceed this `[[[[[[` and we need to protect against that.
+        //
+        // Use the minimul of the length and `max_depth` to avoid under-reserving.
         stack.clear();
-        stack.reserve(structural_indexes.len());
+        stack.reserve(structural_indexes.len().min(max_depth));
 
         // Safety: Must NOT advance input pointer as part of logic, since we only get the pointer once.
         // Use idx in order to advance through the input.
@@ -317,11 +320,19 @@ impl<'de> Deserializer<'de> {
                 return Err(Error::new_c(idx, c as char, $t));
             };
         }
+        macro_rules! check_depth {
+            () => {
+                if unlikely!(depth >= max_depth) {
+                    fail!(ErrorType::DepthLimitExceeded);
+                }
+            };
+        }
         // State start, we pull this outside of the
         // loop to reduce the number of required checks
         update_char!();
         match c {
             b'{' => {
+                check_depth!();
                 unsafe {
                     stack_ptr.add(depth).write(StackState::Start);
                 }
@@ -348,6 +359,7 @@ impl<'de> Deserializer<'de> {
                 }
             }
             b'[' => {
+                check_depth!();
                 unsafe {
                     stack_ptr.add(depth).write(StackState::Start);
                 }
@@ -481,6 +493,7 @@ impl<'de> Deserializer<'de> {
                             object_continue!();
                         }
                         b'{' => {
+                            check_depth!();
                             unsafe {
                                 stack_ptr
                                     .add(depth)
@@ -493,6 +506,7 @@ impl<'de> Deserializer<'de> {
                             object_begin!();
                         }
                         b'[' => {
+                            check_depth!();
                             unsafe {
                                 stack_ptr
                                     .add(depth)
@@ -515,21 +529,27 @@ impl<'de> Deserializer<'de> {
                         fail!(ErrorType::Syntax);
                     }
                     depth -= 1;
+                    // Every `goto!(ScopeEnd)` sets `c` to the closing byte:
+                    // `}` for objects, `]` for arrays. That provably matches the
+                    // container header written at `last_start`, so write the whole
+                    // node blindly (lowers to a csel) instead of reloading the tag,
+                    // matching it, and keeping a branch-to-panic in the hot loop.
+                    let len = cnt;
+                    let count = r_i - last_start - 1;
+                    debug_assert!(
+                        matches!(
+                            (c, unsafe { *res_ptr.add(last_start) }),
+                            (b'}', Node::Object { .. }) | (b']', Node::Array { .. })
+                        ),
+                        "scope end needs to be an array or object matching `c`"
+                    );
+                    let node = if c == b'}' {
+                        Node::Object { len, count }
+                    } else {
+                        Node::Array { len, count }
+                    };
                     unsafe {
-                        match *res_ptr.add(last_start) {
-                            Node::Array {
-                                ref mut len,
-                                count: ref mut end,
-                            }
-                            | Node::Object {
-                                ref mut len,
-                                count: ref mut end,
-                            } => {
-                                *len = cnt;
-                                *end = r_i - last_start - 1;
-                            }
-                            _ => unreachable!("scop end needs to be an array or object"),
-                        }
+                        res_ptr.add(last_start).write(node);
                     }
                     unsafe {
                         match *stack_ptr.add(depth) {
@@ -604,6 +624,7 @@ impl<'de> Deserializer<'de> {
                             array_continue!();
                         }
                         b'{' => {
+                            check_depth!();
                             unsafe {
                                 stack_ptr
                                     .add(depth)
@@ -616,6 +637,7 @@ impl<'de> Deserializer<'de> {
                             object_begin!();
                         }
                         b'[' => {
+                            check_depth!();
                             unsafe {
                                 stack_ptr
                                     .add(depth)

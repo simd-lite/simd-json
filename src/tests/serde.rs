@@ -1109,3 +1109,106 @@ proptest! {
 
     }
 }
+
+// Regression test for the `next_value_seed` unchecked-index hole: a safe,
+// hand-written `Visitor` that calls `next_value_seed` more often than the map
+// has entries (without calling `next_key_seed`) must get an error back — not
+// drive the tape index out of bounds (debug: index panic, release: UB through
+// `get_unchecked`).
+#[test]
+fn overdriven_next_value_seed_errors_instead_of_oob() {
+    use serde_ext::de::{self, MapAccess, Visitor};
+    use std::fmt;
+
+    struct Evil;
+    impl<'de> de::Deserialize<'de> for Evil {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: de::Deserializer<'de>,
+        {
+            struct EvilVisitor;
+            impl<'de> Visitor<'de> for EvilVisitor {
+                type Value = Evil;
+                fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    f.write_str("a map")
+                }
+                fn visit_map<A>(self, mut map: A) -> Result<Evil, A::Error>
+                where
+                    A: MapAccess<'de>,
+                {
+                    for _ in 0..1024 {
+                        map.next_value::<u64>()?;
+                    }
+                    Ok(Evil)
+                }
+            }
+            deserializer.deserialize_map(EvilVisitor)
+        }
+    }
+
+    let mut input = b"{}".to_vec();
+    assert!(from_slice::<Evil>(&mut input).is_err());
+}
+
+/// Reproduction for <https://github.com/simd-lite/simd-json/issues/471>:
+/// re-entering a `Deserializer` whose tape is already exhausted must return an
+/// error instead of performing an out of bounds read on the tape.
+#[test]
+fn exhausted_deserializer_errors_instead_of_oob() {
+    let mut data = b"123".to_vec();
+    let mut de = Deserializer::from_slice(&mut data).expect("failed to build deserializer");
+
+    assert_eq!(u8::deserialize(&mut de).expect("first read"), 123);
+    // the tape is consumed now, every further read has to fail cleanly
+    assert!(u8::deserialize(&mut de).is_err());
+    assert!(u16::deserialize(&mut de).is_err());
+    assert!(u32::deserialize(&mut de).is_err());
+    assert!(u64::deserialize(&mut de).is_err());
+    assert!(i8::deserialize(&mut de).is_err());
+    assert!(i16::deserialize(&mut de).is_err());
+    assert!(i32::deserialize(&mut de).is_err());
+    assert!(i64::deserialize(&mut de).is_err());
+    assert!(f64::deserialize(&mut de).is_err());
+    assert!(f32::deserialize(&mut de).is_err());
+}
+
+/// A visitor that walks the tape past the end via the key side of `MapAccess`
+/// must error instead of reading out of bounds, see
+/// <https://github.com/simd-lite/simd-json/issues/471>.
+#[test]
+fn overdriven_next_key_seed_errors_instead_of_oob() {
+    use serde_ext::de::{self, MapAccess, Visitor};
+    use std::fmt;
+
+    struct Evil;
+    impl<'de> de::Deserialize<'de> for Evil {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: de::Deserializer<'de>,
+        {
+            struct EvilVisitor;
+            impl<'de> Visitor<'de> for EvilVisitor {
+                type Value = Evil;
+                fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    f.write_str("a map")
+                }
+                fn visit_map<A>(self, mut map: A) -> Result<Evil, A::Error>
+                where
+                    A: MapAccess<'de>,
+                {
+                    // burn both the key and the value through the value side,
+                    // then ask for a key that no longer exists
+                    map.next_value::<String>()?;
+                    map.next_value::<u64>()?;
+                    // an integer key takes `MapKey`'s unchecked tape read
+                    map.next_key::<u64>()?;
+                    Ok(Evil)
+                }
+            }
+            deserializer.deserialize_map(EvilVisitor)
+        }
+    }
+
+    let mut input = br#"{"a":1}"#.to_vec();
+    assert!(from_slice::<Evil>(&mut input).is_err());
+}

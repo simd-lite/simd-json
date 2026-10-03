@@ -86,6 +86,8 @@ pub enum ErrorType {
     ExpectedObjectKey,
     /// Overflow of a limited buffer
     Overflow,
+    /// The structure depth exceeds the limit (`1024` by default).
+    DepthLimitExceeded,
     /// No SIMD support detected during runtime
     SimdUnsupported,
     /// IO error
@@ -143,7 +145,10 @@ impl PartialEq for ErrorType {
             | (Self::ExpectedArrayContent, Self::ExpectedArrayContent)
             | (Self::ExpectedObjectContent, Self::ExpectedObjectContent)
             | (Self::ExpectedObjectKey, Self::ExpectedObjectKey)
-            | (Self::Overflow, Self::Overflow) => true,
+            | (Self::Overflow, Self::Overflow)
+            | (Self::DepthLimitExceeded, Self::DepthLimitExceeded)
+            | (Self::InputTooLarge, Self::InputTooLarge)
+            | (Self::SimdUnsupported, Self::SimdUnsupported) => true,
             (Self::Serde(s1), Self::Serde(s2)) => s1 == s2,
             (Self::InternalError(e1), Self::InternalError(e2)) => e1 == e2,
             _ => false,
@@ -162,6 +167,8 @@ pub struct Error {
 }
 
 impl Error {
+    #[cold]
+    #[inline(never)]
     pub(crate) fn new(index: usize, character: Option<char>, err_type: ErrorType) -> Self {
         Self {
             index,
@@ -169,12 +176,16 @@ impl Error {
             err_type,
         }
     }
+    #[cold]
+    #[inline(never)]
     pub(crate) fn new_c(index: usize, character: char, error: ErrorType) -> Self {
         Self::new(index, Some(character), error)
     }
 
     /// Create a generic error
     #[must_use = "Error creation"]
+    #[cold]
+    #[inline(never)]
     pub fn generic(t: ErrorType) -> Self {
         Self {
             index: 0,

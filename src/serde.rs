@@ -218,7 +218,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u8(&mut self) -> Result<u8> {
-        match unsafe { self.next_() } {
+        match stry!(self.next()) {
             Node::Static(s) => s
                 .as_u8()
                 .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
@@ -229,7 +229,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u16(&mut self) -> Result<u16> {
-        let next = unsafe { self.next_() };
+        let next = stry!(self.next());
         match next {
             Node::Static(s) => s
                 .as_u16()
@@ -241,7 +241,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u32(&mut self) -> Result<u32> {
-        match unsafe { self.next_() } {
+        match stry!(self.next()) {
             Node::Static(s) => s
                 .as_u32()
                 .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
@@ -252,7 +252,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u64(&mut self) -> Result<u64> {
-        match unsafe { self.next_() } {
+        match stry!(self.next()) {
             Node::Static(s) => s
                 .as_u64()
                 .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
@@ -263,7 +263,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_u128(&mut self) -> Result<u128> {
-        match unsafe { self.next_() } {
+        match stry!(self.next()) {
             Node::Static(s) => s
                 .as_u128()
                 .ok_or_else(|| Self::error(ErrorType::ExpectedUnsigned)),
@@ -274,7 +274,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_i8(&mut self) -> Result<i8> {
-        match unsafe { self.next_() } {
+        match stry!(self.next()) {
             Node::Static(s) => s
                 .as_i8()
                 .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
@@ -285,7 +285,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_i16(&mut self) -> Result<i16> {
-        match unsafe { self.next_() } {
+        match stry!(self.next()) {
             Node::Static(s) => s
                 .as_i16()
                 .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
@@ -296,7 +296,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_i32(&mut self) -> Result<i32> {
-        match unsafe { self.next_() } {
+        match stry!(self.next()) {
             Node::Static(s) => s
                 .as_i32()
                 .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
@@ -307,7 +307,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_i64(&mut self) -> Result<i64> {
-        match unsafe { self.next_() } {
+        match stry!(self.next()) {
             Node::Static(s) => s
                 .as_i64()
                 .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
@@ -318,7 +318,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
     fn parse_i128(&mut self) -> Result<i128> {
-        match unsafe { self.next_() } {
+        match stry!(self.next()) {
             Node::Static(s) => s
                 .as_i128()
                 .ok_or_else(|| Self::error(ErrorType::ExpectedSigned)),
@@ -329,7 +329,7 @@ impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn parse_double(&mut self) -> Result<f64> {
-        match unsafe { self.next_() } {
+        match stry!(self.next()) {
             #[allow(clippy::useless_conversion)] // .into() required by ordered-float
             Node::Static(StaticNode::F64(n)) => Ok(n.into()),
             Node::Static(StaticNode::I64(n)) => Ok(n as f64),
