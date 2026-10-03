@@ -1,3 +1,5 @@
+use alloc::vec;
+use alloc::vec::Vec;
 /// A tape of a parsed json, all values are extracted and validated and
 /// can be used without further computation.
 use value_trait::{StaticNode, TryTypeError, ValueType, base::TypedValue as _};
@@ -31,7 +33,7 @@ impl<'input> Tape<'input> {
         self.0.clear();
         // SAFETY: At this point the tape is empty, so no data in there has a lifetime associated with it,
         // so we can safely change the lifetime of the tape to 'new
-        unsafe { std::mem::transmute(self) }
+        unsafe { core::mem::transmute(self) }
     }
 
     /// Deserializes the tape into a type that implements `serde::Deserialize`

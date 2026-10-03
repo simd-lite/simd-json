@@ -1,3 +1,4 @@
+use alloc::string::String;
 use super::Value;
 use crate::OwnedValue;
 use crate::prelude::*;
@@ -170,14 +171,14 @@ where
     }
 }
 
-impl<'v, K, T, S> PartialEq<std::collections::HashMap<K, T, S>> for Value<'v>
+impl<'v, K, T, S> PartialEq<hashbrown::HashMap<K, T, S>> for Value<'v>
 where
-    K: AsRef<str> + std::hash::Hash + Eq,
+    K: AsRef<str> + core::hash::Hash + Eq,
     Value<'v>: PartialEq<T>,
-    S: std::hash::BuildHasher,
+    S: core::hash::BuildHasher,
 {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn eq(&self, other: &std::collections::HashMap<K, T, S>) -> bool {
+    fn eq(&self, other: &hashbrown::HashMap<K, T, S>) -> bool {
         self.as_object().is_some_and(|object| {
             object.len() == other.len()
                 && other

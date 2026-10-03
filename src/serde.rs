@@ -9,16 +9,19 @@
 mod de;
 mod se;
 mod value;
+
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use core::fmt;
+use core::fmt::Formatter;
 pub use self::se::*;
 pub use self::value::*;
 use crate::{BorrowedValue, OwnedValue};
-use crate::{Buffers, Deserializer, Error, ErrorType, Node, Result, macros::stry};
+use crate::{Buffers, Deserializer, Error, ErrorType, Node, SJsonResult, macros::stry};
 use serde::de::DeserializeOwned;
 use serde_ext::Deserialize;
-use std::fmt;
-use std::io;
 use value_trait::prelude::*;
-type ConvertResult<T> = std::result::Result<T, SerdeConversionError>;
+type ConvertResult<T> = core::result::Result<T, SerdeConversionError>;
 
 /// Error while converting from or to serde values
 #[derive(Debug)]
@@ -30,8 +33,8 @@ pub enum SerdeConversionError {
     /// Something horrible went wrong, please open a ticket at <https://simd-json.rs>
     Oops,
 }
-impl std::fmt::Display for SerdeConversionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Display for SerdeConversionError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use SerdeConversionError::{NanOrInfinity, NumberOutOfBounds, Oops};
         match self {
             NanOrInfinity => write!(f, "JSON can not represent NAN or Infinity values"),
@@ -44,7 +47,7 @@ impl std::fmt::Display for SerdeConversionError {
     }
 }
 
-impl std::error::Error for SerdeConversionError {}
+impl core::error::Error for SerdeConversionError {}
 
 /// parses a byte slice using a serde deserializer.
 /// note that the slice will be rewritten in the process.
@@ -53,7 +56,7 @@ impl std::error::Error for SerdeConversionError {}
 ///
 /// Will return `Err` if `s` is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn from_slice<'a, T>(s: &'a mut [u8]) -> Result<T>
+pub fn from_slice<'a, T>(s: &'a mut [u8]) -> SJsonResult<T>
 where
     T: Deserialize<'a>,
 {
@@ -70,7 +73,7 @@ where
 ///
 /// Will return `Err` if `s` is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn from_slice_with_buffers<'a, T>(s: &'a mut [u8], buffers: &mut Buffers) -> Result<T>
+pub fn from_slice_with_buffers<'a, T>(s: &'a mut [u8], buffers: &mut Buffers) -> SJsonResult<T>
 where
     T: Deserialize<'a>,
 {
@@ -94,7 +97,7 @@ where
 /// holding the same guarantees as `str::as_bytes_mut` in that after the call &str might include
 /// invalid utf8 bytes.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub unsafe fn from_str<'a, T>(s: &'a mut str) -> Result<T>
+pub unsafe fn from_str<'a, T>(s: &'a mut str) -> SJsonResult<T>
 where
     T: Deserialize<'a>,
 {
@@ -121,7 +124,7 @@ where
 /// holding the same guarantees as `str::as_bytes_mut` in that after the call &str might include
 /// invalid utf8 bytes.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub unsafe fn from_str_with_buffers<'a, T>(s: &'a mut str, buffers: &mut Buffers) -> Result<T>
+pub unsafe fn from_str_with_buffers<'a, T>(s: &'a mut str, buffers: &mut Buffers) -> SJsonResult<T>
 where
     T: Deserialize<'a>,
 {
@@ -147,9 +150,9 @@ where
 /// Will return `Err` if an IO error is encountered while reading
 /// rdr or if the readers content is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn from_reader<R, T>(mut rdr: R) -> Result<T>
+pub fn from_reader<R, T>(mut rdr: R) -> SJsonResult<T>
 where
-    R: io::Read,
+    // R: io::Read,
     T: DeserializeOwned,
 {
     let mut data = Vec::new();
@@ -169,9 +172,9 @@ where
 /// Will return `Err` if an IO error is encountered while reading
 /// rdr or if the readers content is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn from_reader_with_buffers<R, T>(mut rdr: R, buffers: &mut Buffers) -> Result<T>
+pub fn from_reader_with_buffers<R, T>(mut rdr: R, buffers: &mut Buffers) -> SJsonResult<T>
 where
-    R: io::Read,
+    // R: io::Read,
     T: DeserializeOwned,
 {
     let mut data = Vec::new();
@@ -197,7 +200,7 @@ impl serde_ext::ser::Error for Error {
 // Functions purely used by serde
 impl<'de> Deserializer<'de> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn next(&mut self) -> Result<Node<'de>> {
+    fn next(&mut self) -> SJsonResult<Node<'de>> {
         let r = self
             .tape
             .get(self.idx)
@@ -208,7 +211,7 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn peek(&self) -> Result<Node<'de>> {
+    fn peek(&self) -> SJsonResult<Node<'de>> {
         self.tape
             .get(self.idx)
             .copied()
@@ -217,7 +220,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_u8(&mut self) -> Result<u8> {
+    fn parse_u8(&mut self) -> SJsonResult<u8> {
         match stry!(self.next()) {
             Node::Static(s) => s
                 .as_u8()
@@ -228,7 +231,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_u16(&mut self) -> Result<u16> {
+    fn parse_u16(&mut self) -> SJsonResult<u16> {
         let next = stry!(self.next());
         match next {
             Node::Static(s) => s
@@ -240,7 +243,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_u32(&mut self) -> Result<u32> {
+    fn parse_u32(&mut self) -> SJsonResult<u32> {
         match stry!(self.next()) {
             Node::Static(s) => s
                 .as_u32()
@@ -251,7 +254,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_u64(&mut self) -> Result<u64> {
+    fn parse_u64(&mut self) -> SJsonResult<u64> {
         match stry!(self.next()) {
             Node::Static(s) => s
                 .as_u64()
@@ -262,7 +265,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_u128(&mut self) -> Result<u128> {
+    fn parse_u128(&mut self) -> SJsonResult<u128> {
         match stry!(self.next()) {
             Node::Static(s) => s
                 .as_u128()
@@ -273,7 +276,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_i8(&mut self) -> Result<i8> {
+    fn parse_i8(&mut self) -> SJsonResult<i8> {
         match stry!(self.next()) {
             Node::Static(s) => s
                 .as_i8()
@@ -284,7 +287,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_i16(&mut self) -> Result<i16> {
+    fn parse_i16(&mut self) -> SJsonResult<i16> {
         match stry!(self.next()) {
             Node::Static(s) => s
                 .as_i16()
@@ -295,7 +298,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_i32(&mut self) -> Result<i32> {
+    fn parse_i32(&mut self) -> SJsonResult<i32> {
         match stry!(self.next()) {
             Node::Static(s) => s
                 .as_i32()
@@ -306,7 +309,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_i64(&mut self) -> Result<i64> {
+    fn parse_i64(&mut self) -> SJsonResult<i64> {
         match stry!(self.next()) {
             Node::Static(s) => s
                 .as_i64()
@@ -317,7 +320,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_sign_loss)]
-    fn parse_i128(&mut self) -> Result<i128> {
+    fn parse_i128(&mut self) -> SJsonResult<i128> {
         match stry!(self.next()) {
             Node::Static(s) => s
                 .as_i128()
@@ -328,7 +331,7 @@ impl<'de> Deserializer<'de> {
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
-    fn parse_double(&mut self) -> Result<f64> {
+    fn parse_double(&mut self) -> SJsonResult<f64> {
         match stry!(self.next()) {
             #[allow(clippy::useless_conversion)] // .into() required by ordered-float
             Node::Static(StaticNode::F64(n)) => Ok(n.into()),
@@ -491,7 +494,10 @@ mod test {
     use halfbrown::{HashMap, hashmap};
     use serde::{Deserialize, Serialize};
     use serde_json::{Value as SerdeValue, json as sjson, to_string as sto_string};
-    use std::collections::BTreeMap;
+    use alloc::collections::BTreeMap;
+    use alloc::string::{String, ToString};
+    use alloc::vec;
+    use alloc::vec::Vec;
 
     #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
     struct UnitStruct;
@@ -819,7 +825,7 @@ mod test {
         });
         let input: Vec<Option<u8>> = vec![None, Some(3_u8)];
         let mut v_str = crate::to_string(&input).unwrap();
-        dbg!(&v_str);
+        // dbg!(&v_str);
         assert_eq!(input, unsafe {
             crate::from_str::<Vec<Option<u8>>>(&mut v_str).unwrap()
         });
@@ -976,16 +982,16 @@ mod test {
         // assert_eq!(crate::to_string(&hashmap! {3f32 => 3i8}), key_error);
         // assert_eq!(crate::to_string(&hashmap! {3f64 => 3i8}), key_error);
 
-        let mut input = std::collections::HashMap::new();
+        let mut input = hashbrown::HashMap::new();
         input.insert(128_u8, "3");
         let mut input_str = crate::to_string(&input).unwrap();
         assert_eq!(input_str, sto_string(&input).unwrap());
         assert_eq!(
-            unsafe { crate::from_str::<std::collections::HashMap<u8, i8>>(&mut input_str) },
+            unsafe { crate::from_str::<hashbrown::HashMap<u8, i8>>(&mut input_str) },
             Err(Error::new(0, None, ErrorType::ExpectedSigned))
         );
         assert_eq!(
-            unsafe { crate::from_str::<std::collections::HashMap<i8, String>>(&mut input_str) },
+            unsafe { crate::from_str::<hashbrown::HashMap<i8, String>>(&mut input_str) },
             Err(Error::new(0, None, ErrorType::InvalidNumber))
         );
         assert_eq!(

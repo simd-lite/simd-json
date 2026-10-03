@@ -1,10 +1,12 @@
 #![allow(dead_code)]
+
+use alloc::vec::Vec;
 use crate::charutils::is_not_structural_or_whitespace;
 #[allow(unused_imports)]
 use crate::macros::unlikely;
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::value::tape::Node;
-use crate::{Deserializer, Error, ErrorType, InternalError, Result};
+use crate::{Deserializer, Error, ErrorType, InternalError, SJsonResult};
 use value_trait::StaticNode;
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -112,7 +114,7 @@ impl<'de> Deserializer<'de> {
         stack: &mut Vec<StackState>,
         max_depth: usize,
         res: &mut Vec<Node<'de>>,
-    ) -> Result<()> {
+    ) -> SJsonResult<()> {
         res.clear();
         res.reserve(structural_indexes.len());
         // While a valid json can have at max len/2 (`[[[]]]`)elements that are relevant
@@ -153,15 +155,15 @@ impl<'de> Deserializer<'de> {
         macro_rules! s2try {
             ($e:expr_2021) => {
                 match $e {
-                    ::std::result::Result::Ok(val) => val,
-                    ::std::result::Result::Err(err) => {
+                    ::core::result::Result::Ok(val) => val,
+                    ::core::result::Result::Err(err) => {
                         // We need to ensure that rust doesn't
                         // try to free strings that we never
                         // allocated
                         unsafe {
                             res.set_len(r_i);
                         };
-                        return ::std::result::Result::Err(err);
+                        return ::core::result::Result::Err(err);
                     }
                 }
             };
@@ -661,8 +663,8 @@ impl<'de> Deserializer<'de> {
 
 #[cfg(test)]
 mod test {
-    use crate::SIMDJSON_PADDING;
-
+    use alloc::vec;
+    use crate::{SJsonResult, SIMDJSON_PADDING};
     use super::*;
 
     #[test]
@@ -731,7 +733,7 @@ mod test {
     }
 
     #[test]
-    fn parse_string() -> Result<()> {
+    fn parse_string() -> SJsonResult<()> {
         let mut input = Vec::from(&br#""{\"arg\":\"test\"}""#[..]);
         let mut input2 = input.clone();
         input2.append(vec![0; SIMDJSON_PADDING * 2].as_mut());

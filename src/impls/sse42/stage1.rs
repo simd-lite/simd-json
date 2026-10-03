@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::{
     Stage1Parse,
     macros::{static_cast_i32, static_cast_i64, static_cast_u32},
@@ -6,7 +8,7 @@ use crate::{
 use std::arch::x86 as arch;
 
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64 as arch;
+use core::arch::x86_64 as arch;
 
 #[cfg(target_arch = "x86")]
 use arch::{

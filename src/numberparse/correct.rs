@@ -12,7 +12,7 @@ use crate::error::Error;
 #[allow(unused_imports)]
 use crate::macros::{static_cast_i64, unlikely};
 use crate::safer_unchecked::GetSaferUnchecked;
-use crate::{Deserializer, ErrorType, Result};
+use crate::{Deserializer, ErrorType, SJsonResult};
 
 macro_rules! get {
     ($buf:ident, $idx:expr_2021) => {
@@ -58,7 +58,7 @@ impl Deserializer<'_> {
         clippy::cast_possible_truncation,
         clippy::too_many_lines
     )]
-    pub(crate) fn parse_number(idx: usize, buf: &[u8], negative: bool) -> Result<StaticNode> {
+    pub(crate) fn parse_number(idx: usize, buf: &[u8], negative: bool) -> SJsonResult<StaticNode> {
         let start_idx = idx;
         let mut idx = idx;
         if negative {
@@ -223,7 +223,7 @@ fn parse_large_integer(
     buf: &[u8],
     negative: bool,
     #[allow(unused_variables)] end_index: usize,
-) -> Result<StaticNode> {
+) -> SJsonResult<StaticNode> {
     let mut idx = start_idx;
     if negative {
         idx += 1;
@@ -330,7 +330,7 @@ fn f64_from_parts(
     exponent: i32,
     slice: &[u8],
     offset: usize,
-) -> Result<StaticNode> {
+) -> SJsonResult<StaticNode> {
     if (-22..=22).contains(&exponent) && significand <= 9_007_199_254_740_991 {
         let mut f = significand as f64;
         if exponent < 0 {
@@ -379,7 +379,7 @@ fn f64_from_parts(
             leading_zeroes -= 1;
         }
         mantissa &= !(1 << 52);
-        let real_exponent = (factor_exponent as u64).wrapping_sub(leading_zeroes);
+        let real_exponent = (factor_exponent).wrapping_sub(leading_zeroes);
         // we have to check that real_exponent is in range, otherwise we bail out
         if !(1..=2046).contains(&real_exponent) {
             return f64_from_parts_slow(slice, offset);
@@ -397,10 +397,10 @@ fn f64_from_parts(
 }
 
 #[cold]
-fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
+fn f64_from_parts_slow(slice: &[u8], offset: usize) -> SJsonResult<StaticNode> {
     // we already validated the content of the slice we only need to translate
     // the slice to a string and parse it as parse is not defined for a u8 slice
-    match unsafe { std::str::from_utf8_unchecked(slice).parse::<f64>() } {
+    match unsafe { core::str::from_utf8_unchecked(slice).parse::<f64>() } {
         Ok(val) => {
             if val.is_infinite() {
                 err!(offset, get!(slice, 0))
@@ -415,6 +415,8 @@ fn f64_from_parts_slow(slice: &[u8], offset: usize) -> Result<StaticNode> {
 #[cfg(test)]
 mod test {
     #![allow(clippy::default_trait_access)]
+
+    use alloc::string::String;
     use crate::error::Error;
     use crate::value::owned::Value;
     use crate::value::owned::Value::Static;

@@ -1,3 +1,7 @@
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 // A lot of this logic is a re-implementation or copy of serde_json::Value
 use crate::Error;
 use crate::ObjectHasher;
@@ -14,7 +18,7 @@ use serde_ext::{
     },
     forward_to_deserialize_any,
 };
-use std::fmt;
+use core::fmt;
 
 impl<'de> de::Deserializer<'de> for Value<'de> {
     type Error = Error;
@@ -142,7 +146,7 @@ impl<'de> de::Deserializer<'de> for Value<'de> {
     }
 }
 
-struct Array<'de>(std::vec::IntoIter<Value<'de>>);
+struct Array<'de>(alloc::vec::IntoIter<Value<'de>>);
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
@@ -159,7 +163,7 @@ impl<'de> SeqAccess<'de> for Array<'de> {
     }
 }
 
-struct ArrayRef<'de>(std::slice::Iter<'de, Value<'de>>);
+struct ArrayRef<'de>(alloc::slice::Iter<'de, Value<'de>>);
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
@@ -816,6 +820,9 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
 
 #[cfg(test)]
 mod test {
+    use alloc::string::{String, ToString};
+    use alloc::vec;
+    use alloc::vec::Vec;
     use serde::Deserialize;
 
     use crate::{borrowed, json, prelude::*};

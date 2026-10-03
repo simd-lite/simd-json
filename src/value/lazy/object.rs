@@ -1,10 +1,8 @@
-use std::{
-    borrow::{Borrow, Cow},
-    hash::Hash,
-};
-
+use alloc::borrow::Cow;
+use core::borrow::Borrow;
+use core::hash::Hash;
 use super::Value;
-use crate::{borrowed, tape};
+use crate::{borrowed, tape, StdCow};
 
 /// Wrapper around the tape that allows interacting with it via a `Object`-like API.
 pub enum Object<'borrow, 'tape, 'input> {
@@ -18,7 +16,7 @@ pub enum Iter<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::object::Iter<'tape, 'input>),
     /// Value variant
-    Value(halfbrown::Iter<'borrow, crate::cow::Cow<'input, str>, borrowed::Value<'input>>),
+    Value(halfbrown::Iter<'borrow, StdCow<'input, str>, borrowed::Value<'input>>),
 }
 
 /// Iterator over the keys of an object
@@ -124,7 +122,7 @@ impl<'borrow> Iterator for Keys<'borrow, '_, '_> {
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Keys::Tape(t) => t.next(),
-            Keys::Value(v) => v.next().map(std::convert::AsRef::as_ref),
+            Keys::Value(v) => v.next().map(AsRef::as_ref),
         }
     }
 }
@@ -141,12 +139,14 @@ impl<'borrow, 'tape, 'input> Iterator for Values<'borrow, 'tape, 'input> {
 
 #[cfg(test)]
 mod test {
+    use alloc::vec;
+    use alloc::vec::Vec;
     use value_trait::base::ValueAsScalar;
 
-    use crate::to_tape;
+    use crate::{to_tape, SJsonResult};
 
     #[test]
-    fn get_ints() -> crate::Result<()> {
+    fn get_ints() -> SJsonResult<()> {
         let mut input = br#"{"snot": 1, "badger":2, "cake":3, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;
         let v = t.as_value();
@@ -160,7 +160,7 @@ mod test {
     }
 
     #[test]
-    fn get_container() -> crate::Result<()> {
+    fn get_container() -> SJsonResult<()> {
         let mut input =
             br#"{"snot": 1, "badger":[2, 2.5], "cake":{"frosting": 3}, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;
@@ -179,7 +179,7 @@ mod test {
         Ok(())
     }
     #[test]
-    fn iter_ints() -> crate::Result<()> {
+    fn iter_ints() -> SJsonResult<()> {
         let mut input = br#"{"snot": 1, "badger":2, "cake":3, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;
         let v = t.as_value();
@@ -198,7 +198,7 @@ mod test {
     }
 
     #[test]
-    fn keys_ints() -> crate::Result<()> {
+    fn keys_ints() -> SJsonResult<()> {
         let mut input = br#"{"snot": 1, "badger":2, "cake":3, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;
         let v = t.as_value();
@@ -213,7 +213,7 @@ mod test {
     }
 
     #[test]
-    fn values_ints() -> crate::Result<()> {
+    fn values_ints() -> SJsonResult<()> {
         let mut input = br#"{"snot": 1, "badger":2, "cake":3, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;
         let v = t.as_value();
@@ -228,7 +228,7 @@ mod test {
         Ok(())
     }
     #[test]
-    fn iter_container() -> crate::Result<()> {
+    fn iter_container() -> SJsonResult<()> {
         let mut input =
             br#"{"snot": 1, "badger":[2, 2.5], "cake":{"frosting": 3}, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;
@@ -251,7 +251,7 @@ mod test {
         Ok(())
     }
     #[test]
-    fn keys_container() -> crate::Result<()> {
+    fn keys_container() -> SJsonResult<()> {
         let mut input =
             br#"{"snot": 1, "badger":[2, 2.5], "cake":{"frosting": 3}, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;
@@ -267,7 +267,7 @@ mod test {
     }
 
     #[test]
-    fn values_container() -> crate::Result<()> {
+    fn values_container() -> SJsonResult<()> {
         let mut input =
             br#"{"snot": 1, "badger":[2, 2.5], "cake":{"frosting": 3}, "cookie":4}"#.to_vec();
         let t = to_tape(input.as_mut_slice())?;

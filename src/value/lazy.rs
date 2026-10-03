@@ -22,9 +22,10 @@
 //! assert_eq!(lazy.get("new").unwrap(), 42);
 //! ```
 
+use alloc::borrow::Cow;
+use core::fmt;
 use crate::{borrowed, tape};
-use std::borrow::Cow;
-use std::fmt;
+
 
 /// Lazy implemntation of the array trait and associated functionality
 pub mod array;
@@ -106,7 +107,7 @@ impl<'tape, 'input> Value<'_, 'tape, 'input> {
             return;
         }
         let mut dummy = Value::Tape(tape::Value::null());
-        std::mem::swap(self, &mut dummy);
+        core::mem::swap(self, &mut dummy);
         let tape = unsafe { dummy.into_tape() };
 
         let value = super::borrowed::BorrowSliceDeserializer::from_tape(tape.0).parse();
@@ -128,7 +129,7 @@ impl<'tape, 'input> Value<'_, 'tape, 'input> {
 }
 
 #[cfg(not(tarpaulin_include))]
-impl fmt::Display for Value<'_, '_, '_> {
+impl core::fmt::Display for Value<'_, '_, '_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
             Value::Tape(tape) => write!(f, "{tape:?}"),

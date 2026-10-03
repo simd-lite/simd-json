@@ -1,9 +1,11 @@
-use std::{
-    borrow::{Borrow, Cow},
+use core::{
+    
     hash::Hash,
-    io::{self, Write},
 };
-
+use alloc::borrow::{ Cow, Borrow};
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt::Write;
 use value_trait::{
     TryTypeError, ValueBuilder, ValueType,
     base::{
@@ -824,7 +826,7 @@ impl Writable for Value<'_, '_, '_> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn write<'writer, W>(&self, w: &mut W) -> io::Result<()>
+    fn write<'writer, W>(&self, w: &mut W) -> core::fmt::Result
     where
         W: 'writer + Write,
     {
@@ -835,7 +837,7 @@ impl Writable for Value<'_, '_, '_> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn write_pp<'writer, W>(&self, w: &mut W) -> io::Result<()>
+    fn write_pp<'writer, W>(&self, w: &mut W) -> core::fmt::Result
     where
         W: 'writer + Write,
     {

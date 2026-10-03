@@ -1,8 +1,7 @@
 use crate::serde_ext::de::IntoDeserializer;
-use crate::{Deserializer, Error, ErrorType, Node, Result, StaticNode, macros::stry};
+use crate::{Deserializer, Error, ErrorType, Node, SJsonResult, StaticNode, macros::stry};
 use serde_ext::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_ext::forward_to_deserialize_any;
-use std::str;
 
 impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de>
 where
@@ -14,7 +13,7 @@ where
     // deserialize as. Not all data formats are able to support this operation.
     // Formats that support `deserialize_any` are known as self-describing.
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -50,7 +49,7 @@ where
     // mapping it to a Serde data model "struct" type with a special name and a
     // single field containing the Datetime represented as a string.
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_bool<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -63,7 +62,7 @@ where
     // Refer to the "Understanding deserializer lifetimes" page for information
     // about the three deserialization flavors of strings in Serde.
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_str<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -75,7 +74,7 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_string<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -90,7 +89,7 @@ where
     // it is invoked with `T=i8`. The next 8 methods are similar.
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_truncation)]
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_i8<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -99,7 +98,7 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_truncation)]
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_i16<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -108,7 +107,7 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_truncation)]
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_i32<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -116,7 +115,7 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_i64<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -124,7 +123,7 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_i128<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -133,7 +132,7 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_truncation)]
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_u8<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -142,7 +141,7 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_truncation)]
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_u16<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -151,7 +150,7 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_truncation)]
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_u32<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -159,7 +158,7 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_u64<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -167,7 +166,7 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_u128<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -176,7 +175,7 @@ where
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[allow(clippy::cast_possible_truncation)]
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_f32<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -185,7 +184,7 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_f64<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -202,7 +201,7 @@ where
     // more intelligently if possible.
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -216,7 +215,7 @@ where
 
     // In Serde, unit means an anonymous value containing no data.
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_unit<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -230,7 +229,7 @@ where
     // passing the visitor an "Access" object that gives it the ability to
     // iterate through the data contained in the sequence.
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_seq<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -251,7 +250,7 @@ where
     // tuple before even looking at the input data.
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
+    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -267,7 +266,7 @@ where
         _name: &'static str,
         _len: usize,
         visitor: V,
-    ) -> Result<V::Value>
+    ) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -275,7 +274,7 @@ where
     }
 
     // Unit struct means a named value containing no data.
-    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -285,7 +284,7 @@ where
     // As is done here, serializers are encouraged to treat newtype structs as
     // insignificant wrappers around the data they contain. That means not
     // parsing anything other than the contained value.
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -293,7 +292,7 @@ where
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -312,7 +311,7 @@ where
         _name: &'static str,
         _fields: &'static [&'static str],
         visitor: V,
-    ) -> Result<V::Value>
+    ) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -330,7 +329,7 @@ where
         _name: &'static str,
         _variants: &'static [&'static str],
         visitor: V,
-    ) -> Result<V::Value>
+    ) -> SJsonResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -368,7 +367,7 @@ impl<'de> de::EnumAccess<'de> for VariantAccess<'_, 'de> {
     type Error = Error;
     type Variant = Self;
 
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self)>
+    fn variant_seed<V>(self, seed: V) -> SJsonResult<(V::Value, Self)>
     where
         V: de::DeserializeSeed<'de>,
     {
@@ -380,25 +379,25 @@ impl<'de> de::EnumAccess<'de> for VariantAccess<'_, 'de> {
 impl<'de> de::VariantAccess<'de> for VariantAccess<'_, 'de> {
     type Error = Error;
 
-    fn unit_variant(self) -> Result<()> {
+    fn unit_variant(self) -> SJsonResult<()> {
         de::Deserialize::deserialize(self.de)
     }
 
-    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
+    fn newtype_variant_seed<T>(self, seed: T) -> SJsonResult<T::Value>
     where
         T: de::DeserializeSeed<'de>,
     {
         seed.deserialize(self.de)
     }
 
-    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
+    fn tuple_variant<V>(self, _len: usize, visitor: V) -> SJsonResult<V::Value>
     where
         V: de::Visitor<'de>,
     {
         de::Deserializer::deserialize_seq(self.de, visitor)
     }
 
-    fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> Result<V::Value>
+    fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> SJsonResult<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -426,7 +425,7 @@ impl<'de> SeqAccess<'de> for CommaSeparated<'_, 'de> {
     type Error = Error;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    fn next_element_seed<T>(&mut self, seed: T) -> SJsonResult<Option<T::Value>>
     where
         T: DeserializeSeed<'de>,
     {
@@ -449,7 +448,7 @@ impl<'de> MapAccess<'de> for CommaSeparated<'_, 'de> {
     type Error = Error;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
+    fn next_key_seed<K>(&mut self, seed: K) -> SJsonResult<Option<K::Value>>
     where
         K: DeserializeSeed<'de>,
     {
@@ -462,7 +461,7 @@ impl<'de> MapAccess<'de> for CommaSeparated<'_, 'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
+    fn next_value_seed<V>(&mut self, seed: V) -> SJsonResult<V::Value>
     where
         V: DeserializeSeed<'de>,
     {
@@ -487,7 +486,7 @@ struct MapKey<'de: 'a, 'a> {
 
 macro_rules! deserialize_integer_key {
     ($method:ident => $visit:ident; $type:ty) => {
-        fn $method<V>(self, visitor: V) -> Result<V::Value>
+        fn $method<V>(self, visitor: V) -> SJsonResult<V::Value>
         where
             V: de::Visitor<'de>,
         {
@@ -505,7 +504,7 @@ impl<'de> de::Deserializer<'de> for MapKey<'de, '_> {
     type Error = Error;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -530,7 +529,7 @@ impl<'de> de::Deserializer<'de> for MapKey<'de, '_> {
     deserialize_integer_key!(deserialize_u128 => visit_u128; u128);
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -539,7 +538,7 @@ impl<'de> de::Deserializer<'de> for MapKey<'de, '_> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> SJsonResult<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -552,7 +551,7 @@ impl<'de> de::Deserializer<'de> for MapKey<'de, '_> {
         name: &'static str,
         variants: &'static [&'static str],
         visitor: V,
-    ) -> Result<V::Value>
+    ) -> SJsonResult<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -560,7 +559,7 @@ impl<'de> de::Deserializer<'de> for MapKey<'de, '_> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -568,7 +567,7 @@ impl<'de> de::Deserializer<'de> for MapKey<'de, '_> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> SJsonResult<V::Value>
     where
         V: de::Visitor<'de>,
     {

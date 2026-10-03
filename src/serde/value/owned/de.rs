@@ -1,3 +1,7 @@
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 // A lot of this logic is a re-implementation or copy of serde_json::Value
 use crate::ErrorType;
 use crate::{Error, ObjectHasher};
@@ -13,7 +17,7 @@ use serde_ext::{
     },
     forward_to_deserialize_any,
 };
-use std::fmt;
+
 
 impl<'de> de::Deserializer<'de> for Value {
     type Error = Error;
@@ -130,7 +134,7 @@ impl<'de> de::Deserializer<'de> for Value {
     }
 }
 
-struct Array(std::vec::IntoIter<Value>);
+struct Array(alloc::vec::IntoIter<Value>);
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
@@ -147,7 +151,7 @@ impl<'de> SeqAccess<'de> for Array {
     }
 }
 
-struct ArrayRef<'de>(std::slice::Iter<'de, Value>);
+struct ArrayRef<'de>(core::slice::Iter<'de, Value>);
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
@@ -256,7 +260,7 @@ struct ValueVisitor;
 impl<'de> Visitor<'de> for ValueVisitor {
     type Value = Value;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("a JSONesque value")
     }
 
@@ -793,6 +797,9 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
 
 #[cfg(test)]
 mod test {
+    use alloc::string::{String, ToString};
+    use alloc::vec;
+    use alloc::vec::Vec;
     use crate::{json, owned, prelude::*};
     use serde::Deserialize;
 
@@ -929,7 +936,7 @@ mod test {
             config: Option<owned::Value>,
         }
         impl<'v> serde::Deserialize<'v> for NameAndConfig {
-            fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+            fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
             where
                 D: serde::Deserializer<'v>,
             {

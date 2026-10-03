@@ -1,5 +1,6 @@
 #![allow(clippy::cast_lossless, clippy::cast_sign_loss)]
 
+use alloc::vec::Vec;
 use crate::{Stage1Parse, macros::static_cast_i32};
 
 type V128 = [u8; 16];
@@ -461,7 +462,7 @@ impl Stage1Parse for SimdInput {
                 idx_64_v[2] + v2,
                 idx_64_v[3] + v3,
             ];
-            unsafe { std::ptr::write_unaligned(base.as_mut_ptr().add(l).cast::<[i32; 4]>(), v) };
+            unsafe { core::ptr::write_unaligned(base.as_mut_ptr().add(l).cast::<[i32; 4]>(), v) };
             l += 4;
         }
         // We have written all the data

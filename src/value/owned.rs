@@ -23,12 +23,16 @@ mod cmp;
 mod from;
 mod serialize;
 
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt;
+use core::ops::{Index, IndexMut};
 use super::ObjectHasher;
 use crate::{Buffers, prelude::*};
-use crate::{Deserializer, Node, Result};
+use crate::{Deserializer, Node, SJsonResult};
 use halfbrown::HashMap;
-use std::fmt;
-use std::ops::{Index, IndexMut};
+
 
 /// Representation of a JSON object
 pub type Object = HashMap<String, Value, ObjectHasher>;
@@ -43,7 +47,7 @@ pub type Object = HashMap<String, Value, ObjectHasher>;
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
-pub fn to_value(s: &mut [u8]) -> Result<Value> {
+pub fn to_value(s: &mut [u8]) -> SJsonResult<Value> {
     match Deserializer::from_slice(s) {
         Ok(de) => Ok(OwnedDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
@@ -62,7 +66,7 @@ pub fn to_value(s: &mut [u8]) -> Result<Value> {
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
-pub fn to_value_with_buffers(s: &mut [u8], buffers: &mut Buffers) -> Result<Value> {
+pub fn to_value_with_buffers(s: &mut [u8], buffers: &mut Buffers) -> SJsonResult<Value> {
     match Deserializer::from_slice_with_buffers(s, buffers) {
         Ok(de) => Ok(OwnedDeserializer::from_deserializer(de).parse()),
         Err(e) => Err(e),
@@ -352,6 +356,8 @@ impl<'de> OwnedDeserializer<'de> {
 #[cfg(test)]
 mod test {
     #![allow(clippy::cognitive_complexity, clippy::ignored_unit_patterns)]
+
+    use alloc::vec;
     use super::*;
 
     #[test]

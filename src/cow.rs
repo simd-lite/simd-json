@@ -5,7 +5,7 @@
 //!
 //! [beef]: https://docs.rs/beef/latest/beef/lean/type.Cow.html
 #[cfg(not(feature = "beef"))]
-pub use std::borrow::Cow;
+pub use alloc::borrow::Cow;
 
 #[cfg(feature = "beef")]
 pub use beef::lean::Cow;

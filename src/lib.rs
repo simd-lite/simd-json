@@ -1,3 +1,5 @@
+#![no_std]
+
 #![deny(warnings)]
 #![cfg_attr(feature = "hints", feature(core_intrinsics))]
 #![cfg_attr(feature = "portable", feature(portable_simd))]
@@ -17,6 +19,8 @@
 
 #[cfg(feature = "serde_impl")]
 extern crate serde as serde_ext;
+
+extern crate alloc;
 
 #[cfg(feature = "serde_impl")]
 /// serde related helper functions
@@ -68,7 +72,9 @@ mod stage2;
 /// simd-json JSON-DOM value
 pub mod value;
 
-use std::{alloc::dealloc, mem};
+use alloc::{alloc::dealloc};
+use alloc::alloc::{alloc, handle_alloc_error};
+use core::mem;
 pub use value_trait::StaticNode;
 
 pub use crate::error::{Error, ErrorType};
@@ -77,7 +83,8 @@ pub use crate::value::*;
 pub use value_trait::ValueType;
 
 /// simd-json Result type
-pub type Result<T> = std::result::Result<T, Error>;
+pub type SJsonResult<T> = core::result::Result<T, Error>;
+pub type StdCow<'value, T> = alloc::borrow::Cow<'value, T>;
 
 #[cfg(feature = "known-key")]
 mod known_key;
@@ -85,10 +92,11 @@ mod known_key;
 pub use known_key::{Error as KnownKeyError, KnownKey};
 
 pub use crate::tape::{Node, Tape};
-use std::alloc::{Layout, alloc, handle_alloc_error};
-use std::ops::{Deref, DerefMut};
-use std::ptr::NonNull;
 
+use core::ops::{Deref, DerefMut};
+use core::ptr::NonNull;
+use alloc::vec::Vec;
+use core::alloc::Layout;
 use simdutf8::basic::imp::ChunkedUtf8Validator;
 
 /// A struct to hold the buffers for the parser.
@@ -153,7 +161,7 @@ impl Buffers {
 ///
 /// Will return `Err` if `s` is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn to_tape(s: &mut [u8]) -> Result<Tape<'_>> {
+pub fn to_tape(s: &mut [u8]) -> SJsonResult<Tape<'_>> {
     Deserializer::from_slice(s).map(Deserializer::into_tape)
 }
 
@@ -162,7 +170,7 @@ pub fn to_tape(s: &mut [u8]) -> Result<Tape<'_>> {
 ///
 /// Will return `Err` if `s` is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn to_tape_with_buffers<'de>(s: &'de mut [u8], buffers: &mut Buffers) -> Result<Tape<'de>> {
+pub fn to_tape_with_buffers<'de>(s: &'de mut [u8], buffers: &mut Buffers) -> SJsonResult<Tape<'de>> {
     Deserializer::from_slice_with_buffers(s, buffers).map(Deserializer::into_tape)
 }
 
@@ -171,7 +179,7 @@ pub fn to_tape_with_buffers<'de>(s: &'de mut [u8], buffers: &mut Buffers) -> Res
 ///
 /// Will return `Err` if `s` is invalid JSON.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub fn fill_tape<'de>(s: &'de mut [u8], buffers: &mut Buffers, tape: &mut Tape<'de>) -> Result<()> {
+pub fn fill_tape<'de>(s: &'de mut [u8], buffers: &mut Buffers, tape: &mut Tape<'de>) -> SJsonResult<()> {
     tape.0.clear();
     Deserializer::fill_tape(s, buffers, &mut tape.0)
 }
@@ -332,7 +340,7 @@ pub struct Deserializer<'de> {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct SillyWrapper<'de> {
     input: *mut u8,
-    _marker: std::marker::PhantomData<&'de ()>,
+    _marker: core::marker::PhantomData<&'de ()>,
 }
 
 impl From<*mut u8> for SillyWrapper<'_> {
@@ -340,7 +348,7 @@ impl From<*mut u8> for SillyWrapper<'_> {
     fn from(input: *mut u8) -> Self {
         Self {
             input,
-            _marker: std::marker::PhantomData,
+            _marker: core::marker::PhantomData,
         }
     }
 }
@@ -359,7 +367,7 @@ type ParseStrFn = for<'invoke, 'de> unsafe fn(
     &'invoke [u8],
     &'invoke mut [u8],
     usize,
-) -> std::result::Result<&'de str, error::Error>;
+) -> core::result::Result<&'de str, error::Error>;
 #[cfg(all(
     feature = "runtime-detection",
     any(target_arch = "x86_64", target_arch = "x86"),
@@ -367,7 +375,7 @@ type ParseStrFn = for<'invoke, 'de> unsafe fn(
 type FindStructuralBitsFn = unsafe fn(
     input: &[u8],
     structural_indexes: &mut Vec<u32>,
-) -> std::result::Result<(), ErrorType>;
+) -> core::result::Result<(), ErrorType>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 /// Supported implementations
@@ -386,8 +394,8 @@ pub enum Implementation {
     SIMD128,
 }
 
-impl std::fmt::Display for Implementation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Implementation {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Implementation::Native => write!(f, "Rust Native"),
             Implementation::StdSimd => write!(f, "std::simd"),
@@ -407,9 +415,9 @@ impl Deserializer<'_> {
     ))]
     #[must_use]
     pub fn algorithm() -> Implementation {
-        if std::is_x86_feature_detected!("avx2") {
+        if core_detect::is_x86_feature_detected!("avx2") {
             Implementation::AVX2
-        } else if std::is_x86_feature_detected!("sse4.2") {
+        } else if core_detect::is_x86_feature_detected!("sse4.2") {
             Implementation::SSE42
         } else {
             #[cfg(feature = "portable")]
@@ -490,9 +498,9 @@ impl<'de> Deserializer<'de> {
         any(target_arch = "x86_64", target_arch = "x86"),
     ))]
     pub(crate) fn parse_str_fn() -> ParseStrFn {
-        if std::is_x86_feature_detected!("avx2") {
+        if core_detect::is_x86_feature_detected!("avx2") {
             impls::avx2::parse_str
-        } else if std::is_x86_feature_detected!("sse4.2") {
+        } else if core_detect::is_x86_feature_detected!("sse4.2") {
             impls::sse42::parse_str
         } else {
             #[cfg(feature = "portable")]
@@ -516,7 +524,7 @@ impl<'de> Deserializer<'de> {
         data: &'invoke [u8],
         buffer: &'invoke mut [u8],
         idx: usize,
-    ) -> Result<&'de str>
+    ) -> SJsonResult<&'de str>
     where
         'de: 'invoke,
     {
@@ -632,7 +640,7 @@ impl Deserializer<'_> {
     pub(crate) unsafe fn find_structural_bits_native(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
-    ) -> std::result::Result<(), ErrorType> {
+    ) -> core::result::Result<(), ErrorType> {
         match core::str::from_utf8(input) {
             Ok(_) => (),
             Err(_) => return Err(ErrorType::InvalidUtf8),
@@ -650,9 +658,9 @@ impl Deserializer<'_> {
     pub(crate) unsafe fn find_structural_bits(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
-    ) -> std::result::Result<(), ErrorType> {
+    ) -> core::result::Result<(), ErrorType> {
         unsafe {
-            use std::sync::atomic::{AtomicPtr, Ordering};
+            use core::sync::atomic::{AtomicPtr, Ordering};
 
             static FN: AtomicPtr<()> = AtomicPtr::new(get_fastest as FnRaw);
 
@@ -687,11 +695,11 @@ impl Deserializer<'_> {
 
             #[cfg_attr(not(feature = "no-inline"), inline)]
             fn get_fastest_available_implementation() -> FindStructuralBitsFn {
-                if std::is_x86_feature_detected!("avx2")
-                    && std::is_x86_feature_detected!("pclmulqdq")
+                if core_detect::is_x86_feature_detected!("avx2")
+                    && core_detect::is_x86_feature_detected!("pclmulqdq")
                 {
                     find_structural_bits_avx2
-                } else if std::is_x86_feature_detected!("sse4.2") {
+                } else if core_detect::is_x86_feature_detected!("sse4.2") {
                     find_structural_bits_sse42
                 } else {
                     #[cfg(feature = "portable")]
@@ -843,7 +851,7 @@ impl<'de> Deserializer<'de> {
     /// # Errors
     ///
     /// Will return `Err` if `s` is invalid JSON.
-    pub fn from_slice(input: &'de mut [u8]) -> Result<Self> {
+    pub fn from_slice(input: &'de mut [u8]) -> SJsonResult<Self> {
         let len = input.len();
 
         let mut buffer = Buffers::new(len);
@@ -864,7 +872,7 @@ impl<'de> Deserializer<'de> {
         input: &'de mut [u8],
         buffer: &mut Buffers,
         tape: &mut Vec<Node<'de>>,
-    ) -> Result<()> {
+    ) -> SJsonResult<()> {
         const LOTS_OF_SPACES: [u8; SIMDINPUT_LENGTH] = [b' '; SIMDINPUT_LENGTH];
         let len = input.len();
         let simd_safe_len = len + SIMDINPUT_LENGTH;
@@ -921,7 +929,7 @@ impl<'de> Deserializer<'de> {
     /// # Errors
     ///
     /// Will return `Err` if `s` is invalid JSON.
-    pub fn from_slice_with_buffers(input: &'de mut [u8], buffer: &mut Buffers) -> Result<Self> {
+    pub fn from_slice_with_buffers(input: &'de mut [u8], buffer: &mut Buffers) -> SJsonResult<Self> {
         let mut tape: Vec<Node<'de>> = Vec::with_capacity(buffer.structural_indexes.len());
 
         Self::fill_tape(input, buffer, &mut tape)?;
@@ -954,7 +962,7 @@ impl<'de> Deserializer<'de> {
     pub(crate) unsafe fn _find_structural_bits<S: Stage1Parse>(
         input: &[u8],
         structural_indexes: &mut Vec<u32>,
-    ) -> std::result::Result<(), ErrorType> {
+    ) -> core::result::Result<(), ErrorType> {
         let len = input.len();
         // 8 is a heuristic number to estimate it turns out a rate of 1/8 structural characters
         // leads almost never to relocations.
@@ -1185,12 +1193,12 @@ impl Deref for AlignedBuf {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        unsafe { std::slice::from_raw_parts(self.inner.as_ptr(), self.len) }
+        unsafe { core::slice::from_raw_parts(self.inner.as_ptr(), self.len) }
     }
 }
 
 impl DerefMut for AlignedBuf {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { std::slice::from_raw_parts_mut(self.inner.as_ptr(), self.len) }
+        unsafe { core::slice::from_raw_parts_mut(self.inner.as_ptr(), self.len) }
     }
 }

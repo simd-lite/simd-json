@@ -1267,8 +1267,8 @@ pub(crate) use static_cast_u64;
 macro_rules! stry {
     ($e:expr_2021) => {
         match $e {
-            ::std::result::Result::Ok(val) => val,
-            ::std::result::Result::Err(err) => return ::std::result::Result::Err(err),
+            ::core::result::Result::Ok(val) => val,
+            ::core::result::Result::Err(err) => return ::core::result::Result::Err(err),
         }
     };
 }
@@ -1277,6 +1277,7 @@ pub(crate) use stry;
 
 #[cfg(test)]
 mod test {
+    use alloc::vec;
     use crate::prelude::*;
     use crate::{BorrowedValue, OwnedValue};
 

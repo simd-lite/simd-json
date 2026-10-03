@@ -1,5 +1,5 @@
-use std::{borrow::Borrow, hash::Hash};
-
+use core::borrow::Borrow;
+use core::hash::Hash;
 use super::Value;
 use crate::Node;
 
@@ -119,6 +119,8 @@ impl<'tape, 'input> Iterator for Values<'tape, 'input> {
 
 #[cfg(test)]
 mod test {
+    use alloc::vec;
+    use alloc::vec::Vec;
     use value_trait::base::ValueAsScalar;
 
     use crate::to_tape;

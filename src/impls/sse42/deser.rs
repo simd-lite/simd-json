@@ -1,11 +1,11 @@
 #[cfg(target_arch = "x86")]
-use std::arch::x86 as arch;
+use core::arch::x86 as arch;
 
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64 as arch;
+use core::arch::x86_64 as arch;
 
 use crate::{
-    Deserializer, Result, SillyWrapper,
+    Deserializer, SJsonResult, SillyWrapper,
     error::ErrorType,
     safer_unchecked::GetSaferUnchecked,
     stringparse::{ESCAPE_MAP, handle_unicode_codepoint},
@@ -22,7 +22,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
     data: &'invoke [u8],
     buffer: &'invoke mut [u8],
     mut idx: usize,
-) -> Result<&'de str> {
+) -> SJsonResult<&'de str> {
     unsafe {
         use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
         let input = input.input;
@@ -64,7 +64,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
 
                 len += quote_dist as usize;
                 let v =
-                    std::str::from_utf8_unchecked(std::slice::from_raw_parts(input.add(idx), len));
+                    core::str::from_utf8_unchecked(core::slice::from_raw_parts(input.add(idx), len));
                 return Ok(v);
 
                 // we compare the pointers since we care if they are 'at the same spot'
@@ -121,7 +121,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
                 input
                     .add(idx + len)
                     .copy_from_nonoverlapping(buffer.as_ptr(), dst_i);
-                let v = std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+                let v = core::str::from_utf8_unchecked(core::slice::from_raw_parts(
                     input.add(idx),
                     len + dst_i,
                 ));

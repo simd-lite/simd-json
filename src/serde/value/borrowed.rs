@@ -1,7 +1,7 @@
 mod de;
 mod se;
 
-use crate::{BorrowedValue, Result};
+use crate::{BorrowedValue, SJsonResult};
 use serde_ext::de::Deserialize;
 use serde_ext::ser::Serialize;
 
@@ -11,7 +11,7 @@ use serde_ext::ser::Serialize;
 /// # Errors
 ///
 /// Will return `Err` if value fails to be turned into a borrowed value
-pub fn to_value<'se, T>(value: T) -> Result<BorrowedValue<'se>>
+pub fn to_value<'se, T>(value: T) -> SJsonResult<BorrowedValue<'se>>
 where
     T: Serialize,
 {
@@ -24,7 +24,7 @@ where
 /// # Errors
 ///
 /// Will return `Err` if `value` can not be deserialized
-pub fn from_value<'de, T>(value: BorrowedValue<'de>) -> Result<T>
+pub fn from_value<'de, T>(value: BorrowedValue<'de>) -> SJsonResult<T>
 where
     T: Deserialize<'de>,
 {
@@ -37,7 +37,7 @@ where
 /// # Errors
 ///
 /// Will return `Err` if `value` fails to be deserialized
-pub fn from_refvalue<'de, T>(value: &'de BorrowedValue<'de>) -> Result<T>
+pub fn from_refvalue<'de, T>(value: &'de BorrowedValue<'de>) -> SJsonResult<T>
 where
     T: Deserialize<'de>,
 {

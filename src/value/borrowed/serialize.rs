@@ -4,10 +4,12 @@
 //
 // https://github.com/maciejhirsz/json-rust/blob/master/src/codegen.rs
 
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt::Write;
 use super::{Object, Value};
 use crate::prelude::*;
-use std::io;
-use std::io::Write;
+
 use value_trait::generator::{
     DumpGenerator, PrettyGenerator, PrettyWriterGenerator, WriterGenerator,
 };

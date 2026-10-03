@@ -59,6 +59,9 @@ pub mod tape;
 
 pub mod lazy;
 
+use alloc::vec::Vec;
+use core::hash::Hash;
+use core::marker::PhantomData;
 pub use self::borrowed::{
     Value as BorrowedValue, to_value as to_borrowed_value,
     to_value_with_buffers as to_borrowed_value_with_buffers,
@@ -67,10 +70,8 @@ pub use self::owned::{
     Value as OwnedValue, to_value as to_owned_value,
     to_value_with_buffers as to_owned_value_with_buffers,
 };
-use crate::{Buffers, Deserializer, Result};
+use crate::{Buffers, Deserializer, SJsonResult};
 use halfbrown::HashMap;
-use std::hash::Hash;
-use std::marker::PhantomData;
 use tape::Node;
 pub use value_trait::*;
 
@@ -90,7 +91,7 @@ pub type ObjectHasher = halfbrown::DefaultHashBuilder;
 /// # Errors
 ///
 /// Will return `Err` if `s` is invalid JSON.
-pub fn deserialize<'de, Value, Key>(s: &'de mut [u8]) -> Result<Value>
+pub fn deserialize<'de, Value, Key>(s: &'de mut [u8]) -> SJsonResult<Value>
 where
     Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
     Key: Hash + Eq + From<&'de str>,
@@ -115,7 +116,7 @@ where
 pub fn deserialize_with_buffers<'de, Value, Key>(
     s: &'de mut [u8],
     buffers: &mut Buffers,
-) -> Result<Value>
+) -> SJsonResult<Value>
 where
     Value: ValueBuilder<'de> + From<Vec<Value>> + From<HashMap<Key, Value, ObjectHasher>> + 'de,
     Key: Hash + Eq + From<&'de str>,

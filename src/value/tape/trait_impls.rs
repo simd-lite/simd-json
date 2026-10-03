@@ -1,7 +1,9 @@
-use std::{
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt::Write;
+use core::{
     borrow::Borrow,
     hash::Hash,
-    io::{self, Write},
 };
 
 use value_trait::{
@@ -16,7 +18,7 @@ use value_trait::{
     },
 };
 
-use crate::Node;
+use crate::{Node, SJsonResult};
 
 use super::{Array, Object, Value};
 
@@ -680,7 +682,7 @@ impl Writable for Value<'_, '_> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn write<'writer, W>(&self, w: &mut W) -> io::Result<()>
+    fn write<'writer, W>(&self, w: &mut W) -> core::fmt::Result
     where
         W: 'writer + Write,
     {
@@ -689,7 +691,7 @@ impl Writable for Value<'_, '_> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn write_pp<'writer, W>(&self, w: &mut W) -> io::Result<()>
+    fn write_pp<'writer, W>(&self, w: &mut W) -> core::fmt::Result
     where
         W: 'writer + Write,
     {
@@ -702,7 +704,7 @@ trait Generator: BaseGenerator {
     type T: Write;
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn write_object(&mut self, object: &Object) -> io::Result<()> {
+    fn write_object(&mut self, object: &Object) -> core::fmt::Result {
         if object.is_empty() {
             self.write(b"{}")
         } else {
@@ -734,7 +736,7 @@ trait Generator: BaseGenerator {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn write_json(&mut self, json: &Value) -> io::Result<()> {
+    fn write_json(&mut self, json: &Value) -> core::fmt::Result {
         //FIXME no expect
         match *json.0.first().expect("invalid JSON") {
             Node::Static(StaticNode::Null) => self.write(b"null"),

@@ -1,7 +1,9 @@
 use super::Value;
 use crate::StaticNode;
 use crate::{borrowed, cow::Cow};
-use std::borrow::Cow as StdCow;
+use alloc::borrow::Cow as StdCow;
+use alloc::string::String;
+use alloc::vec::Vec;
 
 impl<'value> From<borrowed::Value<'value>> for Value<'_, '_, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -43,9 +45,9 @@ impl<'value> From<std::borrow::Cow<'value, str>> for Value<'_, '_, 'value> {
 }
 
 #[cfg(not(feature = "beef"))]
-impl<'value> From<std::borrow::Cow<'value, str>> for Value<'_, '_, 'value> {
+impl<'value> From<StdCow<'value, str>> for Value<'_, '_, 'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn from(v: std::borrow::Cow<'value, str>) -> Self {
+    fn from(v: StdCow<'value, str>) -> Self {
         Value::Value(StdCow::Owned(borrowed::Value::from(v)))
     }
 }

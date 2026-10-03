@@ -2,7 +2,7 @@ mod de;
 mod se;
 
 use crate::OwnedValue;
-use crate::Result;
+use crate::SJsonResult;
 use serde_ext::de::DeserializeOwned;
 use serde_ext::ser::Serialize;
 
@@ -12,7 +12,7 @@ use serde_ext::ser::Serialize;
 /// # Errors
 ///
 /// Will return `Err` if value fails to be turned into a owned value
-pub fn to_value<T>(value: T) -> Result<OwnedValue>
+pub fn to_value<T>(value: T) -> SJsonResult<OwnedValue>
 where
     T: Serialize,
 {
@@ -25,7 +25,7 @@ where
 /// # Errors
 ///
 /// Will return `Err` if `value` fails to be deserialized
-pub fn from_value<T>(value: OwnedValue) -> Result<T>
+pub fn from_value<T>(value: OwnedValue) -> SJsonResult<T>
 where
     T: DeserializeOwned,
 {
@@ -38,7 +38,7 @@ where
 /// # Errors
 ///
 /// Will return `Err` if `value` fails to be deserialized
-pub fn from_refvalue<T>(value: &OwnedValue) -> Result<T>
+pub fn from_refvalue<T>(value: &OwnedValue) -> SJsonResult<T>
 where
     T: DeserializeOwned,
 {

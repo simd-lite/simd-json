@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
 use super::{Object, Value};
 use crate::OwnedValue;
 use crate::StaticNode;
@@ -40,17 +43,17 @@ impl<'value> From<&'value str> for Value<'value> {
 }
 
 #[cfg(feature = "beef")]
-impl<'value> From<std::borrow::Cow<'value, str>> for Value<'value> {
+impl<'value> From<Cow<'value, str>> for Value<'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn from(c: std::borrow::Cow<'value, str>) -> Self {
+    fn from(c: Cow<'value, str>) -> Self {
         Value::String(c.into())
     }
 }
 
 #[cfg(not(feature = "beef"))]
-impl<'value> From<std::borrow::Cow<'value, str>> for Value<'value> {
+impl<'value> From<Cow<'value, str>> for Value<'value> {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn from(c: std::borrow::Cow<'value, str>) -> Self {
+    fn from(c: Cow<'value, str>) -> Self {
         Value::String(c)
     }
 }

@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use alloc::borrow::Cow;
 
 use super::Value;
 use crate::{borrowed, tape};
@@ -17,7 +17,7 @@ pub enum Iter<'borrow, 'tape, 'input> {
     /// Tape variant
     Tape(tape::array::Iter<'tape, 'input>),
     /// Value variant
-    Value(std::slice::Iter<'borrow, borrowed::Value<'input>>),
+    Value(core::slice::Iter<'borrow, borrowed::Value<'input>>),
 }
 
 impl<'borrow, 'tape, 'input> Iterator for Iter<'borrow, 'tape, 'input> {
@@ -70,6 +70,8 @@ impl<'tape, 'input> Array<'_, 'tape, 'input> {
 
 #[cfg(test)]
 mod test {
+    use alloc::vec;
+    use alloc::vec::Vec;
     use crate::to_tape;
     use value_trait::base::ValueAsScalar;
 

@@ -1,5 +1,9 @@
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use super::{Object, Value};
-use crate::{BorrowedValue, StaticNode};
+use crate::{BorrowedValue, StaticNode, StdCow};
 
 impl From<crate::BorrowedValue<'_>> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -38,9 +42,9 @@ impl From<&str> for Value {
     }
 }
 
-impl<'value> From<std::borrow::Cow<'value, str>> for Value {
+impl<'value> From<StdCow<'value, str>> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn from(c: std::borrow::Cow<'value, str>) -> Self {
+    fn from(c: StdCow<'value, str>) -> Self {
         Self::String(c.to_string())
     }
 }
@@ -214,9 +218,9 @@ impl From<Object> for Value {
     }
 }
 
-impl From<std::collections::HashMap<String, Value>> for Value {
+impl From<hashbrown::HashMap<String, Value>> for Value {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn from(v: std::collections::HashMap<String, Self>) -> Self {
+    fn from(v: hashbrown::HashMap<String, Self>) -> Self {
         Self::from(v.into_iter().collect::<Object>())
     }
 }

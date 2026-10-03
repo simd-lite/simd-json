@@ -1,4 +1,5 @@
-use std::fmt;
+use alloc::string::String;
+use core::fmt;
 
 use value_trait::ValueType;
 
@@ -91,7 +92,7 @@ pub enum ErrorType {
     /// No SIMD support detected during runtime
     SimdUnsupported,
     /// IO error
-    Io(std::io::Error),
+    Io(core::fmt::Error),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -99,8 +100,8 @@ pub enum InternalError {
     TapeError,
 }
 
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
+impl From<core::fmt::Error> for Error {
+    fn from(e: core::fmt::Error) -> Self {
         Self::generic(ErrorType::Io(e))
     }
 }
@@ -273,7 +274,7 @@ impl Error {
         )
     }
 }
-impl std::error::Error for Error {}
+impl core::error::Error for Error {}
 
 #[cfg(not(tarpaulin_include))]
 impl fmt::Display for Error {
@@ -286,9 +287,10 @@ impl fmt::Display for Error {
     }
 }
 
-#[cfg(not(tarpaulin_include))]
-impl From<Error> for std::io::Error {
-    fn from(e: Error) -> Self {
-        std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-    }
-}
+// TODO
+// #[cfg(not(tarpaulin_include))]
+// impl From<Error> for std::io::Error {
+//     fn from(e: Error) -> Self {
+//         std::io::Error::new(std::io::ErrorKind::InvalidData, e)
+//     }
+// }

@@ -1,5 +1,5 @@
-use std::borrow::Borrow;
-
+use alloc::borrow::Borrow;
+use alloc::string::String;
 use value_trait::{base::ValueAsScalar, derived::TypedScalarValue};
 
 use super::Value;
@@ -148,14 +148,14 @@ impl PartialEq<f64> for Value<'_, '_> {
     }
 }
 
-impl<'input, K, T, S> PartialEq<std::collections::HashMap<K, T, S>> for Value<'_, 'input>
+impl<'input, K, T, S> PartialEq<hashbrown::HashMap<K, T, S>> for Value<'_, 'input>
 where
-    K: Borrow<str> + std::hash::Hash + Eq,
+    K: Borrow<str> + core::hash::Hash + Eq,
     for<'i> T: PartialEq<Value<'i, 'input>>,
-    S: std::hash::BuildHasher,
+    S: core::hash::BuildHasher,
 {
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    fn eq(&self, other: &std::collections::HashMap<K, T, S>) -> bool {
+    fn eq(&self, other: &hashbrown::HashMap<K, T, S>) -> bool {
         let Some(object) = self.as_object() else {
             return false;
         };

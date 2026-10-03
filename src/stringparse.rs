@@ -1,4 +1,4 @@
-use std::ops::Range;
+use core::ops::Range;
 
 use crate::charutils::{codepoint_to_utf8, hex_to_u32_nocheck};
 use crate::error::ErrorType;

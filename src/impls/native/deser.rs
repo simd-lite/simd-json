@@ -1,5 +1,5 @@
 use crate::{
-    Deserializer, ErrorType, Result, SillyWrapper,
+    Deserializer, ErrorType, SJsonResult, SillyWrapper,
     safer_unchecked::GetSaferUnchecked,
     stringparse::{ESCAPE_MAP, get_unicode_codepoint},
 };
@@ -10,7 +10,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
     data: &'invoke [u8],
     _buffer: &'invoke mut [u8],
     idx: usize,
-) -> Result<&'de str> {
+) -> SJsonResult<&'de str> {
     use ErrorType::{InvalidEscape, InvalidUnicodeCodepoint};
 
     let input = input.input;
@@ -27,7 +27,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
         b = unsafe { *src.get_kinda_unchecked(src_i) };
     }
     if b == b'"' {
-        let v = unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(input, src_i)) };
+        let v = unsafe { core::str::from_utf8_unchecked(core::slice::from_raw_parts(input, src_i)) };
         return Ok(v);
     }
 
@@ -104,7 +104,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
         b = unsafe { *src.get_kinda_unchecked(src_i) };
     }
     unsafe {
-        Ok(std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+        Ok(core::str::from_utf8_unchecked(core::slice::from_raw_parts(
             input, dst_i,
         )))
     }
@@ -112,9 +112,11 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
 
 #[cfg(test)]
 mod test {
+    use alloc::string::String;
+    use alloc::vec;
     use crate::SIMDJSON_PADDING;
 
-    fn deser_str(input: &[u8]) -> Result<String> {
+    fn deser_str(input: &[u8]) -> SJsonResult<String> {
         let mut input = input.to_vec();
         let mut input2 = input.clone();
         input2.append(vec![0; SIMDJSON_PADDING * 2].as_mut());
@@ -127,21 +129,21 @@ mod test {
     }
     use super::*;
     #[test]
-    fn easy_string() -> Result<()> {
+    fn easy_string() -> SJsonResult<()> {
         let s = deser_str(&br#""snot""#[..])?;
         assert_eq!("snot", s);
         Ok(())
     }
 
     #[test]
-    fn string_with_quote() -> Result<()> {
+    fn string_with_quote() -> SJsonResult<()> {
         let s = deser_str(&br#""snot says:\n \"badger\"""#[..])?;
         assert_eq!("snot says:\n \"badger\"", s);
         Ok(())
     }
 
     #[test]
-    fn string_with_utf8() -> Result<()> {
+    fn string_with_utf8() -> SJsonResult<()> {
         let s = deser_str(&br#""\u000e""#[..])?;
         assert_eq!("\u{e}", s);
         Ok(())

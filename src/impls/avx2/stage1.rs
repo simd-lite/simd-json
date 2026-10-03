@@ -1,13 +1,15 @@
 #![allow(dead_code)]
+
+use alloc::vec::Vec;
 use crate::{
     Stage1Parse,
     macros::{static_cast_i32, static_cast_i64, static_cast_u32},
 };
 #[cfg(target_arch = "x86")]
-use std::arch::x86 as arch;
+use core::arch::x86 as arch;
 
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64 as arch;
+use core::arch::x86_64 as arch;
 
 use arch::{
     __m256i, _mm_clmulepi64_si128, _mm_set_epi64x, _mm_set1_epi8, _mm256_add_epi32,
@@ -62,7 +64,7 @@ impl Stage1Parse for SimdInput {
     #[cfg(target_arch = "x86_64")]
     unsafe fn compute_quote_mask(quote_bits: u64) -> u64 {
         unsafe {
-            std::arch::x86_64::_mm_cvtsi128_si64(_mm_clmulepi64_si128(
+            core::arch::x86_64::_mm_cvtsi128_si64(_mm_clmulepi64_si128(
                 _mm_set_epi64x(0, static_cast_i64!(quote_bits)),
                 _mm_set1_epi8(-1_i8 /* 0xFF */),
                 0,
