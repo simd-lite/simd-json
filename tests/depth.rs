@@ -51,8 +51,10 @@ fn arrays_past_the_limit_are_rejected() {
 
 #[test]
 fn objects_at_the_limit_parse() {
-    let mut ok = nest_obj(DEFAULT_MAX_DEPTH);
-    assert!(simd_json::to_owned_value(&mut ok).is_ok());
+    const OBJECT_DEPTH: usize = 128;
+    let mut buffers = Buffers::with_max_depth(64, OBJECT_DEPTH);
+    let mut ok = nest_obj(OBJECT_DEPTH);
+    assert!(simd_json::to_owned_value_with_buffers(&mut ok, &mut buffers).is_ok());
 }
 
 #[test]
