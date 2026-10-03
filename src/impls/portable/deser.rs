@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use std::simd::{SimdPartialEq, ToBitMask, u8x32};
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
 pub(crate) unsafe fn parse_str<'invoke, 'de>(
     input: SillyWrapper<'de>,
     data: &'invoke [u8],
-    buffer: &'invoke mut [u8],
+    buffer: &'invoke mut [MaybeUninit<u8>],
     mut idx: usize,
 ) -> Result<&'de str> {
     let input = input.input;
@@ -102,7 +103,7 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
             dst_i += quote_dist as usize;
             input
                 .add(idx + len)
-                .copy_from_nonoverlapping(buffer.as_ptr(), dst_i);
+                .copy_from_nonoverlapping(buffer.as_ptr().cast::<u8>(), dst_i);
             let v = std::str::from_utf8_unchecked(std::slice::from_raw_parts(
                 input.add(idx),
                 len + dst_i,
@@ -152,7 +153,9 @@ pub(crate) unsafe fn parse_str<'invoke, 'de>(
                         InvalidEscape,
                     ));
                 }
-                *buffer.get_kinda_unchecked_mut(dst_i + bs_dist as usize) = escape_result;
+                buffer
+                    .get_kinda_unchecked_mut(dst_i + bs_dist as usize)
+                    .write(escape_result);
                 src_i += bs_dist as usize + 2;
                 dst_i += bs_dist as usize + 1;
             }
