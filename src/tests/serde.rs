@@ -1300,3 +1300,30 @@ fn value_struct_variant_from_sequence() {
         assert!(from_refowned_value::<E>(&o).is_err());
     }
 }
+
+#[test]
+fn value_tuple_variant_from_sequence() {
+    // A tuple variant from a Value reads exactly its elements: extra elements are an error.
+    use crate::serde::{
+        from_borrowed_value, from_owned_value, from_refborrowed_value, from_refowned_value,
+    };
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum E {
+        Tpl(u8, u8),
+    }
+    let mut d = br#"{"Tpl":[1,2]}"#.to_vec();
+    assert_eq!(from_slice::<E>(&mut d).ok(), Some(E::Tpl(1, 2)));
+    let mut d = br#"{"Tpl":[1,2]}"#.to_vec();
+    let o = to_owned_value(&mut d).expect("valid");
+    assert_eq!(from_refowned_value::<E>(&o).ok(), Some(E::Tpl(1, 2)));
+    assert_eq!(from_owned_value::<E>(o).ok(), Some(E::Tpl(1, 2)));
+
+    let mut d = br#"{"Tpl":[1,2,3]}"#.to_vec();
+    let o = to_owned_value(&mut d).expect("valid");
+    let mut d2 = br#"{"Tpl":[1,2,3]}"#.to_vec();
+    let b = to_borrowed_value(&mut d2).expect("valid");
+    assert!(from_owned_value::<E>(o.clone()).is_err());
+    assert!(from_refowned_value::<E>(&o).is_err());
+    assert!(from_borrowed_value::<E>(b.clone()).is_err());
+    assert!(from_refborrowed_value::<E>(&b).is_err());
+}
