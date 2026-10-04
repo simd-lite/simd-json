@@ -1327,3 +1327,80 @@ fn value_tuple_variant_from_sequence() {
     assert!(from_borrowed_value::<E>(b.clone()).is_err());
     assert!(from_refborrowed_value::<E>(&b).is_err());
 }
+
+#[test]
+fn fixed_length_sequences_reject_extra_elements() {
+    // A tuple, array or tuple struct reads only as many elements as it has. The rest of the
+    // array used to stay on the tape and be read as the values after it: `[[1,2,3],4]` as
+    // `((u8, u8), u8)` gave `((1, 2), 3)`. Extra elements are an error, as in serde_json.
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Pair(u8, u8);
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Named {
+        a: u8,
+    }
+
+    let mut d = b"[[1,2,3],4]".to_vec();
+    assert!(from_slice::<((u8, u8), u8)>(&mut d).is_err());
+    let mut d = b"[1,[2,99,98],3]".to_vec();
+    assert!(from_slice::<(u8, (u8,), u8)>(&mut d).is_err());
+    let mut d = b"[[1,2,[9,9]],[4,5]]".to_vec();
+    assert!(from_slice::<Vec<(u8, u8)>>(&mut d).is_err());
+    let mut d = b"[1,2,3]".to_vec();
+    assert!(from_slice::<[u8; 2]>(&mut d).is_err());
+    let mut d = b"[1,2,3]".to_vec();
+    assert!(from_slice::<Pair>(&mut d).is_err());
+    let mut d = b"[1,2]".to_vec();
+    assert!(from_slice::<Named>(&mut d).is_err());
+    let mut d = br#"{"a":[1,2,3],"b":[4,5]}"#.to_vec();
+    assert!(from_slice::<std::collections::BTreeMap<String, (u8, u8)>>(&mut d).is_err());
+
+    // exact lengths, and sequences of any length, are unchanged
+    let mut d = b"[[1,2],3]".to_vec();
+    assert_eq!(from_slice::<((u8, u8), u8)>(&mut d).ok(), Some(((1, 2), 3)));
+    let mut d = b"[1,2]".to_vec();
+    assert_eq!(from_slice::<Pair>(&mut d).ok(), Some(Pair(1, 2)));
+    let mut d = b"[1]".to_vec();
+    assert_eq!(from_slice::<Named>(&mut d).ok(), Some(Named { a: 1 }));
+    let mut d = b"[[1,2,3],[4]]".to_vec();
+    assert_eq!(
+        from_slice::<Vec<Vec<u8>>>(&mut d).ok(),
+        Some(vec![vec![1, 2, 3], vec![4]])
+    );
+    // fewer elements is still an error
+    let mut d = b"[1]".to_vec();
+    assert!(from_slice::<(u8, u8)>(&mut d).is_err());
+}
+
+#[test]
+fn tuple_variants_reject_extra_elements() {
+    // A tuple variant's array is a fixed-length sequence too, from text and from every Value.
+    use crate::serde::{
+        from_borrowed_value, from_owned_value, from_refborrowed_value, from_refowned_value,
+    };
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum Enm {
+        Var(u8, u8),
+    }
+    let mut d = br#"{"Var":[1,2,3]}"#.to_vec();
+    assert!(from_slice::<Enm>(&mut d).is_err());
+    let mut d = br#"[{"Var":[1,2,3]},{"Var":[4,5]}]"#.to_vec();
+    assert!(from_slice::<Vec<Enm>>(&mut d).is_err());
+
+    let mut d = br#"{"Var":[1,2,3]}"#.to_vec();
+    let o = to_owned_value(&mut d).expect("valid");
+    let mut d2 = br#"{"Var":[1,2,3]}"#.to_vec();
+    let b = to_borrowed_value(&mut d2).expect("valid");
+    assert!(from_owned_value::<Enm>(o.clone()).is_err());
+    assert!(from_refowned_value::<Enm>(&o).is_err());
+    assert!(from_borrowed_value::<Enm>(b.clone()).is_err());
+    assert!(from_refborrowed_value::<Enm>(&b).is_err());
+
+    // exact length is unchanged
+    let mut d = br#"{"Var":[1,2]}"#.to_vec();
+    assert_eq!(from_slice::<Enm>(&mut d).ok(), Some(Enm::Var(1, 2)));
+    let mut d = br#"{"Var":[1,2]}"#.to_vec();
+    let o = to_owned_value(&mut d).expect("valid");
+    assert_eq!(from_refowned_value::<Enm>(&o).ok(), Some(Enm::Var(1, 2)));
+    assert_eq!(from_owned_value::<Enm>(o).ok(), Some(Enm::Var(1, 2)));
+}
