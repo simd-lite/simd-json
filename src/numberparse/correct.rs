@@ -201,8 +201,7 @@ impl Deserializer<'_> {
             f64_from_parts(
                 !negative,
                 num,
-                // saturate, never wrap: a wrapped exponent would give a wrong finite value
-                i32::try_from(exponent).unwrap_or(if exponent < 0 { i32::MIN } else { i32::MAX }),
+                exponent,
                 unsafe { buf.get_kinda_unchecked(start_idx..idx) },
                 start_idx,
             )
@@ -331,7 +330,8 @@ fn parse_large_integer(
 fn f64_from_parts(
     positive: bool,
     significand: u64,
-    exponent: i32,
+    // i64, as accumulated by the parser: narrowing it could wrap a huge exponent into range
+    exponent: i64,
     slice: &[u8],
     offset: usize,
 ) -> Result<StaticNode> {
@@ -610,6 +610,9 @@ mod test {
             ("0e99999999999", 0.0),
             ("-0e99999999999", -0.0),
             ("0E4294967297", 0.0),
+            ("0e+99999999999", 0.0),
+            ("1e+00000000000000000000", 1.0),
+            ("1e-00000000000000000001", 0.1),
             ("2e-44444044280", 0.0),
             ("1e-99999999999", 0.0),
             ("-1e-99999999999", -0.0),
@@ -641,6 +644,18 @@ mod test {
             "1e4294967295",
             "1e2147483648",
             "1e99999999999",
+            "1e+99999999999",
+        ] {
+            assert!(to_value_from_str(input).is_err(), "{input}");
+        }
+        // a saturated exponent still ends at the first non-digit: trailing garbage is an error
+        for input in [
+            "0e99999999999x",
+            "0e+99999999999x",
+            "1e-99999999999x",
+            "0e99999999999.5",
+            "[0e99999999999x]",
+            "0e99999999999e1",
         ] {
             assert!(to_value_from_str(input).is_err(), "{input}");
         }
