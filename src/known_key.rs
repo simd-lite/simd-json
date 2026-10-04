@@ -65,6 +65,80 @@ where
     }
 }
 
+/// Trait for targets that support looking up a [`KnownKey`].
+pub trait KnownKeyTarget {
+    /// The resulting value type produced by the lookup.
+    type Output;
+    /// Looks up this key in the target, returning `None` if not present.
+    #[must_use]
+    fn lookup<'target>(&'target self, key: &KnownKey<'_>) -> Option<&'target Self::Output>;
+}
+
+/// Trait for targets that support mutable lookup of a [`KnownKey`].
+pub trait KnownKeyTargetMut {
+    /// The resulting value type produced by the lookup.
+    type Output;
+    /// Looks up this key mutably in the target, returning `None` if not present.
+    fn lookup_mut<'target>(
+        &'target mut self,
+        key: &KnownKey<'_>,
+    ) -> Option<&'target mut Self::Output>;
+}
+
+impl<K, V> KnownKeyTarget for halfbrown::HashMap<K, V, crate::value::ObjectHasher>
+where
+    K: std::borrow::Borrow<str> + std::hash::Hash + Eq,
+{
+    type Output = V;
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn lookup<'target>(&'target self, key: &KnownKey<'_>) -> Option<&'target V> {
+        key.map_lookup(self)
+    }
+}
+
+impl<K, V> KnownKeyTargetMut for halfbrown::HashMap<K, V, crate::value::ObjectHasher>
+where
+    K: std::borrow::Borrow<str> + std::hash::Hash + Eq,
+{
+    type Output = V;
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn lookup_mut<'target>(&'target mut self, key: &KnownKey<'_>) -> Option<&'target mut V> {
+        key.map_lookup_mut(self)
+    }
+}
+
+impl KnownKeyTarget for crate::BorrowedValue<'_> {
+    type Output = Self;
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn lookup<'target>(&'target self, key: &KnownKey<'_>) -> Option<&'target Self> {
+        self.as_object().and_then(|m| key.map_lookup(m))
+    }
+}
+
+impl KnownKeyTargetMut for crate::BorrowedValue<'_> {
+    type Output = Self;
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn lookup_mut<'target>(&'target mut self, key: &KnownKey<'_>) -> Option<&'target mut Self> {
+        self.as_object_mut().and_then(|m| key.map_lookup_mut(m))
+    }
+}
+
+impl KnownKeyTarget for crate::OwnedValue {
+    type Output = Self;
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn lookup<'target>(&'target self, key: &KnownKey<'_>) -> Option<&'target Self> {
+        self.as_object().and_then(|m| key.map_lookup(m))
+    }
+}
+
+impl KnownKeyTargetMut for crate::OwnedValue {
+    type Output = Self;
+    #[cfg_attr(not(feature = "no-inline"), inline)]
+    fn lookup_mut<'target>(&'target mut self, key: &KnownKey<'_>) -> Option<&'target mut Self> {
+        self.as_object_mut().and_then(|m| key.map_lookup_mut(m))
+    }
+}
+
 impl<'key> KnownKey<'key> {
     /// The known key
     #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -82,7 +156,7 @@ impl<'key> KnownKey<'key> {
     /// ```rust
     /// use simd_json::prelude::*;
     /// use simd_json::*;
-    /// let object = json!({
+    /// let object: BorrowedValue = json!({
     ///   "answer": 42,
     ///   "key": 7
     /// }).into();
@@ -91,19 +165,14 @@ impl<'key> KnownKey<'key> {
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
-    pub fn lookup<'target, 'value>(
-        &self,
-        target: &'target Value<'value>,
-    ) -> Option<&'target Value<'value>>
+    pub fn lookup<'target, T>(&self, target: &'target T) -> Option<&'target T::Output>
     where
-        'key: 'value,
-        'value: 'target,
+        T: ?Sized + KnownKeyTarget,
     {
-        target.as_object().and_then(|m| self.map_lookup(m))
+        target.lookup(self)
     }
 
-    /// Looks up this key in a `Object<Cow<'value>` the inner representation of an object `Value`, returns None if the
-    /// key wasn't present.
+    /// Looks up this key in an `Object`, returns None if the key wasn't present.
     ///
     /// ```rust
     /// use simd_json::prelude::*;
@@ -119,16 +188,15 @@ impl<'key> KnownKey<'key> {
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
     #[must_use]
-    pub fn map_lookup<'target, 'value>(
+    pub fn map_lookup<'target, K, V>(
         &self,
-        map: &'target super::borrowed::Object<'value>,
-    ) -> Option<&'target Value<'value>>
+        map: &'target halfbrown::HashMap<K, V, crate::value::ObjectHasher>,
+    ) -> Option<&'target V>
     where
-        'key: 'value,
-        'value: 'target,
+        K: std::borrow::Borrow<str> + std::hash::Hash + Eq,
     {
         map.raw_entry()
-            .from_key_hashed_nocheck(self.hash, &self.key)
+            .from_key_hashed_nocheck(self.hash, self.key.as_ref())
             .map(|kv| kv.1)
     }
 
@@ -153,18 +221,14 @@ impl<'key> KnownKey<'key> {
     /// assert_eq!(object["answer"], 42);
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub fn lookup_mut<'target, 'value>(
-        &self,
-        target: &'target mut Value<'value>,
-    ) -> Option<&'target mut Value<'value>>
+    pub fn lookup_mut<'target, T>(&self, target: &'target mut T) -> Option<&'target mut T::Output>
     where
-        'key: 'value,
-        'value: 'target,
+        T: ?Sized + KnownKeyTargetMut,
     {
-        target.as_object_mut().and_then(|m| self.map_lookup_mut(m))
+        target.lookup_mut(self)
     }
 
-    /// Looks up this key in a `Object<'value>`, the inner representation of an object value.
+    /// Looks up this key in an `Object`, the inner representation of an object value.
     /// returns None if the key wasn't present.
     ///
     /// ```rust
@@ -187,17 +251,16 @@ impl<'key> KnownKey<'key> {
     ///
     /// ```
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub fn map_lookup_mut<'target, 'value>(
+    pub fn map_lookup_mut<'target, K, V>(
         &self,
-        map: &'target mut super::borrowed::Object<'value>,
-    ) -> Option<&'target mut Value<'value>>
+        map: &'target mut halfbrown::HashMap<K, V, crate::value::ObjectHasher>,
+    ) -> Option<&'target mut V>
     where
-        'key: 'value,
-        'value: 'target,
+        K: std::borrow::Borrow<str> + std::hash::Hash + Eq,
     {
         match map
             .raw_entry_mut()
-            .from_key_hashed_nocheck(self.hash, &self.key)
+            .from_key_hashed_nocheck(self.hash, self.key.as_ref())
         {
             RawEntryMut::Occupied(e) => Some(e.into_mut()),
             RawEntryMut::Vacant(_e) => None,
@@ -393,52 +456,6 @@ impl<'key> KnownKey<'key> {
             }
         }
     }
-
-    /// Looks up this key in an `OwnedValue`, returns None if the key wasn't present or target isn't an object
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    pub fn lookup_owned<'target>(
-        &self,
-        target: &'target crate::OwnedValue,
-    ) -> Option<&'target crate::OwnedValue> {
-        target.as_object().and_then(|m| self.map_lookup_owned(m))
-    }
-
-    /// Looks up this key in an `OwnedObject`, returns None if the key wasn't present
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    #[must_use]
-    pub fn map_lookup_owned<'target>(
-        &self,
-        map: &'target crate::owned::Object,
-    ) -> Option<&'target crate::OwnedValue> {
-        map.raw_entry()
-            .from_key_hashed_nocheck(self.hash, self.key.as_ref())
-            .map(|kv| kv.1)
-    }
-
-    /// Looks up this key in a mutable `OwnedValue`, returns None if the key wasn't present or target isn't an object
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub fn lookup_owned_mut<'target>(
-        &self,
-        target: &'target mut crate::OwnedValue,
-    ) -> Option<&'target mut crate::OwnedValue> {
-        target.as_object_mut().and_then(|m| self.map_lookup_owned_mut(m))
-    }
-
-    /// Looks up this key in a mutable `OwnedObject`, returns None if the key wasn't present
-    #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub fn map_lookup_owned_mut<'target>(
-        &self,
-        map: &'target mut crate::owned::Object,
-    ) -> Option<&'target mut crate::OwnedValue> {
-        match map
-            .raw_entry_mut()
-            .from_key_hashed_nocheck(self.hash, self.key.as_ref())
-        {
-            RawEntryMut::Occupied(e) => Some(e.into_mut()),
-            RawEntryMut::Vacant(_e) => None,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -454,15 +471,26 @@ mod tests {
         let key1 = KnownKey::from("key");
         let key2 = KnownKey::from("cake");
 
-        assert!(key1.lookup_owned(&OwnedValue::null()).is_none());
-        assert!(key2.lookup_owned(&OwnedValue::null()).is_none());
-        assert_eq!(key1.lookup_owned(&v).unwrap().as_u8(), Some(1));
-        assert!(key2.lookup_owned(&v).is_none());
+        assert!(key1.lookup(&OwnedValue::null()).is_none());
+        assert!(key2.lookup(&OwnedValue::null()).is_none());
+        assert_eq!(key1.lookup(&v).unwrap().as_u8(), Some(1));
+        assert!(key2.lookup(&v).is_none());
 
-        if let Some(val) = key1.lookup_owned_mut(&mut v) {
+        if let Some(val) = key1.lookup_mut(&mut v) {
             *val = OwnedValue::from(42);
         }
-        assert_eq!(key1.lookup_owned(&v).unwrap().as_u8(), Some(42));
+        assert_eq!(key1.lookup(&v).unwrap().as_u8(), Some(42));
+
+        if let Some(m) = v.as_object() {
+            assert_eq!(key1.map_lookup(m).unwrap().as_u8(), Some(42));
+            assert_eq!(key1.lookup(m).unwrap().as_u8(), Some(42));
+        }
+        if let Some(m) = v.as_object_mut() {
+            if let Some(val) = key1.map_lookup_mut(m) {
+                *val = OwnedValue::from(84);
+            }
+        }
+        assert_eq!(key1.lookup(&v).unwrap().as_u8(), Some(84));
     }
 
     #[test]
