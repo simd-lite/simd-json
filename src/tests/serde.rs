@@ -1212,3 +1212,118 @@ fn overdriven_next_key_seed_errors_instead_of_oob() {
     let mut input = br#"{"a":1}"#.to_vec();
     assert!(from_slice::<Evil>(&mut input).is_err());
 }
+
+#[test]
+fn value_fixed_length_sequences_reject_extra_elements() {
+    // From a Value, a tuple/array/struct visitor that stops early used to leave the rest of the
+    // array unread without error: `[1,2,3]` as `(u8, u8)` gave `(1, 2)`.
+    use crate::serde::{
+        from_borrowed_value, from_owned_value, from_refborrowed_value, from_refowned_value,
+    };
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Pair(u8, u8);
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Named {
+        a: u8,
+    }
+    let mut d = b"[1,2,3]".to_vec();
+    let o = to_owned_value(&mut d).expect("valid");
+    let mut d2 = b"[1,2,3]".to_vec();
+    let b = to_borrowed_value(&mut d2).expect("valid");
+    assert!(from_owned_value::<(u8, u8)>(o.clone()).is_err());
+    assert!(from_refowned_value::<[u8; 2]>(&o).is_err());
+    assert!(from_borrowed_value::<Pair>(b.clone()).is_err());
+    assert!(from_refborrowed_value::<Named>(&b).is_err());
+    assert!(from_owned_value::<Named>(o.clone()).is_err());
+    // exact length and Vec are unchanged; fewer elements still an error
+    assert_eq!(from_refowned_value::<Vec<u8>>(&o).ok(), Some(vec![1, 2, 3]));
+    assert_eq!(
+        from_owned_value::<(u8, u8, u8)>(o.clone()).ok(),
+        Some((1, 2, 3))
+    );
+    assert!(from_owned_value::<(u8, u8, u8, u8)>(o).is_err());
+}
+
+#[test]
+fn value_struct_variant_from_sequence() {
+    // A struct variant written as a sequence deserializes from text; from a Value it failed with
+    // Unexpected(Object, Array).
+    use crate::serde::{
+        from_borrowed_value, from_owned_value, from_refborrowed_value, from_refowned_value,
+    };
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum E {
+        S { a: u8, b: String },
+    }
+    let expected = E::S {
+        a: 5,
+        b: "k".to_string(),
+    };
+    let mut d = br#"{"S":[5,"k"]}"#.to_vec();
+    assert_eq!(
+        from_slice::<E>(&mut d).ok(),
+        Some(E::S {
+            a: 5,
+            b: "k".to_string()
+        })
+    );
+    let mut d = br#"{"S":[5,"k"]}"#.to_vec();
+    let o = to_owned_value(&mut d).expect("valid");
+    assert_eq!(
+        from_owned_value::<E>(o.clone()).ok(),
+        Some(E::S {
+            a: 5,
+            b: "k".to_string()
+        })
+    );
+    assert_eq!(
+        from_refowned_value::<E>(&o).ok(),
+        Some(E::S {
+            a: 5,
+            b: "k".to_string()
+        })
+    );
+    let mut d = br#"{"S":[5,"k"]}"#.to_vec();
+    let b = to_borrowed_value(&mut d).expect("valid");
+    assert_eq!(
+        from_borrowed_value::<E>(b.clone()).ok(),
+        Some(E::S {
+            a: 5,
+            b: "k".to_string()
+        })
+    );
+    assert_eq!(from_refborrowed_value::<E>(&b).ok(), Some(expected));
+    for bad in [&br#"{"S":[5]}"#[..], br#"{"S":[5,"k",1]}"#] {
+        let mut d = bad.to_vec();
+        let o = to_owned_value(&mut d).expect("valid");
+        assert!(from_owned_value::<E>(o.clone()).is_err());
+        assert!(from_refowned_value::<E>(&o).is_err());
+    }
+}
+
+#[test]
+fn value_tuple_variant_from_sequence() {
+    // A tuple variant from a Value reads exactly its elements: extra elements are an error.
+    use crate::serde::{
+        from_borrowed_value, from_owned_value, from_refborrowed_value, from_refowned_value,
+    };
+    #[derive(Deserialize, Debug, PartialEq)]
+    enum E {
+        Tpl(u8, u8),
+    }
+    let mut d = br#"{"Tpl":[1,2]}"#.to_vec();
+    assert_eq!(from_slice::<E>(&mut d).ok(), Some(E::Tpl(1, 2)));
+    let mut d = br#"{"Tpl":[1,2]}"#.to_vec();
+    let o = to_owned_value(&mut d).expect("valid");
+    assert_eq!(from_refowned_value::<E>(&o).ok(), Some(E::Tpl(1, 2)));
+    assert_eq!(from_owned_value::<E>(o).ok(), Some(E::Tpl(1, 2)));
+
+    let mut d = br#"{"Tpl":[1,2,3]}"#.to_vec();
+    let o = to_owned_value(&mut d).expect("valid");
+    let mut d2 = br#"{"Tpl":[1,2,3]}"#.to_vec();
+    let b = to_borrowed_value(&mut d2).expect("valid");
+    assert!(from_owned_value::<E>(o.clone()).is_err());
+    assert!(from_refowned_value::<E>(&o).is_err());
+    assert!(from_borrowed_value::<E>(b.clone()).is_err());
+    assert!(from_refborrowed_value::<E>(&b).is_err());
+}
