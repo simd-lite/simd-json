@@ -284,3 +284,29 @@ proptest! {
     }
 
 }
+
+#[test]
+fn lone_high_surrogate_is_an_error() {
+    // A high surrogate not followed by a low-surrogate escape used to come
+    // back as U+0000 instead of an error; so did an escape pair with invalid
+    // hex digits in the second half.
+    for bad in [
+        r#""\ud800""#,
+        r#""\ud800x""#,
+        r#"["\udbff"]"#,
+        r#"{"k":"a\ud800b"}"#,
+        r#""\ud800\n""#,
+        r#""\ud800\uzzzz""#,
+        r#""\ud800\u0041""#,
+        r#""\udc00""#,
+    ] {
+        let mut v = bad.as_bytes().to_vec();
+        assert!(crate::to_tape(&mut v).is_err(), "accepted: {bad}");
+        let mut v = bad.as_bytes().to_vec();
+        assert!(crate::to_borrowed_value(&mut v).is_err(), "accepted: {bad}");
+    }
+    // A valid surrogate pair still decodes.
+    let mut v = br#""a\ud83d\ude00b""#.to_vec();
+    let t = crate::to_tape(&mut v).expect("valid surrogate pair");
+    assert_eq!(t.0[0], crate::Node::String("a\u{1F600}b"));
+}
