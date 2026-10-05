@@ -1460,3 +1460,28 @@ fn integer_keys_follow_json_number_syntax() {
         assert_eq!(r.as_ref(), Some(&ok), "via {path}");
     }
 }
+
+#[test]
+fn i128_map_keys() {
+    // i128/u128 values deserialize without the `128bit` feature; keys used to fail with
+    // "i128 is not supported" unless it was enabled.
+    use std::collections::BTreeMap;
+    let ok = BTreeMap::from([(i128::MIN, 1_u8), (7, 2)]);
+    let json = r#"{"-170141183460469231731687303715884105728":1,"7":2}"#;
+    for (path, r) in map_key_results::<BTreeMap<i128, u8>>(json) {
+        if path == "from_slice" || path.starts_with("from_ref") {
+            assert_eq!(r.as_ref(), Some(&ok), "via {path}");
+        }
+    }
+    let ok = BTreeMap::from([(u128::MAX, 1_u8)]);
+    let json = r#"{"340282366920938463463374607431768211455":1}"#;
+    for (path, r) in map_key_results::<BTreeMap<u128, u8>>(json) {
+        if path == "from_slice" || path.starts_with("from_ref") {
+            assert_eq!(r.as_ref(), Some(&ok), "via {path}");
+        }
+    }
+    let json = r#"{"340282366920938463463374607431768211456":1}"#;
+    for (path, r) in map_key_results::<BTreeMap<u128, u8>>(json) {
+        assert_eq!(r, None, "u128 overflow via {path}");
+    }
+}

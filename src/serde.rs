@@ -1013,11 +1013,8 @@ mod test {
         ser_deser_map!(3_u16 => 3_i8, HashMap<u16, i8>);
         ser_deser_map!(3_u32 => 3_i8, HashMap<u32, i8>);
         ser_deser_map!(3_u64 => 3_i8, HashMap<u64, i8>);
-        #[cfg(feature = "128bit")]
-        {
-            ser_deser_map!(3_i128 => 3_i8, HashMap<i128, i8>);
-            ser_deser_map!(3_u128 => 3_i8, HashMap<u128, i8>);
-        }
+        ser_deser_map!(3_i128 => 3_i8, HashMap<i128, i8>);
+        ser_deser_map!(3_u128 => 3_i8, HashMap<u128, i8>);
         ser_deser_map!(NewTypeStruct(1) => 3_i8, HashMap<NewTypeStruct, i8>);
         ser_deser_map!(E::UnitVariant => 3_i8, HashMap<E, i8>);
     }

@@ -554,9 +554,8 @@ impl<'de> de::Deserializer<'de> for MapKey<'de, '_> {
     deserialize_integer_key!(deserialize_u32 => visit_u32; u32);
     deserialize_integer_key!(deserialize_u64 => visit_u64; u64);
 
-    #[cfg(feature = "128bit")]
+    // Like i128/u128 values, keys don't need the `128bit` feature: the key text is parsed directly.
     deserialize_integer_key!(deserialize_i128 => visit_i128; i128);
-    #[cfg(feature = "128bit")]
     deserialize_integer_key!(deserialize_u128 => visit_u128; u128);
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
