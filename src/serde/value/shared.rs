@@ -35,10 +35,8 @@ pub(crate) struct MapKeyDeserializer<'de> {
 }
 
 impl<'de> MapKeyDeserializer<'de> {
-    pub(crate) fn borrowed(key: &'de str) -> Self {
-        Self {
-            key: Cow::from(key),
-        }
+    pub(crate) fn new(key: impl Into<Cow<'de, str>>) -> Self {
+        Self { key: key.into() }
     }
 }
 

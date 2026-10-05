@@ -1450,9 +1450,7 @@ fn integer_keys_follow_json_number_syntax() {
     }
     let ok = BTreeMap::from([(0_i64, 1_u8), (-7, 2), (120, 3)]);
     for (path, r) in map_key_results::<BTreeMap<i64, u8>>(r#"{"0":1,"-7":2,"120":3}"#) {
-        if path == "from_slice" || path.starts_with("from_ref") {
-            assert_eq!(r.as_ref(), Some(&ok), "via {path}");
-        }
+        assert_eq!(r.as_ref(), Some(&ok), "via {path}");
     }
     // string keys are unchanged
     let ok = BTreeMap::from([("01".to_string(), 2_u8), ("-0".to_string(), 3)]);
@@ -1464,24 +1462,33 @@ fn integer_keys_follow_json_number_syntax() {
 #[test]
 fn i128_map_keys() {
     // i128/u128 values deserialize without the `128bit` feature; keys used to fail with
-    // "i128 is not supported" unless it was enabled.
+    // "i128 is not supported" unless it was enabled, from text and from every Value.
     use std::collections::BTreeMap;
     let ok = BTreeMap::from([(i128::MIN, 1_u8), (7, 2)]);
     let json = r#"{"-170141183460469231731687303715884105728":1,"7":2}"#;
     for (path, r) in map_key_results::<BTreeMap<i128, u8>>(json) {
-        if path == "from_slice" || path.starts_with("from_ref") {
-            assert_eq!(r.as_ref(), Some(&ok), "via {path}");
-        }
+        assert_eq!(r.as_ref(), Some(&ok), "via {path}");
     }
     let ok = BTreeMap::from([(u128::MAX, 1_u8)]);
-    let json = r#"{"340282366920938463463374607431768211455":1}"#;
-    for (path, r) in map_key_results::<BTreeMap<u128, u8>>(json) {
-        if path == "from_slice" || path.starts_with("from_ref") {
-            assert_eq!(r.as_ref(), Some(&ok), "via {path}");
-        }
+    for (path, r) in
+        map_key_results::<BTreeMap<u128, u8>>(r#"{"340282366920938463463374607431768211455":1}"#)
+    {
+        assert_eq!(r.as_ref(), Some(&ok), "via {path}");
     }
-    let json = r#"{"340282366920938463463374607431768211456":1}"#;
-    for (path, r) in map_key_results::<BTreeMap<u128, u8>>(json) {
+    for (path, r) in
+        map_key_results::<BTreeMap<u128, u8>>(r#"{"340282366920938463463374607431768211456":1}"#)
+    {
         assert_eq!(r, None, "u128 overflow via {path}");
+    }
+}
+
+#[test]
+fn value_map_integer_keys() {
+    // From an owned/borrowed Value (not a reference), map keys were deserialized as plain
+    // strings, so integer keys failed; all four Value functions must parse them.
+    use std::collections::BTreeMap;
+    let ok = BTreeMap::from([(1_i64, 2_u8), (-7, 3)]);
+    for (path, r) in map_key_results::<BTreeMap<i64, u8>>(r#"{"1":2,"-7":3}"#) {
+        assert_eq!(r.as_ref(), Some(&ok), "via {path}");
     }
 }
