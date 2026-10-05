@@ -523,9 +523,8 @@ macro_rules! deserialize_integer_key {
             V: de::Visitor<'de>,
         {
             visitor.$visit(stry!(match stry!(self.de.next()) {
-                Node::String(s) => s
-                    .parse::<$type>()
-                    .map_err(|_| Deserializer::error(ErrorType::InvalidNumber)),
+                Node::String(s) => crate::serde::parse_integer_key::<$type>(s)
+                    .ok_or_else(|| Deserializer::error(ErrorType::InvalidNumber)),
                 _ => Err(Deserializer::error(ErrorType::ExpectedString)),
             }))
         }

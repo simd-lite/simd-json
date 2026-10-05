@@ -1404,3 +1404,59 @@ fn tuple_variants_reject_extra_elements() {
     assert_eq!(from_refowned_value::<Enm>(&o).ok(), Some(Enm::Var(1, 2)));
     assert_eq!(from_owned_value::<Enm>(o).ok(), Some(Enm::Var(1, 2)));
 }
+
+/// Deserializes the JSON object `json` as `T` through every path: `from_slice` and the four
+/// Value functions. Returns one result per path, labelled.
+fn map_key_results<T>(json: &str) -> Vec<(&'static str, Option<T>)>
+where
+    T: serde::de::DeserializeOwned,
+{
+    use crate::serde::{
+        from_borrowed_value, from_owned_value, from_refborrowed_value, from_refowned_value,
+    };
+    let mut d = json.as_bytes().to_vec();
+    let text = from_slice::<T>(&mut d).ok();
+    let mut d = json.as_bytes().to_vec();
+    let o = to_owned_value(&mut d).expect("valid");
+    let mut d2 = json.as_bytes().to_vec();
+    let b = to_borrowed_value(&mut d2).expect("valid");
+    vec![
+        ("from_slice", text),
+        ("from_refowned_value", from_refowned_value::<T>(&o).ok()),
+        ("from_owned_value", from_owned_value::<T>(o).ok()),
+        (
+            "from_refborrowed_value",
+            from_refborrowed_value::<T>(&b).ok(),
+        ),
+        ("from_borrowed_value", from_borrowed_value::<T>(b).ok()),
+    ]
+}
+
+#[test]
+fn integer_keys_follow_json_number_syntax() {
+    // Integer map keys used `str::parse`, which accepts `+1` and leading zeros. `-0` is
+    // rejected too: as a number it is the key `0`, as a string it isn't.
+    use std::collections::BTreeMap;
+    for key in [
+        "+1", "01", "-01", "00", "+0", "-0", " 1", "1 ", "", "1x", "-",
+    ] {
+        let json = format!(r#"{{"{key}":2}}"#);
+        for (path, r) in map_key_results::<BTreeMap<i64, u8>>(&json) {
+            assert_eq!(r, None, "i64 key {key:?} via {path}");
+        }
+        for (path, r) in map_key_results::<BTreeMap<u32, u8>>(&json) {
+            assert_eq!(r, None, "u32 key {key:?} via {path}");
+        }
+    }
+    let ok = BTreeMap::from([(0_i64, 1_u8), (-7, 2), (120, 3)]);
+    for (path, r) in map_key_results::<BTreeMap<i64, u8>>(r#"{"0":1,"-7":2,"120":3}"#) {
+        if path == "from_slice" || path.starts_with("from_ref") {
+            assert_eq!(r.as_ref(), Some(&ok), "via {path}");
+        }
+    }
+    // string keys are unchanged
+    let ok = BTreeMap::from([("01".to_string(), 2_u8), ("-0".to_string(), 3)]);
+    for (path, r) in map_key_results::<BTreeMap<String, u8>>(r#"{"01":2,"-0":3}"#) {
+        assert_eq!(r.as_ref(), Some(&ok), "via {path}");
+    }
+}
