@@ -10,10 +10,10 @@ macro_rules! deserialize_integer_key {
         where
             V: Visitor<'de>,
         {
-            match (self.key.parse(), self.key) {
-                (Ok(integer), _) => visitor.$visit(integer),
+            match (crate::serde::parse_integer_key(&self.key), self.key) {
+                (Some(integer), _) => visitor.$visit(integer),
                 #[cfg(feature = "beef")]
-                (Err(_), s) => {
+                (None, s) => {
                     if s.is_borrowed() {
                         visitor.visit_borrowed_str(s.unwrap_borrowed())
                     } else {
@@ -21,9 +21,9 @@ macro_rules! deserialize_integer_key {
                     }
                 }
                 #[cfg(not(feature = "beef"))]
-                (Err(_), Cow::Borrowed(s)) => visitor.visit_borrowed_str(s),
+                (None, Cow::Borrowed(s)) => visitor.visit_borrowed_str(s),
                 #[cfg(not(feature = "beef"))]
-                (Err(_), Cow::Owned(s)) => visitor.visit_string(s),
+                (None, Cow::Owned(s)) => visitor.visit_string(s),
             }
         }
     };
