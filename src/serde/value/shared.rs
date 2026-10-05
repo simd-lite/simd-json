@@ -56,13 +56,12 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
     deserialize_integer_key!(deserialize_i16 => visit_i16);
     deserialize_integer_key!(deserialize_i32 => visit_i32);
     deserialize_integer_key!(deserialize_i64 => visit_i64);
-    #[cfg(feature = "128bit")]
+    // as for keys parsed from text, i128/u128 keys don't need the `128bit` feature
     deserialize_integer_key!(deserialize_i128 => visit_i128);
     deserialize_integer_key!(deserialize_u8 => visit_u8);
     deserialize_integer_key!(deserialize_u16 => visit_u16);
     deserialize_integer_key!(deserialize_u32 => visit_u32);
     deserialize_integer_key!(deserialize_u64 => visit_u64);
-    #[cfg(feature = "128bit")]
     deserialize_integer_key!(deserialize_u128 => visit_u128);
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
