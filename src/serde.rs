@@ -46,6 +46,17 @@ impl std::fmt::Display for SerdeConversionError {
 
 impl std::error::Error for SerdeConversionError {}
 
+/// Parses an integer map key. A key is an integer only when written as a JSON integer
+/// (`-?(0|[1-9][0-9]*)`), so `+1` and `01` (which `str::parse` alone accepts) are not; `-0` is
+/// rejected too, since it would be the same number as the key `0` but a different string.
+/// The leading characters are checked here, the rest by `str::parse`.
+pub(crate) fn parse_integer_key<T: std::str::FromStr>(key: &str) -> Option<T> {
+    match key.as_bytes() {
+        [b'0'] | [b'1'..=b'9', ..] | [b'-', b'1'..=b'9', ..] => key.parse().ok(),
+        _ => None,
+    }
+}
+
 /// parses a byte slice using a serde deserializer.
 /// note that the slice will be rewritten in the process.
 ///
@@ -1002,11 +1013,8 @@ mod test {
         ser_deser_map!(3_u16 => 3_i8, HashMap<u16, i8>);
         ser_deser_map!(3_u32 => 3_i8, HashMap<u32, i8>);
         ser_deser_map!(3_u64 => 3_i8, HashMap<u64, i8>);
-        #[cfg(feature = "128bit")]
-        {
-            ser_deser_map!(3_i128 => 3_i8, HashMap<i128, i8>);
-            ser_deser_map!(3_u128 => 3_i8, HashMap<u128, i8>);
-        }
+        ser_deser_map!(3_i128 => 3_i8, HashMap<i128, i8>);
+        ser_deser_map!(3_u128 => 3_i8, HashMap<u128, i8>);
         ser_deser_map!(NewTypeStruct(1) => 3_i8, HashMap<NewTypeStruct, i8>);
         ser_deser_map!(E::UnitVariant => 3_i8, HashMap<E, i8>);
     }

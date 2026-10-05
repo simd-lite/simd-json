@@ -217,7 +217,8 @@ impl<'de> MapAccess<'de> for ObjectAccess {
         match self.i.next() {
             Some((k, v)) => {
                 self.v = Some(v);
-                seed.deserialize(Value::String(k)).map(Some)
+                // through the key deserializer, as for `&Value`: integer keys parse
+                seed.deserialize(MapKeyDeserializer::new(k)).map(Some)
             }
             _ => Ok(None),
         }
@@ -256,7 +257,8 @@ impl<'de> MapAccess<'de> for ObjectRefAccess<'de> {
     {
         if let Some((k, v)) = self.i.next() {
             self.v = Some(v);
-            seed.deserialize(MapKeyDeserializer::borrowed(k)).map(Some)
+            seed.deserialize(MapKeyDeserializer::new(k.as_str()))
+                .map(Some)
         } else {
             Ok(None)
         }
