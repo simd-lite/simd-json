@@ -1264,16 +1264,16 @@ pub(crate) use static_cast_u64;
 /// FROM serde-json
 /// We only use our own error type; no need for From conversions provided by the
 /// standard library's try! macro. This reduces lines of LLVM IR by 4%.
-macro_rules! stry {
-    ($e:expr_2021) => {
-        match $e {
-            ::std::result::Result::Ok(val) => val,
-            ::std::result::Result::Err(err) => return ::std::result::Result::Err(err),
-        }
-    };
-}
-#[allow(unused_imports)]
-pub(crate) use stry;
+// macro_rules! stry {
+//     ($e:expr_2021) => {
+//         match $e {
+//             ::std::result::Result::Ok(val) => val,
+//             ::std::result::Result::Err(err) => return ::std::result::Result::Err(err),
+//         }
+//     };
+// }
+// #[allow(unused_imports)]
+// pub(crate) use stry;
 
 #[cfg(test)]
 mod test {

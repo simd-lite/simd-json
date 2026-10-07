@@ -1,7 +1,6 @@
 use super::to_value;
 use crate::{
     Error, ErrorType, ObjectHasher, Result, StaticNode,
-    macros::stry,
     value::owned::{Object, Value},
 };
 use serde_ext::ser::{
@@ -180,7 +179,7 @@ impl serde::Serializer for Serializer {
         T: ?Sized + Serialize,
     {
         let mut values = Object::with_capacity_and_hasher(1, ObjectHasher::default());
-        unsafe { values.insert_nocheck(variant.into(), stry!(to_value(value))) };
+        unsafe { values.insert_nocheck(variant.into(), to_value(value)?) };
         Ok(Value::from(values))
     }
 
@@ -280,7 +279,7 @@ impl serde::ser::SerializeSeq for SerializeVec {
     where
         T: ?Sized + Serialize,
     {
-        self.vec.push(stry!(to_value(value)));
+        self.vec.push(to_value(value)?);
         Ok(())
     }
 
@@ -329,7 +328,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     where
         T: ?Sized + Serialize,
     {
-        self.vec.push(stry!(to_value(value)));
+        self.vec.push(to_value(value)?);
         Ok(())
     }
 
@@ -348,7 +347,7 @@ impl serde::ser::SerializeMap for SerializeMap {
     where
         T: ?Sized + Serialize,
     {
-        self.next_key = Some(stry!(key.serialize(MapKeySerializer {})));
+        self.next_key = Some(key.serialize(MapKeySerializer {})?);
         Ok(())
     }
 
@@ -360,7 +359,7 @@ impl serde::ser::SerializeMap for SerializeMap {
         // Panic because this indicates a bug in the program rather than an
         // expected failure.
         let key = key.expect("serialize_value called before serialize_key");
-        self.map.insert(key, stry!(to_value(value)));
+        self.map.insert(key, to_value(value)?);
         Ok(())
     }
 
@@ -551,7 +550,7 @@ impl serde::ser::SerializeStruct for SerializeMap {
     where
         T: ?Sized + Serialize,
     {
-        stry!(serde::ser::SerializeMap::serialize_key(self, key));
+        serde::ser::SerializeMap::serialize_key(self, key)?;
         serde::ser::SerializeMap::serialize_value(self, value)
     }
 
@@ -568,7 +567,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     where
         T: ?Sized + Serialize,
     {
-        self.map.insert(key.into(), stry!(to_value(value)));
+        self.map.insert(key.into(), to_value(value)?);
         Ok(())
     }
 
