@@ -14,7 +14,11 @@
 //! MIRIFLAGS=-Zmiri-tree-borrows cargo +nightly miri test --test fill_tape_padded
 //! ```
 
-use simd_json::{Buffers, INPUT_PADDING, Tape, fill_tape, fill_tape_padded};
+use simd_json::{Buffers, ErrorType, INPUT_PADDING, Tape, fill_tape, fill_tape_padded};
+
+/// A digit, so a root-level number or atom would run into the padding if `fill_tape_padded`
+/// did not terminate the document itself.
+const PAD: u8 = b'7';
 
 /// Packs `rows` into one scratch buffer with a single trailing padding run, parses each
 /// row through `fill_tape_padded`, and returns per-row `Ok(debug of nodes)` /
@@ -30,9 +34,8 @@ fn parse_rows(rows: &[&[u8]]) -> Vec<String> {
         scratch.extend_from_slice(r);
         offsets.push(scratch.len());
     }
-    // Spaces, not zeros: a root-level number or atom is terminated by the byte after it,
-    // and a NUL is not a valid terminator.
-    scratch.resize(scratch.len() + INPUT_PADDING, b' ');
+    let pad_start = scratch.len();
+    scratch.resize(pad_start + INPUT_PADDING, PAD);
 
     let mut buffers = Buffers::new(256);
     let mut out = Vec::new();
@@ -40,12 +43,13 @@ fn parse_rows(rows: &[&[u8]]) -> Vec<String> {
         let row_len = offsets[row + 1] - offsets[row];
         let padded = &mut scratch[offsets[row]..];
         let mut tape = Tape::null();
-        let res = unsafe { fill_tape_padded(padded, row_len, &mut buffers, &mut tape) };
+        let res = fill_tape_padded(padded, row_len, &mut buffers, &mut tape);
         out.push(match res {
             Ok(()) => format!("{:?}", tape.0),
             Err(e) => format!("ERR {e:?}"),
         });
     }
+    assert!(scratch[pad_start..].iter().all(|&b| b == PAD));
     out
 }
 
@@ -87,10 +91,10 @@ fn plain_documents() {
     ]);
 }
 
-/// A root-level number or atom runs to the end of the logical input, so the byte that
-/// terminates it is the caller's first padding byte.
+/// A root-level number or atom runs to the end of the logical input, so nothing in the
+/// document terminates it.
 #[test]
-fn root_scalars_terminated_by_padding() {
+fn root_scalars_at_end_of_input() {
     assert_matches_fill_tape(&[
         br#"123"#,
         br#"-2374611873366417043"#,
@@ -160,6 +164,10 @@ fn multi_row_scratch_shares_padding() {
         br#"{"a":"x\ny","b":1}"#,
         br#"{"a":"plain","b":2}"#,
         "{\"a\":\"\u{e9}\u{e8}\",\"b\":3}".as_bytes(),
+        // root scalars followed directly by the next row
+        br#"12"#,
+        br#"34"#,
+        br#"null"#,
         br#"{"a":"end\\"}"#,
         // trailing row whose value runs into the padding
         br#"{"a":42}"#,
@@ -177,9 +185,9 @@ fn multi_row_scratch_shares_padding() {
 
 #[test]
 fn invalid_documents_match_fill_tape() {
-    assert_matches_fill_tape(&[
+    let docs: &[&[u8]] = &[
         br#"{"a":"bad\qescape"}"#,
-        br#"{"a":"\ud83d"}"#, // unpaired surrogate
+        br#"{"a":"\udc00"}"#, // lone low surrogate
         br#"{"a":tru}"#,
         br#"{"a":1"#,
         br#"{"a" 1}"#,
@@ -187,7 +195,29 @@ fn invalid_documents_match_fill_tape() {
         br#"[1,]"#,
         br#""unterminated"#,
         br#""#,
-    ]);
+    ];
+    for doc in docs {
+        assert!(
+            parse_reference(doc).starts_with("ERR"),
+            "fill_tape accepted {:?}",
+            String::from_utf8_lossy(doc)
+        );
+    }
+    assert_matches_fill_tape(docs);
+}
+
+#[test]
+fn short_padding_is_rejected() {
+    let doc = br#"{"a":1}"#;
+    let mut scratch = doc.to_vec();
+    scratch.resize(doc.len() + INPUT_PADDING - 1, PAD);
+    let mut buffers = Buffers::new(256);
+    // one byte short, and a `len` past the end of the buffer
+    for len in [doc.len(), scratch.len() + 1] {
+        let mut tape = Tape::null();
+        let err = fill_tape_padded(&mut scratch, len, &mut buffers, &mut tape).unwrap_err();
+        assert_eq!(err.error(), &ErrorType::InsufficientPadding);
+    }
 }
 
 /// Invalid UTF-8 in the logical input must be rejected, same as `fill_tape`.

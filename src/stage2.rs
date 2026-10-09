@@ -197,7 +197,7 @@ impl<'de> Deserializer<'de> {
                 if i < structural_indexes.len() {
                     idx = *get!(structural_indexes, i) as usize;
                     i += 1;
-                    c = unsafe { input2.byte(idx) };
+                    c = unsafe { input2.get_kinda_unchecked(idx) };
                 } else {
                     fail!(ErrorType::Syntax);
                 }

@@ -6,9 +6,9 @@ use crate::{
     stringparse::{ESCAPE_MAP, get_unicode_codepoint},
 };
 
-// `data` may alias the buffer written through `input` (the padded path), so reads
-// interleaved with the escape writes below go through the raw pointer; the only
-// slices materialized are transient and dead before the writes that follow them.
+// `data` may alias the buffer written through `input` (the padded path), so reads go
+// through it rather than a slice held across the escape writes, and `data.tail` slices
+// die before the next write.
 #[allow(clippy::cast_possible_truncation)]
 pub(crate) unsafe fn parse_str<'de>(
     input: SillyWrapper<'de>,
@@ -20,16 +20,15 @@ pub(crate) unsafe fn parse_str<'de>(
 
     let input = input.input;
     // skip leading `"`
-    let src: *const u8 = unsafe { data.ptr.add(idx + 1) };
     let input = unsafe { input.add(idx + 1) };
 
     let mut src_i = 0;
-    let mut b = unsafe { src.add(src_i).read() };
+    let mut b = unsafe { data.get_kinda_unchecked(idx + 1 + src_i) };
 
     // quickly skip all the "good stuff"
     while b != b'"' && b != b'\\' {
         src_i += 1;
-        b = unsafe { src.add(src_i).read() };
+        b = unsafe { data.get_kinda_unchecked(idx + 1 + src_i) };
     }
     if b == b'"' {
         let v = unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(input, src_i)) };
@@ -42,7 +41,7 @@ pub(crate) unsafe fn parse_str<'de>(
     while b != b'"' {
         if b == b'\\' {
             // don't advance i yet
-            let escape_char = unsafe { src.add(src_i + 1).read() };
+            let escape_char = unsafe { data.get_kinda_unchecked(idx + 2 + src_i) };
             if escape_char == b'u' {
                 // got to reduce by 1 since we have to include the '\\' for get_unicode_codepoint
                 let (cp, src_offset) = unsafe { get_unicode_codepoint(data.tail(idx + 1 + src_i)) }
@@ -106,7 +105,7 @@ pub(crate) unsafe fn parse_str<'de>(
             dst_i += 1;
         }
         src_i += 1;
-        b = unsafe { src.add(src_i).read() };
+        b = unsafe { data.get_kinda_unchecked(idx + 1 + src_i) };
     }
     unsafe {
         Ok(std::str::from_utf8_unchecked(std::slice::from_raw_parts(
