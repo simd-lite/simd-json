@@ -10,6 +10,9 @@ pub enum ErrorType {
     /// Simd-json only supports inputs of up to
     /// 4GB in size.
     InputTooLarge,
+    /// The input to [`fill_tape_padded`](crate::fill_tape_padded) has fewer than
+    /// [`INPUT_PADDING`](crate::INPUT_PADDING) bytes past the document.
+    InsufficientPadding,
     /// The key of a map isn't a string
     BadKeyType,
     /// Expected an array
@@ -148,6 +151,7 @@ impl PartialEq for ErrorType {
             | (Self::Overflow, Self::Overflow)
             | (Self::DepthLimitExceeded, Self::DepthLimitExceeded)
             | (Self::InputTooLarge, Self::InputTooLarge)
+            | (Self::InsufficientPadding, Self::InsufficientPadding)
             | (Self::SimdUnsupported, Self::SimdUnsupported) => true,
             (Self::Serde(s1), Self::Serde(s2)) => s1 == s2,
             (Self::InternalError(e1), Self::InternalError(e2)) => e1 == e2,
@@ -221,7 +225,7 @@ impl Error {
     pub fn is_io(&self) -> bool {
         // We have to include InternalError _somewhere_
         match &self.err_type {
-            ErrorType::Io(_) | ErrorType::InputTooLarge => true,
+            ErrorType::Io(_) | ErrorType::InputTooLarge | ErrorType::InsufficientPadding => true,
             ErrorType::InternalError(e) if !matches!(e, crate::InternalError::TapeError) => true,
             _ => false,
         }

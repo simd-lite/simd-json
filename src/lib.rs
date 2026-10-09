@@ -184,29 +184,24 @@ pub const INPUT_PADDING: usize = SIMDINPUT_LENGTH;
 /// Fills an already existing tape from a caller-padded input, skipping the padded copy
 /// of the input that [`fill_tape`] makes into its internal buffer.
 ///
-/// `s[..len]` is the logical JSON document and `s[len..]` is the padding, which must be
-/// at least [`INPUT_PADDING`] initialized bytes. A root-level number or atom is
-/// terminated by the byte that follows it, so `s[len]` must be structural or whitespace;
-/// filling the padding with `b' '` satisfies that, as [`fill_tape`] does internally. The
-/// remaining padding bytes only absorb SIMD over-reads and their content is irrelevant.
+/// `s[..len]` is the JSON document and `s[len..]` is at least [`INPUT_PADDING`] bytes of
+/// padding with any content. Like [`fill_tape`], string unescaping writes in place within
+/// `s[..len]`. The padding is unchanged on return, so it can hold the next document of a
+/// buffer that packs several back to back.
 ///
 /// # Errors
 ///
-/// Will return `Err` if `s[..len]` is invalid JSON.
-///
-/// # Safety
-///
-/// The caller must guarantee `s.len() >= len + INPUT_PADDING`. Like [`fill_tape`], string
-/// unescaping writes in place within the logical input.
+/// Will return `Err` if `s[..len]` is invalid JSON or `s` is shorter than
+/// `len + INPUT_PADDING`.
 #[cfg_attr(not(feature = "no-inline"), inline)]
-pub unsafe fn fill_tape_padded<'de>(
+pub fn fill_tape_padded<'de>(
     s: &'de mut [u8],
     len: usize,
     buffers: &mut Buffers,
     tape: &mut Tape<'de>,
 ) -> Result<()> {
     tape.0.clear();
-    unsafe { Deserializer::fill_tape_padded(s, len, buffers, &mut tape.0) }
+    Deserializer::fill_tape_padded(s, len, buffers, &mut tape.0)
 }
 
 pub(crate) trait Stage1Parse {
@@ -401,11 +396,13 @@ impl InputView {
         }
     }
 
+    /// Bounds-checked only in debug builds, like [`GetSaferUnchecked::get_kinda_unchecked`].
+    ///
     /// # Safety
     ///
     /// `idx` must be in bounds of the view.
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    pub(crate) unsafe fn byte(self, idx: usize) -> u8 {
+    pub(crate) unsafe fn get_kinda_unchecked(self, idx: usize) -> u8 {
         debug_assert!(idx < self.len);
         unsafe { self.ptr.add(idx).read() }
     }
@@ -994,19 +991,25 @@ impl<'de> Deserializer<'de> {
     }
 
     #[cfg_attr(not(feature = "no-inline"), inline)]
-    unsafe fn fill_tape_padded(
+    fn fill_tape_padded(
         input: &'de mut [u8],
         len: usize,
         buffer: &mut Buffers,
         tape: &mut Vec<Node<'de>>,
     ) -> Result<()> {
-        debug_assert!(input.len() >= len + SIMDINPUT_LENGTH);
+        if input.len().saturating_sub(len) < SIMDINPUT_LENGTH {
+            return Err(Self::error(ErrorType::InsufficientPadding));
+        }
         if len > u32::MAX as usize {
             return Err(Self::error(ErrorType::InputTooLarge));
         }
 
         buffer.string_buffer.clear();
         buffer.string_buffer.reserve(len + SIMDJSON_PADDING);
+
+        // A root-level number or atom is terminated by the byte after it, which fill_tape's
+        // copy pads with a space. The caller's byte is restored before returning.
+        let terminator = mem::replace(&mut input[len], b' ');
 
         // The caller-provided padding plays the role fill_tape's internal copy plays: a
         // region parse_str can over-read with SIMD loads. Unlike fill_tape, reads and
@@ -1019,13 +1022,11 @@ impl<'de> Deserializer<'de> {
             len: input.len(),
         };
 
-        unsafe {
+        let stage1 = unsafe {
             let head: &[u8] = core::slice::from_raw_parts(ptr, len);
             Self::find_structural_bits(head, &mut buffer.structural_indexes)
-                .map_err(Error::generic)?;
         };
-
-        unsafe {
+        let res = stage1.map_err(Error::generic).and_then(|()| unsafe {
             Self::build_tape(
                 ptr,
                 input2,
@@ -1035,7 +1036,10 @@ impl<'de> Deserializer<'de> {
                 buffer.max_depth,
                 tape,
             )
-        }
+        });
+        // SAFETY: `len < input.len()`, and the tape borrows only bytes before `len`.
+        unsafe { ptr.add(len).write(terminator) };
+        res
     }
 
     /// Creates a serializer from a mutable slice of bytes using a temporary
