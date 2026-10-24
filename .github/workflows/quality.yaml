@@ -28,44 +28,44 @@ jobs:
       - name: Run tests
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo clippy
+        run: cargo clippy --all-targets
 
       - name: Run tests (no-default-features)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo clippy
+        run: cargo clippy --all-targets --no-default-features
 
       - name: Run tests (value-no-dup-keys)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo clippy --features value-no-dup-keys
+        run: cargo clippy --all-targets --features value-no-dup-keys
 
       - name: Run tests (known-key)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo clippy --features known-key
+        run: cargo clippy --all-targets --features known-key
 
       - name: Run tests (128bit)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo clippy --features 128bit
+        run: cargo clippy --all-targets --features 128bit
 
       - name: Run tests (beef)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo clippy --features beef
+        run: cargo clippy --all-targets --features beef
 
       - name: Run tests (arraybackend)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo clippy --features arraybackend
+        run: cargo clippy --all-targets --features arraybackend
 
       - name: Run tests (approx-number-parsing)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo clippy --features approx-number-parsing
+        run: cargo clippy --all-targets --features approx-number-parsing
 
       - name: Run tests (ordered-float)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo clippy --features ordered-float
+        run: cargo clippy --all-targets --features ordered-float
