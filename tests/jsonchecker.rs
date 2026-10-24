@@ -111,7 +111,7 @@ fail!(fail38);
 //fail!(fail39_EXCLUDED);
 
 //fail!(fail40_s64boverflow); No longer a failure!
-#[cfg(feature = "approx-number-parsing")]
+#[cfg(all(feature = "approx-number-parsing", not(feature = "128bit")))]
 fail!(fail41_toolarge);
 
 fail!(fail42);
