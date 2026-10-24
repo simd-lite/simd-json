@@ -960,12 +960,12 @@ mod test {
     #[cfg(feature = "128bit")]
     #[test]
     fn deserialize_128bit() {
-        let value = i64::MIN as i128 - 1;
+        let value = i128::from(i64::MIN) - 1;
         let int128 = crate::BorrowedValue::Static(crate::StaticNode::I128(value));
         let res: i128 = super::super::from_refvalue(&int128).expect("from_refvalue");
         assert_eq!(value, res);
 
-        let value = u64::MAX as u128;
+        let value = u128::from(u64::MAX);
         let int128 = crate::BorrowedValue::Static(crate::StaticNode::U128(value));
         let res: u128 = super::super::from_refvalue(&int128).expect("from_refvalue");
         assert_eq!(value, res);

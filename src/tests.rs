@@ -149,13 +149,13 @@ fn odd_nuber() {
     let mut d =
         String::from(r#"{"name": "max_unsafe_auto_id_timestamp", "value": -9223372036854776000}"#);
 
-    let mut d = unsafe { d.as_bytes_mut() };
+    let d = unsafe { d.as_bytes_mut() };
     let mut o = Value::object();
     o.insert("name", "max_unsafe_auto_id_timestamp")
         .expect("failed to set key");
     o.insert("value", -9_223_372_036_854_776_000_i128)
         .expect("failed to set key");
-    assert_eq!(to_value(&mut d), Ok(o));
+    assert_eq!(to_value(d), Ok(o));
 }
 
 #[cfg(feature = "128bit")]
@@ -167,13 +167,13 @@ fn odd_nuber2() {
     let mut d =
         String::from(r#"{"name": "max_unsafe_auto_id_timestamp", "value": 9223372036854776000}"#);
 
-    let mut d = unsafe { d.as_bytes_mut() };
+    let d = unsafe { d.as_bytes_mut() };
     let mut o = Value::object();
     o.insert("name", "max_unsafe_auto_id_timestamp")
         .expect("failed to set key");
     o.insert("value", 9_223_372_036_854_776_000_u128)
         .expect("failed to set key");
-    assert_eq!(to_value(&mut d), Ok(o));
+    assert_eq!(to_value(d), Ok(o));
 }
 // How much do we care about this, it's within the same range and
 // based on floating point math imprecisions during parsing.

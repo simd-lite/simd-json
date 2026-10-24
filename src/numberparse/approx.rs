@@ -576,101 +576,101 @@ mod test {
     #[test]
     fn bad_exp() {
         let mut too_big = String::from("1e309");
-        let mut too_big = unsafe { too_big.as_bytes_mut() };
-        let v_too_big = to_value(&mut too_big);
+        let too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(too_big);
         assert!(v_too_big.is_err());
         let mut too_small = String::from("1e-324");
-        let mut too_small = unsafe { too_small.as_bytes_mut() };
-        let v_too_small = to_value(&mut too_small);
+        let too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(too_small);
         assert!(v_too_small.is_err());
         let mut too_big = String::from("1e1000");
-        let mut too_big = unsafe { too_big.as_bytes_mut() };
-        let v_too_big = to_value(&mut too_big);
+        let too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(too_big);
         assert!(v_too_big.is_err());
         let mut too_small = String::from("1e-1000");
-        let mut too_small = unsafe { too_small.as_bytes_mut() };
-        let v_too_small = to_value(&mut too_small);
+        let too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(too_small);
         assert!(v_too_small.is_err());
 
         let mut too_big = String::from("100000000000000000000000000000000000000000000e309");
-        let mut too_big = unsafe { too_big.as_bytes_mut() };
-        let v_too_big = to_value(&mut too_big);
+        let too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(too_big);
         assert!(v_too_big.is_err());
         let mut too_small = String::from("100000000000000000000000000000000000000000000e-324");
-        let mut too_small = unsafe { too_small.as_bytes_mut() };
-        let v_too_small = to_value(&mut too_small);
+        let too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(too_small);
         assert!(v_too_small.is_err());
         let mut too_big = String::from("100000000000000000000000000000000000000000000e1000");
-        let mut too_big = unsafe { too_big.as_bytes_mut() };
-        let v_too_big = to_value(&mut too_big);
+        let too_big = unsafe { too_big.as_bytes_mut() };
+        let v_too_big = to_value(too_big);
         assert!(v_too_big.is_err());
         let mut too_small = String::from("100000000000000000000000000000000000000000000e-1000");
-        let mut too_small = unsafe { too_small.as_bytes_mut() };
-        let v_too_small = to_value(&mut too_small);
+        let too_small = unsafe { too_small.as_bytes_mut() };
+        let v_too_small = to_value(too_small);
         assert!(v_too_small.is_err());
     }
 
     #[test]
     fn bad_dot() {
         let mut i = String::from("1.");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i);
         assert!(r.is_err());
         let mut i = String::from("1.e");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i);
         assert!(r.is_err());
         let mut i = String::from("100000000000000000000000000000000000000000000.");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i);
         assert!(r.is_err());
         let mut i = String::from("100000000000000000000000000000000000000000000.e");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i);
         assert!(r.is_err());
     }
 
     #[test]
     fn bad_e() {
         let mut i = String::from("1.0e");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i);
         assert!(r.is_err());
         let mut i = String::from("1.0e");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i);
         assert!(r.is_err());
         let mut i = String::from("100000000000000000000000000000000000000000000.0e");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i);
         assert!(r.is_err());
         let mut i = String::from("100000000000000000000000000000000000000000000.0ee");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i);
         assert!(r.is_err());
     }
 
     #[test]
     fn zero() {
         let mut i = String::from("0");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i);
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i);
         assert_eq!(r.expect("0"), 0);
     }
 
     #[test]
     fn float_zero() {
         let mut i = String::from("0e1");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i).expect("failed to decode");
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i).expect("failed to decode");
         assert!(approx_eq!(f64, r.as_f64().expect("float"), 0.0));
     }
 
     #[test]
     fn minus_309() {
         let mut i = String::from("-5.96916642387374e-309");
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i).expect("failed to decode");
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i).expect("failed to decode");
         assert!(approx_eq!(
             f64,
             r.as_f64().expect("float"),
@@ -683,8 +683,8 @@ mod test {
         let mut i = String::from(
             "-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374",
         );
-        let mut i = unsafe { i.as_bytes_mut() };
-        let r = to_value(&mut i).expect("failed to decode");
+        let i = unsafe { i.as_bytes_mut() };
+        let r = to_value(i).expect("failed to decode");
         assert!(approx_eq!(f64, r.as_f64().expect("float"), -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000596916642387374));
     }
 

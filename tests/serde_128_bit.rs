@@ -27,9 +27,9 @@ fn lgostash_int_bug() {
 }
 "#,
     );
-    let mut d = unsafe { d.as_bytes_mut() };
+    let d = unsafe { d.as_bytes_mut() };
     let v_serde: Message = serde_json::from_slice(d).expect("serde_json");
-    let v_simd: Message = from_slice(&mut d).expect("simd_json");
+    let v_simd: Message = from_slice(d).expect("simd_json");
     assert_eq!(v_simd, v_serde);
 }
 
@@ -52,8 +52,8 @@ fn lgostash_int_bug2() {
 }
 "#,
     );
-    let mut d = unsafe { d.as_bytes_mut() };
+    let d = unsafe { d.as_bytes_mut() };
     let v_serde: Message = serde_json::from_slice(d).expect("serde_json");
-    let v_simd: Message = from_slice(&mut d).expect("simd_json");
+    let v_simd: Message = from_slice(d).expect("simd_json");
     assert_eq!(v_simd, v_serde);
 }
