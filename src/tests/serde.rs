@@ -1318,14 +1318,76 @@ fn value_tuple_variant_from_sequence() {
     assert_eq!(from_refowned_value::<E>(&o).ok(), Some(E::Tpl(1, 2)));
     assert_eq!(from_owned_value::<E>(o).ok(), Some(E::Tpl(1, 2)));
 
-    let mut d = br#"{"Tpl":[1,2,3]}"#.to_vec();
-    let o = to_owned_value(&mut d).expect("valid");
-    let mut d2 = br#"{"Tpl":[1,2,3]}"#.to_vec();
-    let b = to_borrowed_value(&mut d2).expect("valid");
-    assert!(from_owned_value::<E>(o.clone()).is_err());
-    assert!(from_refowned_value::<E>(&o).is_err());
-    assert!(from_borrowed_value::<E>(b.clone()).is_err());
-    assert!(from_refborrowed_value::<E>(&b).is_err());
+    let mut d = br#"{"Tpl":[1,2]}"#.to_vec();
+    let b = to_borrowed_value(&mut d).expect("valid");
+    assert_eq!(from_refborrowed_value::<E>(&b).ok(), Some(E::Tpl(1, 2)));
+    assert_eq!(from_borrowed_value::<E>(b).ok(), Some(E::Tpl(1, 2)));
+
+    for bad in [&br#"{"Tpl":[]}"#[..], br#"{"Tpl":[1,2,3]}"#] {
+        let mut d = bad.to_vec();
+        let o = to_owned_value(&mut d).expect("valid");
+        let mut d2 = bad.to_vec();
+        let b = to_borrowed_value(&mut d2).expect("valid");
+        assert!(from_owned_value::<E>(o.clone()).is_err());
+        assert!(from_refowned_value::<E>(&o).is_err());
+        assert!(from_borrowed_value::<E>(b.clone()).is_err());
+        assert!(from_refborrowed_value::<E>(&b).is_err());
+    }
+}
+
+#[test]
+fn value_tuple_variant_empty() {
+    use crate::serde::{
+        from_borrowed_value, from_owned_value, from_refborrowed_value, from_refowned_value,
+    };
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum E {
+        T(),
+        Unit,
+    }
+
+    assert_eq!(serde_json::from_str::<E>(r#"{"T":[]}"#).unwrap(), E::T());
+    let mut d = br#"{"T":[]}"#.to_vec();
+    assert_eq!(from_slice::<E>(&mut d).unwrap(), E::T());
+
+    for (json, expected) in [(r#"{"T":[]}"#, E::T()), (r#""Unit""#, E::Unit)] {
+        let mut d = json.as_bytes().to_vec();
+        let o = to_owned_value(&mut d).expect("valid");
+        assert_eq!(from_refowned_value::<E>(&o).unwrap(), expected);
+        assert_eq!(from_owned_value::<E>(o).unwrap(), expected);
+        let mut d = json.as_bytes().to_vec();
+        let b = to_borrowed_value(&mut d).expect("valid");
+        assert_eq!(from_refborrowed_value::<E>(&b).unwrap(), expected);
+        assert_eq!(from_borrowed_value::<E>(b).unwrap(), expected);
+    }
+
+    let o = crate::serde::to_owned_value(&E::T()).unwrap();
+    let mut d = br#"{"T":[]}"#.to_vec();
+    assert_eq!(o, to_owned_value(&mut d).expect("valid"));
+    assert_eq!(from_refowned_value::<E>(&o).unwrap(), E::T());
+    assert_eq!(from_owned_value::<E>(o).unwrap(), E::T());
+    let b = crate::serde::to_borrowed_value(&E::T()).unwrap();
+    let mut d = br#"{"T":[]}"#.to_vec();
+    assert_eq!(b, to_borrowed_value(&mut d).expect("valid"));
+    assert_eq!(from_refborrowed_value::<E>(&b).unwrap(), E::T());
+    assert_eq!(from_borrowed_value::<E>(b).unwrap(), E::T());
+
+    for bad in [
+        r#"{"T":[1]}"#,
+        r#"{"T":null}"#,
+        r#"{"T":1}"#,
+        r#"{"T":{}}"#,
+        r#""T""#,
+    ] {
+        let mut d = bad.as_bytes().to_vec();
+        let o = to_owned_value(&mut d).expect("valid");
+        assert!(from_refowned_value::<E>(&o).is_err());
+        assert!(from_owned_value::<E>(o).is_err());
+        let mut d = bad.as_bytes().to_vec();
+        let b = to_borrowed_value(&mut d).expect("valid");
+        assert!(from_refborrowed_value::<E>(&b).is_err());
+        assert!(from_borrowed_value::<E>(b).is_err());
+    }
 }
 
 #[test]
