@@ -579,13 +579,7 @@ impl<'de> VariantAccess<'de> for VariantDeserializer {
         V: Visitor<'de>,
     {
         match self.value {
-            Some(Value::Array(v)) => {
-                if v.is_empty() {
-                    visitor.visit_unit()
-                } else {
-                    visit_array(Array(v.into_iter()), visitor)
-                }
-            }
+            Some(Value::Array(v)) => visit_array(Array(v.into_iter()), visitor),
             Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
                 Some(ValueType::Array),
                 Some(other.value_type()),
@@ -784,13 +778,7 @@ impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Some(Value::Array(v)) => {
-                if v.is_empty() {
-                    visitor.visit_unit()
-                } else {
-                    visit_array(ArrayRef(v.as_slice().iter()), visitor)
-                }
-            }
+            Some(Value::Array(v)) => visit_array(ArrayRef(v.as_slice().iter()), visitor),
             Some(other) => Err(crate::Deserializer::error(ErrorType::Unexpected(
                 Some(ValueType::Array),
                 Some(other.value_type()),
