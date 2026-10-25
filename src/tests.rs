@@ -196,6 +196,24 @@ fn silly_float2() {
     let parsed = to_owned_value(&mut bytes).expect("failed to parse generated float");
     assert_eq!(v, parsed);
 }
+
+// JSON has no NaN or infinity, so they are written as `null`, like serde_json does.
+#[test]
+fn non_finite_floats_encode_as_null() {
+    for f in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(Value::from(f).encode(), "null", "{f}");
+        #[cfg(feature = "serde_impl")]
+        {
+            assert_eq!(crate::to_string(&f).expect("to_string"), "null", "{f}");
+            assert_eq!(
+                crate::to_string_pretty(&f).expect("to_string_pretty"),
+                "null",
+                "{f}"
+            );
+        }
+    }
+}
+
 #[cfg(not(feature = "128bit"))]
 #[cfg(not(target_arch = "wasm32"))]
 fn arb_json_value() -> BoxedStrategy<Value> {
