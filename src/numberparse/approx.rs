@@ -398,17 +398,9 @@ impl Deserializer<'_> {
             // we rarely see large integer parts like 123456789
             while is_integer(d) {
                 digit = d - b'0';
-                i = i.wrapping_mul(10);
-                if let Some(i1) = i.checked_add(u64::from(digit)) {
-                    i = i1;
-                } else {
-                    return Err(Self::error_c(
-                        idx + byte_count,
-                        d as char,
-                        ErrorType::Overflow,
-                    ));
-                }
-                //i = 10 * i + u64::from(digit); // might overflow
+                // may wrap: overflowing needs 20+ digits, and those take the
+                // `parse_float` / `parse_large_integer` paths below, which re-parse
+                i = i.wrapping_mul(10).wrapping_add(u64::from(digit));
                 byte_count += 1;
                 d = unsafe { *buf.get_kinda_unchecked(byte_count) };
             }
@@ -462,8 +454,8 @@ impl Deserializer<'_> {
         } else {
             0
         };
-        let mut expnumber: i16 = 0; // exponential part
-        if (d == b'e') || (d == b'E') {
+        let has_exponent = (d == b'e') || (d == b'E');
+        if has_exponent {
             ignore_count += 1;
             byte_count += 1;
             d = unsafe { *buf.get_kinda_unchecked(byte_count) };
@@ -486,7 +478,7 @@ impl Deserializer<'_> {
                 ));
             }
             digit = d - b'0';
-            expnumber = i16::from(digit);
+            let mut expnumber = i16::from(digit); // exponential part
             byte_count += 1;
             ignore_count += 1;
             d = unsafe { *buf.get_kinda_unchecked(byte_count) };
@@ -514,7 +506,8 @@ impl Deserializer<'_> {
             }
             exponent += i64::from(if negexp { -expnumber } else { expnumber });
         }
-        let v = if (exponent != 0) || (expnumber != 0) {
+        // `1e0` is a float too, even though its exponent sums to zero
+        let v = if (exponent != 0) || has_exponent {
             if unlikely!((byte_count - ignore_count as usize) >= 19) {
                 // this is uncommon!!!
                 // this is almost never going to get called!!!
