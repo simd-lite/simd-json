@@ -325,3 +325,28 @@ fn high_surrogate_without_a_low_surrogate_is_an_error() {
         assert_eq!(t.0[0], crate::Node::String(decoded));
     }
 }
+
+#[test]
+fn unicode_escape_with_invalid_hex_is_an_error() {
+    for bad in [
+        r#""\uzzzzA""#,
+        r#""\u00zz""#,
+        r#""\uzz00""#,
+        r#""\u004g""#,
+        r#"["\uzzzz"]"#,
+        r#"{"k":"a\uzzzzb"}"#,
+    ] {
+        let mut v = bad.as_bytes().to_vec();
+        assert!(crate::to_tape(&mut v).is_err(), "accepted: {bad}");
+        let mut v = bad.as_bytes().to_vec();
+        assert!(crate::to_borrowed_value(&mut v).is_err(), "accepted: {bad}");
+        #[cfg(feature = "serde_impl")]
+        {
+            let mut v = bad.as_bytes().to_vec();
+            assert!(
+                crate::serde::from_slice::<String>(&mut v).is_err(),
+                "accepted: {bad}"
+            );
+        }
+    }
+}
