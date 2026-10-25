@@ -284,3 +284,44 @@ proptest! {
     }
 
 }
+
+#[test]
+fn high_surrogate_without_a_low_surrogate_is_an_error() {
+    for bad in [
+        r#""\ud800""#,
+        r#""\ud800x""#,
+        r#"["\udbff"]"#,
+        r#"{"k":"a\ud800b"}"#,
+        r#""\ud800\n""#,
+        r#""\ud800\uzzzz""#,
+        r#""\ud800\u0041""#,
+        r#""\ud800\udbff""#,
+        r#""\ud800\ue000""#,
+        r#""\ud800\uffff""#,
+        r#""\udbff\ue000""#,
+        r#""\udbff\uffff""#,
+        r#""\udc00""#,
+    ] {
+        let mut v = bad.as_bytes().to_vec();
+        assert!(crate::to_tape(&mut v).is_err(), "accepted: {bad}");
+        let mut v = bad.as_bytes().to_vec();
+        assert!(crate::to_borrowed_value(&mut v).is_err(), "accepted: {bad}");
+        #[cfg(feature = "serde_impl")]
+        {
+            let mut v = bad.as_bytes().to_vec();
+            assert!(
+                crate::serde::from_slice::<String>(&mut v).is_err(),
+                "accepted: {bad}"
+            );
+        }
+    }
+    for (good, decoded) in [
+        (r#""a\ud83d\ude00b""#, "a\u{1F600}b"),
+        (r#""\ud800\udc00""#, "\u{10000}"),
+        (r#""\udbff\udfff""#, "\u{10FFFF}"),
+    ] {
+        let mut v = good.as_bytes().to_vec();
+        let t = crate::to_tape(&mut v).expect("valid surrogate pair");
+        assert_eq!(t.0[0], crate::Node::String(decoded));
+    }
+}
