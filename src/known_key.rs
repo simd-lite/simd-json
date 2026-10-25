@@ -473,24 +473,22 @@ mod tests {
 
         assert!(key1.lookup(&OwnedValue::null()).is_none());
         assert!(key2.lookup(&OwnedValue::null()).is_none());
-        assert_eq!(key1.lookup(&v).unwrap().as_u8(), Some(1));
+        assert_eq!(key1.lookup(&v).expect("key not found").as_u8(), Some(1));
         assert!(key2.lookup(&v).is_none());
 
         if let Some(val) = key1.lookup_mut(&mut v) {
             *val = OwnedValue::from(42);
         }
-        assert_eq!(key1.lookup(&v).unwrap().as_u8(), Some(42));
+        assert_eq!(key1.lookup(&v).expect("key not found").as_u8(), Some(42));
 
         if let Some(m) = v.as_object() {
-            assert_eq!(key1.map_lookup(m).unwrap().as_u8(), Some(42));
-            assert_eq!(key1.lookup(m).unwrap().as_u8(), Some(42));
+            assert_eq!(key1.map_lookup(m).expect("key not found").as_u8(), Some(42));
+            assert_eq!(key1.lookup(m).expect("key not found").as_u8(), Some(42));
         }
-        if let Some(m) = v.as_object_mut() {
-            if let Some(val) = key1.map_lookup_mut(m) {
-                *val = OwnedValue::from(84);
-            }
+        if let Some(val) = v.as_object_mut().and_then(|m| key1.map_lookup_mut(m)) {
+            *val = OwnedValue::from(84);
         }
-        assert_eq!(key1.lookup(&v).unwrap().as_u8(), Some(84));
+        assert_eq!(key1.lookup(&v).expect("key not found").as_u8(), Some(84));
     }
 
     #[test]
