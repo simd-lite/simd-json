@@ -599,4 +599,27 @@ mod tests {
 
         assert_eq!(key1.key(), "snot");
     }
+
+    #[test]
+    fn known_key_owned_map() {
+        use crate::OwnedValue;
+        let mut v = OwnedValue::object_with_capacity(128);
+        v.try_insert("key", 1);
+        let key1 = KnownKey::from("key");
+        let key2 = KnownKey::from("cake");
+
+        assert!(key1.lookup(&OwnedValue::null()).is_none());
+        assert_eq!(key1.lookup(&v).expect("key not found").as_u8(), Some(1));
+        assert!(key2.lookup(&v).is_none());
+
+        *key1.lookup_mut(&mut v).expect("key not found") = OwnedValue::from(42);
+        assert!(key2.lookup_mut(&mut v).is_none());
+
+        let m = v.as_object_mut().expect("not an object");
+        assert_eq!(key1.map_lookup(m).expect("key not found").as_u8(), Some(42));
+        assert!(key2.map_lookup(m).is_none());
+        *key1.map_lookup_mut(m).expect("key not found") = OwnedValue::from(84);
+        assert!(key2.map_lookup_mut(m).is_none());
+        assert_eq!(v["key"], 84);
+    }
 }
