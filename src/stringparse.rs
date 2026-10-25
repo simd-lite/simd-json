@@ -47,10 +47,11 @@ pub(crate) fn handle_unicode_codepoint(
 /// We work in little-endian then swap at write time
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn get_unicode_codepoint(mut src_ptr: &[u8]) -> Result<(u32, usize), ErrorType> {
-    // hex_to_u32_nocheck fills high 16 bits of the return value with 1s if the
-    // conversion isn't valid; we defer the check for this to inside the
-    // multilingual plane check
     let mut code_point: u32 = hex_to_u32_nocheck(unsafe { src_ptr.get_kinda_unchecked(2..) });
+    // Invalid hex digits set the high 16 bits; valid ones give at most 0xFFFF.
+    if code_point > 0xFFFF {
+        return Err(ErrorType::InvalidUnicodeCodepoint);
+    }
     src_ptr = unsafe { src_ptr.get_kinda_unchecked(6..) };
     let mut src_offset = 6;
     // check for low surrogate for characters outside the Basic

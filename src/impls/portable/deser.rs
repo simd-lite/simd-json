@@ -133,10 +133,6 @@ pub(crate) unsafe fn parse_str<'de>(
                     buffer.get_kinda_unchecked_mut(dst_i..),
                 )
                 .map_err(|_| Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint))?;
-
-                if o == 0 {
-                    return Err(Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint));
-                };
                 // We moved o steps forward at the destination and 6 on the source
                 src_i += s;
                 dst_i += o;

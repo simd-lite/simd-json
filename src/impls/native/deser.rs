@@ -66,7 +66,7 @@ pub(crate) unsafe fn parse_str<'de>(
                         dst_i += 1;
                         input.add(dst_i).write(((cp & 63) + 128) as u8);
                         dst_i += 1;
-                    } else if cp <= 0x0010_FFFF {
+                    } else {
                         input.add(dst_i).write(((cp >> 18) + 240) as u8);
                         dst_i += 1;
                         input.add(dst_i).write((((cp >> 12) & 63) + 128) as u8);
@@ -75,12 +75,6 @@ pub(crate) unsafe fn parse_str<'de>(
                         dst_i += 1;
                         input.add(dst_i).write(((cp & 63) + 128) as u8);
                         dst_i += 1;
-                    } else {
-                        return Err(Deserializer::error_c(
-                            idx + 1 + src_i,
-                            'u',
-                            InvalidUnicodeCodepoint,
-                        ));
                     }
                 }
                 // We have to subtract one since we're already moving to the next character at the end of the loop

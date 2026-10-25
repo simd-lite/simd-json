@@ -180,9 +180,6 @@ pub(crate) fn parse_str<'de>(
                 else {
                     return Err(Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint));
                 };
-                if o == 0 {
-                    return Err(Deserializer::error_c(src_i, 'u', InvalidUnicodeCodepoint));
-                }
                 // We moved o steps forward at the destination and 6 on the source
                 src_i += s;
                 dst_i += o;
