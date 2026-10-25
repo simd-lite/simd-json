@@ -83,7 +83,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(feature = "known-key")]
 mod known_key;
 #[cfg(feature = "known-key")]
-pub use known_key::{Error as KnownKeyError, KnownKey};
+pub use known_key::{Error as KnownKeyError, KnownKey, KnownKeyTarget, KnownKeyTargetMut};
 
 pub use crate::tape::{Node, Tape};
 use std::alloc::{Layout, alloc, handle_alloc_error};
