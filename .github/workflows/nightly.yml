@@ -24,8 +24,8 @@ jobs:
       - uses: actions/checkout@v3
 
       - uses: dtolnay/rust-toolchain@nightly
-        # with:
-        #   components: miri
+        with:
+          components: miri
 
       - name: Run tests (alloc)
         env:
@@ -82,8 +82,10 @@ jobs:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
         run: cargo test --no-default-features --features serde_impl
 
-    # we can't use miri any more, something broke.
-    # - name: Run miri
-    #   env:
-    #     RUSTFLAGS: ${{ matrix.rustflags }}
-    #   run: cargo miri test ${{ matrix.features }}
+      - name: Run miri
+        env:
+         RUSTFLAGS: ${{ matrix.rustflags }}
+          # We can choose to run proptest tests in miri, but they are very slow, so we skip them for now.
+          # Can revisit this later.
+         # PROPTEST_CASES: "4"
+        run: cargo miri test ${{ matrix.features }} -- --skip prop_
