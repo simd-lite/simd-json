@@ -34,7 +34,7 @@ However, in some design decisions—such as parsing to a DOM or a tape—ergonom
 performance. In other places Rust makes it harder to achieve the same level of performance.
 
 To take advantage of this library your system needs to support SIMD instructions. On `x86`, it will
-select the best available supported instruction set (`avx2` or `sse4.2`) when the `runtime-detection` feature
+select the best available supported instruction set (`avx512bw`, `avx2` or `sse4.2`) when the `runtime-detection` feature
 is enabled (default). On `aarch64` this library uses the `NEON` instruction set. On `wasm` this library uses 
 the `simd128` instruction set when available. When no supported SIMD instructions are found, this library will use a
 fallback implementation, but this is significantly slower.
@@ -75,7 +75,7 @@ for internal configuration and testing.
 ### `runtime-detection` (default)
 
 This feature allows selecting the optimal algorithm based on available features during runtime. It has no effect on
-non-`x86` platforms. When neither `AVX2` nor `SSE4.2` is supported, it will fall back to a native Rust implementation.
+non-`x86` platforms. When neither one of `AVX512BW` `AVX2` `SSE4.2` is supported, it will fall back to a native Rust implementation.
 
 Disabling this feature (with `default-features = false`) **and** setting `RUSTFLAGS="-C target-cpu=native` will result
 in better performance but the resulting binary will not be portable across `x86` processors.
