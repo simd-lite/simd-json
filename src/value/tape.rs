@@ -46,10 +46,7 @@ impl<'input> Tape<'input> {
     {
         use crate::Deserializer;
 
-        let mut deserializer = Deserializer {
-            tape: self.0,
-            idx: 0,
-        };
+        let mut deserializer = Deserializer::from_tape(self);
 
         T::deserialize(&mut deserializer)
     }

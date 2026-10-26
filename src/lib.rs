@@ -188,6 +188,35 @@ pub const INPUT_PADDING: usize = SIMDINPUT_LENGTH;
 /// `s[..len]`. The padding is unchanged on return, so it can hold the next document of a
 /// buffer that packs several back to back.
 ///
+/// With Serde enabled, the tape can deserialize directly into a typed value, including
+/// strings borrowed from the input. [`Deserializer::from_tape`] lets the caller recover
+/// the tape allocation afterward; `Tape::deserialize` consumes it instead:
+///
+/// ```
+/// # #[cfg(feature = "serde_impl")]
+/// # {
+/// use serde::Deserialize;
+/// use simd_json::{Buffers, Deserializer, INPUT_PADDING, Tape, fill_tape_padded};
+///
+/// #[derive(Deserialize)]
+/// struct Message<'a> {
+///     content: &'a str,
+/// }
+///
+/// let mut input = br#"{"content":"hello\nworld"}"#.to_vec();
+/// let len = input.len();
+/// input.resize(len + INPUT_PADDING, 0);
+/// let mut buffers = Buffers::new(len);
+/// let mut tape = Tape::null();
+/// fill_tape_padded(&mut input, len, &mut buffers, &mut tape).unwrap();
+/// let mut deserializer = Deserializer::from_tape(tape);
+/// let message = Message::deserialize(&mut deserializer).unwrap();
+/// let tape = deserializer.into_tape().reset();
+/// assert_eq!(message.content, "hello\nworld");
+/// assert!(tape.0.is_empty()); // Ready for another input, retaining its allocation.
+/// # }
+/// ```
+///
 /// # Errors
 ///
 /// Will return `Err` if `s[..len]` is invalid JSON or `s` is shorter than
@@ -882,6 +911,16 @@ impl Deserializer<'_> {
 }
 
 impl<'de> Deserializer<'de> {
+    /// Creates a deserializer from an existing tape without copying or reparsing it.
+    /// The allocation can be recovered with [`Self::into_tape`] after deserialization.
+    #[must_use]
+    pub fn from_tape(tape: Tape<'de>) -> Self {
+        Self {
+            tape: tape.0,
+            idx: 0,
+        }
+    }
+
     /// Extracts the tape from the Deserializer
     #[must_use]
     pub fn into_tape(self) -> Tape<'de> {
