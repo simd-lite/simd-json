@@ -5,6 +5,7 @@ use crate::Node;
 /// Wrapper around the tape that allows interacting with it via a `Array`-like API.
 pub struct Array<'tape, 'input>(pub(super) &'tape [Node<'input>]);
 
+/// Iterator over the elements of a tape `Array`
 pub struct Iter<'tape, 'input>(&'tape [Node<'input>]);
 
 impl<'tape, 'input> Iterator for Iter<'tape, 'input> {

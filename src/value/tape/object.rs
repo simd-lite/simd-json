@@ -6,8 +6,11 @@ use crate::Node;
 /// Wrapper around the tape that allows interacting with it via a `Object`-like API.
 pub struct Object<'tape, 'input>(pub(super) &'tape [Node<'input>]);
 
+/// Iterator over the key-value pairs of a tape `Object`
 pub struct Iter<'tape, 'input>(&'tape [Node<'input>]);
+/// Iterator over the keys of a tape `Object`
 pub struct Keys<'tape, 'input>(&'tape [Node<'input>]);
+/// Iterator over the values of a tape `Object`
 pub struct Values<'tape, 'input>(&'tape [Node<'input>]);
 
 //value_trait::Object for

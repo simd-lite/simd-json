@@ -2,9 +2,11 @@
 /// can be used without further computation.
 use value_trait::{StaticNode, TryTypeError, ValueType, base::TypedValue as _};
 
-pub(super) mod array;
+/// Tape `Array` and its iterator
+pub mod array;
 mod cmp;
-pub(super) mod object;
+/// Tape `Object` and its iterators
+pub mod object;
 mod trait_impls;
 #[derive(Debug)]
 /// `Tape`
