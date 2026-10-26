@@ -49,11 +49,6 @@ jobs:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
         run: cargo llvm-cov --no-report
 
-      - name: Run tests (value-no-dup-keys)
-        env:
-          RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
-        run: cargo llvm-cov --no-report --features value-no-dup-keys
-
       - name: Run tests (known-key)
         env:
           RUSTFLAGS: "-C target-cpu=native ${{ matrix.rustflags }}"
@@ -140,11 +135,6 @@ jobs:
       - name: Run tests (no-inline)
         run: |
           cargo build --tests --target-dir target --target wasm32-wasip1 --features no-inline
-          wasmtime run target/wasm32-wasip1/debug/deps/simd_json*.wasm
-
-      - name: Run tests (value-no-dup-keys)
-        run: |
-          cargo build --tests --target-dir target --target wasm32-wasip1 --features value-no-dup-keys
           wasmtime run target/wasm32-wasip1/debug/deps/simd_json*.wasm
 
       - name: Run tests (128bit)

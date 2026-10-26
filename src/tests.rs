@@ -214,6 +214,26 @@ fn non_finite_floats_encode_as_null() {
     }
 }
 
+// Objects over 32 keys keep only the last of a repeated key.
+#[test]
+fn repeated_key_in_large_object_keeps_last() {
+    let json = format!(
+        "{{{}}}",
+        (0..1000)
+            .map(|i| format!("\"k\":{i}"))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    let mut d = json.clone().into_bytes();
+    let v = to_owned_value(&mut d).expect("valid");
+    assert_eq!(v.as_object().expect("object").len(), 1);
+    assert_eq!(v.get_u64("k"), Some(999));
+    let mut d = json.into_bytes();
+    let v = crate::to_borrowed_value(&mut d).expect("valid");
+    assert_eq!(v.as_object().expect("object").len(), 1);
+    assert_eq!(v.get_u64("k"), Some(999));
+}
+
 #[cfg(not(feature = "128bit"))]
 #[cfg(not(target_arch = "wasm32"))]
 fn arb_json_value() -> BoxedStrategy<Value> {

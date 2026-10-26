@@ -186,12 +186,12 @@ where
         // element so we eat this
         for _ in 0..len {
             if let Node::String(key) = unsafe { self.de.next_() } {
-                #[cfg(not(feature = "value-no-dup-keys"))]
-                unsafe {
-                    res.insert_nocheck(key.into(), self.parse());
-                };
-                #[cfg(feature = "value-no-dup-keys")]
-                res.insert(key.into(), self.parse());
+                // Hash-backed objects (over 32 keys) dedupe, so repeated keys stay linear.
+                if len > 32 {
+                    res.insert(key.into(), self.parse());
+                } else {
+                    unsafe { res.insert_nocheck(key.into(), self.parse()) };
+                }
             } else {
                 unreachable!("parse_map: key needs to be a string");
             }
