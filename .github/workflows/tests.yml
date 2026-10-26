@@ -22,7 +22,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@1.88
         with:
@@ -113,7 +113,7 @@ jobs:
     env:
       WASMTIME_BACKTRACE_DETAILS: 1
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@1.88
         with:

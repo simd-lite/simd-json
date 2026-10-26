@@ -50,7 +50,7 @@ pub enum ErrorType {
     /// Expected an unsigned number
     ExpectedUnsigned,
     /// Internal error
-    InternalError(InternalError),
+    InternalError,
     /// Invalid escape sequence
     InvalidEscape,
     /// Invalid exponent in a floating point number
@@ -95,11 +95,6 @@ pub enum ErrorType {
     SimdUnsupported,
     /// IO error
     Io(std::io::Error),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum InternalError {
-    TapeError,
 }
 
 impl From<std::io::Error> for Error {
@@ -152,9 +147,9 @@ impl PartialEq for ErrorType {
             | (Self::DepthLimitExceeded, Self::DepthLimitExceeded)
             | (Self::InputTooLarge, Self::InputTooLarge)
             | (Self::InsufficientPadding, Self::InsufficientPadding)
-            | (Self::SimdUnsupported, Self::SimdUnsupported) => true,
+            | (Self::SimdUnsupported, Self::SimdUnsupported)
+            | (Self::InternalError, Self::InternalError) => true,
             (Self::Serde(s1), Self::Serde(s2)) => s1 == s2,
-            (Self::InternalError(e1), Self::InternalError(e2)) => e1 == e2,
             _ => false,
         }
     }
@@ -223,12 +218,10 @@ impl Error {
     /// Indicates if the error that occurred was an IO error
     #[must_use]
     pub fn is_io(&self) -> bool {
-        // We have to include InternalError _somewhere_
-        match &self.err_type {
-            ErrorType::Io(_) | ErrorType::InputTooLarge | ErrorType::InsufficientPadding => true,
-            ErrorType::InternalError(e) if !matches!(e, crate::InternalError::TapeError) => true,
-            _ => false,
-        }
+        matches!(
+            self.err_type,
+            ErrorType::Io(_) | ErrorType::InputTooLarge | ErrorType::InsufficientPadding
+        )
     }
 
     /// Indicates if the error that occurred was an early EOF
@@ -250,7 +243,7 @@ impl Error {
         // Lazy? maybe but if it aint something else...
         matches!(
             self.err_type,
-            ErrorType::InternalError(crate::InternalError::TapeError) | //This seems to get thrown on some syntax errors
+            ErrorType::InternalError | //This seems to get thrown on some syntax errors
             ErrorType::BadKeyType |
             ErrorType::ExpectedArrayComma |
             ErrorType::ExpectedObjectColon |

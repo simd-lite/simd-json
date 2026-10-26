@@ -39,12 +39,7 @@ pub(crate) fn handle_unicode_codepoint(
     Ok((offset, src_offset))
 }
 
-/// handle a unicode codepoint
-/// write appropriate values into dest
-/// src will advance 6 bytes or 12 bytes
-/// dest will advance a variable amount (return via pointer)
-/// return true if the unicode codepoint was valid
-/// We work in little-endian then swap at write time
+/// Decodes a `\uXXXX` escape or surrogate pair, returning the code point and the bytes consumed.
 #[cfg_attr(not(feature = "no-inline"), inline)]
 pub(crate) fn get_unicode_codepoint(mut src_ptr: &[u8]) -> Result<(u32, usize), ErrorType> {
     let mut code_point: u32 = hex_to_u32_nocheck(unsafe { src_ptr.get_kinda_unchecked(2..) });

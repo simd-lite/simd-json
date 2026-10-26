@@ -26,7 +26,6 @@ pub mod serde;
 /// serde related helper functions
 pub mod tests;
 
-use crate::error::InternalError;
 #[cfg(feature = "serde_impl")]
 pub use crate::serde::{
     from_reader, from_slice, from_str, to_string, to_string_pretty, to_vec, to_vec_pretty,
@@ -482,7 +481,8 @@ impl Deserializer<'_> {
     ))]
     #[must_use]
     pub fn algorithm() -> Implementation {
-        if std::is_x86_feature_detected!("avx2") {
+        // Same condition as the stage 1 dispatch in `find_structural_bits`.
+        if std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("pclmulqdq") {
             Implementation::AVX2
         } else if std::is_x86_feature_detected!("sse4.2") {
             Implementation::SSE42

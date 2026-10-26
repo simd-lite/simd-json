@@ -6,7 +6,7 @@ use crate::charutils::is_not_structural_or_whitespace;
 use crate::macros::unlikely;
 use crate::safer_unchecked::GetSaferUnchecked;
 use crate::value::tape::Node;
-use crate::{Deserializer, Error, ErrorType, InputView, InternalError, Result};
+use crate::{Deserializer, Error, ErrorType, InputView, Result};
 use value_trait::StaticNode;
 
 #[cfg_attr(not(feature = "no-inline"), inline)]
@@ -313,11 +313,7 @@ impl<'de> Deserializer<'de> {
                 unsafe {
                     res.set_len(r_i);
                 };
-                return Err(Error::new_c(
-                    idx,
-                    c as char,
-                    ErrorType::InternalError(InternalError::TapeError),
-                ));
+                return Err(Error::new_c(idx, c as char, ErrorType::InternalError));
             };
             ($t:expr_2021) => {
                 // We need to ensure that rust doesn't
