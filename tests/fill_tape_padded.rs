@@ -229,6 +229,89 @@ fn invalid_utf8_matches_fill_tape() {
     ]);
 }
 
+#[cfg(feature = "serde_impl")]
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Message<'a> {
+    content: &'a str,
+}
+
+#[cfg(feature = "serde_impl")]
+#[test]
+fn padded_tape_deserializes_borrowed_strings() {
+    let mut buffers = Buffers::new(256);
+    for offset in [0, 15, 16, 31, 32, 63, 64] {
+        let prefix = "a".repeat(offset);
+        let doc = format!(r#"{{"content":"{prefix}\n\ud83c\udf33"}}"#);
+        let mut input = doc.into_bytes();
+        let len = input.len();
+        input.resize(len + INPUT_PADDING, PAD);
+        let start = input.as_ptr();
+        let end = start.wrapping_add(len);
+        let mut tape = Tape::null();
+        fill_tape_padded(&mut input, len, &mut buffers, &mut tape).unwrap();
+        let message: Message<'_> = tape.deserialize().unwrap();
+        assert_eq!(message.content, format!("{prefix}\n🌳"));
+        assert!((start..end).contains(&message.content.as_ptr()));
+        assert!(input[len..].iter().all(|&byte| byte == PAD));
+    }
+}
+
+#[cfg(feature = "serde_impl")]
+#[test]
+fn padded_tape_preserves_struct_field_rejections() {
+    let mut buffers = Buffers::new(256);
+    for doc in [
+        br#"{"content":"a","content":"b"}"#.as_slice(),
+        br#"{"content":"a","\u0063ontent":"b"}"#,
+        br#"{"content":"a","extra":1}"#,
+    ] {
+        let mut reference = doc.to_vec();
+        assert!(simd_json::serde::from_slice::<Message<'_>>(&mut reference).is_err());
+        let mut input = doc.to_vec();
+        input.resize(doc.len() + INPUT_PADDING, PAD);
+        let mut tape = Tape::null();
+        fill_tape_padded(&mut input, doc.len(), &mut buffers, &mut tape).unwrap();
+        assert!(tape.deserialize::<Message<'_>>().is_err());
+        assert!(input[doc.len()..].iter().all(|&byte| byte == PAD));
+    }
+}
+
+#[cfg(feature = "serde_impl")]
+#[test]
+fn padded_tape_allocation_survives_typed_success_and_failure() {
+    use serde::Deserialize as _;
+    use simd_json::Deserializer;
+
+    let mut buffers = Buffers::new(256);
+    let mut tape = Tape::null();
+    tape.0.reserve(16);
+    let allocation = tape.0.as_ptr();
+    let capacity = tape.0.capacity();
+    let mut input = br#"{"content":"first\nmessage"}"#.to_vec();
+    let len = input.len();
+    input.resize(len + INPUT_PADDING, PAD);
+    fill_tape_padded(&mut input, len, &mut buffers, &mut tape).unwrap();
+    let mut deserializer = Deserializer::from_tape(tape);
+    let message = Message::deserialize(&mut deserializer).unwrap();
+    let mut tape = deserializer.into_tape().reset();
+    assert_eq!(tape.0.as_ptr(), allocation);
+    assert_eq!(tape.0.capacity(), capacity);
+    assert!(tape.0.is_empty());
+
+    let mut other = br#"{"content":"second","extra":true}"#.to_vec();
+    let len = other.len();
+    other.resize(len + INPUT_PADDING, PAD);
+    fill_tape_padded(&mut other, len, &mut buffers, &mut tape).unwrap();
+    let mut deserializer = Deserializer::from_tape(tape);
+    assert!(Message::deserialize(&mut deserializer).is_err());
+    let tape = deserializer.into_tape().reset();
+    assert_eq!(tape.0.as_ptr(), allocation);
+    assert_eq!(tape.0.capacity(), capacity);
+    assert!(tape.0.is_empty());
+    assert_eq!(message.content, "first\nmessage");
+}
+
 /// Deterministic xorshift so the corpus is reproducible (no rand dev-dependency).
 struct Rng(u64);
 
